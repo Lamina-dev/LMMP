@@ -269,7 +269,7 @@ add_subdirectory(src/lmmp)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
     add_executable(LmmpMain main.c)
-    target_link_libraries(LmmpMain PRIVATE LmmpCore)
+    target_link_libraries(LmmpMain PRIVATE liblmmp)
     lmmp_target_setup(LmmpMain)
 endif()
 

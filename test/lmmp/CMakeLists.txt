@@ -42,7 +42,7 @@ target_include_directories(LmmpTest
         ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(LmmpTest PRIVATE LmmpCore)
+target_link_libraries(LmmpTest PRIVATE liblmmp)
 
 lmmp_target_setup(LmmpTest)
 

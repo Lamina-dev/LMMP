@@ -42,37 +42,37 @@ if(LMMP_ASM_ENABLED)
     endif()
 
     list(APPEND LMMP_CORE_SRCS ${ASM_SRCS})
-    message(STATUS "LmmpCore: Using ASM (${LMMP_ASM_ARCH} .S, GAS/LLVM)")
+    message(STATUS "liblmmp: Using ASM (${LMMP_ASM_ARCH} .S, GAS/LLVM)")
 else()
     # 不启用汇编则使用纯 C 通用实现
-    message(STATUS "LmmpCore: Using generic C implementation")
+    message(STATUS "liblmmp: Using generic C implementation")
 endif()
 
-add_library(LmmpCore SHARED ${LMMP_CORE_SRCS})
-add_library(Lmmp::Core ALIAS LmmpCore)
+add_library(liblmmp SHARED ${LMMP_CORE_SRCS})
+add_library(lmmp ALIAS liblmmp)
 
-if(TARGET LmmpCore AND UNIX AND NOT APPLE)
-    target_link_options(LmmpCore PRIVATE -Wl,-Bsymbolic-functions)
+if(TARGET liblmmp AND TARGET_SYSTEM STREQUAL "LIN")
+    target_link_options(lmmp PRIVATE -Wl,-Bsymbolic-functions)
 endif()
 
 if(TARGET_SYSTEM STREQUAL "WIN")
-    target_compile_definitions(LmmpCore PRIVATE LMMP_CORE_EXPORTS)
+    target_compile_definitions(liblmmp PRIVATE LIBLMMP_EXPORTS)
 elseif(TARGET_SYSTEM STREQUAL "LIN")
-    target_link_libraries(LmmpCore PRIVATE m)
+    target_link_libraries(liblmmp PRIVATE m)
 endif()
 
-set_target_properties(LmmpCore PROPERTIES
-    OUTPUT_NAME "LmmpCore"
+set_target_properties(liblmmp PROPERTIES
+    OUTPUT_NAME "lmmp"
     VERSION ${LMMP_CORE_VERSION}
     SOVERSION 1
     PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
 )
 
-target_compile_definitions(LmmpCore PRIVATE
+target_compile_definitions(liblmmp PRIVATE
     LMMP_VERSION_STR="${LMMP_CORE_VERSION}"
     LMMP_BUILD_TYPE_STR="${CMAKE_BUILD_TYPE}"
 )
 
-lmmp_target_setup(LmmpCore)
+lmmp_target_setup(liblmmp)
 
-message(STATUS "LmmpCore: configured successfully (shared library)")
+message(STATUS "liblmmp: configured successfully (shared library)")

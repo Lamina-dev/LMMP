@@ -29,7 +29,7 @@ target_include_directories(LmmpBenchmark
         ${CMAKE_SOURCE_DIR}/include
 )
 
-target_link_libraries(LmmpBenchmark PRIVATE LmmpCore)
+target_link_libraries(LmmpBenchmark PRIVATE lmmp)
 
 lmmp_target_setup(LmmpBenchmark)
 

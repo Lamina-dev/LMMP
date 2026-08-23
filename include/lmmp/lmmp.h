@@ -75,7 +75,7 @@ extern "C" {
 
 #if defined(LMMP_WINDOWS)
     // Windows: MinGW GCC / GNU-driver clang
-    #ifdef LMMP_CORE_EXPORTS
+    #ifdef LIBLMMP_EXPORTS
     #define LMMP_API __declspec(dllexport)
     #else
     #define LMMP_API __declspec(dllimport)
