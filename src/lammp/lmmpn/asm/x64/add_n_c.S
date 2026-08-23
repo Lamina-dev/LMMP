@@ -19,12 +19,9 @@
 # mp_limb_t lmmp_add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 # ==========================================================
 
-#include "lammp_asm.h"
-
-.text
+#include "lmmp_asm.h"
 
 #define ADCSBB adc
-
 
 .text
 .p2align 4

@@ -15,15 +15,7 @@
 #
 # mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
-
-#include "lammp_asm.h"
-
-.text
-
-#ifdef LMMP_WINDOWS
-#else
-#endif
-
+#include "lmmp_asm.h"
 
 .text
 .globl ASM_GSYM(lmmp_mod_1_)

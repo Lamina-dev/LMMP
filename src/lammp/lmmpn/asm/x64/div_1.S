@@ -17,15 +17,7 @@
 #
 # mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
 
-
-#include "lammp_asm.h"
-
-.text
-
-#ifdef LMMP_WINDOWS
-#else
-#endif
-
+#include "lmmp_asm.h"
 
 .text
 

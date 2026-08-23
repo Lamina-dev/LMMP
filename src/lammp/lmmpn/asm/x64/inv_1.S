@@ -17,8 +17,7 @@
 #
 # mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 

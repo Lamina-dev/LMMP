@@ -23,7 +23,7 @@ file(GLOB_RECURSE LMMP_CORE_SRCS
 
 if(LMMP_ASM_ENABLED)
     # 启用汇编时，Windows 下使用 .def 文件导出汇编实现的函数。
-    set(DEF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/lmmpn/asm/lammp_asm.def)
+    set(DEF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/lmmpn/asm/lmmp_asm.def)
     if(TARGET_SYSTEM STREQUAL "WIN")
         list(APPEND LMMP_CORE_SRCS ${DEF_FILE})
     endif()

@@ -16,33 +16,30 @@
 # [dst, na+nb] = [numa, na] * [numb, nb]
 # void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
-
-
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
     # Windows: dst=rcx, numa=rdx, na=r8, numb=r9, nb=[rsp+0x48]
-#define P_DST rcx
-#define P_NUMA rdx
-#define P_NA r8
-#define P_NUMB r9
-#define P_NB QWORD PTR [rsp+0x48]
+    #define P_DST rcx
+    #define P_NUMA rdx
+    #define P_NA r8
+    #define P_NUMB r9
+    #define P_NB QWORD PTR [rsp+0x48]
 #else
     # Linux: dst=rdi, numa=rsi, na=rdx, numb=rcx, nb=r8
-#define P_DST rdi
-#define P_NUMA rsi
-#define P_NA rdx
-#define P_NUMB rcx
-#define P_NB r8
+    #define P_DST rdi
+    #define P_NUMA rsi
+    #define P_NA rdx
+    #define P_NUMB rcx
+    #define P_NB r8
 #endif
 
 .macro PUSH_ALL
 #ifdef LMMP_WINDOWS
-        push rsi
-        push rdi
+    push rsi
+    push rdi
 #endif
     push rbx
     push rbp
@@ -52,8 +49,8 @@
     pop rbp
     pop rbx
 #ifdef LMMP_WINDOWS
-        pop rdi
-        pop rsi
+    pop rdi
+    pop rsi
 #endif
 .endm
 
@@ -91,11 +88,11 @@ ASM_GSYM(lmmp_mul_basecase_):
 
     # 初始化寄存器
 #ifdef LMMP_WINDOWS
-        mov rdi, P_DST        # dst -> rdi
-        mov rsi, P_NUMA       # numa -> rsi
-        mov rdx, P_NA         # na -> rdx
-        mov rcx, P_NUMB       # numb -> rcx
-        mov r8, P_NB          # nb -> r8
+    mov rdi, P_DST           # dst -> rdi
+    mov rsi, P_NUMA          # numa -> rsi
+    mov rdx, P_NA            # na -> rdx
+    mov rcx, P_NUMB          # numb -> rcx
+    mov r8, P_NB             # nb -> r8
 #else
 
 #endif

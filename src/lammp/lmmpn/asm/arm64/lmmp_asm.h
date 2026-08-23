@@ -13,13 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/*
- * arm64 GAS/LLVM 汇编公共头。
- *
- * Apple 平台 C 符号带有下划线前缀；Linux ELF 不带。本头文件通过
- * ASM_GSYM(name) 统一两者差异，所有 .S 仅需使用 ASM_GSYM 即可同时
- * 兼容 macOS 与 Linux 的 GAS/LLVM 汇编器。
- */
 
 #ifndef LMMP_ARM64_ASM_H
 #define LMMP_ARM64_ASM_H

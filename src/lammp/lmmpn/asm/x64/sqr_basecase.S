@@ -16,25 +16,22 @@
 # [dst, 2*na] = [numa, na]^2
 # void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
     # Windows x64 : RCX=dst, RDX=numa, R8=na
-
-#define PUSH_RSI push rsi
-#define PUSH_RDI push rdi
-#define POP_RSI pop rsi
-#define POP_RDI pop rdi
+    #define PUSH_RSI push rsi
+    #define PUSH_RDI push rdi
+    #define POP_RSI pop rsi
+    #define POP_RDI pop rdi
 #else
     # Linux x64 : RDI=dst, RSI=numa, RDX=na
-
-#define PUSH_RSI
-#define PUSH_RDI
-#define POP_RSI
-#define POP_RDI
+    #define PUSH_RSI
+    #define PUSH_RDI
+    #define POP_RSI
+    #define POP_RDI
 #endif
 
 # ====================== .code ======================

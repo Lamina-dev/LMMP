@@ -15,8 +15,7 @@
 #
 # void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 

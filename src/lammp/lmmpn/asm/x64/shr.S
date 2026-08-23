@@ -17,8 +17,7 @@
 #
 # mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr, mp_limb_t c);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
@@ -28,8 +27,8 @@
 .globl ASM_GSYM(lmmp_shr_c_)
 ASM_GSYM(lmmp_shr_c_):
 #ifdef LMMP_WINDOWS
-    mov rax, [rsp+40]      # 取参数 c
-    xchg rcx, r9           # dst <-> shr
+    mov rax, [rsp+40]       # 取参数 c
+    xchg rcx, r9            # dst <-> shr
 #else
     mov rax, r8             # SysV: c 在 r8
     mov r8, rdx

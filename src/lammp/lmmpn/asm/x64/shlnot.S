@@ -15,8 +15,7 @@
 #
 # mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
@@ -35,14 +34,14 @@
 .endm
 
 .macro prolog
- push r12
- push r13
+    push r12
+    push r13
 .endm
 
 .macro epilog
- pop r13
- pop r12
- ret
+    pop r13
+    pop r12
+    ret
 .endm
 
 .text

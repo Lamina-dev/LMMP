@@ -15,8 +15,7 @@
 #
 # lmmp_addmul_1_ : [numa, n] += [numb, n] * b
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 

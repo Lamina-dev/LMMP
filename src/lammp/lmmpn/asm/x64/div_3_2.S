@@ -15,8 +15,7 @@
 #
 # mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 

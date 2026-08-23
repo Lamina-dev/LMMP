@@ -17,8 +17,7 @@
 #
 # mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 

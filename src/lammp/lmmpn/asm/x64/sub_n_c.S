@@ -19,12 +19,11 @@
 # mp_limb_t lmmp_sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 # ==========================================================
 
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
 #define ADCSBB sbb
-
 
 .text
 .p2align 4

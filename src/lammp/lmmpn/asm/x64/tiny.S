@@ -12,15 +12,7 @@
 #
 #  See <https://www.gnu.org/licenses/>.
 
-
-
-#include "lammp_asm.h"
-
-.text
-
-#ifdef LMMP_WINDOWS
-#else
-#endif
+#include "lmmp_asm.h"
 
 .text
 

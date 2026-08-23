@@ -15,29 +15,28 @@
 # [dst, n] = [numa, n] * [numb, n] mod B^n
 # void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
-
-#include "lammp_asm.h"
+#include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
     # Windows: dst=rcx, numa=rdx, numb=r8, n=r9
-#define P_DST rcx
-#define P_NUMA rdx
-#define P_NUMB r8
-#define P_N r9
+    #define P_DST rcx
+    #define P_NUMA rdx
+    #define P_NUMB r8
+    #define P_N r9
 #else
     # Linux: dst=rdi, numa=rsi, numb=rdx, n=rcx
-#define P_DST rdi
-#define P_NUMA rsi
-#define P_NUMB rdx
-#define P_N rcx
+    #define P_DST rdi
+    #define P_NUMA rsi
+    #define P_NUMB rdx
+    #define P_N rcx
 #endif
 
 .macro PUSH_ALL
 #ifdef LMMP_WINDOWS
-        push rsi
-        push rdi
+    push rsi
+    push rdi
 #endif
     push rbx
     push rbp
@@ -47,8 +46,8 @@
     pop rbp
     pop rbx
 #ifdef LMMP_WINDOWS
-        pop rdi
-        pop rsi
+    pop rdi
+    pop rsi
 #endif
 .endm
 
@@ -74,17 +73,17 @@ ASM_GSYM(lmmp_mullo_basecase_):
     PUSH_ALL
 
 #ifdef LMMP_WINDOWS
-        mov rdi, P_DST          # dst  -> rdi
-        mov rsi, P_NUMA         # numa -> rsi
-        mov r8,  P_NUMB         # numb -> r8
-        mov r9,  P_N            # n    -> r9
-        mov rcx, r8             # numb -> rcx
-        mov rdx, r9             # n    -> rdx
-        mov r8,  r9             # n    -> r8  (外循环计数)
+    mov rdi, P_DST             # dst  -> rdi
+    mov rsi, P_NUMA            # numa -> rsi
+    mov r8,  P_NUMB            # numb -> r8
+    mov r9,  P_N               # n    -> r9
+    mov rcx, r8                # numb -> rcx
+    mov rdx, r9                # n    -> rdx
+    mov r8,  r9                # n    -> r8  (外循环计数)
 #else
-        mov r8,  rcx            # n    -> r8
-        mov rcx, rdx            # numb -> rcx
-        mov rdx, r8             # n    -> rdx
+    mov r8,  rcx               # n    -> r8
+    mov rcx, rdx               # numb -> rcx
+    mov rdx, r8                # n    -> rdx
 #endif
 
     test rdx, rdx
