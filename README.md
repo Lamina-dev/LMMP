@@ -1,30 +1,49 @@
-# Lammp
+# LMMP
 Lamina的高精度计算库。
 
-提供接近GMP的任意精度计算能力，在可以支持汇编的情况下，LAMMP和GMP的性能差距通常不超过5%。在基础算子中，LAMMP的不平衡乘法优于GMP，LAMMP通常快于GMP大约40%-10%，具体性能差距与操作数长度有关。有关具体的性能差异，可以自行测量。
+提供接近GMP的任意精度计算能力，在可以支持汇编的情况下，LMMP和GMP通常具有相近的性能表现。
 
-LAMMP同时支持或计划支持包括但不限于如开方、阶乘、组合数、素性检验、质因数分解等复杂的高精度计算。很多功能正在开发中。
+LMMP同时支持或计划支持包括但不限于如开方、阶乘、组合数、素性检验、质因数分解等复杂的高精度计算。很多功能正在开发中。
 
 ## 编译
 
-Lammp 使用 CMake 构建，零外部依赖。当前支持 GNU/Clang 风格工具链：
+LMMP 使用 CMake 构建，零外部依赖。当前仅支持 GNU/Clang 风格工具链：
 
 + Windows：MinGW GCC 或 GNU 驱动的 clang（不支持 MSVC / clang-cl）
 + Linux：GCC / Clang
 + macOS：Clang / GCC
 
-动态库 LammpCore 由纯 C 编写；x64 汇编为可选优化。汇编使用 NASM，需要显式开启：
+动态库 LmmpCore 由纯 C 编写；汇编为可选优化，使用 GAS/LLVM 兼容的 `.S` 语法（不再使用 NASM）。显式开启：
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DUSE_ASM=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLMMP_ASM=ARM64
 cmake --build build -j
 ```
 
-非 x64 平台（例如 macOS arm64）会自动回退到通用 C 实现；macOS x64 暂不支持汇编，请关闭 `USE_ASM`。
+支持情况：
+
++ x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/asm/x64/*.S`
++ arm64 macOS / Linux：使用 `src/lmmp/lmmpn/asm/arm64/*.S`
++ 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/generic/` 的 C 实现
+
+## 主要配置选项
+
+| 选项 | 取值 | 默认 | 说明 |
+|---|---|---|---|
+| `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
+| `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
+| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
+| `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
+| `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
+| `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
+| `LMMP_DEBUG_PARAM_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | 函数参数检查（开销：中） |
+| `LMMP_DEBUG_MEMORY_CHECK` | `ON` / `OFF` | `OFF` | 全面堆/栈内存检查（开销：很高） |
+| `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
+| `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
 
 ## 测试与基准
 
-新测试与基准框架均为项目内实现，不依赖任何第三方库。测试默认随主项目一起构建（可用 `-DLAMMP_BUILD_TESTS=OFF` / `-DLAMMP_BUILD_BENCHMARKS=OFF` 关闭）。
+新测试与基准框架均为项目内实现，不依赖任何非标准库。测试默认随主项目一起构建（可用 `-DLMMP_BUILD_TESTS=OFF` / `-DLMMP_BUILD_BENCHMARKS=OFF` 关闭）。
 
 ```bash
 # 构建
@@ -34,21 +53,21 @@ cmake --build build -j
 # 运行全部单元测试
 ctest --test-dir build --output-on-failure
 # 或直接运行，支持 --filter 过滤、--list 列出用例
-./dist/lammp/bin/debug/LammpTest --list
-./dist/lammp/bin/debug/LammpTest --filter numth/gcd
+./dist/lmmp/bin/debug/LmmpTest --list
+./dist/lmmp/bin/debug/LmmpTest --filter numth/gcd
 
 # 运行性能基准（同样支持 --filter / --list）
-./dist/lammp/bin/debug/LammpBenchmark
-./dist/lammp/bin/debug/LammpBenchmark --filter lmmpn/mul
+./dist/lmmp/bin/debug/LmmpBenchmark
+./dist/lmmp/bin/debug/LmmpBenchmark --filter lmmpn/mul
 ```
 
 ## 接口与调用说明
 
-目前，Lammp的接口主要在``include/lammp/``目录下，分为两个系列：
+目前，LMMP的接口主要在``include/lmmp/``目录下，分为两个系列：
 
 + 通用算子系列：
   这部分模块为核心算子，为尽可能高效，通常均有极为严格的调用限制。
-  - ``lmmp.h``：Lammp全局资源管理模块，包含如初始化、释放线程局部资源，abort回调函数，内存管理等功能。
+  - ``lmmp.h``：LMMP全局资源管理模块，包含如初始化、释放线程局部资源，abort回调函数，内存管理等功能。
   - ``lmmpn.h``：多精度整数运算子模块，包含如加减乘除、取模、移位、比较、开方等高精度计算。
   - ``numth.h``：数论运算子模块，包含如幂次方、逆元、GCD、阶乘、组合数、素性检验等高精度计算。
   - ``mprand.h``：随机数生成子模块，包含生成高精度随机数生成算法。
@@ -59,22 +78,23 @@ ctest --test-dir build --output-on-failure
 ## 目录结构
 
 ```
-LAMMP/                      # 项目根目录
+LMMP/                       # 项目根目录
 ├── LICENSE                 # 许可证文件
 ├── README.md               # README
 ├── CMakeLists.txt          # 根目录CMake（全局配置：构建类型、C/C++标准、输出目录等）
-├── main.c                  # 项目主程序（编译后生成LammpMain可执行文件）
+├── main.c                  # 项目主程序（编译后生成LmmpMain可执行文件）
 ├── dist/                   # 编译产物根目录（自动生成，存放所有库和可执行文件）
-│   └── lammp/              # Lammp项目专属产物目录
-│       ├── bin/            # 可执行文件输出目录
-│       └── lib/            # 动态库输出目录
+│   └── lmmp/               # LMMP项目专属产物目录
+│       └── bin/            # 可执行文件输出目录
+│           ├── release/    # 输出目录
+│           └── debug/      # 输出目录
 ├── include/                # 头文件目录（对外暴露，所有子模块可引用）
-│   └── lammp/              # 项目名嵌套目录
+│   └── lmmp/               # 项目名嵌套目录
 │       ├── impl/           # 内部实现头文件目录（仅供内部使用）
 │       ├── version.h       # 版本头文件
 │       └── .h              # 其他头文件
 ├── src/                    # 核心源代码根目录
-│   └── lammp/              # 核心库源代码目录（对应include/lammp）
+│   └── lmmp/               # 核心库源代码目录（对应include/lmmp）
 │       ├── lmmp/           # 通用函数或通用逻辑实现文件
 │       ├── lmmpn/          # 多精度整数运算子模块实现文件
 │       │   ├── asm         # 汇编实现文件
@@ -84,20 +104,20 @@ LAMMP/                      # 项目根目录
 │       ├── numth/          # 数论计算子模块实现文件
 │       ├── secret/         # 密码学子模块实现文件
 │       ├── mprand/         # 随机数生成子模块实现文件
-│       └── CMakeLists.txt  # 源码目录CMake（编译LammpCore）
+│       └── CMakeLists.txt  # 源码目录CMake（编译LmmpCore）
 ├── benchmark/              # 基准测试根目录
-│   └── lammp/              # Lammp项目基准测试目录
+│   └── lmmp/               # LMMP项目基准测试目录
 │       ├── CMakeLists.txt  # 基准测试CMake配置
 │       ├── include/        # 基准测试私有头文件（仅测试内部使用）
 │       ├── src/            # 基准测试源代码目录
 │       └── main.cpp        # 基准测试主程序main()
 ├── example/                # 示例程序根目录
-│   └── lammp/              # Lammp项目基准测试目录
+│   └── lmmp/               # LMMP项目基准测试目录
 │       ├── CMakeLists.txt  # 示例程序CMake配置
 │       ├── example1.cpp    # 示例1
 │       └── example2.cpp    # 示例2
 ├── test/                   # 测试程序根目录
-│   └── lammp/              # Lammp项目基准测试目录
+│   └── lmmp/               # LMMP项目基准测试目录
 │       ├── CMakeLists.txt  # 测试程序CMake配置
 │       ├── include/        # 测试私有头文件（仅测试内部使用）
 │       ├── src/            # 测试源代码目录
@@ -112,10 +132,10 @@ LAMMP/                      # 项目根目录
 
 ```c++
 #include <stdio.h>
-#include "include/lammp/numth.h"
+#include "include/lmmp/numth.h"
 
 int main() {
-    lmmp_global_init(); // 初始化Lammp（单线程）全局资源
+    lmmp_global_init(); // 初始化LMMP（单线程）全局资源
 
     uint n = 10000;
     printf("calculating factorial of %d\n", n);
@@ -128,6 +148,6 @@ int main() {
     printf("result: %llx ... %llx\n", dst[len - 1], dst[0]);
 
     lmmp_free(dst);
-    lmmp_global_deinit(); // 释放Lammp（单线程）全局资源
+    lmmp_global_deinit(); // 释放LMMP（单线程）全局资源
 }
 ```
