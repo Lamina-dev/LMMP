@@ -39,7 +39,7 @@ add_executable(LmmpTest ${LMMP_TEST_SRCS})
 target_include_directories(LmmpTest
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include
 )
 
 target_link_libraries(LmmpTest PRIVATE LmmpCore)
