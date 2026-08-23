@@ -9,7 +9,7 @@
 
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "LMMP"
-PROJECT_NUMBER         = "4.2.0"
+PROJECT_NUMBER         = "4.3.0"
 PROJECT_BRIEF          = "Lamina High-Precision Arithmetic Library"
 PROJECT_LOGO           =
 PROJECT_ICON           =

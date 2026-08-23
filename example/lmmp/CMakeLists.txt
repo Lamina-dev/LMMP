@@ -33,7 +33,7 @@ foreach(EXAMPLE_FILE ${EXAMPLE_FILES})
     )
     
     # 链接核心动态库
-    target_link_libraries(${TARGET_NAME} PRIVATE liblmmp)
+    target_link_libraries(${TARGET_NAME} PRIVATE lmmp)
     
     # 设置编译器选项
     lmmp_target_setup(${TARGET_NAME})

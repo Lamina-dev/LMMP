@@ -13,9 +13,6 @@
 #  See <https://www.gnu.org/licenses/>.
 #
 
-# 新版 LMMP 单元测试目标（C++17，无第三方依赖）。
-# 测试源码显式列举，避免 GLOB 导致的新增文件不触发 CMake 重新配置。
-
 set(LMMP_TEST_SRCS
     main.cpp
     src/test_low_limb.cpp
@@ -42,7 +39,7 @@ target_include_directories(LmmpTest
         ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(LmmpTest PRIVATE liblmmp)
+target_link_libraries(LmmpTest PRIVATE lmmp)
 
 lmmp_target_setup(LmmpTest)
 

@@ -1,4 +1,4 @@
-LIBRARY LmmpCore
+LIBRARY lmmp
 EXPORTS
     lmmp_mul_1_
     lmmp_mul_basecase_

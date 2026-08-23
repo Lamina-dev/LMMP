@@ -13,8 +13,6 @@
 #  See <https://www.gnu.org/licenses/>.
 #
 
-# 新版 LMMP 性能基准目标（C++17，无第三方依赖）。
-
 set(LMMP_BENCH_SRCS
     main.cpp
     src/bench_basic.cpp
