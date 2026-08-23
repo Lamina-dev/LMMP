@@ -30,13 +30,13 @@ cmake --build build -j
 
 | 选项 | 取值 | 默认 | 说明 |
 |---|---|---|---|
-| `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：不使用汇编、x64 汇编、arm64 汇编、自动选择 |
+| `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
 | `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
 | `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
-| `LMMP_DEBUG_PARAM_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | 参数检查（开销：中） |
+| `LMMP_DEBUG_PARAM_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | 函数参数检查（开销：中） |
 | `LMMP_DEBUG_MEMORY_CHECK` | `ON` / `OFF` | `OFF` | 全面堆/栈内存检查（开销：很高） |
 | `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
 | `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
@@ -85,8 +85,9 @@ LMMP/                       # 项目根目录
 ├── main.c                  # 项目主程序（编译后生成LmmpMain可执行文件）
 ├── dist/                   # 编译产物根目录（自动生成，存放所有库和可执行文件）
 │   └── lmmp/               # LMMP项目专属产物目录
-│       ├── bin/            # 可执行文件输出目录
-│       └── lib/            # 动态库输出目录
+│       └── bin/            # 可执行文件输出目录
+│           ├── release/    # 输出目录
+│           └── debug/      # 输出目录
 ├── include/                # 头文件目录（对外暴露，所有子模块可引用）
 │   └── lmmp/               # 项目名嵌套目录
 │       ├── impl/           # 内部实现头文件目录（仅供内部使用）
