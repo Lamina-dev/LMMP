@@ -1,4 +1,4 @@
-#include "include/lammp/version.h"
+#include "include/lmmp/version.h"
 #include <stdio.h>
 
 int main(void) {

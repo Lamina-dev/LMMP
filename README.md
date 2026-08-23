@@ -63,7 +63,7 @@ ctest --test-dir build --output-on-failure
 
 ## 接口与调用说明
 
-目前，LMMP的接口主要在``include/``目录下，分为两个系列：
+目前，LMMP的接口主要在``include/lmmp/``目录下，分为两个系列：
 
 + 通用算子系列：
   这部分模块为核心算子，为尽可能高效，通常均有极为严格的调用限制。
@@ -103,7 +103,7 @@ LMMP/                       # 项目根目录
 │       ├── numth/          # 数论计算子模块实现文件
 │       ├── secret/         # 密码学子模块实现文件
 │       ├── mprand/         # 随机数生成子模块实现文件
-│       └── CMakeLists.txt  # 源码目录CMake（编译LammpCore）
+│       └── CMakeLists.txt  # 源码目录CMake（编译LmmpCore）
 ├── benchmark/              # 基准测试根目录
 │   └── lmmp/               # LMMP项目基准测试目录
 │       ├── CMakeLists.txt  # 基准测试CMake配置

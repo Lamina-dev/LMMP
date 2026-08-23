@@ -1,4 +1,4 @@
-#
+﻿#
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
 #  This file is part of LMMP.
@@ -109,7 +109,7 @@ if(LMMP_ASM STREQUAL "X64")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
     set(LMMP_ASM_ARCH "x64")
-    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lammp/lmmpn/asm/x64")
+    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lmmp/lmmpn/asm/x64")
     enable_language(ASM)
     message(STATUS "ASM support: ENABLED (x64 .S, GAS/LLVM)")
 elseif(LMMP_ASM STREQUAL "ARM64")
@@ -121,7 +121,7 @@ elseif(LMMP_ASM STREQUAL "ARM64")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
     set(LMMP_ASM_ARCH "arm64")
-    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lammp/lmmpn/asm/arm64")
+    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lmmp/lmmpn/asm/arm64")
     enable_language(ASM)
     message(STATUS "ASM support: ENABLED (arm64 .S, GAS/LLVM)")
 elseif(LMMP_ASM STREQUAL "GENERIC")
@@ -142,7 +142,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # ==============================================================================
 # 5. 通用编译选项函数
 # ==============================================================================
-function(lammp_target_setup target)
+function(lmmp_target_setup target)
 
     set_target_properties(${target} PROPERTIES
         C_STANDARD 11
@@ -253,7 +253,7 @@ endfunction()
 # ==============================================================================
 # 6. 输出目录
 # ==============================================================================
-set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lammp)
+set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
 foreach(TYPE RUNTIME ARCHIVE LIBRARY)
     set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_ROOT}/bin)
     set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
@@ -265,30 +265,30 @@ endforeach()
 # ==============================================================================
 # 7. 构建子模块
 # ==============================================================================
-add_subdirectory(src/lammp)
+add_subdirectory(src/lmmp)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
-    add_executable(LammpMain main.c)
-    target_link_libraries(LammpMain PRIVATE LammpCore)
-    lammp_target_setup(LammpMain)
+    add_executable(LmmpMain main.c)
+    target_link_libraries(LmmpMain PRIVATE LmmpCore)
+    lmmp_target_setup(LmmpMain)
 endif()
 
 if(LMMP_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(test/lammp)
+    add_subdirectory(test/lmmp)
 endif()
 
-add_subdirectory(example/lammp)
+add_subdirectory(example/lmmp)
 
 if(LMMP_BUILD_BENCHMARKS)
-    add_subdirectory(benchmark/lammp)
+    add_subdirectory(benchmark/lmmp)
 endif()
 
 # ==============================================================================
 # 8. 最终信息输出
 # ==============================================================================
 message(STATUS "=====================================")
-message(STATUS "Lammp configure summary")
+message(STATUS "Lmmp configure summary")
 message(STATUS "=====================================")
 message(STATUS "Compiler:      ${CMAKE_C_COMPILER_ID}")
 message(STATUS "Linker:        ${CMAKE_C_COMPILER_LINKER_ID}")
