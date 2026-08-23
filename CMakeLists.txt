@@ -156,6 +156,7 @@ function(lammp_target_setup target)
     target_compile_options(${target} PRIVATE
         $<$<COMPILE_LANGUAGE:C>:
             -Wall -Wextra -Wpedantic
+            -fvisibility=hidden
             $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
             $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
             $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
@@ -164,6 +165,7 @@ function(lammp_target_setup target)
         >
         $<$<COMPILE_LANGUAGE:CXX>:
             -Wall -Wextra -Wpedantic
+            -fvisibility=hidden
             $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
             $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
             $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
@@ -213,10 +215,18 @@ function(lammp_target_setup target)
         target_link_options(${target} PRIVATE
             $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:
                 -Wl,-dead_strip
-                -Wl,-s
             >
         )
         message(STATUS "Linker options: Apple ld standard options set.")
+        get_target_property(target_type ${target} TYPE)
+        if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+            if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND ${CMAKE_STRIP} -x "$<TARGET_FILE:${target}>"
+                    COMMENT "Stripping local symbols from ${target}"
+                )
+            endif()
+        endif()
     elseif(  TARGET_SYSTEM STREQUAL "LIN" 
           OR MINGW 
           OR (TARGET_SYSTEM STREQUAL "WIN" AND 
