@@ -1,9 +1,9 @@
 /**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef LAMMP_TEST_FRAMEWORK_HPP
-#define LAMMP_TEST_FRAMEWORK_HPP
+#ifndef LMMP_TEST_FRAMEWORK_HPP
+#define LMMP_TEST_FRAMEWORK_HPP
 
 #include <cstdio>
 #include <cstring>
@@ -144,4 +144,4 @@ inline void list_all() {
         }                                                                    \
     } while (0)
 
-#endif  // LAMMP_TEST_FRAMEWORK_HPP
+#endif  // LMMP_TEST_FRAMEWORK_HPP

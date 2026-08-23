@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -24,7 +24,7 @@ typedef struct {
 
 #define GLOBAL_RNG_INIT_STATE 10451216379200822465ULL
 #define GLOBAL_RNG_INIT_SEED_TYPE 1
-static LAMMP_THREAD_LOCAL lmmp_global_rng_t lmmp_global_rng = {GLOBAL_RNG_INIT_STATE, GLOBAL_RNG_INIT_SEED_TYPE};
+static LMMP_THREAD_LOCAL lmmp_global_rng_t lmmp_global_rng = {GLOBAL_RNG_INIT_STATE, GLOBAL_RNG_INIT_SEED_TYPE};
 
 void lmmp_global_rng_init_(int seed, int seed_type) {
     lmmp_global_rng.state = lmmp_seed_generator(seed + seed_type);

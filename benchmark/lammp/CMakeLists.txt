@@ -1,9 +1,9 @@
 #
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
-#  This file is part of LAMMP.
+#  This file is part of LMMP.
 #
-#  LAMMP is free software: you can redistribute it and/or modify it under
+#  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
 #  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
@@ -13,14 +13,15 @@
 #  See <https://www.gnu.org/licenses/>.
 #
 
-# 新版 LAMMP 性能基准目标（C++17，无第三方依赖）。
+# 新版 LMMP 性能基准目标（C++17，无第三方依赖）。
 
-set(LAMMP_BENCH_SRCS
+set(LMMP_BENCH_SRCS
     main.cpp
     src/bench_basic.cpp
+    src/bench_asm.cpp
 )
 
-add_executable(LammpBenchmark ${LAMMP_BENCH_SRCS})
+add_executable(LammpBenchmark ${LMMP_BENCH_SRCS})
 
 target_include_directories(LammpBenchmark
     PRIVATE

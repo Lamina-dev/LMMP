@@ -1,9 +1,9 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,42 +13,16 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_LONGLONG_H__
-#define __LAMMP_LONGLONG_H__
+#ifndef __LMMP_LONGLONG_H__
+#define __LMMP_LONGLONG_H__
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#include <immintrin.h>
-#elif defined(USE_ASM) && (defined(__x86_64__)) && (defined(__GNUC__) || defined(__clang__))
+#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
 #include <x86intrin.h>
 #endif
 
 #include <stdint.h>
 
-#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-// cnt = ctz(x)
-// r = x >> cnt
-// assume x is non-zero
-#define ctz_shr_u64(r, x, cnt)           \
-    do {                                 \
-        unsigned long long _x_ = (x);    \
-        unsigned long _bits_ = 0;        \
-        _BitScanForward64(&_bits_, _x_); \
-        cnt = _bits_;                    \
-        (r) = _x_ >> (cnt);              \
-    } while (0)
-// cnt = clz(x)
-// r = x << cnt
-// assume x is non-zero
-#define clz_shl_u64(r, x, cnt)                    \
-    do {                                          \
-        unsigned long long _x_ = (x);             \
-        unsigned long _idx_;                      \
-        _BitScanReverse64(&_idx_, _x_);           \
-        (cnt) = 63 - (int)_idx_;                  \
-        (r) = (unsigned long long)(_x_ << (cnt)); \
-    } while (0)
-#elif defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) || defined(__clang__)
 // cnt = ctz(x)
 // r = x >> cnt
 // assume x is non-zero
@@ -98,30 +72,7 @@
     } while (0)
 #endif
 
-#if defined(_MSC_VER)
-// cnt = ctz(x)
-// r = x >> cnt
-// assume x is non-zero
-#define ctz_shr_u32(r, x, cnt)         \
-    do {                               \
-        unsigned long _x_ = (x);       \
-        unsigned long _bits_ = 0;      \
-        _BitScanForward(&_bits_, _x_); \
-        cnt = _bits_;                  \
-        (r) = _x_ >> (cnt);            \
-    } while (0)
-// cnt = clz(x)
-// r = x << cnt
-// assume x is non-zero
-#define clz_shl_u32(r, x, cnt)        \
-    do {                              \
-        unsigned long _x_ = (x);      \
-        unsigned long _idx_;          \
-        _BitScanReverse(&_idx_, _x_); \
-        (cnt) = 31 - (int)_idx_;      \
-        (r) = _x_ << (cnt);           \
-    } while (0)
-#elif defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) || defined(__clang__)
 // cnt = ctz(x)
 // r = x >> cnt
 // assume x is non-zero
@@ -176,8 +127,6 @@ static inline void _umul64to128_(uint64_t a, uint64_t b, uint64_t *low, uint64_t
     __uint128_t prod = (__uint128_t)a * b;
     *low = (uint64_t)prod;
     *high = (uint64_t)(prod >> 64);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    *low = _umul128(a, b, high);
 #else
     uint64_t ah = a >> 32, bh = b >> 32;
     a = (uint32_t)a, b = (uint32_t)b;
@@ -195,8 +144,6 @@ static inline uint64_t _umul64to64hi_(uint64_t a, uint64_t b) {
 #if (defined(__GNUC__) || defined(__clang__)) && defined(__SIZEOF_INT128__)
     __uint128_t t = (__uint128_t)a * (__uint128_t)b;
     return (uint64_t)(t >> 64);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    return __umulh(a, b);
 #else
     uint64_t ah = a >> 32, bh = b >> 32;
     a = (uint32_t)a, b = (uint32_t)b;
@@ -271,7 +218,7 @@ static inline void _umul128to128_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
 }
 
 static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_t den, uint64_t* r) {
-#if (defined(__GNUC__) || defined(__clang__)) && defined(USE_ASM)
+#if (defined(__GNUC__) || defined(__clang__)) && defined(LMMP_ASM_X64)
     uint64_t result;
     __asm__("div %[v]" : "=a"(result), "=d"(*r) : [v] "r"(den), "a"(numlo), "d"(numhi));
     return result;
@@ -280,8 +227,6 @@ static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_
     uint64_t result = num / den;
     *r = num % den;
     return result;
-#elif defined(_MSC_VER) && (defined(_M_X64)) && (!defined(__clang__))
-    return _udiv128(numhi, numlo, den, r);
 #else
     const uint64_t b = ((uint64_t)1 << 32);
 
@@ -569,4 +514,4 @@ static inline uint64_t _udiv64by64_q_preinv(uint64_t numer, const _udiv64_t* den
     return t >> denom->more;
 }
 
-#endif // __LAMMP_LONGLONG_H__
+#endif // __LMMP_LONGLONG_H__

@@ -1,11 +1,11 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -13,38 +13,72 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <algorithm>
-#include <iostream>
-#include <string>
-#include <chrono>
-#include "../../include/lammp/lmmpn.h"
-#include "../../include/lammp/mprand.h"
 
-int main() {
-    lmmp_global_init(); // 初始化LAMMP线程或进程环境
+#include "lammp/lmmpn.h"
 
-    mp_size_t len1 = 50000, len2 = len1 * 500;
-    mp_size_t len = len1 + len2;
+static mp_size_t read_decimal(const char* s, mp_ptr dst) {
+    mp_size_t len = (mp_size_t)std::strlen(s);
+    mp_byte_t* digits = (mp_byte_t*)lmmp_alloc(len * sizeof(mp_byte_t));
+    for (mp_size_t i = 0; i < len; ++i) digits[len - 1 - i] = (mp_byte_t)(s[i] - '0');
+    mp_size_t n = lmmp_from_str_(dst, digits, len, 10);
+    lmmp_free(digits);
+    return n;
+}
 
-    // 分配空间，如果失败将会直接触发lmmp_abort()
-    mp_ptr a = (mp_ptr)lmmp_alloc(len1 * sizeof(mp_limb_t));
-    mp_ptr b = (mp_ptr)lmmp_alloc(len2 * sizeof(mp_limb_t));
+static void print_decimal(const mp_byte_t* digits, mp_size_t len) {
+    for (mp_size_t i = len; i-- > 0;) std::putchar((int)('0' + digits[i]));
+    std::printf("\n");
+}
 
-    len1 = lmmp_random_(a, len1);
-    len2 = lmmp_random_(b, len2);
+int main(int argc, char** argv) {
+    if (argc < 3) {
+        std::printf("Usage: %s <a> <b>\n", argv[0]);
+        return 1;
+    }
 
-    mp_ptr c = (mp_ptr)lmmp_alloc(len * sizeof(mp_limb_t));
-    auto start = std::chrono::high_resolution_clock::now();
-    // 调用不平衡乘法算子
-    lmmp_mul_(c, b, len2, a, len1);
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "multiplication time: " << duration.count() << " microseconds" << std::endl;
-    // 释放空间
-    lmmp_free(a);
-    lmmp_free(b);
-    lmmp_free(c);
-    lmmp_global_deinit(); // 销毁LAMMP线程或进程环境（可以调用lmmp_global_init()重建环境）
+    lmmp_global_init();
+
+    const char* as = argv[1];
+    const char* bs = argv[2];
+    mp_size_t al = (mp_size_t)std::strlen(as);
+    mp_size_t bl = (mp_size_t)std::strlen(bs);
+    if (al < bl) {
+        std::swap(al, bl);
+        std::swap(as, bs);
+    }
+
+    mp_ptr a = (mp_ptr)lmmp_alloc(al * sizeof(mp_limb_t));
+    mp_ptr b = (mp_ptr)lmmp_alloc(al * sizeof(mp_limb_t));
+    mp_ptr r = (mp_ptr)lmmp_alloc((al + 1) * sizeof(mp_limb_t));
+
+    mp_size_t an = read_decimal(as, a);
+    mp_size_t bn = read_decimal(bs, b);
+
+    mp_limb_t carry = lmmp_add_(r, a, an, b, bn);
+    mp_size_t rn = an + carry;
+    mp_size_t slen = lmmp_to_str_len_(r, rn, 10);
+    mp_byte_t* str = (mp_byte_t*)lmmp_alloc(slen * sizeof(mp_byte_t));
+    slen = lmmp_to_str_(str, r, rn, 10);
+    std::printf("a + b = ");
+    print_decimal(str, slen);
+
+    mp_limb_t borrow = lmmp_sub_(r, a, an, b, bn);
+    if (borrow) {
+        std::printf("a - b is negative; this demo only prints unsigned results.\n");
+    } else {
+        rn = an;
+        while (rn > 1 && r[rn - 1] == 0) --rn;
+        slen = lmmp_to_str_len_(r, rn, 10);
+        str = (mp_byte_t*)lmmp_realloc(str, slen * sizeof(mp_byte_t));
+        slen = lmmp_to_str_(str, r, rn, 10);
+        std::printf("a - b = ");
+        print_decimal(str, slen);
+    }
+
+    lmmp_free(a); lmmp_free(b); lmmp_free(r); lmmp_free(str);
+    lmmp_global_deinit();
     return 0;
 }

@@ -1,9 +1,9 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef LAMMP_LMMP_H
-#define LAMMP_LMMP_H
+#ifndef LMMP_LMMP_H
+#define LMMP_LMMP_H
 
 /*
     本库的实现部分灵感来源于或改编自
@@ -62,50 +62,33 @@
 extern "C" {
 #endif
 
-#if defined(DEBUG)
+/*
+ * LMMP 调试宏由 CMake 构建选项注入（参见根 CMakeLists.txt）：
+ *   LMMP_DEBUG_STACK_OVERFLOW_CHECK
+ *   LMMP_DEBUG_ASSERT_CHECK
+ *   LMMP_DEBUG_PARAM_ASSERT_CHECK
+ *   LMMP_DEBUG_MEMORY_CHECK
+ *   LMMP_MEMORY_MORE_ALLOC_TIMES
+ *   LMMP_DEBUG_MEMORY_LEAK
+ * 未通过构建系统定义时，下列 #if 均按 0 处理，库为默认无调试开销模式。
+ */
 
-/* LAMMP 调试宏，定义为1时，会开启相应的调试功能，共有四个开销等级：低、中、高、很高。 */
-
-// 开启时，将会检查栈溢出；开销：高
-#define LAMMP_DEBUG_STACK_OVERFLOW_CHECK 1
-// 开启时，将会开启debug_assert的检查；开销：中
-#define LAMMP_DEBUG_ASSERT_CHECK 1
-// 开启时，将会进行参数检查；开销：中
-#define LAMMP_DEBUG_PARAM_ASSERT_CHECK 1
-// 开启时，将会进行全面的堆栈内存检查，包括堆栈溢出、指针释放检查、缓冲区溢出检查；开销：很高
-#define LAMMP_DEBUG_MEMORY_CHECK 1
-// 堆栈溢出检查中额外分配的内存倍数，额外分配的内存空间=单次分配的内存空间*(MORE_ALLOC_TIMES/10)
-#define LAMMP_MEMORY_MORE_ALLOC_TIMES 1
-// 开启时，会增加内存分配和释放次数的统计功能；开销：低
-#define LAMMP_DEBUG_MEMORY_LEAK 1
-
-#else
-
-#define LAMMP_DEBUG_STACK_OVERFLOW_CHECK 0
-#define LAMMP_DEBUG_ASSERT_CHECK 0
-#define LAMMP_DEBUG_PARAM_ASSERT_CHECK 0
-#define LAMMP_DEBUG_MEMORY_CHECK 0
-#define LAMMP_MEMORY_MORE_ALLOC_TIMES 1
-#define LAMMP_DEBUG_MEMORY_LEAK 0
-
-#endif
-
-#if defined(LAMMP_WINDOWS)
-    // Windows: MSVC / MinGW / Clang
-    #ifdef LAMMP_CORE_EXPORTS
-    #define LAMMP_API __declspec(dllexport)
+#if defined(LMMP_WINDOWS)
+    // Windows: MinGW GCC / GNU-driver clang
+    #ifdef LMMP_CORE_EXPORTS
+    #define LMMP_API __declspec(dllexport)
     #else
-    #define LAMMP_API __declspec(dllimport)
+    #define LMMP_API __declspec(dllimport)
     #endif
 #else
 // Linux/macOS: GCC / Clang
-    #define LAMMP_API __attribute__((visibility("default")))
+    #define LMMP_API __attribute__((visibility("default")))
 #endif
 
-#if defined(USE_ASM)
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(LMMP_ASM)
+#if defined(LMMP_ASM_X64) || defined(LMMP_ASM_ARM64)
 #else
-#error "USE_ASM is only supported on x86_64 platforms"
+#error "LMMP_ASM is only supported on x86_64 or arm64 platforms"
 #endif
 #endif
 
@@ -118,7 +101,7 @@ typedef mp_limb_t* mp_ptr;           // 指向limb类型的指针
 typedef const mp_limb_t* mp_srcptr;  // 指向const limb类型的指针（源操作数指针）
 typedef size_t mp_bitcnt_t;          // 表示bit数量的无符号整数类型
 
-#define LAMMP_MAX_ALIGN 16  // 最大对齐单位（字节）
+#define LMMP_MAX_ALIGN 16  // 最大对齐单位（字节）
 
 #define LIMB_BITS 64
 #define LIMB_BYTES 8
@@ -128,15 +111,13 @@ typedef size_t mp_bitcnt_t;          // 表示bit数量的无符号整数类型
 #define LLIMB_BYTES 4
 #define LLIMB_MASK ((mp_limb_t)0xffffffff)
 
-#if defined(LAMMP_WINDOWS) && (defined(__GNUC__) || defined(__clang__))
+#if defined(LMMP_WINDOWS) && (defined(__GNUC__) || defined(__clang__))
     // MinGW on Windows: use native TLS section
-    #define LAMMP_THREAD_LOCAL __thread
-#elif defined(_MSC_VER)
-    #define LAMMP_THREAD_LOCAL __declspec(thread)
-#elif defined(__GNUC__) // Linux/macOS
-    #define LAMMP_THREAD_LOCAL __thread
+    #define LMMP_THREAD_LOCAL __thread
+#elif defined(__GNUC__) || defined(__clang__)
+    #define LMMP_THREAD_LOCAL __thread
 #else
-    #define LAMMP_THREAD_LOCAL _Thread_local
+    #define LMMP_THREAD_LOCAL _Thread_local
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
@@ -156,14 +137,12 @@ STATIC_ASSERT(sizeof(void*) == 8, "64-bit architecture required");
     /* C++ */
     #if __cplusplus >= 201103L
         /* C++11 and higher */
-        #define LAMMP_NORETURN [[noreturn]]
+        #define LMMP_NORETURN [[noreturn]]
     #else
         #if defined(__GNUC__) || defined(__clang__)
-            #define LAMMP_NORETURN __attribute__((noreturn))
-        #elif defined(_MSC_VER)
-            #define LAMMP_NORETURN __declspec(noreturn)
+            #define LMMP_NORETURN __attribute__((noreturn))
         #else
-            #define LAMMP_NORETURN /* no definition */
+            #define LMMP_NORETURN /* no definition */
         #endif
     #endif
 #else
@@ -171,56 +150,51 @@ STATIC_ASSERT(sizeof(void*) == 8, "64-bit architecture required");
     #if defined(__STDC_VERSION__)
         #if __STDC_VERSION__ >= 202311L
             /* C23 and higher */
-            #define LAMMP_NORETURN [[noreturn]]
+            #define LMMP_NORETURN [[noreturn]]
         #elif __STDC_VERSION__ >= 201112L
             /* C11 / C17 */
-            #define LAMMP_NORETURN _Noreturn
+            #define LMMP_NORETURN _Noreturn
         #endif
     #endif
 
     /* fallback */
-    #ifndef LAMMP_NORETURN
+    #ifndef LMMP_NORETURN
         #if defined(__GNUC__) || defined(__clang__)
-            #define LAMMP_NORETURN __attribute__((noreturn))
-        #elif defined(_MSC_VER)
-            #define LAMMP_NORETURN __declspec(noreturn)
+            #define LMMP_NORETURN __attribute__((noreturn))
         #else
-            #define LAMMP_NORETURN /* no definition */
+            #define LMMP_NORETURN /* no definition */
         #endif
     #endif
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
     /* C23 std */
-    #define LAMMP_ASSUME(expr) do { [[assume(expr)]]; } while(0)
+    #define LMMP_ASSUME(expr) do { [[assume(expr)]]; } while(0)
 #elif defined(__clang__)
     /* Clang */
-    #define LAMMP_ASSUME(expr) __builtin_assume(expr)
-#elif defined(_MSC_VER)
-    /* MSVC */
-    #define LAMMP_ASSUME(expr) __assume(expr)
+    #define LMMP_ASSUME(expr) __builtin_assume(expr)
 #elif defined(__GNUC__)
     /* GCC */
     #if __GNUC__ >= 13
         /* GCC 13+ */
-        #define LAMMP_ASSUME(expr) do { __attribute__((assume(expr))); } while(0)
+        #define LMMP_ASSUME(expr) do { __attribute__((assume(expr))); } while(0)
     #else
         /* GCC 13 lower */
-        #define LAMMP_ASSUME(expr) do { if (!(expr)) __builtin_unreachable(); } while(0)
+        #define LMMP_ASSUME(expr) do { if (!(expr)) __builtin_unreachable(); } while(0)
     #endif
 #else
     /* fallback noassume */
-    #define LAMMP_ASSUME(expr) ((void)(expr))
+    #define LMMP_ASSUME(expr) ((void)(expr))
 #endif
 
 /*
- LAMMP 内存分配函数指针类型：
+ LMMP 内存分配函数指针类型：
  1. heap_alloc : 堆内存分配器
  2. heap_free : 堆内存释放器
  3. realloc : 堆内存重新分配器
 
  默认使用 malloc、free、realloc 实现。
- 如果你需要传入自定义的分配器，为了避免重复处理，且由于LAMMP内部几乎不直接
+ 如果你需要传入自定义的分配器，为了避免重复处理，且由于LMMP内部几乎不直接
  通过指定的指针来进行内存分配，所以为了避免不必要的错误处理，建议遵循一下的行为：
  1. 传给free的指针应可以为NULL
  2. malloc(size)可以假定size>0，若size为0，可以是未定义行为，可以直接中断。
@@ -239,7 +213,7 @@ typedef struct {
 } lmmp_heap_allocator_t;
 
 /**
- * @brief 设置 LAMMP 全局堆内存分配函数
+ * @brief 设置 LMMP 全局堆内存分配函数
  * @param heap 新的堆内存分配器，可以为NULL，此时会直接返回，而不进行任何操作。
  * @warning 由于所有共享内存都采用堆内存分配。因此，传入新的堆分配器将会首先调用
  *          lmmp_global_deinit 函数，释放所有共享内存，以保证老旧的堆资源被释放。
@@ -250,43 +224,43 @@ typedef struct {
  * @note 堆分配器是线程局部的，因此，创建新线程时，如有需要，请自行设置新的堆分配器。
  *       同时也请自行保证分配器和释放器相匹配。
  */
-LAMMP_API void lmmp_set_heap_allocator(const lmmp_heap_allocator_t* heap);
+LMMP_API void lmmp_set_heap_allocator(const lmmp_heap_allocator_t* heap);
 
 /**
- * @brief LAMMP 全局栈释放函数（通常不需要手动调用）
+ * @brief LMMP 全局栈释放函数（通常不需要手动调用）
  * @warning 请注意调用此函数后，访问之前的分配的栈空间将会导致未定义行为。在定义了
- *          LAMMP_DEBUG_MEMORY_LEAK 宏时，会检查默认栈是否为空，
+ *          LMMP_DEBUG_MEMORY_LEAK 宏时，会检查默认栈是否为空，
  *          则会触发lmmp_abort函数。
  * @note 如果此后再使用栈内存，请调用 lmmp_stack_init 函数，以重置栈空间。
  * @return 返回0表示成功释放，返回-1表示已经释放（并非错误）。
  */
-LAMMP_API int lmmp_stack_deinit(void);
+LMMP_API int lmmp_stack_deinit(void);
 
 /**
- * @brief LAMMP 全局栈初始化函数（通常不需要手动调用）
+ * @brief LMMP 全局栈初始化函数（通常不需要手动调用）
  * @note 初始化默认栈，并分配大小为size的额外内存池。如果已经初始化，
  *       则会直接返回-1，表示已经初始化（并非错误），且不进行任何其他操作。
- *       lmmp_global_init 函数会自动调用此函数，分配的额外缓冲池大小为 LAMMP_POOL_SIZE 的大小
+ *       lmmp_global_init 函数会自动调用此函数，分配的额外缓冲池大小为 LMMP_POOL_SIZE 的大小
  *       （默认为512kb），无需手动调用。
  *       如果你想手动设置缓冲池的大小，可以先调用 lmmp_stack_deinit 函数，再调用此函数，将 POOL_SIZE 
  *       设置为你想要的值。同时你也可以禁用缓冲池（即size为0），此时不会分配额外缓冲池。
  * @return 返回0表示成功初始化，返回-1表示已经初始化（并非错误）。
  */
-LAMMP_API int lmmp_stack_init(size_t size);
+LMMP_API int lmmp_stack_init(size_t size);
 
 typedef enum {
-    LAMMP_ERROR_ASSERT_FAILURE = 1,
-    LAMMP_ERROR_DEBUG_ASSERT_FAILURE = 2,
-    LAMMP_ERROR_PARAM_ASSERT_FAILURE = 3,
-    LAMMP_ERROR_MEMORY_ALLOC_FAILURE = 4,
-    LAMMP_ERROR_MEMORY_FREE_FAILURE = 5,
-    LAMMP_ERROR_OUT_OF_BOUNDS = 6,
-    LAMMP_ERROR_MEMORY_LEAK = 7,
-    LAMMP_ERROR_UNEXPECTED_ERROR = 8
+    LMMP_ERROR_ASSERT_FAILURE = 1,
+    LMMP_ERROR_DEBUG_ASSERT_FAILURE = 2,
+    LMMP_ERROR_PARAM_ASSERT_FAILURE = 3,
+    LMMP_ERROR_MEMORY_ALLOC_FAILURE = 4,
+    LMMP_ERROR_MEMORY_FREE_FAILURE = 5,
+    LMMP_ERROR_OUT_OF_BOUNDS = 6,
+    LMMP_ERROR_MEMORY_LEAK = 7,
+    LMMP_ERROR_UNEXPECTED_ERROR = 8
 } lmmp_error_t;
 
 /**
- * @brief LAMMP 全局退出函数指针类型
+ * @brief LMMP 全局退出函数指针类型
  * @param type 退出类型（可以查看lmmp_abort函数对此参数的说明，这里不再重复）
  * @param msg 退出信息，取决于type
  * @param func 退出处的函数名
@@ -295,7 +269,7 @@ typedef enum {
 typedef void (*lmmp_abort_fn)(lmmp_error_t type, const char* msg, const char* func, int line);
 
 /**
- * @brief 设置 LAMMP 全局退出函数（所有线程均生效）
+ * @brief 设置 LMMP 全局退出函数（所有线程均生效）
  * @param func 退出函数指针，可以为NULL
  * @warning 请注意，我们将不会对 func 的调用做任何保护，因此请不要在 func 里做任何危险的操作，
  *          本库的开发者不对 func 函数的调用产生的影响做任何保证。
@@ -303,10 +277,10 @@ typedef void (*lmmp_abort_fn)(lmmp_error_t type, const char* msg, const char* fu
  *       设置的函数也应当无返回值，即使自定义的func函数真的会返回了，那么也将会调用 abort 函数中断程序。
  * @return 返回之前的退出函数指针，若原指针为NULL，则返回NULL。
  */
-LAMMP_API lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func);
+LMMP_API lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func);
 
 /**
- * @brief LAMMP 全局退出函数，内部错误或断言失败时调用，若设置了全局退出函数，则会调用该函数，否则会调用默认的退出函数。
+ * @brief LMMP 全局退出函数，内部错误或断言失败时调用，若设置了全局退出函数，则会调用该函数，否则会调用默认的退出函数。
  * @param msg 退出信息，assert类型的错误信息通常仅包含断言内容，其他类型的错误则因类型不同而不同。
  * @param func 退出处的函数名
  * @param line 退出处的行号
@@ -317,22 +291,22 @@ LAMMP_API lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func);
  *             此类错误不可接受，会导致计算无法继续进行，导致程序崩溃。
  *
  *        2. DEBUG_ASSERT_FAILURE （枚举值为2）为lmmp_debug_assert触发的退出。其通常表明预期之外的错误，
- *             这通常是调用者的UB，如无UB的情况下触发此错误；也可能是LAMMP内部的逻辑错误，开发者期待的输入错误，
+ *             这通常是调用者的UB，如无UB的情况下触发此错误；也可能是LMMP内部的逻辑错误，开发者期待的输入错误，
  *             在该逻辑处仅简单考虑了某些情况。如有此类错误，可以报告给开发者。此类型只会在定义了 
- *             LAMMP_DEBUG_ASSERT_CHECK 宏为 1 的情况下才会触发。
+ *             LMMP_DEBUG_ASSERT_CHECK 宏为 1 的情况下才会触发。
  *
  *        3. PARAM_ASSERT_FAILURE （枚举值为3）为参数检查失败导致的退出。其通常表明调用者传入了无效的参数，
  *             导致函数的行为不符合预期。此类错误不可接受，会导致计算无法继续进行，导致程序崩溃。此类型的错误只有在
- *             定义了 LAMMP_DEBUG_PARAM_ASSERT_CHECK 宏为 1 的情况下才会触发。
+ *             定义了 LMMP_DEBUG_PARAM_ASSERT_CHECK 宏为 1 的情况下才会触发。
  *
  *        4. MEMORY_ALLOC_FAILURE （枚举值为4）为内存分配失败退出。在使用堆分配器时，申请内存失败，导致触发此错误。
  *             此类型错误不受明确的宏调控，Realse模式下，会保留必要的触发场景，部分场景下，在一些检查宏定义时，可能会额外触发此错误。
  *
  *        5. MEMORY_FREE_FAILURE （枚举值为5）为内存释放错误。当释放堆内存时可能触发，原因通常为头部信息被损坏，极有可能
- *             源于传入错误的指针，又或者缓冲区溢出导致此头部损坏。LAMMP_DEBUG_MEMORY_CHECK 宏为 1 时，才可能触发。
+ *             源于传入错误的指针，又或者缓冲区溢出导致此头部损坏。LMMP_DEBUG_MEMORY_CHECK 宏为 1 时，才可能触发。
  *
  *        6. OUT_OF_BOUNDS （枚举值为6）为数组越界访问导致的退出。通常表明未按规定使用空间。此类型的错误在堆分配器中，当释放
- *             堆内存时，检测到数组尾部魔数不匹配，导致此错误。LAMMP_DEBUG_MEMORY_CHECK 宏为 1 时，才可能触发。
+ *             堆内存时，检测到数组尾部魔数不匹配，导致此错误。LMMP_DEBUG_MEMORY_CHECK 宏为 1 时，才可能触发。
  *
  *        7. MEMORY_LEAK （枚举值为7）为内存泄漏导致的退出。在检查点处，堆内存计数器不为0，或者当前栈帧不在栈底，又或者缓冲池
  *             定不在缓冲池底，都会触发此错误。触发原因可能为，在调用堆分配器重置函数时，显式检查到此时的堆计数器不为0或者栈帧
@@ -341,14 +315,14 @@ LAMMP_API lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func);
  *
  *        8. UNEXPECTED_ERROR （枚举值为8）为其他未知错误导致的退出。
  *
- * @warning LAMMP内部中断都将会调用此函数，如果全局退出函数为NULL，则使用默认的退出函数，会打印出全部错误信息，并调用
+ * @warning LMMP内部中断都将会调用此函数，如果全局退出函数为NULL，则使用默认的退出函数，会打印出全部错误信息，并调用
  *          abort 函数中断程序。自定义全局退出函数请通过 lmmp_set_abort_fn 函数进行设置。请不要在全局退出函数里做任
  *          何危险的操作，本库的开发者不对其调用产生的影响做任何保证。
  */
-LAMMP_NORETURN LAMMP_API void lmmp_abort(lmmp_error_t type, const char *msg, const char *func, int line);
+LMMP_NORETURN LMMP_API void lmmp_abort(lmmp_error_t type, const char *msg, const char *func, int line);
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
-LAMMP_API void* lmmp_alloc(size_t size, const char* func, int line);
+#if LMMP_DEBUG_MEMORY_CHECK == 1
+LMMP_API void* lmmp_alloc(size_t size, const char* func, int line);
 /**
  * @brief 内存分配函数（调用lmmp_heap_alloc_fn）
  * @param size 要分配的内存字节数
@@ -365,11 +339,11 @@ LAMMP_API void* lmmp_alloc(size_t size, const char* func, int line);
  * @note 调用堆内存分配器，分配失败将触发 lmmp_abort
  * @return 返回指向分配内存的指针（分配失败不会 return NULL，而是直接触发 lmmp_abort）
  */
-LAMMP_API void* lmmp_alloc(size_t size);
+LMMP_API void* lmmp_alloc(size_t size);
 #endif
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
-LAMMP_API void* lmmp_realloc(void* ptr, size_t size, const char* func, int line);
+#if LMMP_DEBUG_MEMORY_CHECK == 1
+LMMP_API void* lmmp_realloc(void* ptr, size_t size, const char* func, int line);
 #define lmmp_realloc(ptr, size) lmmp_realloc(ptr, size, __func__, __LINE__)
 #else
 /**
@@ -378,14 +352,14 @@ LAMMP_API void* lmmp_realloc(void* ptr, size_t size, const char* func, int line)
  * @param size 新的内存大小（字节）
  * @warning size>0
  * @note 调用堆内存重新分配器，分配失败将触发 lmmp_abort
- *       在LAMMP_DEBUG_PARAM_ASSERT_CHECK宏为1时，重分配 0 字节将触发 lmmp_abort
+ *       在LMMP_DEBUG_PARAM_ASSERT_CHECK宏为1时，重分配 0 字节将触发 lmmp_abort
  * @return 成功返回指向新内存区域的指针（分配失败不会 return NULL，而是直接触发 lmmp_abort）
  */
-LAMMP_API void* lmmp_realloc(void* ptr, size_t size);
+LMMP_API void* lmmp_realloc(void* ptr, size_t size);
 #endif 
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
-LAMMP_API void lmmp_free(void* ptr, const char* func, int line);
+#if LMMP_DEBUG_MEMORY_CHECK == 1
+LMMP_API void lmmp_free(void* ptr, const char* func, int line);
 /**
  * @brief 内存释放函数（调用lmmp_heap_free_fn）
  * @param ptr 要释放的内存指针
@@ -398,7 +372,7 @@ LAMMP_API void lmmp_free(void* ptr, const char* func, int line);
  * @param ptr 要释放的内存指针
  * @note ptr 可以为空指针
  */
-LAMMP_API void lmmp_free(void* ptr);
+LMMP_API void lmmp_free(void* ptr);
 #endif
 
 /**
@@ -406,7 +380,7 @@ LAMMP_API void lmmp_free(void* ptr);
  * @param cnt 若不为0，则将堆内存计数器置为cnt
  * @return 返回当前的heap分配计数（如果被设置，即返回旧的计数值），即目前未被释放的堆内存数量
  */
-LAMMP_API int lmmp_alloc_count(int cnt);
+LMMP_API int lmmp_alloc_count(int cnt);
 
 /**
  * @brief 内存泄漏检测器
@@ -416,9 +390,9 @@ LAMMP_API int lmmp_alloc_count(int cnt);
  * @note 将会同时检验堆内存和栈内存，若堆内存计数器不为0，或栈内存的栈顶不在栈底，都会触发lmmp_abort
  *       两者同时发生则将输出两者的信息。
  */
-LAMMP_API void lmmp_leak_tracker(const char* func, int line);
+LMMP_API void lmmp_leak_tracker(const char* func, int line);
 
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
 // 同时检验堆内存和栈内存，若堆内存计数器不为0，或栈内存的栈顶不在栈底，都会触发lmmp_abort
 // 两者同时发生则将输出两者的信息。
 // 请注意，内存计数器均是线程局部的，仅会检测单线程的内存泄漏。
@@ -468,35 +442,35 @@ LAMMP_API void lmmp_leak_tracker(const char* func, int line);
 #define lmmp_assert(x)                                                      \
     do {                                                                    \
         if (!(x)) {                                                         \
-            lmmp_abort(LAMMP_ERROR_ASSERT_FAILURE, #x, __func__, __LINE__); \
+            lmmp_abort(LMMP_ERROR_ASSERT_FAILURE, #x, __func__, __LINE__); \
         }                                                                   \
     } while (0)
 
-#if LAMMP_DEBUG_ASSERT_CHECK == 1
+#if LMMP_DEBUG_ASSERT_CHECK == 1
 // 调试断言宏：检查条件x是否成立，不成立则触发段错误（调试版本）
 #define lmmp_debug_assert(x)                                                      \
     do {                                                                          \
         if (!(x)) {                                                               \
-            lmmp_abort(LAMMP_ERROR_DEBUG_ASSERT_FAILURE, #x, __func__, __LINE__); \
+            lmmp_abort(LMMP_ERROR_DEBUG_ASSERT_FAILURE, #x, __func__, __LINE__); \
         }                                                                         \
     } while (0)
 #else
 // 调试断言宏：检查条件x是否成立，不成立则触发段错误（调试版本）
-#define lmmp_debug_assert(x) LAMMP_ASSUME(x)
+#define lmmp_debug_assert(x) LMMP_ASSUME(x)
 #endif
 
-#if LAMMP_DEBUG_PARAM_ASSERT_CHECK == 1
+#if LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
 #define lmmp_param_assert(x)                                                      \
     do {                                                                          \
         if (!(x)) {                                                               \
-            lmmp_abort(LAMMP_ERROR_PARAM_ASSERT_FAILURE, #x, __func__, __LINE__); \
+            lmmp_abort(LMMP_ERROR_PARAM_ASSERT_FAILURE, #x, __func__, __LINE__); \
         }                                                                         \
     } while (0)
 #else
-#define lmmp_param_assert(x) LAMMP_ASSUME(x)
+#define lmmp_param_assert(x) LMMP_ASSUME(x)
 #endif
 
-LAMMP_API void lmmp_fill(mp_ptr dst, mp_size_t begin, mp_size_t end, mp_limb_t val);
+LMMP_API void lmmp_fill(mp_ptr dst, mp_size_t begin, mp_size_t end, mp_limb_t val);
 
 /**
  * @brief 全局初始化函数（线程局部的）
@@ -505,7 +479,7 @@ LAMMP_API void lmmp_fill(mp_ptr dst, mp_size_t begin, mp_size_t end, mp_limb_t v
  *       此函数多次调用不会导致重复初始化。
  * @warning 我们建议在进程或线程启动时调用此函数，以保证线程安全。
  */
-LAMMP_API void lmmp_global_init(void);
+LMMP_API void lmmp_global_init(void);
 
 /**
  * @brief （线程局部的）全局共享的动态分配的堆内存资源释放函数
@@ -515,10 +489,10 @@ LAMMP_API void lmmp_global_init(void);
  * @warning 我们建议在线程结束时或程序进程结束时调用此函数。多线程下，每个线程都会拥有独立的副本，
  *          未调用此函数结束线程可能导致内存泄漏。
  */
-LAMMP_API void lmmp_global_deinit(void);
+LMMP_API void lmmp_global_deinit(void);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // LAMMP_LMMP_H
+#endif  // LMMP_LMMP_H

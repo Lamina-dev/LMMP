@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -26,7 +26,7 @@
 #undef lmmp_leak_tracker
 #define HSIZE sizeof(void*)
 
-LAMMP_THREAD_LOCAL lmmp_heap_allocator_t global_heap = {
+LMMP_THREAD_LOCAL lmmp_heap_allocator_t global_heap = {
     .alloc   = (lmmp_heap_alloc_fn)malloc,
     .free    = (lmmp_heap_free_fn)free,
     .realloc = (lmmp_realloc_fn)realloc,
@@ -36,9 +36,9 @@ LAMMP_THREAD_LOCAL lmmp_heap_allocator_t global_heap = {
 #define heap_free_func  global_heap.free
 #define realloc_func    global_heap.realloc
 
-static LAMMP_THREAD_LOCAL int heap_alloc_count = 0;
+static LMMP_THREAD_LOCAL int heap_alloc_count = 0;
 
-LAMMP_THREAD_LOCAL lmmp_memory_ctx lmmp_tmpmem_ctx = {
+LMMP_THREAD_LOCAL lmmp_memory_ctx lmmp_tmpmem_ctx = {
     .stack_begin = NULL,
     .stack_end   = NULL,
     .stack_top   = NULL,
@@ -70,18 +70,18 @@ int lmmp_stack_init(size_t size) {
     if (lmmp_tmpmem_ctx.stack_begin != NULL) {
         return -1;
     } else {
-        lmmp_tmpmem_ctx.stack_begin = heap_alloc_func(LAMMP_DEFAULT_STACK_SIZE);
+        lmmp_tmpmem_ctx.stack_begin = heap_alloc_func(LMMP_DEFAULT_STACK_SIZE);
         if (lmmp_tmpmem_ctx.stack_begin == NULL) {
-            lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Failed to allocate stack memory", __func__, __LINE__);
+            lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Failed to allocate stack memory", __func__, __LINE__);
         }
-        lmmp_tmpmem_ctx.stack_end = (mp_byte_t*)(lmmp_tmpmem_ctx.stack_begin) + LAMMP_DEFAULT_STACK_SIZE;
+        lmmp_tmpmem_ctx.stack_end = (mp_byte_t*)(lmmp_tmpmem_ctx.stack_begin) + LMMP_DEFAULT_STACK_SIZE;
         lmmp_tmpmem_ctx.stack_top = lmmp_tmpmem_ctx.stack_begin;
-        if (size > LAMMP_MAX_ALIGN) {
+        if (size > LMMP_MAX_ALIGN) {
             // 只有当size大于最大对齐单位时，才分配缓冲池
             lmmp_tmpmem_ctx.pool_begin = heap_alloc_func(size);
             if (lmmp_tmpmem_ctx.pool_begin == NULL) {
                 heap_free_func(lmmp_tmpmem_ctx.stack_begin);  // Free old stack memory
-                lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Failed to allocate pool memory", __func__, __LINE__);
+                lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Failed to allocate pool memory", __func__, __LINE__);
             }
             lmmp_tmpmem_ctx.pool_top = lmmp_tmpmem_ctx.pool_begin;
             lmmp_tmpmem_ctx.remain = size;
@@ -95,14 +95,14 @@ void lmmp_set_heap_allocator(const lmmp_heap_allocator_t* heap) {
     if (heap == NULL)
         return;
     lmmp_global_deinit();
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
     lmmp_leak_tracker(__func__, __LINE__); // Check for memory leaks before setting new allocator
 #endif
     global_heap = *heap;
     lmmp_global_init();
 }
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
+#if LMMP_DEBUG_MEMORY_CHECK == 1
 typedef struct {
     uint64_t magic;     // 魔数，用于验证有效性
     size_t user_size;   // 用户请求的大小
@@ -117,7 +117,7 @@ typedef struct {
 #define MEM_GUARD 0xDEADBEEFUL             // deadbeef
 #define EXTRA_MEM_PATTERN 0xAA  // 额外内存填充模式
 
-#define ALIGNMENT LAMMP_MAX_ALIGN
+#define ALIGNMENT LMMP_MAX_ALIGN
 
 static inline size_t align_up(size_t size) { 
     return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1); 
@@ -181,14 +181,14 @@ static inline int check_extra_memory_overflow(mem_header* hdr, void* user_ptr, c
         SAFE_APPEND("  checked at:   [%s]:%d\n", check_func, check_line);
         SAFE_APPEND("  user size:    %zu bytes\n", hdr->user_size);
         SAFE_APPEND("  extra size:   %zu bytes (%.0f%% of user size)\n", hdr->extra_size,
-                    LAMMP_MEMORY_MORE_ALLOC_TIMES * 10.0);
+                    LMMP_MEMORY_MORE_ALLOC_TIMES * 10.0);
         SAFE_APPEND("  user ptr:     %p\n", user_ptr);
         SAFE_APPEND("  extra memory: %p to %p\n", (void*)extra_start, (void*)(extra_start + hdr->extra_size - 1));
         SAFE_APPEND("  corrupted range: offset %d to %d (total %d bytes)\n", first, last, count);
         SAFE_APPEND("Likely cause: Buffer overflow beyond the end of the memory.%s", "\n");
 
         error_buf[buf_size - 1] = '\0';
-        lmmp_abort(LAMMP_ERROR_OUT_OF_BOUNDS, error_buf, check_func, check_line);
+        lmmp_abort(LMMP_ERROR_OUT_OF_BOUNDS, error_buf, check_func, check_line);
         return 1;
     }
     return 0;
@@ -209,7 +209,7 @@ static inline int check_memory_block_integrity(mem_header* hdr, void* user_ptr, 
                  "  Guard: 0x%08lx (expected 0x%08lx)\n"
                  "Possible overflow or underflow or invalid pointer.",
                  hdr->magic, MEM_MAGIC, (unsigned long)hdr->guard, MEM_GUARD);
-        lmmp_abort(LAMMP_ERROR_MEMORY_FREE_FAILURE, error_buf, check_func, check_line);
+        lmmp_abort(LMMP_ERROR_MEMORY_FREE_FAILURE, error_buf, check_func, check_line);
         return 1;
     }
 
@@ -225,11 +225,11 @@ static inline int check_memory_block_integrity(mem_header* hdr, void* user_ptr, 
  */
 static inline void* lmmp_alloc_debug(size_t size, const char* func, int line) {
     if (size == 0) {
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Allocating zero bytes is not allowed.", func, line);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Allocating zero bytes is not allowed.", func, line);
         return NULL;
     }
 
-    size_t extra_size = (size * LAMMP_MEMORY_MORE_ALLOC_TIMES) / 10;
+    size_t extra_size = (size * LMMP_MEMORY_MORE_ALLOC_TIMES) / 10;
     extra_size = align_up(extra_size);
 
     size_t header_size = align_up(sizeof(mem_header));
@@ -240,7 +240,7 @@ static inline void* lmmp_alloc_debug(size_t size, const char* func, int line) {
     if (!base) {
         char msg[128];
         snprintf(msg, sizeof(msg), "Memory allocation failed (size: %zu bytes, extra: %zu bytes)", size, extra_size);
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, func, line);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, func, line);
         return NULL;
     }
 
@@ -291,7 +291,7 @@ static inline void* lmmp_realloc_debug(void* ptr, size_t new_size, const char* f
     if (!ptr)
         return lmmp_alloc_debug(new_size, func, line);
     if (new_size == 0) {
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Reallocating zero bytes is not allowed.", func, line);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Reallocating zero bytes is not allowed.", func, line);
         return NULL;
     }
 
@@ -317,7 +317,7 @@ static inline void* lmmp_realloc_debug(void* ptr, size_t new_size, const char* f
 #undef ALIGNMENT
 #undef EXTRA_MEM_PATTERN
 
-#endif // LAMMP_DEBUG_MEMORY_CHECK == 1
+#endif // LMMP_DEBUG_MEMORY_CHECK == 1
 
 int lmmp_alloc_count(int cnt) {
     if (cnt != 0) {
@@ -354,14 +354,14 @@ void lmmp_leak_tracker(const char* func, int line) {
         t = true;
     }
     if (t) {
-        lmmp_abort(LAMMP_ERROR_MEMORY_LEAK, msg, func, line);
+        lmmp_abort(LMMP_ERROR_MEMORY_LEAK, msg, func, line);
     }
 }
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
+#if LMMP_DEBUG_MEMORY_CHECK == 1
 void* lmmp_alloc(size_t size, const char* func, int line) {
     void* ret = lmmp_alloc_debug(size, func, line);
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
     heap_alloc_count++;
 #endif
     return ret;
@@ -370,51 +370,51 @@ void* lmmp_alloc(size_t size, const char* func, int line) {
 static inline void lmmp_memory_abort(size_t size, const char* func, int line) {
     char msg[64];
     snprintf(msg, sizeof(msg), "Memory allocation failed (size: %zu bytes)", size);
-    lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, func, line);
+    lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, func, line);
 }
 
 void* lmmp_alloc(size_t size) {
-#if LAMMP_DEBUG_PARAM_ASSERT_CHECK == 1
+#if LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
     if (size == 0) {
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Allocating zero bytes is not allowed.", __func__, __LINE__);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Allocating zero bytes is not allowed.", __func__, __LINE__);
         return NULL;
     }
-#endif  // LAMMP_DEBUG_PARAM_ASSERT_CHECK == 1
+#endif  // LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
     void* ret = heap_alloc_func(size);
     if (ret == NULL)
         lmmp_memory_abort(size, __func__, __LINE__);
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
     heap_alloc_count++;
 #endif
     return ret;
 }
 #endif
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
+#if LMMP_DEBUG_MEMORY_CHECK == 1
 void* lmmp_realloc(void* oldptr, size_t new_size, const char* func, int line) {
     void* ret = lmmp_realloc_debug(oldptr, new_size, func, line);
     return ret;
 }
 #else
 void* lmmp_realloc(void* oldptr, size_t new_size) {
-#if LAMMP_DEBUG_PARAM_ASSERT_CHECK == 1
+#if LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
     if (new_size == 0) {
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, "Reallocating zero bytes is not allowed.", __func__, __LINE__);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Reallocating zero bytes is not allowed.", __func__, __LINE__);
         return NULL;
     }
-#endif // LAMMP_DEBUG_PARAM_ASSERT_CHECK == 1
+#endif // LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
     void* ret = realloc_func(oldptr, new_size);
     if (ret == NULL) {
         lmmp_memory_abort(new_size, __func__, __LINE__);
     }
     return ret;
 }
-#endif // LAMMP_DEBUG_MEMORY_CHECK == 1
+#endif // LMMP_DEBUG_MEMORY_CHECK == 1
 
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
+#if LMMP_DEBUG_MEMORY_CHECK == 1
 void lmmp_free(void* ptr, const char* func, int line) {
     lmmp_free_debug(ptr, func, line);
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
     if (ptr != NULL)
         heap_alloc_count--;
 #endif
@@ -422,7 +422,7 @@ void lmmp_free(void* ptr, const char* func, int line) {
 #else
 void lmmp_free(void* ptr) {
     heap_free_func(ptr);
-#if LAMMP_DEBUG_MEMORY_LEAK == 1
+#if LMMP_DEBUG_MEMORY_LEAK == 1
     if (ptr != NULL)
         heap_alloc_count--;
 #endif
@@ -430,7 +430,7 @@ void lmmp_free(void* ptr) {
 #endif
 
 void lmmp_global_init(void) {
-    lmmp_stack_init(LAMMP_POOL_SIZE);
+    lmmp_stack_init(LMMP_POOL_SIZE);
 }
 
 void lmmp_global_deinit(void) {

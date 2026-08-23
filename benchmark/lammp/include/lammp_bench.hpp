@@ -1,9 +1,9 @@
 /**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef LAMMP_BENCH_FRAMEWORK_HPP
-#define LAMMP_BENCH_FRAMEWORK_HPP
+#ifndef LMMP_BENCH_FRAMEWORK_HPP
+#define LMMP_BENCH_FRAMEWORK_HPP
 
 #include <algorithm>
 #include <chrono>
@@ -124,4 +124,4 @@ inline void list_all() {
                                                          bench_fn_##name);   \
     static void bench_fn_##name()
 
-#endif  // LAMMP_BENCH_FRAMEWORK_HPP
+#endif  // LMMP_BENCH_FRAMEWORK_HPP

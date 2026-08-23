@@ -8,7 +8,7 @@
 
 
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "LAMMP"
+PROJECT_NAME           = "LMMP"
 PROJECT_NUMBER         = "4.2.0"
 PROJECT_BRIEF          = "Lamina High-Precision Arithmetic Library"
 PROJECT_LOGO           =
@@ -215,7 +215,7 @@ HTML_COPY_CLIPBOARD    = YES
 HTML_PROJECT_COOKIE    =
 HTML_INDEX_NUM_ENTRIES = 100
 GENERATE_DOCSET        = NO
-DOCSET_FEEDNAME        = "LAMMP Documentation"
+DOCSET_FEEDNAME        = "LMMP Documentation"
 DOCSET_FEEDURL         =
 DOCSET_BUNDLE_ID       = org.lammp.Project
 DOCSET_PUBLISHER_ID    = org.lammp.Publisher
@@ -309,8 +309,8 @@ SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = include
 INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = USE_ASM \
-                         LAMMP_WINDOWS \
-                         LAMMP_ASM_WIN \
+                         LMMP_WINDOWS \
+                         LMMP_ASM_WIN \
                          __declspec(x)=
 EXPAND_AS_DEFINED      =
 SKIP_FUNCTION_MACROS   = NO

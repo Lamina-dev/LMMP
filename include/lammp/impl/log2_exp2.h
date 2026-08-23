@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_LOG2_EXP2_H__
-#define __LAMMP_LOG2_EXP2_H__
+#ifndef __LMMP_LOG2_EXP2_H__
+#define __LMMP_LOG2_EXP2_H__
 
 #include <stdint.h>
 
@@ -52,4 +52,4 @@ void log2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low);
 void exp2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low);
 #endif // 0
 
-#endif // __LAMMP_LOG2_EXP2_H__
+#endif // __LMMP_LOG2_EXP2_H__

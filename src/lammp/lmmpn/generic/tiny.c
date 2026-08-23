@@ -1,9 +1,9 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -30,14 +30,12 @@ int lmmp_limb_bits_(mp_limb_t x) {
 int lmmp_limb_popcnt_(mp_limb_t x) {
 #if defined(__GNUC__) || defined(__clang__)
     mp_limb_t count;
-#if defined(__x86_64__) && defined(USE_ASM)
+#if defined(LMMP_ASM_X64)
     __asm__ volatile("popcnt %1, %0" : "=r"(count) : "r"(x) : "cc");
 #else
     count = __builtin_popcountll(x);
 #endif
     return count;
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    return (int)__popcnt64(x);
 #else
     int k = 0;
     while (x) {
@@ -52,10 +50,6 @@ int lmmp_leading_zeros_(mp_limb_t x) {
     if (x == 0) return 64;
 #ifdef __GNUC__
     return __builtin_clzll(x);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    unsigned long index;
-    _BitScanReverse64(&index, x);  
-    return 63 - (int)index;
 #else
     int n = 0;
     if (x <= 0x00000000FFFFFFFF) { n += 32; x <<= 32; }
@@ -72,10 +66,6 @@ int lmmp_tailing_zeros_(mp_limb_t x) {
     if (x == 0) return 64;
 #ifdef __GNUC__
     return __builtin_ctzll(x);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    unsigned long index;
-    _BitScanForward64(&index, x);
-    return (int)index;
 #else
     int n = 0;
     if ((x & 0x00000000FFFFFFFF) == 0) { n += 32; x >>= 32; }
@@ -92,8 +82,6 @@ mp_limb_t lmmp_mulh_(mp_limb_t a, mp_limb_t b) {
 #if (defined(__GNUC__) || defined(__clang__)) && defined(__SIZEOF_INT128__)
     __uint128_t t = (__uint128_t)a * (__uint128_t)b;
     return (mp_limb_t)(t >> 64);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    return __umulh(a, b);
 #else
     uint64_t ah = a >> 32, bh = b >> 32;
     a = (uint32_t)a, b = (uint32_t)b;
@@ -111,8 +99,6 @@ void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr restrict dst) {
     __uint128_t prod = (__uint128_t)a * b;
     dst[0] = (mp_limb_t)prod;        
     dst[1] = (mp_limb_t)(prod >> 64);
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
-    dst[0] = _umul128(a, b, dst + 1);
 #else
     uint64_t ah = a >> 32, bh = b >> 32;
     a = (uint32_t)a, b = (uint32_t)b;

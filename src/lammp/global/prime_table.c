@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -25,7 +25,7 @@ typedef struct prime_int {
     uint max;       // 位图记录的最大值
 } prime_int;
 
-static LAMMP_THREAD_LOCAL prime_int global_prime_int_table = {
+static LMMP_THREAD_LOCAL prime_int global_prime_int_table = {
     .map      = NULL,
     .map_size = 0,
     .max      = 0

@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,14 +13,14 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_MPARAM_H__
-#define __LAMMP_MPARAM_H__
+#ifndef __LMMP_MPARAM_H__
+#define __LMMP_MPARAM_H__
 
 // 默认线程局部栈大小（不可变更），单位为字节
-#define LAMMP_DEFAULT_STACK_SIZE (320 * 1024)
+#define LMMP_DEFAULT_STACK_SIZE (320 * 1024)
 
 // 线程局部内存池大小（可以为0，表示不使用线程局部内存池），单位为字节
-#define LAMMP_POOL_SIZE (512 * 1024)
+#define LMMP_POOL_SIZE (512 * 1024)
 
 // 除法阈值：当操作数规模超过此值时，使用分治除法算法
 #define DIV_DIVIDE_THRESHOLD 50
@@ -158,4 +158,4 @@
 // B / 4
 #define LIMB_B_4 (0x4000000000000000ull)
 
-#endif // __LAMMP_MPARAM_H__
+#endif // __LMMP_MPARAM_H__

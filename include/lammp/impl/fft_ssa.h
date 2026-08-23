@@ -1,9 +1,9 @@
 /**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_FFT_SSA_H__
-#define __LAMMP_FFT_SSA_H__
+#ifndef __LMMP_FFT_SSA_H__
+#define __LMMP_FFT_SSA_H__
 
 #include "../lmmpn.h"
 
@@ -121,4 +121,4 @@ void lmmp_ifft_(fft_memstack* ms, mp_ptr* coef, mp_size_t k, mp_size_t w);
 void lmmp_mul_fermat_recombine_(fft_memstack* ms, mp_ptr dst, mp_ptr* pfca, mp_size_t K, mp_size_t k, mp_size_t n,
                                 mp_size_t M, mp_size_t rn);
 
-#endif // __LAMMP_FFT_SSA_H__
+#endif // __LMMP_FFT_SSA_H__

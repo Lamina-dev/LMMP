@@ -1,9 +1,9 @@
 #
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
-#  This file is part of LAMMP.
+#  This file is part of LMMP.
 #
-#  LAMMP is free software: you can redistribute it and/or modify it under
+#  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
 #  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
@@ -13,12 +13,14 @@
 #  See <https://www.gnu.org/licenses/>.
 #
 
-# 新版 LAMMP 单元测试目标（C++17，无第三方依赖）。
+# 新版 LMMP 单元测试目标（C++17，无第三方依赖）。
 # 测试源码显式列举，避免 GLOB 导致的新增文件不触发 CMake 重新配置。
 
-set(LAMMP_TEST_SRCS
+set(LMMP_TEST_SRCS
     main.cpp
     src/test_low_limb.cpp
+    src/test_asm_boundary.cpp
+    src/test_asm_functions.cpp
     src/test_mul.cpp
     src/test_div.cpp
     src/test_str.cpp
@@ -32,7 +34,7 @@ set(LAMMP_TEST_SRCS
     src/test_rng_hash.cpp
 )
 
-add_executable(LammpTest ${LAMMP_TEST_SRCS})
+add_executable(LammpTest ${LMMP_TEST_SRCS})
 
 target_include_directories(LammpTest
     PRIVATE

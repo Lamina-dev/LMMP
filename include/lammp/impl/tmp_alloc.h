@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_TMP_ALLOC_H__
-#define __LAMMP_TMP_ALLOC_H__
+#ifndef __LMMP_TMP_ALLOC_H__
+#define __LMMP_TMP_ALLOC_H__
 
 #include "../lmmp.h"
 #include <stdio.h>
@@ -29,8 +29,8 @@ typedef struct {
     size_t capacity;   // 缓冲池容量（初始化后不变）
 } lmmp_memory_ctx;
 
-extern LAMMP_THREAD_LOCAL lmmp_memory_ctx lmmp_tmpmem_ctx;
-extern LAMMP_THREAD_LOCAL lmmp_heap_allocator_t global_heap;
+extern LMMP_THREAD_LOCAL lmmp_memory_ctx lmmp_tmpmem_ctx;
+extern LMMP_THREAD_LOCAL lmmp_heap_allocator_t global_heap;
 
 typedef struct {
     void* stack_marker; // 栈内存标记
@@ -44,17 +44,17 @@ static inline void* lmmp_temp_heap_alloc_(lmmp_alloc_marker* pmarker, size_t siz
      * Each allocated block has a header of size HSIZE, which is used to store the
      * next pointer of the block. The actual data starts at (mp_byte_t*)p + offset.
      */
-    // 在经过缓冲池后，size已经对齐至LAMMP_MAX_ALIGN
-    // size = LMMP_ROUND_UP_MULTIPLE(size, LAMMP_MAX_ALIGN);
+    // 在经过缓冲池后，size已经对齐至LMMP_MAX_ALIGN
+    // size = LMMP_ROUND_UP_MULTIPLE(size, LMMP_MAX_ALIGN);
 #define HSIZE sizeof(void*)
-    const size_t offset = LMMP_ROUND_UP_MULTIPLE(HSIZE, LAMMP_MAX_ALIGN);
+    const size_t offset = LMMP_ROUND_UP_MULTIPLE(HSIZE, LMMP_MAX_ALIGN);
 #undef HSIZE
     void* p = global_heap.alloc(size + offset);
-#if LAMMP_DEBUG_MEMORY_CHECK == 1
+#if LMMP_DEBUG_MEMORY_CHECK == 1
     if (p == NULL) {
         char msg[128];
         snprintf(msg, sizeof(msg), "Memory allocation failure (trying to allocate: %zu bytes)", size);
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
     }
 #endif
     *(void**)p = pmarker->heap_marker;
@@ -82,14 +82,14 @@ static inline void* lmmp_temp_stack_alloc_(lmmp_alloc_marker* pmarker, size_t si
      * which is the position recorded by pmarker->stack_marker.
      */
     mp_byte_t* p = (mp_byte_t*)(lmmp_tmpmem_ctx.stack_top);
-    size_t offset = LMMP_ROUND_UP_MULTIPLE(size, LAMMP_MAX_ALIGN);
+    size_t offset = LMMP_ROUND_UP_MULTIPLE(size, LMMP_MAX_ALIGN);
     mp_byte_t* new_top = p + offset;
-#if LAMMP_DEBUG_STACK_OVERFLOW_CHECK == 1
+#if LMMP_DEBUG_STACK_OVERFLOW_CHECK == 1
     if (new_top > (mp_byte_t*)(lmmp_tmpmem_ctx.stack_end)) {
         char msg[128];
         snprintf(msg, sizeof(msg), "Stack overflow (trying to allocate: %zu bytes, stack remaining: %zu bytes)", offset,
                  (size_t)((mp_byte_t*)lmmp_tmpmem_ctx.stack_end - (mp_byte_t*)lmmp_tmpmem_ctx.stack_top));
-        lmmp_abort(LAMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
     }
 #endif
     lmmp_tmpmem_ctx.stack_top = new_top;
@@ -105,7 +105,7 @@ static inline void lmmp_temp_stack_free_(lmmp_alloc_marker* pmarker) {
 
 static inline void* lmmp_temp_pool_alloc_(lmmp_alloc_marker* pmarker, size_t size) {
     mp_byte_t* p = (mp_byte_t*)(lmmp_tmpmem_ctx.pool_top);
-    size_t offset = LMMP_ROUND_UP_MULTIPLE(size, LAMMP_MAX_ALIGN);
+    size_t offset = LMMP_ROUND_UP_MULTIPLE(size, LMMP_MAX_ALIGN);
     size_t remaining = lmmp_tmpmem_ctx.remain;
     if (remaining < 2 * offset) {
         // 保证pool留有一个offset的空间，使得递归后子问题也尽可能分配到pool中，避免递归时子问题分配到堆上
@@ -183,4 +183,4 @@ static inline void lmmp_temp_pool_free_(lmmp_alloc_marker* pmarker) {
 // 类型化内存重分配：将p指向的内存重分配为new_size个type类型
 #define REALLOC_TYPE(p, new_size, type) ((type*)lmmp_realloc((p), (new_size) * sizeof(type)))
 
-#endif /* __LAMMP_TMP_ALLOC_H__ */
+#endif /* __LMMP_TMP_ALLOC_H__ */

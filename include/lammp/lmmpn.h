@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef LAMMP_LMMPN_H
-#define LAMMP_LMMPN_H
+#ifndef LMMP_LMMPN_H
+#define LMMP_LMMPN_H
 
 #include <stdbool.h>
 #include "lmmp.h"
@@ -39,28 +39,28 @@ INLINE_ bool lmmp_endian(void) {
  * @param x 输入的64位无符号整数
  * @return 满足条件的最小自然数k
  */
-LAMMP_API int lmmp_limb_bits_(mp_limb_t x);
+LMMP_API int lmmp_limb_bits_(mp_limb_t x);
 
 /**
  * @brief 计算一个64位无符号整数中1的个数
  * @param x 输入的64位无符号整数
  * @return 1的个数
  */
-LAMMP_API int lmmp_limb_popcnt_(mp_limb_t x);
+LMMP_API int lmmp_limb_popcnt_(mp_limb_t x);
 
 /**
  * @brief 计算一个单精度数(limb)中前导零的个数
  * @param x 输入的64位无符号整数
  * @return 前导零的位数（范围：0~64）
  */
-LAMMP_API int lmmp_leading_zeros_(mp_limb_t x);
+LMMP_API int lmmp_leading_zeros_(mp_limb_t x);
 
 /**
  * @brief 计算一个单精度数(limb)中末尾零的个数
  * @param x 输入的64位无符号整数
  * @return 末尾零的位数（范围：0~64）
  */
-LAMMP_API int lmmp_tailing_zeros_(mp_limb_t x);
+LMMP_API int lmmp_tailing_zeros_(mp_limb_t x);
 
 /**
  * @brief 计算两个64位无符号整数相乘的高位结果 (a*b)/B
@@ -68,7 +68,7 @@ LAMMP_API int lmmp_tailing_zeros_(mp_limb_t x);
  * @param b 第二个64位无符号整数
  * @return 乘积的高64位结果
  */
-LAMMP_API mp_limb_t lmmp_mulh_(mp_limb_t a, mp_limb_t b);
+LMMP_API mp_limb_t lmmp_mulh_(mp_limb_t a, mp_limb_t b);
 
 /**
  * @brief 计算两个64位无符号整数相乘的128位结果 (a*b)
@@ -78,7 +78,7 @@ LAMMP_API mp_limb_t lmmp_mulh_(mp_limb_t a, mp_limb_t b);
  * @warning dst!=NULL
  * @return 无返回值
  */
-LAMMP_API void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr dst);
+LMMP_API void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr dst);
 
 /**
  * @brief 带进位的n位加法 [dst,n] = [numa,n] + [numb,n] + c
@@ -90,7 +90,7 @@ LAMMP_API void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr dst);
  * @warning c=[0|1], n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 运算后的最终进位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 
 /**
  * @brief 无进位的n位加法 [dst,n] = [numa,n] + [numb,n]
@@ -101,7 +101,7 @@ LAMMP_API mp_limb_t lmmp_add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 运算后的最终进位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 带借位的n位减法 [dst,n] = [numa,n] - [numb,n] - c
@@ -113,7 +113,7 @@ LAMMP_API mp_limb_t lmmp_add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_s
  * @warning c=[0|1], n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 运算后的最终借位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 
 /**
  * @brief 无借位的n位减法 [dst,n] = [numa,n] - [numb,n]
@@ -124,7 +124,7 @@ LAMMP_API mp_limb_t lmmp_sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 运算后的最终借位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 同时执行n位加法和减法 ([dsta,n],[dstb,n]) = ([numa,n]+[numb,n],[numa,n]-[numb,n])
@@ -137,7 +137,7 @@ LAMMP_API mp_limb_t lmmp_sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_s
  * @return 组合返回值 cb = 2*c + b (c为加法进位, b为减法借位)
  *         返回值范围: 0(无进位无借位),1(无进位有借位),2(有进位无借位),3(有进位有借位)
  */
-LAMMP_API mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 加法后右移1位 [dst,n] = ([numa,n] + [numb,n]) >> 1
@@ -148,7 +148,7 @@ LAMMP_API mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, 
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 右移操作产生的进位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_shr1add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_shr1add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 带进位加法后右移1位 [dst,n] = ([numa,n] + [numb,n] + c) >> 1
@@ -160,7 +160,7 @@ LAMMP_API mp_limb_t lmmp_shr1add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  * @warning n>0, c=[0|1], eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 右移操作产生的进位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_shr1add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_shr1add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 
 /**
  * @brief 减法后右移1位 [dst,n] = ([numa,n] - [numb,n]) >> 1
@@ -171,7 +171,7 @@ LAMMP_API mp_limb_t lmmp_shr1add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb,
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 右移操作产生的进位值 (0或1)
  */
-LAMMP_API mp_limb_t lmmp_shr1sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_shr1sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 带借位减法后右移1位 [dst,n] = ([numa,n] - [numb,n] - c) >> 1
@@ -183,7 +183,7 @@ LAMMP_API mp_limb_t lmmp_shr1sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  * @warning n>0, c=[0|1], eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 右移操作产生的进位值 [0|1]
  */
-LAMMP_API mp_limb_t lmmp_shr1sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_shr1sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 
 /**
  * @brief 右移操作 [dst,na] = [numa,na]>>shr，dst的高shr位填充0
@@ -195,7 +195,7 @@ LAMMP_API mp_limb_t lmmp_shr1sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb,
  *          允许dst指针地址小于numa（即支持原地长移位操作）
  * @return 其最高shr个比特位填充[numa,na]被移出的shr个最低位，其余比特位为0
  */
-LAMMP_API mp_limb_t lmmp_shr_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr);
+LMMP_API mp_limb_t lmmp_shr_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr);
 
 /**
  * @brief 带进位的右移操作 [dst,na] = [numa,na]>>shr，dst的高shr位填充c的高shr位
@@ -209,7 +209,7 @@ LAMMP_API mp_limb_t lmmp_shr_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_
  *          允许dst指针地址小于numa（即支持原地长移位操作）
  * @return 其最高shr个比特位填充[numa,na]被移出的shr个最低位，其余比特位为0
  */
-LAMMP_API mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr, mp_limb_t c);
 
 /**
  * @brief 左移操作 [dst,na] = [numa,na]<<shl，dst的低shl位填充0
@@ -221,7 +221,7 @@ LAMMP_API mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_siz
  *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
-LAMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
+LMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 
 /**
  * @brief 带进位的左移操作 [dst,na] = [numa,na]<<shl，dst的低shl位填充c的低shl位
@@ -235,7 +235,7 @@ LAMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_
  *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
-LAMMP_API mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
+LMMP_API mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
 
 /**
  * @brief 按位取反操作 [dst,na] = ~[numa,na] (对每个limb执行按位非操作)
@@ -244,7 +244,7 @@ LAMMP_API mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_siz
  * @param na limb长度
  * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
-LAMMP_API void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 左移后按位取反操作 [dst,na] = ~([numa,na] << shl)，dst的低shl位填充1
@@ -255,7 +255,7 @@ LAMMP_API void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning na>0, 0<=shl<64, eqsep(dst,numa), dst!=NULL, numa!=NULL
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
-LAMMP_API mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
+LMMP_API mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 
 /**
  * @brief 加法结合左移1位操作 [dst,n] = [numa,n] + ([numb,n] << 1)
@@ -266,7 +266,7 @@ LAMMP_API mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_si
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL
  * @return 运算后的进位值 [0|1|2]
  */
-LAMMP_API mp_limb_t lmmp_addshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_addshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 减法结合左移1位操作 [dst,n] = [numa,n] - ([numb,n] << 1)
@@ -277,7 +277,7 @@ LAMMP_API mp_limb_t lmmp_addshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  * @warning n>0, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL
  * @return 运算后的借位值 [0|1|2]
  */
-LAMMP_API mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 乘以单limb并累加操作 [numa,n] += [numb,n] * b
@@ -288,7 +288,7 @@ LAMMP_API mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  * @warning n>0, eqsep(numa,numb)), numa!=NULL, numb!=NULL
  * @return 运算后的进位limb值
  */
-LAMMP_API mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
+LMMP_API mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
 
 /**
  * @brief 乘以单limb并累减操作 [numa,n] -= [numb,n] * b
@@ -299,7 +299,7 @@ LAMMP_API mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_
  * @warning n>0, eqsep(numa,numb)), numa!=NULL, numb!=NULL
  * @return 运算后的借位limb值
  */
-LAMMP_API mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
+LMMP_API mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
 
 /**
  * @brief 乘以单limb操作 [dst,na] = [numa,na] * x
@@ -311,7 +311,7 @@ LAMMP_API mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_
  *          支持 dst<=numa+1 的内存布局
  * @return 运算后的进位limb值
  */
-LAMMP_API mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x);
+LMMP_API mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
 /**
  * @brief 基础平方运算 [dst,2*na] = [numa,na]^2
@@ -321,7 +321,7 @@ LAMMP_API mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_lim
  * @warning 0<na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief Toom-2平方运算 [dst,2*na] = [numa,na]^2
@@ -331,7 +331,7 @@ LAMMP_API void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_toom2_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_toom2_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief Toom-3平方运算 [dst,2*na] = [numa,na]^2
@@ -341,7 +341,7 @@ LAMMP_API void lmmp_sqr_toom2_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief Toom-4平方运算 [dst,2*na] = [numa,na]^2
@@ -351,7 +351,7 @@ LAMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
+LMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
 
 /**
  * @brief 基础乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -363,7 +363,7 @@ LAMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
  * @warning 0<nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-22乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -375,7 +375,7 @@ LAMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_s
  * @warning 4/5<=nb/na<=1, nb>=5, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-32乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -387,7 +387,7 @@ LAMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 5/9<=nb/na<=4/5, nb>=12, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-33乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -399,7 +399,7 @@ LAMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 4/5<=nb/na<=1, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-42乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -411,7 +411,7 @@ LAMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 1/3<=nb/na<=5/9, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom42_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom42_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-42不平衡乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -423,7 +423,7 @@ LAMMP_API void lmmp_mul_toom42_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning na>=3*nb, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom42_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom42_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-43乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -435,7 +435,7 @@ LAMMP_API void lmmp_mul_toom42_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t 
  * @warning 3/5<=nb/na<=4/5, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-44乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -447,7 +447,7 @@ LAMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 4/5<=nb/na<=1, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-52乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -459,7 +459,7 @@ LAMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 1/3<=nb/na<=9/20, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-53乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -471,7 +471,7 @@ LAMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 9/20<=nb/na<=3/5, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-62乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -483,7 +483,7 @@ LAMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning 1/5<=nb/na<=1/3, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-62不平衡乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -495,14 +495,14 @@ LAMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_src
  * @warning na>=5*nb, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_toom62_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_toom62_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 计算满足 >=n 的最小费马/梅森乘法可行尺寸
  * @param n 输入的目标尺寸
  * @return 满足条件的SSA乘法最小尺寸
  */
-LAMMP_API mp_size_t lmmp_fft_next_size_(mp_size_t n);
+LMMP_API mp_size_t lmmp_fft_next_size_(mp_size_t n);
 
 /**
  * @brief 费马数模乘法 [dst,rn+1]=[numa,na]*[numb,nb] mod B^rn+1
@@ -516,7 +516,7 @@ LAMMP_API mp_size_t lmmp_fft_next_size_(mp_size_t n);
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_fermat_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_fermat_函数
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 梅森数模乘法 [dst,rn] = [numa,na]*[numb,nb] mod B^rn-1
@@ -530,7 +530,7 @@ LAMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_siz
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 费马数模平方 [dst,rn+1]=[numa,na]^2 mod B^rn+1
@@ -541,7 +541,7 @@ LAMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_s
  * @warning eqsep(dst,numa), 0<=[numa,na]<2*B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1)
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 梅森数模平方 [dst,rn] = [numa,na]^2 mod B^rn-1
@@ -552,7 +552,7 @@ LAMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_siz
  * @warning eqsep(dst,numa), 0<=[numa,na]<B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1)
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief FFT乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -564,7 +564,7 @@ LAMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_s
  * @warning ???<=nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief FFT平方运算 [dst,2*na] = [numa,na]^2
@@ -574,7 +574,7 @@ LAMMP_API void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr
  * @warning ???<=na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief FFT不平衡乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -587,7 +587,7 @@ LAMMP_API void lmmp_sqr_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning ???<=nb<=na, na>=3*nb, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_mul_fft_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_fft_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 平方操作 [dst,2*na] = [numa,na]^2
@@ -597,7 +597,7 @@ LAMMP_API void lmmp_mul_fft_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na,
  * @warning na>0, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LAMMP_API void lmmp_sqr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_sqr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 等长乘法操作 [dst,2*n] = [numa,n] * [numb,n]
@@ -607,7 +607,7 @@ LAMMP_API void lmmp_sqr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param numb 第二个乘数指针
  * @param n limb长度
  */
-LAMMP_API void lmmp_mul_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API void lmmp_mul_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 不等长乘法操作 [dst,na+nb] = [numa,na] * [numb,nb]
@@ -618,7 +618,7 @@ LAMMP_API void lmmp_mul_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t
  * @param numb 第二个乘数指针（较短的操作数）
  * @param nb 第二个操作数的 limb 长度
  */
-LAMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 基础低位乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
@@ -629,7 +629,7 @@ LAMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr num
  * @warning n>0, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n] * [numb,n] mod B^n
  */
-LAMMP_API void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 低位乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
@@ -640,7 +640,7 @@ LAMMP_API void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  * @warning n>0, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n] * [numb,n] mod B^n
  */
-LAMMP_API void lmmp_mullo_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+LMMP_API void lmmp_mullo_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 低位乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
@@ -652,7 +652,7 @@ LAMMP_API void lmmp_mullo_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t
  * @warning n>0, sep(dst,[numa|numb],tp), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n] * [numb,n] mod B^n
  */
-LAMMP_API void lmmp_mullo_dc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_ptr tp, mp_size_t n);
+LMMP_API void lmmp_mullo_dc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_ptr tp, mp_size_t n);
 
 /**
  * @brief 低位平方 [dst,n] = [numa,n]^2 mod B^n
@@ -663,7 +663,7 @@ LAMMP_API void lmmp_mullo_dc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_ptr
  * @warning n>0, sep(dst,numa,tp), dst!=NULL, numa!=NULL, tp!=NULL
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n]^2 mod B^n
  */
-LAMMP_API void lmmp_sqrlo_dc_(mp_ptr dst, mp_srcptr numa, mp_ptr tp, mp_size_t n);
+LMMP_API void lmmp_sqrlo_dc_(mp_ptr dst, mp_srcptr numa, mp_ptr tp, mp_size_t n);
 
 /**
  * @brief 低位FFT乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
@@ -675,7 +675,7 @@ LAMMP_API void lmmp_sqrlo_dc_(mp_ptr dst, mp_srcptr numa, mp_ptr tp, mp_size_t n
  * @warning ???<n, sep(scratch,[numa|numb]), eqsep(dst,scratch)
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n] * [numb,n] mod B^n
  */
-LAMMP_API void lmmp_mullo_fft_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_ptr scratch);
+LMMP_API void lmmp_mullo_fft_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_ptr scratch);
 
 /**
  * @brief 1阶逆元计算 (inv1)
@@ -683,7 +683,7 @@ LAMMP_API void lmmp_mullo_fft_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_si
  * @return 计算结果：(B^2-1)/x - B
  * @warning MSB(x)=1, 即x>=2^63
  */
-LAMMP_API mp_limb_t lmmp_inv_1_(mp_limb_t x);
+LMMP_API mp_limb_t lmmp_inv_1_(mp_limb_t x);
 
 /**
  * @brief 2-1阶逆元计算 (inv21)
@@ -692,7 +692,7 @@ LAMMP_API mp_limb_t lmmp_inv_1_(mp_limb_t x);
  * @return 计算结果：(B^3-1)/(xh*B+xl) - B
  * @warning MSB(xh)=1, 即xh>=2^63
  */
-LAMMP_API mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+LMMP_API mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
 
 /**
  * @brief 近似逆元计算
@@ -702,7 +702,7 @@ LAMMP_API mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
  * @warning na>0, MSB(numa)=1, sep(dst,numa)
  * @return 无返回值，结果存储在dst中，[dst,na]=(B^(2*na)-1)/[numa,na] - B^na
  */
-LAMMP_API void lmmp_inv_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_inv_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 近似逆元计算（牛顿迭代法）
@@ -712,7 +712,7 @@ LAMMP_API void lmmp_inv_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning na>4, MSB(numa)=1, sep(dst,numa)
  * @return 无返回值，结果存储在dst中，[dst,na]=(B^(2*na)-1)/[numa,na]-B^na+[0|-1]
  */
-LAMMP_API void lmmp_invappr_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_invappr_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 近似逆元计算 (invappr)
@@ -722,7 +722,7 @@ LAMMP_API void lmmp_invappr_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @warning na>0, MSB(numa)=1, sep(dst,numa)
  * @return 无返回值，结果存储在dst中，[dst,na] = (B^(2*na)-1)/[numa,na] - B^na + [0|-1]
  */
-LAMMP_API void lmmp_invappr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+LMMP_API void lmmp_invappr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 3/2位除法运算 [numa,2]=[numa,3] mod [numb,2]
@@ -732,7 +732,7 @@ LAMMP_API void lmmp_invappr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @return 商值（单精度数）
  * @warning [numa,3]<[numb,2]*B, MSB(numb)=1, inv21=inv21([numb,2]), eqsep(numa,numb)
  */
-LAMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
+LMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
 
 /**
  * @brief 单精度数除法
@@ -744,7 +744,7 @@ LAMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
  * @warning na>0, x!=0, eqsep(dstq,numa), dstq>=numa-1 是可以接受的
  * @note if (dstq!=NULL) [dstq,na] = [numa,na] div x
  */
-LAMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);
+LMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
 /**
  * @brief 单精度数取余
@@ -754,7 +754,7 @@ LAMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_li
  * @return 除法余数（单个 limb ）
  * @warning na>0, x!=0, numa!=NULL
  */
-LAMMP_API mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
+LMMP_API mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
 /**
  * @brief 双精度数除法 (除数为2个limb)
@@ -765,7 +765,7 @@ LAMMP_API mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
  * @warning na>=2, numb[1]!=0, eqsep(dstq,numa), dstq>=numa 是可以接受的
  * @note if (dstq!=NULL) [dstq,na-1]=[numa,na] div [numb,2]
  */
-LAMMP_API void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
+LMMP_API void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
 
 /**
  * @brief 双精度数取余 (除数为2个limb)
@@ -774,7 +774,7 @@ LAMMP_API void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr num
  * @param numb 输入除数（长度2）[numb,2]=[numa,na] mod [numb,2]
  * @warning na>=2, numb[1]!=0, numb!=NULL, numa!=NULL
  */
-LAMMP_API void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
+LMMP_API void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
 
 /**
  * @brief 基础除法运算
@@ -788,7 +788,7 @@ LAMMP_API void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
  * @warning na>=nb>=3, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb)
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LAMMP_API mp_limb_t
+LMMP_API mp_limb_t
 lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
 
 /**
@@ -803,7 +803,7 @@ lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_si
  * @warning na>=2*nb, nb>=6, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb)
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LAMMP_API mp_limb_t
+LMMP_API mp_limb_t
 lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
 
 /**
@@ -835,7 +835,7 @@ INLINE_ mp_size_t lmmp_div_inv_size_(mp_size_t nq, mp_size_t nb) {
  * @warning na>=ni>0, MSB(numa)=1, eqsep(dst,numa)
  * @note if (ni=na) [dst,na] = (B^(2*na)-1) / [numa,na] - B^na
  */
-LAMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t ni);
+LMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t ni);
 
 /**
  * @brief 求逆操作 [dst,na+nf+1] = (B^(2*(na+nf)) - 1) / ([numa,na]*B^nf) + [0|-1]
@@ -845,7 +845,7 @@ LAMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_siz
  * @param nf 精度因子
  * @warning na>0, numa[na-1]!=0, eqsep(dst,numa)
  */
-LAMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
+LMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
 
 /**
  * @brief 精确逆元计算 [dstq,na+ni+2] = B^(2*(na+ni)) / ([numa,na] * B^ni)
@@ -856,7 +856,7 @@ LAMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf)
  * @warning na>0, sep(dstq,numa), dstq!=NULL, numa[na-1]!=0
  * @note 也就是计算 B^(2*na+ni) div ([numa,na]
  */
-LAMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t ni);
+LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t ni);
 
 /**
  * @brief 乘法逆元除法
@@ -871,7 +871,7 @@ LAMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t 
  * @warning na>=nb>=ni>0, MSB(numb)=1, [invappr,ni]=inv_prediv([numb,nb]), sep(dstq,numa,numb,invappr))
  * @note qh:[dstq,na-1]=[numa,na] div x, [numa,1]=[numa,na] mod x, return qh
  */
-LAMMP_API mp_limb_t
+LMMP_API mp_limb_t
 lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_srcptr invappr, mp_size_t ni);
 
 /**
@@ -884,7 +884,7 @@ lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size
  * @warning na>1, MSB(x)=1, sep(dstq,numa)
  * @note qh:[dstq,na-1]=[numa,na] div x, [numa,1]=[numa,na] mod x, return qh
  */
-LAMMP_API mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
+LMMP_API mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
 
 /**
  * @brief 双精度数除法（除数为2个limb）
@@ -896,7 +896,7 @@ LAMMP_API mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_lim
  * @warning na>2, MSB(numb)=1, sep(dstq,numa,numb)
  * @note qh:[dstq,na-2]=[numa,na] div [numb,2], [numa,2]=[numa,na] mod [numb,2], return qh
  */
-LAMMP_API mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
+LMMP_API mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
 
 /**
  * @brief 除法运算
@@ -909,7 +909,7 @@ LAMMP_API mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_src
  * @warning na>=nb>0, MSB(numb)=1, sep(dstq,numa,numb)
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,nb]=[numa,na] mod [numb,nb], return qh
  */
-LAMMP_API mp_limb_t lmmp_div_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API mp_limb_t lmmp_div_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 除法和取模操作
@@ -925,7 +925,7 @@ LAMMP_API mp_limb_t lmmp_div_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcpt
  * @param numb 除数指针
  * @param nb 除数的 limb 长度
  */
-LAMMP_API void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief加1宏（预期无进位）
@@ -1121,7 +1121,7 @@ INLINE_ mp_limb_t lmmp_sub_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_
  *       2. if (numa==NULL) 返回na个limb长度的数的最大可能字符长度（最坏情况）
  * @return 在指定基数下的位数
  */
-LAMMP_API mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base);
+LMMP_API mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base);
 
 /**
  * @brief 计算字符串转limb数组所需的 limb 缓冲区长度
@@ -1134,7 +1134,7 @@ LAMMP_API mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base);
  *       1. if (src!=NULL) 返回的长度可能会多分配一个 limb 空间
  *       2. if (src==NULL) 返回len位base进制数的最大可能 limb 长度（最坏情况）
  */
-LAMMP_API mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base);
+LMMP_API mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base);
 
 /**
  * @brief 字符串转limb数组操作 [src,len,base] to [dst,return value,B]
@@ -1145,7 +1145,7 @@ LAMMP_API mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int 
  * @param base 字符串的进制基数
  * @return 转换后的结果的 limb 长度
  */
-LAMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base);
+LMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base);
 
 /**
  * @brief limb数组转字符串操作 [numa,na,B] to [dst,return value,base]
@@ -1156,7 +1156,7 @@ LAMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t l
  * @param base 目标字符串的进制基数
  * @return 转换后的字符串长度
  */
-LAMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base);
+LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base);
 
 /**
  * @brief 提取高位指定位数，并返回低位bits位数
@@ -1169,7 +1169,7 @@ LAMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, i
  *       如果bits小于等于num的实际位数，则ext将会有bits位有效位数。
  * @return 剩余的低位bits数量
  */
-LAMMP_API mp_bitcnt_t lmmp_extract_bits_(mp_srcptr num, mp_size_t n, mp_limb_t* ext, int bits);
+LMMP_API mp_bitcnt_t lmmp_extract_bits_(mp_srcptr num, mp_size_t n, mp_limb_t* ext, int bits);
 
 #ifdef __cplusplus
 }  // extern "C"
@@ -1182,4 +1182,4 @@ LAMMP_API mp_bitcnt_t lmmp_extract_bits_(mp_srcptr num, mp_size_t n, mp_limb_t* 
 
 #undef INLINE_
 
-#endif  // LAMMP_LMMPN_H
+#endif  // LMMP_LMMPN_H

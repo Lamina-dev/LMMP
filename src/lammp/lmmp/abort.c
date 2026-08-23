@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(LAMMP_WINDOWS)
+#if defined(LMMP_WINDOWS)
 #include <windows.h>
 
 static CRITICAL_SECTION abort_func_cs;
@@ -40,7 +40,7 @@ static void abort_func_unlock(void) {
     LeaveCriticalSection(&abort_func_cs);
 }
 
-#elif defined(__APPLE__)
+#elif defined(LMMP_MACOS) || defined(LMMP_LINUX)
 #include <pthread.h>
 
 static pthread_mutex_t abort_func_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -91,21 +91,21 @@ lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func) {
 
 static const char* type_to_str(lmmp_error_t type) {
     switch (type) {
-        case LAMMP_ERROR_ASSERT_FAILURE:
+        case LMMP_ERROR_ASSERT_FAILURE:
             return "ASSERT_FAILURE";
-        case LAMMP_ERROR_DEBUG_ASSERT_FAILURE:
+        case LMMP_ERROR_DEBUG_ASSERT_FAILURE:
             return "DEBUG_ASSERT_FAILURE";
-        case LAMMP_ERROR_PARAM_ASSERT_FAILURE:
+        case LMMP_ERROR_PARAM_ASSERT_FAILURE:
             return "PARAM_ASSERT_FAILURE";
-        case LAMMP_ERROR_MEMORY_ALLOC_FAILURE:
+        case LMMP_ERROR_MEMORY_ALLOC_FAILURE:
             return "MEMORY_ALLOC_FAILURE";
-        case LAMMP_ERROR_MEMORY_FREE_FAILURE:
+        case LMMP_ERROR_MEMORY_FREE_FAILURE:
             return "MEMORY_FREE_FAILURE";
-        case LAMMP_ERROR_OUT_OF_BOUNDS:
+        case LMMP_ERROR_OUT_OF_BOUNDS:
             return "OUT_OF_BOUNDS";
-        case LAMMP_ERROR_MEMORY_LEAK:
+        case LMMP_ERROR_MEMORY_LEAK:
             return "MEMORY_LEAK";
-        case LAMMP_ERROR_UNEXPECTED_ERROR:
+        case LMMP_ERROR_UNEXPECTED_ERROR:
             return "UNEXPECTED_ERROR";
         default:
             return "UNKNOWN_TYPE";
@@ -120,7 +120,7 @@ void lmmp_abort(lmmp_error_t type, const char* msg, const char* func, int line) 
     if (fn != NULL) {
         fn(type, msg, func, line);
     } else {
-        fprintf(stderr, "LAMMP abort at [%s]:%d\n", func, line);
+        fprintf(stderr, "LMMP abort at [%s]:%d\n", func, line);
         fprintf(stderr, "Abort type: %s, abort msg: \n%s\n", type_to_str(type), msg);
         fflush(stderr);
     }

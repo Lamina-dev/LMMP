@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_IS_PRIME_TABLE_H__
-#define __LAMMP_IS_PRIME_TABLE_H__
+#ifndef __LMMP_IS_PRIME_TABLE_H__
+#define __LMMP_IS_PRIME_TABLE_H__
 
 #include <stdint.h>
 #include <stddef.h>
@@ -1183,4 +1183,4 @@ static const uint16_t dj_base64[16384] = {
     63,    1007,  1511,  810,   9096,  3616,  272,   1066,  215,   2004,  647,   703,   232,   2126,  3598,  200,
     437,   972,   2931,  412,   336,   6706,  311,   1822,  262,   107,   336,   3906,  16766, 38,    184,   2464};
 
-#endif // __LAMMP_IS_PRIME_TABLE_H__
+#endif // __LMMP_IS_PRIME_TABLE_H__

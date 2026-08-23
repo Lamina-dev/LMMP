@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_RAND_STATE_H__
-#define __LAMMP_RAND_STATE_H__
+#ifndef __LMMP_RAND_STATE_H__
+#define __LMMP_RAND_STATE_H__
 
 #include "../lmmp.h"
 #include "../impl/longlong.h"
@@ -202,4 +202,4 @@ INLINE_ void pcg64_le_seq_next(mp_ptr restrict dst, mp_size_t n, pcg64_le_seq_t*
 
 #undef INLINE_
 
-#endif // __LAMMP_RAND_STATE_H__
+#endif // __LMMP_RAND_STATE_H__

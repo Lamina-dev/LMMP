@@ -1,9 +1,9 @@
 /**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_MUL_CACHE_H__
-#define __LAMMP_MUL_CACHE_H__
+#ifndef __LMMP_MUL_CACHE_H__
+#define __LMMP_MUL_CACHE_H__
 
 #include "fft_ssa.h"
 
@@ -150,4 +150,4 @@ void lmmp_mul_fft_cache_init_(mp_ptr dst, mp_size_t hn, mp_srcptr numa, mp_size_
 void lmmp_mul_fft_cache_(mp_ptr dst, mp_srcptr numa, fft_cache* ctx);
 
 
-#endif // __LAMMP_MUL_CACHE_H__
+#endif // __LMMP_MUL_CACHE_H__

@@ -1,9 +1,9 @@
 ﻿/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -13,8 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAMMP_TOOM_INTERP_H__
-#define __LAMMP_TOOM_INTERP_H__
+#ifndef __LMMP_TOOM_INTERP_H__
+#define __LMMP_TOOM_INTERP_H__
 
 #include "tmp_alloc.h"
 #include "../lmmpn.h"
@@ -129,4 +129,4 @@ int lmmp_toom_eval_pm1_(mp_ptr xp1, mp_ptr xm1, unsigned k, mp_srcptr xp, mp_siz
  */
 int lmmp_toom_eval_pm2_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_size_t n, mp_size_t hn, mp_ptr tp);
 
-#endif // __LAMMP_TOOM_INTERP_H__
+#endif // __LMMP_TOOM_INTERP_H__

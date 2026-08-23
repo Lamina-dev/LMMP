@@ -1,9 +1,9 @@
-﻿#
+#
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
-#  This file is part of LAMMP.
+#  This file is part of LMMP.
 #
-#  LAMMP is free software: you can redistribute it and/or modify it under
+#  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
 #   by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
@@ -13,7 +13,7 @@
 #  See <https://www.gnu.org/licenses/>.
 
 cmake_minimum_required(VERSION 3.29)
-project(LAMMP LANGUAGES C CXX)
+project(LMMP LANGUAGES C CXX)
 
 # ==============================================================================
 # 0. 工具链限制：仅支持 GNU/Clang 风格工具链
@@ -27,17 +27,35 @@ endif()
 # ==============================================================================
 # 1. 可配置选项
 # ==============================================================================
-set(LAMMP_X86_64 FALSE)
+set(LMMP_X86_64 FALSE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|x64|X64)$")
-    set(LAMMP_X86_64 TRUE)
+    set(LMMP_X86_64 TRUE)
 endif()
 
-# 汇编默认关闭：需要 x86_64 + NASM 时显式 -DUSE_ASM=ON 开启。
-option(USE_ASM "Enable x64 assembly optimization (require NASM)" OFF)
+set(LMMP_ARM64 FALSE)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64|ARM64|AARCH64)$")
+    set(LMMP_ARM64 TRUE)
+endif()
+
+# 汇编模式：GENERIC | X64 | ARM64 | AUTO
+#   GENERIC  不使用汇编，使用通用 C 实现。
+#   X64      使用 x86_64 GAS/LLVM 汇编（Windows/Linux）。
+#   ARM64    使用 arm64 GAS/LLVM 汇编（Linux/macOS，ARMv8.2-A 基线）。
+#   AUTO     按当前平台自动选择最合适的模式；不支持时回退 GENERIC。
+set(LMMP_ASM "AUTO" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO")
+set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
 
 # 测试与基准目标默认开启，可独立关闭。
-option(LAMMP_BUILD_TESTS "Build LAMMP unit tests" ON)
-option(LAMMP_BUILD_BENCHMARKS "Build LAMMP benchmarks" ON)
+option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
+option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
+
+# 调试选项：由构建系统注入 LMMP_DEBUG_* 宏，不在头文件中直接定义。
+option(LMMP_DEBUG_STACK_OVERFLOW_CHECK "Enable stack overflow check (high overhead)" OFF)
+option(LMMP_DEBUG_ASSERT_CHECK "Enable debug_assert check (medium overhead)" OFF)
+option(LMMP_DEBUG_PARAM_ASSERT_CHECK "Enable parameter assertion check (medium overhead)" OFF)
+option(LMMP_DEBUG_MEMORY_CHECK "Enable full heap/stack memory check (very high overhead)" OFF)
+set(LMMP_MEMORY_MORE_ALLOC_TIMES 1 CACHE STRING "Extra memory allocation factor in tenths (used by memory check)")
+option(LMMP_DEBUG_MEMORY_LEAK "Enable allocation/free statistics (low overhead)" OFF)
 
 # 目标系统：自动识别，也可手动指定 WIN | LIN | MAC
 set(TARGET_SYSTEM "AUTO" CACHE STRING "Target system: AUTO | WIN | LIN | MAC")
@@ -68,38 +86,48 @@ message(STATUS "Target system: ${TARGET_SYSTEM_UPPER}")
 # ==============================================================================
 # 3. 汇编支持
 # ==============================================================================
-if(USE_ASM AND NOT LAMMP_X86_64)
-    message(STATUS "ASM support requested on non-x86_64 architecture; falling back to generic C implementation")
-    set(USE_ASM OFF CACHE BOOL "Enable x64 assembly optimization (require NASM)" FORCE)
+set(LMMP_ASM_ENABLED FALSE)
+set(LMMP_ASM_ARCH "")
+set(LMMP_ASM_DIR "")
+
+if(LMMP_ASM STREQUAL "AUTO")
+    if(LMMP_X86_64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT TARGET_SYSTEM STREQUAL "MAC")
+        set(LMMP_ASM "X64")
+    elseif(LMMP_ARM64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND (TARGET_SYSTEM STREQUAL "MAC" OR TARGET_SYSTEM STREQUAL "LIN"))
+        set(LMMP_ASM "ARM64")
+    else()
+        set(LMMP_ASM "GENERIC")
+    endif()
 endif()
 
-if(USE_ASM AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    find_program(NASM_EXECUTABLE nasm
-        PATHS
-            "$ENV{LOCALAPPDATA}/bin/NASM"
-            "C:/Users/Jimmy/AppData/Local/bin/NASM"
-            "C:/Program Files/NASM"
-            "C:/NASM"
-    )
-    if(NOT NASM_EXECUTABLE)
-        message(FATAL_ERROR "NASM not found! Please install NASM or disable USE_ASM.")
+if(LMMP_ASM STREQUAL "X64")
+    if(NOT LMMP_X86_64 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "LMMP_ASM=X64 requires an x86_64 64-bit toolchain.")
     endif()
-
-    set(CMAKE_ASM_NASM_COMPILER ${NASM_EXECUTABLE} CACHE FILEPATH "" FORCE)
-    enable_language(ASM_NASM)
-    if(TARGET_SYSTEM STREQUAL "WIN")
-        set(CMAKE_ASM_NASM_OBJECT_FORMAT win64)
-    elseif(TARGET_SYSTEM STREQUAL "LIN")
-        set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)
-    elseif(TARGET_SYSTEM STREQUAL "MAC")
-        message(FATAL_ERROR "LAMMP assembly is not supported on macOS; disable USE_ASM.")
-    else()
-        message(FATAL_ERROR "Unsupported TARGET_SYSTEM: ${TARGET_SYSTEM}")
+    if(TARGET_SYSTEM STREQUAL "MAC")
+        message(FATAL_ERROR "LMMP_ASM=X64 is not supported on macOS; use LMMP_ASM=GENERIC.")
     endif()
-    message(STATUS "ASM support: ENABLED (using NASM: ${NASM_EXECUTABLE})")
+    set(LMMP_ASM_ENABLED TRUE)
+    set(LMMP_ASM_ARCH "x64")
+    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lammp/lmmpn/asm/x64")
+    enable_language(ASM)
+    message(STATUS "ASM support: ENABLED (x64 .S, GAS/LLVM)")
+elseif(LMMP_ASM STREQUAL "ARM64")
+    if(NOT LMMP_ARM64 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "LMMP_ASM=ARM64 requires an arm64 64-bit toolchain.")
+    endif()
+    if(NOT (TARGET_SYSTEM STREQUAL "MAC" OR TARGET_SYSTEM STREQUAL "LIN"))
+        message(FATAL_ERROR "LMMP_ASM=ARM64 is only supported on macOS and Linux.")
+    endif()
+    set(LMMP_ASM_ENABLED TRUE)
+    set(LMMP_ASM_ARCH "arm64")
+    set(LMMP_ASM_DIR "${CMAKE_SOURCE_DIR}/src/lammp/lmmpn/asm/arm64")
+    enable_language(ASM)
+    message(STATUS "ASM support: ENABLED (arm64 .S, GAS/LLVM)")
+elseif(LMMP_ASM STREQUAL "GENERIC")
+    message(STATUS "ASM support: DISABLED (generic C implementation)")
 else()
-    set(USE_ASM OFF)
-    message(STATUS "ASM support: DISABLED")
+    message(FATAL_ERROR "Invalid LMMP_ASM value: ${LMMP_ASM}. Use GENERIC, X64, ARM64, or AUTO.")
 endif()
 
 # ==============================================================================
@@ -145,43 +173,66 @@ function(lammp_target_setup target)
     )
     message(STATUS "Compile options: GNU/Clang standard options set.")
 
-    if(USE_ASM)
-        target_compile_definitions(${target} PRIVATE USE_ASM)
-        if(TARGET_SYSTEM STREQUAL "WIN")
-            target_compile_definitions(${target} PRIVATE LAMMP_ASM_WIN)
+    if(LMMP_ASM_ENABLED)
+        # 自定义汇编宏：C/C++/ASM 统一使用，避免依赖 __APPLE__/_WIN32 等编译器宏。
+        target_compile_definitions(${target} PRIVATE LMMP_ASM=1)
+        if(LMMP_ASM_ARCH STREQUAL "x64")
+            target_compile_definitions(${target} PRIVATE LMMP_ASM_X64=1)
+            target_compile_options(${target} PRIVATE
+                $<$<COMPILE_LANGUAGE:C>: -mbmi2>
+                $<$<COMPILE_LANGUAGE:CXX>: -mbmi2>
+            )
+        elseif(LMMP_ASM_ARCH STREQUAL "arm64")
+            target_compile_definitions(${target} PRIVATE LMMP_ASM_ARM64=1)
         endif()
-        target_compile_options(${target} PRIVATE
-            $<$<COMPILE_LANGUAGE:C>: -mbmi2>
-            $<$<COMPILE_LANGUAGE:CXX>: -mbmi2>
-        )
     endif()
 
+    # 调试宏统一由 CMake 注入，保证头文件中的 #if 按配置展开。
+    target_compile_definitions(${target} PRIVATE
+        LMMP_DEBUG_STACK_OVERFLOW_CHECK=$<IF:$<BOOL:${LMMP_DEBUG_STACK_OVERFLOW_CHECK}>,1,0>
+        LMMP_DEBUG_ASSERT_CHECK=$<IF:$<BOOL:${LMMP_DEBUG_ASSERT_CHECK}>,1,0>
+        LMMP_DEBUG_PARAM_ASSERT_CHECK=$<IF:$<BOOL:${LMMP_DEBUG_PARAM_ASSERT_CHECK}>,1,0>
+        LMMP_DEBUG_MEMORY_CHECK=$<IF:$<BOOL:${LMMP_DEBUG_MEMORY_CHECK}>,1,0>
+        LMMP_DEBUG_MEMORY_LEAK=$<IF:$<BOOL:${LMMP_DEBUG_MEMORY_LEAK}>,1,0>
+        LMMP_MEMORY_MORE_ALLOC_TIMES=${LMMP_MEMORY_MORE_ALLOC_TIMES}
+    )
+
     if(TARGET_SYSTEM STREQUAL "WIN")
-        target_compile_definitions(${target} PRIVATE LAMMP_WINDOWS)
+        target_compile_definitions(${target} PRIVATE LMMP_WINDOWS)
     elseif(TARGET_SYSTEM STREQUAL "LIN")
-        target_compile_definitions(${target} PRIVATE LAMMP_LINUX)
+        target_compile_definitions(${target} PRIVATE LMMP_LINUX)
         target_compile_options(${target} PRIVATE
             $<$<COMPILE_LANGUAGE:C>: -fno-plt>
             $<$<COMPILE_LANGUAGE:CXX>: -fno-plt>
         )
     elseif(TARGET_SYSTEM STREQUAL "MAC")
-        target_compile_definitions(${target} PRIVATE LAMMP_MACOS)
+        target_compile_definitions(${target} PRIVATE LMMP_MACOS)
     endif()
 
-    if(APPLE)
+    if(TARGET_SYSTEM STREQUAL "MAC")
         target_link_options(${target} PRIVATE
-            $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:-Wl,-dead_strip>
+            $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:
+                -Wl,-dead_strip
+                -Wl,-s
+            >
         )
         message(STATUS "Linker options: Apple ld standard options set.")
-    elseif(MINGW OR TARGET_SYSTEM STREQUAL "LIN")
-        # MinGW 或 Linux 使用 GNU ld 风格
+    elseif(  TARGET_SYSTEM STREQUAL "LIN" 
+          OR MINGW 
+          OR (TARGET_SYSTEM STREQUAL "WIN" AND 
+              CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND 
+              NOT CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"))
+                
+        # Linux 
+        # MinGW 环境
+        # Windows 上的 GNU 驱动 Clang（非 MSVC 兼容模式的 Clang）
         target_link_options(${target} PRIVATE
             -Wl,--no-undefined
             $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:
                 -Wl,--strip-all
             >
         )
-        message(STATUS "Linker options: GNU ld standard options set.")
+        message(STATUS "Linker options: GNU ld style (Linux/MinGW/Windows-GNU-Clang).")
     else()
         # Windows 上 GNU 驱动的 clang 等工具链，不附加平台特有链接选项。
         message(STATUS "Linker options: default for this toolchain.")
@@ -212,14 +263,14 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
     lammp_target_setup(LammpMain)
 endif()
 
-if(LAMMP_BUILD_TESTS)
+if(LMMP_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test/lammp)
 endif()
 
 add_subdirectory(example/lammp)
 
-if(LAMMP_BUILD_BENCHMARKS)
+if(LMMP_BUILD_BENCHMARKS)
     add_subdirectory(benchmark/lammp)
 endif()
 
@@ -233,6 +284,6 @@ message(STATUS "Compiler:      ${CMAKE_C_COMPILER_ID}")
 message(STATUS "Linker:        ${CMAKE_C_COMPILER_LINKER_ID}")
 message(STATUS "Target system: ${TARGET_SYSTEM}")
 message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
-message(STATUS "ASM support:   ${USE_ASM}")
+message(STATUS "ASM support:   ${LMMP_ASM}")
 message(STATUS "Output dir:    ${OUTPUT_ROOT}")
 message(STATUS "=====================================")

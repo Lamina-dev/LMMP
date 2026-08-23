@@ -1,9 +1,9 @@
 /**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
  *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
@@ -270,7 +270,7 @@ void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr rest
         q = dinv * np[i];
         hi = lmmp_submul_1_(np + i, dp, dn, q);
         lmmp_debug_assert(np[i] == 0);
-#if LAMMP_DEBUG_ASSERT_CHECK == 1
+#if LMMP_DEBUG_ASSERT_CHECK == 1
         if (hi && i + dn < nn) {
             lmmp_dec_1(np + i + dn, hi);
         } else {

@@ -1,11 +1,11 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
- *  This file is part of LAMMP.
+ *  This file is part of LMMP.
  *
- *  LAMMP is free software: you can redistribute it and/or modify it under
+ *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -13,105 +13,59 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cstdio>
+#include <cstdlib>
 
-#include "../../include/lammp/numth.h"
+#include "lammp/numth.h"
 
-void print_help(void) {
-    printf("=============================================\n");
-    printf("           LAMMP Factorial Calculator\n");
-    printf("=============================================\n");
-    printf("Usage:\n");
-    printf("  Direct mode:  ./fact 10000\n");
-    printf("  Manual mode:  ./fact (then input number)\n");
-    printf("\nPlease input a non-negative integer.\n");
-}
-
-int is_number(const char* s) {
-    if (!s || *s == '\0')
-        return 0;
-    while (*s) {
-        if (!isdigit((unsigned char)*s))
-            return 0;
-        s++;
+static bool is_number(const char* s) {
+    if (s == nullptr || *s == '\0') return false;
+    while (*s != '\0') {
+        if (*s < '0' || *s > '9') return false;
+        ++s;
     }
-    return 1;
+    return true;
 }
 
-void calculate_factorial(uint n) {
-    mp_bitcnt_t bits;
-    clock_t start = clock();
+static void factorial(unsigned n) {
+    mp_bitcnt_t bits = 0;
+    mp_size_t need = lmmp_factorial_size_(n, &bits);
+    mp_ptr dst = (mp_ptr)lmmp_alloc(need * sizeof(mp_limb_t));
+    mp_size_t len = lmmp_factorial_(dst, bits, need, n);
 
-    printf("\nCalculating %d! ...\n", n);
-
-    mp_size_t len = lmmp_factorial_size_(n, &bits);
-    mp_ptr dst = (mp_ptr)lmmp_alloc(len * sizeof(mp_limb_t));
-    len = lmmp_factorial_(dst, bits, len, n);
-
-    clock_t end = clock();
-    double ms = (double)(end - start) * 1000.0 / CLOCKS_PER_SEC;
-    double decimal_digits = LIMB_BITS * len * 0.30102999566;  // log10(2)
-
-    printf("Completed!\n");
-    printf("Bits length   : %llu bits\n", (unsigned long long)LIMB_BITS * len);
-    printf("Decimal digits: %.0f digits\n", decimal_digits);
-    printf("Time used     : %.2f ms\n", ms);
-    printf("Result range  : %llx ... %llx\n", (unsigned long long)dst[len - 1], (unsigned long long)dst[0]);
+    std::printf("%u! has %llu bits (about %.0f decimal digits), limb count = %lld\n",
+                n,
+                (unsigned long long)bits,
+                (double)bits * 0.301029995663981195,
+                (long long)len);
+    std::printf("high limb = 0x%llx, low limb = 0x%llx\n",
+                (unsigned long long)dst[len - 1],
+                (unsigned long long)dst[0]);
 
     lmmp_free(dst);
 }
 
-// 交互式输入模式处理函数
-void interactive_mode(void) {
-    print_help();
-    printf("\nPlease enter number: ");
-
-    char buf[64];
-    if (!fgets(buf, sizeof(buf), stdin)) {
-        printf("Input error.\n");
-        return;
-    }
-
-    // 去除换行符
-    buf[strcspn(buf, "\n\r")] = 0;
-
-    if (!is_number(buf)) {
-        printf("Error: Only non-negative integers are allowed!\n");
-        return;
-    }
-
-    uint n = (uint)atol(buf);
-    calculate_factorial(n);
-}
-
-// 命令行参数模式处理函数
-void cli_mode(const char* arg) {
-    if (!is_number(arg)) {
-        printf("Error: Invalid input!\n");
-        print_help();
-        return;
-    }
-
-    uint n = (uint)atol(arg);
-    calculate_factorial(n);
-}
-
-int main(int argc, char* argv[]) {
-    // 线程或进程资源初始化
+int main(int argc, char** argv) {
     lmmp_global_init();
 
-    // 分支判断：命令行参数模式 / 交互式模式
+    unsigned n = 0;
     if (argc >= 2) {
-        cli_mode(argv[1]);
+        if (!is_number(argv[1])) {
+            std::printf("Invalid number: %s\n", argv[1]);
+            lmmp_global_deinit();
+            return 1;
+        }
+        n = (unsigned)std::strtoul(argv[1], nullptr, 10);
     } else {
-        interactive_mode();
+        std::printf("Please input a non-negative integer: ");
+        if (std::scanf("%u", &n) != 1) {
+            std::printf("Input error.\n");
+            lmmp_global_deinit();
+            return 1;
+        }
     }
 
-    // 线程或进程资源释放
+    factorial(n);
     lmmp_global_deinit();
     return 0;
 }
