@@ -21,11 +21,15 @@ cmake --build build -j
 ```
 
 支持情况：
-
 + x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/asm/x64/*.S`
 + arm64 macOS / Linux：使用 `src/lmmp/lmmpn/asm/arm64/*.S`
 + 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/generic/` 的 C 实现
 
+汇编基线：
+在开启汇编时，所能够支持运行的架构及芯片如下：
++ X86-64：x86-64-v3 指令集；支持芯片：Intel Haswell（第4代酷睿）及以上，AMD Zen 架构（Ryzen/EPYC）及以上。
+
++ ARM64：ARMv8-A 指令集；支持芯片：Cortex-A53/57/72/73/75/76/77/78、Apple A7 及以上、高通 Snapdragon 8xx 系列等。
 ## 主要配置选项
 
 | 选项 | 取值 | 默认 | 说明 |
