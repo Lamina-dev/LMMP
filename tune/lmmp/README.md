@@ -37,10 +37,11 @@ cmake -S . -B build-tune \
 cmake --build build-tune --parallel 4
 ```
 
-产物：
+产物（调优模式全部输出到 `tune/lmmp/bin`，与 `dist` 分离）：
 
-- `dist/lmmp/bin/release/liblmmp_tune_core.a`（静态核心）
-- `tune/lmmp/bin/lmmp_tune`（调优驱动）
+- `tune/lmmp/bin/liblmmp_tune_core.a`（Linux/macOS 静态核心）
+- `tune/lmmp/bin/lmmp_tune_core.lib`（Windows 静态核心）
+- `tune/lmmp/bin/lmmp_tune` / `tune/lmmp/bin/lmmp_tune.exe`（调优驱动）
 
 ## 运行
 
@@ -83,3 +84,39 @@ cmake --build build-tune --parallel 4
   `--write`。
 - 如果改变后的阈值破坏了 `MUL_TOOM22 < MUL_TOOM33 < MUL_TOOM44 < MUL_FFT`
   的顺序约束，相关 `#if` 会以静态默认值为准，调优时请留意打印结果。
+
+## 如何新增一个待调优阈值
+
+调优框架采用“测量两个算法的成本曲线/成本表，再离线搜索最优阈值”的方式。新增一个阈值通常需要以下步骤：
+
+1. **在 `include/lmmp/impl/mparam.h` 中接入运行时变量**
+   - 在 `LMMP_TUNE` 声明块中加入 `extern uint64_t lmmp_tune_XXX_THRESHOLD;`
+   - 把原来的 `#define XXX_THRESHOLD value` 包成：
+     ```c
+     #ifdef LMMP_TUNE
+     #define XXX_THRESHOLD lmmp_tune_XXX_THRESHOLD
+     #else
+     #define XXX_THRESHOLD value
+     #endif
+     ```
+   - 若该宏被用于数组长度（例如 `TO_STR_BASEPOW_THRESHOLD`），还需在对应 `.c` 中增加
+     `#ifdef LMMP_TUNE` 的堆分配路径，否则运行时会因 VLA/数组长度报错。
+
+2. **在 `tune/lmmp/src/lmmp_tune_params.c` 和 `tune/lmmp/include/lmmp_tune.h` 中**
+   - 增加变量定义和 `extern` 声明。
+
+3. **在 `tune/lmmp/src/lmmp_tune.c` 中添加基准**
+   - 1D 阈值：参照 `obj_mul` / `bench_mul_size` 的写法。测量时先把阈值设到
+     两个极端（强制走 A / 强制走 B），分别得到每个 size 的两条成本曲线；
+     然后既可按 `search_1d` 做在线搜索，也可把曲线缓存后离线扫描最优分隔点。
+   - 2D 阈值：参照 `npr_cache_fill` / `npr_cache_eval` 的写法。对每个采样点
+     分别测量两种算法的耗时，之后对任意 `(K,B)` 只需查表求和，无需重新计时。
+
+4. **在 `main()` 的 `--only` 列表中增加对应名字**
+   - 目前支持：`mul22`, `mul33`, `mul44`, `mullo`, `npr_ushort`, `npr_uint`,
+     `ncr`, `pow1`, `elem`, `mat22_mul`, `mat22_sqr`。
+
+5. **非调优时保持零暴露**
+   - 需要暴露内部 `static` 函数时，仅用 `#ifdef LMMP_TUNE` 包裹一个
+     非 `static` 包装函数，例如 `src/lmmp/numth/nPr.c` 中的
+     `lmmp_tune_odd_nPr_product_`。正常构建不会编译该符号。

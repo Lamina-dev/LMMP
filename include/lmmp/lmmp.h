@@ -75,10 +75,13 @@ extern "C" {
 
 #if defined(LMMP_WINDOWS)
     // Windows: MinGW GCC / GNU-driver clang
-    #ifdef LIBLMMP_EXPORTS
-    #define LMMP_API __declspec(dllexport)
+    #if defined(LMMP_TUNE)
+        // 调优模式使用静态核心，导入库语义不适用。
+        #define LMMP_API
+    #elif defined(LIBLMMP_EXPORTS)
+        #define LMMP_API __declspec(dllexport)
     #else
-    #define LMMP_API __declspec(dllimport)
+        #define LMMP_API __declspec(dllimport)
     #endif
 #else
 // Linux/macOS: GCC / Clang

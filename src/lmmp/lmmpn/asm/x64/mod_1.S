@@ -58,14 +58,12 @@ ASM_GSYM(lmmp_mod_1_):
     # 已 push 4 个寄存器 (32)，rsp ≡ 8，需 32+8=40
     sub     rsp, 40
 #else
-    # 已 push 3 个寄存器，rsp 已对齐
-    sub     rsp, 8
+    # 已 push 3 个寄存器（24 字节），入口 rsp%16=8，因此此处 rsp%16=0，
+    # 已经满足 SysV call 对齐要求，无需再调整。
 #endif
     CALL(lmmp_inv_1_)
 #ifdef LMMP_WINDOWS
     add     rsp, 40
-#else
-    add     rsp, 8
 #endif
 
     mov     r9, rax                 # r9 = inv

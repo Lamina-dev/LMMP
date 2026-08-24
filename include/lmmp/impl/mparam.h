@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -91,19 +91,43 @@
 #endif
 
 // 精确逆元阈值：高于此规模使用牛顿迭代法
+#ifdef LMMP_TUNE
+#define BNINV_NEWTON_THRESHOLD lmmp_tune_BNINV_NEWTON_THRESHOLD
+#else
 #define BNINV_NEWTON_THRESHOLD 20
+#endif
 
 // 费马变换阈值：低于此规模使用直接乘法而不再进行递归
+#ifdef LMMP_TUNE
+#define MUL_FFT_MODF_THRESHOLD lmmp_tune_MUL_FFT_MODF_THRESHOLD
+#else
 #define MUL_FFT_MODF_THRESHOLD 477
+#endif
 
 // 转字符串除法阈值：字符串转换时选择除法算法的临界值
+#ifdef LMMP_TUNE
+#define TO_STR_DIVIDE_THRESHOLD lmmp_tune_TO_STR_DIVIDE_THRESHOLD
+#else
 #define TO_STR_DIVIDE_THRESHOLD 20
+#endif
 // 转字符串基数幂阈值：字符串转换时基数幂计算的策略选择临界值
+#ifdef LMMP_TUNE
+#define TO_STR_BASEPOW_THRESHOLD lmmp_tune_TO_STR_BASEPOW_THRESHOLD
+#else
 #define TO_STR_BASEPOW_THRESHOLD 30
+#endif
 // 从字符串解析除法阈值：字符串解析时选择除法算法的临界值
+#ifdef LMMP_TUNE
+#define FROM_STR_DIVIDE_THRESHOLD lmmp_tune_FROM_STR_DIVIDE_THRESHOLD
+#else
 #define FROM_STR_DIVIDE_THRESHOLD 45
+#endif
 // 从字符串解析基数幂阈值：字符串解析时基数幂计算的策略选择临界值
+#ifdef LMMP_TUNE
+#define FROM_STR_BASEPOW_THRESHOLD lmmp_tune_FROM_STR_BASEPOW_THRESHOLD
+#else
 #define FROM_STR_BASEPOW_THRESHOLD 100
+#endif
 
 // L1缓存大小，请将此值设置为实际单核CPU的L1缓存大小（字节数）
 // 8192 字节通常远远小于现代CPU的L1缓存大小，主要为分块缓存大小考虑
@@ -147,6 +171,15 @@ extern uint64_t lmmp_tune_POW_1_EXP_THRESHOLD;
 extern uint64_t lmmp_tune_POW_WIN2_EXP_THRESHOLD;
 extern uint64_t lmmp_tune_POW_WIN2_N_THRESHOLD;
 extern uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
+extern uint64_t lmmp_tune_BNINV_NEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 #endif
 
 // L1缓存分块大小
@@ -230,12 +263,24 @@ extern uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
 #endif
 
 // 使用梅森乘法计算高位的阈值
+#ifdef LMMP_TUNE
+#define MULHI_MERSENNE_THRESHOLD lmmp_tune_MULHI_MERSENNE_THRESHOLD
+#else
 #define MULHI_MERSENNE_THRESHOLD 477
+#endif
 
 // 精确除法中，除数小于此阈值时使用朴素法
+#ifdef LMMP_TUNE
+#define DIVEXACT_BASECASE_THRESHOLD lmmp_tune_DIVEXACT_BASECASE_THRESHOLD
+#else
 #define DIVEXACT_BASECASE_THRESHOLD 50
+#endif
 // 精确除法中，被除数小于此阈值时使用朴素法
+#ifdef LMMP_TUNE
+#define DIVEXACT_NN_THRESHOLD lmmp_tune_DIVEXACT_NN_THRESHOLD
+#else
 #define DIVEXACT_NN_THRESHOLD 350
+#endif
 
 
 // cache 一次处理的位图数量

@@ -270,13 +270,27 @@ endfunction()
 # ==============================================================================
 # 6. 输出目录
 # ==============================================================================
-set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
+if(LMMP_TUNE_MODE)
+    # 调优产物全部输出到 tune/lmmp/bin，与 dist 分离。
+    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/tune/lmmp)
+else()
+    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
+endif()
+
 foreach(TYPE RUNTIME ARCHIVE LIBRARY)
     set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_ROOT}/bin)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin/release)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin/relwithdebinfo)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin/minsizerel)
+    if(LMMP_TUNE_MODE)
+        # 调优模式不区分配置子目录，核心库与调优驱动放在一起。
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin)
+    else()
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin/release)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin/relwithdebinfo)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin/minsizerel)
+    endif()
 endforeach()
 
 # ==============================================================================

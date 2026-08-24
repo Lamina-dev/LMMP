@@ -251,18 +251,69 @@ static double bench_npr_pair(ulong n, ulong r, double target_ms) {
     return ns <= 0.0 ? 1e300 : ns;
 }
 
-static double obj_npr_ushort(void) {
-    double sum = 0.0;
-    sum += bench_npr_pair(60000, 4000, g_quick ? 2.0 : 6.0);     /* 旧阈值下走 product */
-    sum += bench_npr_pair(60000, 30000, g_quick ? 2.0 : 6.0);    /* 旧阈值下走 factor */
-    sum += bench_npr_pair(65535, 10000, g_quick ? 2.0 : 6.0);    /* 混合区域 */
-    return sum;
+/* ============================== nPr 2D 阈值：成本表法 ==============================
+ * 分别用极端阈值强制走 product / factor 两条路径，每个 (n,r) 采样点只测两次；
+ * 之后任意 (K,B) 的代价都可直接查表求和，无需重新计时，因此网格可以取得很密。 */
+
+typedef struct {
+    ulong n;
+    ulong r;
+    double product_ns;
+    double factor_ns;
+} npr_cache_entry;
+
+#define NPR_CACHE_MAX 12
+
+static npr_cache_entry g_npr_ushort_cache[NPR_CACHE_MAX];
+static int g_npr_ushort_cache_n = 0;
+static npr_cache_entry g_npr_uint_cache[NPR_CACHE_MAX];
+static int g_npr_uint_cache_n = 0;
+
+static void apply_npr_ushort(uint64_t k, uint64_t b);
+static void apply_npr_uint(uint64_t k, uint64_t b);
+
+static void npr_cache_fill(int is_uint) {
+    npr_cache_entry* cache = is_uint ? g_npr_uint_cache : g_npr_ushort_cache;
+    int* pn = is_uint ? &g_npr_uint_cache_n : &g_npr_ushort_cache_n;
+
+    static const ulong ushort_ns[] = {60000, 60000, 65535, 65535, 50000, 50000};
+    static const ulong ushort_rs[] = { 4000, 30000, 10000, 32768,  5000, 25000};
+    static const ulong uint_ns[] = {200000, 200000, 200000, 100000, 100000, 300000};
+    static const ulong uint_rs[] = {  5000,  50000,  20000,  10000,  50000,   1000};
+
+    const ulong* ns = is_uint ? uint_ns : ushort_ns;
+    const ulong* rs = is_uint ? uint_rs : ushort_rs;
+    int count = is_uint ? 6 : 6;
+    double target_ms = g_quick ? 2.0 : 6.0;
+
+    /* 强制 product：K=0,B=0 时 n+B > r*K 恒成立（n>0）。 */
+    if (is_uint) apply_npr_uint(0, 0);
+    else         apply_npr_ushort(0, 0);
+    for (int i = 0; i < count; ++i) {
+        cache[i].n = ns[i];
+        cache[i].r = rs[i];
+        cache[i].product_ns = bench_npr_pair(ns[i], rs[i], target_ms);
+    }
+
+    /* 强制 factor：K 取足够大，使 n+B <= r*K 对全部采样点成立。 */
+    if (is_uint) apply_npr_uint(10000000, 0);
+    else         apply_npr_ushort(1000000, 0);
+    for (int i = 0; i < count; ++i) {
+        cache[i].factor_ns = bench_npr_pair(ns[i], rs[i], target_ms);
+    }
+
+    *pn = count;
 }
 
-static double obj_npr_uint(void) {
+static double npr_cache_eval(int is_uint, uint64_t K, uint64_t B) {
+    const npr_cache_entry* cache = is_uint ? g_npr_uint_cache : g_npr_ushort_cache;
+    int count = is_uint ? g_npr_uint_cache_n : g_npr_ushort_cache_n;
     double sum = 0.0;
-    sum += bench_npr_pair(200000, 5000, g_quick ? 2.0 : 6.0);
-    sum += bench_npr_pair(200000, 50000, g_quick ? 2.0 : 6.0);
+    for (int i = 0; i < count; ++i) {
+        uint64_t left = cache[i].n + B;
+        uint64_t right = cache[i].r * K;
+        sum += (left > right) ? cache[i].product_ns : cache[i].factor_ns;
+    }
     return sum;
 }
 
@@ -512,59 +563,59 @@ typedef struct {
     uint64_t B;
 } pair_t;
 
-static double obj_2d = 0.0;
-
-static pair_t search_2d(const char* name,
-                        uint64_t k_lo, uint64_t k_hi, uint64_t k_hint,
-                        uint64_t b_lo, uint64_t b_hi, uint64_t b_hint,
-                        void (*apply2)(uint64_t, uint64_t), obj_fn obj) {
+/* 在已缓存的 nPr 成本表上做细网格二维搜索。 */
+static pair_t search_2d_table(const char* name, int is_uint,
+                              uint64_t k_lo, uint64_t k_hi, uint64_t k_hint,
+                              uint64_t b_lo, uint64_t b_hi, uint64_t b_hint) {
     pair_t best = {k_hint, b_hint};
-    apply2(best.K, best.B);
-    obj_2d = obj();
+    double best_ns = npr_cache_eval(is_uint, best.K, best.B);
     printf("  %-34s start=(K=%llu,B=%llu) %.3f ms\n", name,
-           (unsigned long long)best.K, (unsigned long long)best.B, obj_2d * 1e-6);
+           (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
 
-    int k_steps = g_quick ? 4 : 7;
-    int b_steps = g_quick ? 4 : 7;
+    int k_steps = g_quick ? 20 : 40;
+    int b_steps = g_quick ? 20 : 40;
+    int rounds = g_quick ? 2 : 3;
 
-    for (int round = 0; round < 3; ++round) {
+    for (int round = 0; round < rounds; ++round) {
         for (int i = 0; i <= k_steps; ++i) {
             uint64_t k = k_lo + (k_hi - k_lo) * (uint64_t)i / (uint64_t)k_steps;
             for (int j = 0; j <= b_steps; ++j) {
-                /* B 使用几何步进，覆盖大范围 */
                 double lr = log((double)(b_lo > 0 ? b_lo : 1));
                 double hr = log((double)(b_hi > 0 ? b_hi : 1));
                 double lv = lr + (hr - lr) * (double)j / (double)b_steps;
                 uint64_t b = (uint64_t)(exp(lv) + 0.5);
                 if (b < b_lo) b = b_lo;
                 if (b > b_hi) b = b_hi;
-                apply2(k, b);
-                double ns = obj();
-                printf("    %-30s v=(%llu,%llu) %.3f ms\n", "",
-                       (unsigned long long)k, (unsigned long long)b, ns * 1e-6);
-                if (ns < obj_2d) {
-                    obj_2d = ns;
+                double ns = npr_cache_eval(is_uint, k, b);
+                if (ns < best_ns) {
+                    best_ns = ns;
                     best.K = k;
                     best.B = b;
                 }
             }
         }
-        /* 在最优值附近细化 */
-        uint64_t k_span = k_hi - k_lo;
-        uint64_t b_lo_new = best.B > 2 ? best.B / 2 : best.B;
-        uint64_t b_hi_new = best.B < UINT64_MAX / 2 ? best.B * 2 : best.B;
-        uint64_t k_lo_new = best.K > k_span / 8 ? best.K - k_span / 8 : k_lo;
-        uint64_t k_hi_new = best.K + k_span / 8 < k_hi ? best.K + k_span / 8 : k_hi;
+        printf("    %-30s round=%d best=(%llu,%llu) %.3f ms\n", "", round,
+               (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
+        /* 在最优值附近细化。 */
+        uint64_t k_span = (k_hi - k_lo) / 4 + 1;
+        uint64_t k_lo_new = best.K > k_span ? best.K - k_span : k_lo;
+        uint64_t k_hi_new = best.K + k_span < k_hi ? best.K + k_span : k_hi;
+        double best_lr = log((double)(best.B > 0 ? best.B : 1));
+        double lr = log((double)(b_lo > 0 ? b_lo : 1));
+        double hr = log((double)(b_hi > 0 ? b_hi : 1));
+        double half = (hr - lr) / 8.0;
+        uint64_t b_lo_new = (uint64_t)(exp(best_lr - half) + 0.5);
+        uint64_t b_hi_new = (uint64_t)(exp(best_lr + half) + 0.5);
         if (k_hi_new <= k_lo_new) { k_lo_new = k_lo; k_hi_new = k_hi; }
         if (b_hi_new <= b_lo_new) { b_lo_new = b_lo; b_hi_new = b_hi; }
         k_lo = k_lo_new; k_hi = k_hi_new; b_lo = b_lo_new; b_hi = b_hi_new;
-        k_steps = g_quick ? 3 : 5;
-        b_steps = g_quick ? 3 : 5;
     }
-    apply2(best.K, best.B);
-    obj_2d = obj();
+
+    if (is_uint) apply_npr_uint(best.K, best.B);
+    else         apply_npr_ushort(best.K, best.B);
+    best_ns = npr_cache_eval(is_uint, best.K, best.B);
     printf("  %-34s -> (K=%llu,B=%llu) (%.3f ms)\n", name,
-           (unsigned long long)best.K, (unsigned long long)best.B, obj_2d * 1e-6);
+           (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
     return best;
 }
 
@@ -728,9 +779,9 @@ int main(int argc, char** argv) {
         printf("\n[Tune] PERMUTATION_USHORT (K,B)\n");
         uint64_t old_k = lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
         uint64_t old_b = lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
-        pair_t p = search_2d("PERMUTATION_USHORT", 2, 64, old_k,
-                             512, 262144, old_b,
-                             apply_npr_ushort, obj_npr_ushort);
+        npr_cache_fill(0);
+        pair_t p = search_2d_table("PERMUTATION_USHORT", 0, 2, 64, old_k,
+                                   512, 262144, old_b);
         add_tuned("PERMUTATION_USHORT_K_THRESHOLD", old_k, p.K);
         add_tuned("PERMUTATION_USHORT_B_THRESHOLD", old_b, p.B);
         lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = p.K;
@@ -740,9 +791,9 @@ int main(int argc, char** argv) {
         printf("\n[Tune] PERMUTATION_UINT (K,B)\n");
         uint64_t old_k = lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
         uint64_t old_b = lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
-        pair_t p = search_2d("PERMUTATION_UINT", 16, 512, old_k,
-                             65536, 16777216, old_b,
-                             apply_npr_uint, obj_npr_uint);
+        npr_cache_fill(1);
+        pair_t p = search_2d_table("PERMUTATION_UINT", 1, 16, 512, old_k,
+                                   65536, 16777216, old_b);
         add_tuned("PERMUTATION_UINT_K_THRESHOLD", old_k, p.K);
         add_tuned("PERMUTATION_UINT_B_THRESHOLD", old_b, p.B);
         lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = p.K;

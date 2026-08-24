@@ -39,5 +39,14 @@ extern uint64_t lmmp_tune_POW_1_EXP_THRESHOLD;
 extern uint64_t lmmp_tune_POW_WIN2_EXP_THRESHOLD;
 extern uint64_t lmmp_tune_POW_WIN2_N_THRESHOLD;
 extern uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
+extern uint64_t lmmp_tune_BNINV_NEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 
 #endif /* LMMP_TUNE_H */

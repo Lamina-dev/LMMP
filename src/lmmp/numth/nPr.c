@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -29,6 +29,10 @@
             dst[rn - 1] = _c_;                        \
         }                                             \
     } while (0)
+
+#ifdef LMMP_TUNE
+mp_size_t lmmp_tune_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r);
+#endif
 
 static const ulong odd_factorial[25] = {1, 1, 3, 3, 15, 45, 315, 315,
                                         2835, 14175, 155925,
@@ -114,6 +118,13 @@ static mp_size_t lmmp_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n
     TEMP_FREE;
     return rn;
 }
+
+#ifdef LMMP_TUNE
+/* 调优专用：把静态 product 路径暴露给调优驱动，正常构建不会编译此符号。 */
+mp_size_t lmmp_tune_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) {
+    return lmmp_odd_nPr_product_(dst, rn, n, r);
+}
+#endif
 
 mp_size_t lmmp_odd_nPr_ushort_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong r) {
     lmmp_param_assert(n >= r);
