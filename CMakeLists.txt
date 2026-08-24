@@ -1,4 +1,4 @@
-﻿#
+#
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
 #  This file is part of LMMP.
@@ -156,6 +156,12 @@ function(lmmp_target_setup target)
     target_compile_options(${target} PRIVATE
         $<$<COMPILE_LANGUAGE:C>:
             -Wall -Wextra -Wpedantic
+            -Wshadow
+            -Wformat-security
+            -Wnull-dereference
+            -Wundef
+            -Wmissing-prototypes
+            -Wimplicit-fallthrough
             -fvisibility=hidden
             $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
             $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
@@ -180,12 +186,20 @@ function(lmmp_target_setup target)
         target_compile_definitions(${target} PRIVATE LMMP_ASM=1)
         if(LMMP_ASM_ARCH STREQUAL "x64")
             target_compile_definitions(${target} PRIVATE LMMP_ASM_X64=1)
+            # x86-64-v3 基线
             target_compile_options(${target} PRIVATE
-                $<$<COMPILE_LANGUAGE:C>: -mbmi2>
-                $<$<COMPILE_LANGUAGE:CXX>: -mbmi2>
+                $<$<COMPILE_LANGUAGE:C>: -march=x86-64-v3>
+                $<$<COMPILE_LANGUAGE:CXX>: -march=x86-64-v3>
+                $<$<COMPILE_LANGUAGE:ASM>: -march=x86-64-v3>
             )
         elseif(LMMP_ASM_ARCH STREQUAL "arm64")
             target_compile_definitions(${target} PRIVATE LMMP_ASM_ARM64=1)
+            # armv8.2-a 基线
+            target_compile_options(${target} PRIVATE
+                $<$<COMPILE_LANGUAGE:C>: -march=armv8.2-a>
+                $<$<COMPILE_LANGUAGE:CXX>: -march=armv8.2-a>
+                $<$<COMPILE_LANGUAGE:ASM>: -march=armv8.2-a>
+            )
         endif()
     endif()
 

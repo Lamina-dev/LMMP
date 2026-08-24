@@ -5,23 +5,19 @@
 #
 #  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
-#   by the Free Software Foundation; either version 3 of the License, or
+#  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  This program is distributed WITHOUT ANY WARRANTY. 
+#  This program is distributed WITHOUT ANY WARRANTY.
 #
 #  See <https://www.gnu.org/licenses/>.
 
 #
-# ==========================================================
 # mp_limb_t lmmp_sub_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 #
 # mp_limb_t lmmp_sub_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
-# ==========================================================
 
 #include "lmmp_asm.h"
-
-.text
 
 #define ADCSBB sbb
 
@@ -38,7 +34,7 @@ ASM_GSYM(lmmp_sub_nc_):
 #else
     mov     r10, r8
 #endif
-    jmp     lab_ent
+    jmp     .Lentry
 
 # ======================================
 # lmmp_sub_n_
@@ -47,7 +43,7 @@ ASM_GSYM(lmmp_sub_nc_):
 ASM_GSYM(lmmp_sub_n_):
     xor     r10, r10
 
-ASM_GSYM(lab_ent):
+.Lentry:
 #ifdef LMMP_WINDOWS
     push    rsi
     push    rdi
@@ -60,44 +56,44 @@ ASM_GSYM(lab_ent):
     mov     rax, rcx
     shr     rcx, 2
     test    al, 1
-    jnz     .lab_bx1
+    jnz     .Lodd
 
-.lab_bx0:
+.Leven:
     test    al, 2
-    jnz     .lab_b10
+    jnz     .Leven2
 
-.lab_b00:
+.Leven0:
     neg     r10
-    mov     r8,      [rsi]
-    mov     r9,      [rsi+8]
-    ADCSBB  r8,      [rdx]
-    ADCSBB  r9,      [rdx+8]
-    mov     r10,     [rsi+16]
-    mov     r11,     [rsi+24]
-    lea     rsi,     [rsi+32]
-    ADCSBB  r10,     [rdx+16]
-    ADCSBB  r11,     [rdx+24]
-    lea     rdx,     [rdx+32]
-    lea     rdi,     [rdi-16]
-    jmp     .lab_lo0
+    mov     r8, [rsi]
+    mov     r9, [rsi+8]
+    ADCSBB  r8, [rdx]
+    ADCSBB  r9, [rdx+8]
+    mov     r10, [rsi+16]
+    mov     r11, [rsi+24]
+    lea     rsi, [rsi+32]
+    ADCSBB  r10, [rdx+16]
+    ADCSBB  r11, [rdx+24]
+    lea     rdx, [rdx+32]
+    lea     rdi, [rdi-16]
+    jmp     .Lent0
 
-.lab_b10:
+.Leven2:
     neg     r10
-    mov     r10,     [rsi]
-    mov     r11,     [rsi+8]
-    ADCSBB  r10,     [rdx]
-    ADCSBB  r11,     [rdx+8]
-    jrcxz   .lab_e2
-    mov     r8,      [rsi+16]
-    mov     r9,      [rsi+24]
-    lea     rsi,     [rsi+16]
-    ADCSBB  r8,      [rdx+16]
-    ADCSBB  r9,      [rdx+24]
-    lea     rdx,     [rdx+16]
-    jmp     .lab_lo2
+    mov     r10, [rsi]
+    mov     r11, [rsi+8]
+    ADCSBB  r10, [rdx]
+    ADCSBB  r11, [rdx+8]
+    jrcxz   .Ltail2
+    mov     r8, [rsi+16]
+    mov     r9, [rsi+24]
+    lea     rsi, [rsi+16]
+    ADCSBB  r8, [rdx+16]
+    ADCSBB  r9, [rdx+24]
+    lea     rdx, [rdx+16]
+    jmp     .Lent2
 
-.lab_e2:
-    mov     [rdi],   r10
+.Ltail2:
+    mov     [rdi], r10
     mov     [rdi+8], r11
     setc    al
 #ifdef LMMP_WINDOWS
@@ -106,26 +102,26 @@ ASM_GSYM(lab_ent):
 #endif
     ret
 
-.lab_bx1:
-    test    al,      2
-    jnz     .lab_b11
+.Lodd:
+    test    al, 2
+    jnz     .Lodd3
 
-.lab_b01:
+.Lodd1:
     neg     r10
-    mov     r11,     [rsi]
-    ADCSBB  r11,     [rdx]
-    jrcxz   .lab_e1
-    mov     r8,      [rsi+8]
-    mov     r9,      [rsi+16]
-    lea     rsi,     [rsi+8]
-    lea     rdi,     [rdi-8]
-    ADCSBB  r8,      [rdx+8]
-    ADCSBB  r9,      [rdx+16]
-    lea     rdx,     [rdx+8]
-    jmp     .lab_lo1
+    mov     r11, [rsi]
+    ADCSBB  r11, [rdx]
+    jrcxz   .Ltail1
+    mov     r8, [rsi+8]
+    mov     r9, [rsi+16]
+    lea     rsi, [rsi+8]
+    lea     rdi, [rdi-8]
+    ADCSBB  r8, [rdx+8]
+    ADCSBB  r9, [rdx+16]
+    lea     rdx, [rdx+8]
+    jmp     .Lent1
 
-.lab_e1:
-    mov     [rdi],   r11
+.Ltail1:
+    mov     [rdi], r11
     setc    al
 #ifdef LMMP_WINDOWS
     pop     rdi
@@ -133,51 +129,51 @@ ASM_GSYM(lab_ent):
 #endif
     ret
 
-.lab_b11:
+.Lodd3:
     neg     r10
-    mov     r9,      [rsi]
-    ADCSBB  r9,      [rdx]
-    mov     r10,     [rsi+8]
-    mov     r11,     [rsi+16]
-    lea     rsi,     [rsi+24]
-    ADCSBB  r10,     [rdx+8]
-    ADCSBB  r11,     [rdx+16]
-    lea     rdx,     [rdx+24]
-    mov     [rdi],   r9
-    lea     rdi,     [rdi+8]
-    jrcxz   .lab_end
+    mov     r9, [rsi]
+    ADCSBB  r9, [rdx]
+    mov     r10, [rsi+8]
+    mov     r11, [rsi+16]
+    lea     rsi, [rsi+24]
+    ADCSBB  r10, [rdx+8]
+    ADCSBB  r11, [rdx+16]
+    lea     rdx, [rdx+24]
+    mov     [rdi], r9
+    lea     rdi, [rdi+8]
+    jrcxz   .Lend
 
 .p2align 4
-.lab_top:
-    mov     r8,      [rsi]
-    mov     r9,      [rsi+8]
-    ADCSBB  r8,      [rdx]
-    ADCSBB  r9,      [rdx+8]
+.Lloop:
+    mov     r8, [rsi]
+    mov     r9, [rsi+8]
+    ADCSBB  r8, [rdx]
+    ADCSBB  r9, [rdx+8]
 
-.lab_lo2:
-    mov     [rdi],   r10
+.Lent2:
+    mov     [rdi], r10
 
-.lab_lo1:
+.Lent1:
     mov     [rdi+8], r11
-    mov     r10,     [rsi+16]
-    mov     r11,     [rsi+24]
-    lea     rsi,     [rsi+32]
-    ADCSBB  r10,     [rdx+16]
-    ADCSBB  r11,     [rdx+24]
-    lea     rdx,     [rdx+32]
+    mov     r10, [rsi+16]
+    mov     r11, [rsi+24]
+    lea     rsi, [rsi+32]
+    ADCSBB  r10, [rdx+16]
+    ADCSBB  r11, [rdx+24]
+    lea     rdx, [rdx+32]
 
-.lab_lo0:
+.Lent0:
     mov     [rdi+16], r8
 
-.lab_lo3:
+.Lent3:
     mov     [rdi+24], r9
-    lea     rdi,     [rdi+32]
+    lea     rdi, [rdi+32]
     dec     rcx
-    jnz     .lab_top
+    jnz     .Lloop
 
-.lab_end:
-    mov     rax,     rcx
-    mov     [rdi],   r10
+.Lend:
+    mov     rax, rcx
+    mov     [rdi], r10
     mov     [rdi+8], r11
     setc    al
 

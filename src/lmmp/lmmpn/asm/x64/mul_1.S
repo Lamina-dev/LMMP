@@ -47,13 +47,13 @@ ASM_GSYM(lmmp_mul_1_):
     # Determine remainder (na % 4)
     mov     eax, r8d
     and     eax, 3
-    jz      .check_post
+    jz      .Lcheck_post
     cmp     eax, 2
-    je      .do_rem2
-    jb      .do_rem1                # eax == 1
+    je      .Ldo_rem2
+    jb      .Ldo_rem1                # eax == 1
     # eax == 3
 
-.do_rem3:
+.Ldo_rem3:
     mulx    r11, rax, [rsi + r9*8]
     mulx    r8,  rbx, [rsi + r9*8 + 8]
     add     rax, r10
@@ -69,9 +69,9 @@ ASM_GSYM(lmmp_mul_1_):
     adc     r11, 0
     mov     r10, r11
     add     r9, 3
-    jmp     .check_post
+    jmp     .Lcheck_post
 
-.do_rem2:
+.Ldo_rem2:
     mulx    r11, rax, [rsi + r9*8]
     mulx    r8,  rbx, [rsi + r9*8 + 8]
     add     rax, r10
@@ -81,9 +81,9 @@ ASM_GSYM(lmmp_mul_1_):
     adc     r8, 0
     mov     r10, r8
     add     r9, 2
-    jmp     .check_post
+    jmp     .Lcheck_post
 
-.do_rem1:
+.Ldo_rem1:
     mulx    r11, rax, [rsi + r9*8]
     add     rax, r10
     mov     [rdi + r9*8], rax
@@ -92,12 +92,12 @@ ASM_GSYM(lmmp_mul_1_):
     add     r9, 1
     # fall through
 
-.check_post:
+.Lcheck_post:
     test    r9, r9
-    jz      .done
+    jz      .Ldone
 
 .p2align 4
-.loop4:
+.Lloop4:
     mulx    r11, rax, [rsi + r9*8]          # p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]      # p1 = a1*x
     add     rax, r10                        # sum0 = lo0 + carry, sets CF
@@ -113,9 +113,9 @@ ASM_GSYM(lmmp_mul_1_):
     adc     r8, 0                           # hi3 + CF
     mov     r10, r8                         # new carry
     add     r9, 4
-    jnz     .loop4
+    jnz     .Lloop4
 
-.done:
+.Ldone:
     mov     rax, r10                        # return carry
     pop     rbx
 #ifdef LMMP_WINDOWS

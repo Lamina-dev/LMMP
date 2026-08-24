@@ -5,15 +5,14 @@
 #
 #  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
-#   by the Free Software Foundation; either version 3 of the License, or
+#  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  This program is distributed WITHOUT ANY WARRANTY. 
+#  This program is distributed WITHOUT ANY WARRANTY.
 #
 #  See <https://www.gnu.org/licenses/>.
 
 #
-# [dst, 2*na] = [numa, na]^2
 # void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 #include "lmmp_asm.h"
@@ -24,8 +23,8 @@
     # Windows x64 : RCX=dst, RDX=numa, R8=na
     #define PUSH_RSI push rsi
     #define PUSH_RDI push rdi
-    #define POP_RSI pop rsi
-    #define POP_RDI pop rdi
+    #define POP_RSI  pop rsi
+    #define POP_RDI  pop rdi
 #else
     # Linux x64 : RDI=dst, RSI=numa, RDX=na
     #define PUSH_RSI
@@ -43,7 +42,7 @@
 ASM_GSYM(lmmp_sqr_basecase_):
     # 分支1：na == 1
     cmp     rx2, 2
-    jae     .lab_gt1
+    jae     .Lgt1
 
     # 单 limb 平方
     mov     rax, [rx1]
@@ -52,9 +51,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rx0+8], rdx
     ret
 
-.lab_gt1:
+.Lgt1:
     # 分支2：na == 2
-    jne     .lab_gt2
+    jne     .Lgt2
     mov     rax, [rx1]
     mov     r11, [rx1+8]
     mov     r8, rax
@@ -83,8 +82,8 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rx0+24], r11
     ret
 
-.lab_gt2:
-    # 保存非volatile寄存器
+.Lgt2:
+    # 保存非 volatile 寄存器
     PUSH_RSI
     PUSH_RDI
 
@@ -94,7 +93,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     rdi, rx0
     mov     rdx, rx2
 
-    jae     .lab_gt3
+    jae     .Lgt3
 
     # 分支3：na == 3
     mov     rax, [rsi]
@@ -147,8 +146,8 @@ ASM_GSYM(lmmp_sqr_basecase_):
     POP_RSI
     ret
 
-.lab_gt3:
-.lab_do_mul_2:
+.Lgt3:
+.Ldo_mul_2:
     mov     r8, [rsi]
     push    rbx
     lea     rdi, [rdi+rdx*8]
@@ -167,25 +166,25 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rdi+r12*8], rax
     mov     rax, [rsi+r12*8+8]
     test    r12b, 1
-    jnz     .lab_m2b1
+    jnz     .Lm2b1
 
-.lab_m2b0:
+.Lm2b0:
     lea     rcx, [r12+2]
     xor     r11, r11
     xor     rbx, rbx
     mov     r10, rdx
-    jmp     .lab_m2l0
+    jmp     .Lm2l0
 
-.lab_m2b1:
+.Lm2b1:
     lea     rcx, [r12+1]
     xor     rbp, rbp
     xor     r10, r10
     mov     rbx, rdx
-    jmp     .lab_m2l1
+    jmp     .Lm2l1
 
 .p2align 4
-.lab_m2tp:
-.lab_m2l0:
+.Lm2tp:
+.Lm2l0:
     mul     r8
     add     r10, rax
     mov     rbp, rdx
@@ -200,7 +199,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     r10, 0
     mov     rax, [rsi+rcx*8]
 
-.lab_m2l1:
+.Lm2l1:
     mul     r8
     add     rbx, rax
     mov     r11, rdx
@@ -215,9 +214,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     rax, [rsi+rcx*8+8]
     adc     rbx, 0
     add     rcx, 2
-    jnc     .lab_m2tp
+    jnc     .Lm2tp
 
-.lab_m2ed:
+.Lm2ed:
     mul     r8
     add     r10, rax
     mov     rbp, rdx
@@ -236,19 +235,19 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     r12, 2
     lea     rdi, [rdi+16]
 
-.lab_do_addmul_2:
+.Ldo_addmul_2:
     cmp     r12, -1
-    jge     .lab_corner
+    jge     .Lcorner
 
-.lab_outer:
+.Louter:
     mov     r8, [rsi+r12*8-8]
     mov     rax, [rsi+r12*8]
     mov     r9, rax
     mul     r8
     test    r12b, 1
-    jnz     .lab_a1x1
+    jnz     .La1x1
 
-.lab_a1x0:
+.La1x0:
     xor     r10, r10
     mov     r14, [rdi+r12*8+8]
     add     [rdi+r12*8], rax
@@ -257,17 +256,17 @@ ASM_GSYM(lmmp_sqr_basecase_):
     xor     rbx, rbx
     mov     rax, [rsi+r12*8+8]
     test    r12b, 2
-    jnz     .lab_a110
+    jnz     .La110
 
-.lab_a100:
+.La100:
     lea     rcx, [r12+2]
-    jmp     .lab_lo0
+    jmp     .Llo0
 
-.lab_a110:
+.La110:
     lea     rcx, [r12]
-    jmp     .lab_lo2
+    jmp     .Llo2
 
-.lab_a1x1:
+.La1x1:
     mov     r14, [rdi+r12*8]
     xor     rbx, rbx
     mov     r13, [rdi+r12*8+8]
@@ -277,18 +276,18 @@ ASM_GSYM(lmmp_sqr_basecase_):
     xor     r10, r10
     mov     rax, [rsi+r12*8+8]
     test    r12b, 2
-    jz      .lab_a111
+    jz      .La111
 
-.lab_a101:
+.La101:
     lea     rcx, [r12+3]
-    jmp     .lab_lo1
+    jmp     .Llo1
 
-.lab_a111:
+.La111:
     lea     rcx, [r12+1]
-    jmp     .lab_lo3
+    jmp     .Llo3
 
 .p2align 4
-.lab_top:
+.Ltop:
     mov     r13, [rdi+rcx*8-16]
     mul     r9
     mov     r10, rdx
@@ -300,7 +299,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     r10, 0
     mov     rax, [rsi+rcx*8-16]
 
-.lab_lo1:
+.Llo1:
     mul     r8
     add     r13, rax
     mov     r11, rdx
@@ -319,7 +318,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     r14, r10
     adc     rbx, 0
 
-.lab_lo0:
+.Llo0:
     mul     r8
     add     r14, rax
     mov     rbp, rdx
@@ -334,7 +333,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     r10, 0
     mov     rax, [rsi+rcx*8]
 
-.lab_lo3:
+.Llo3:
     mul     r8
     add     r13, rbx
     mov     [rdi+rcx*8-8], r14
@@ -353,7 +352,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     rax, [rsi+rcx*8+8]
     mov     [rdi+rcx*8], r13
 
-.lab_lo2:
+.Llo2:
     mul     r8
     add     r14, r10
     mov     rbp, rdx
@@ -362,9 +361,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     rax, [rsi+rcx*8+8]
     adc     rbp, 0
     add     rcx, 4
-    jnc     .lab_top
+    jnc     .Ltop
 
-.lab_end:
+.Lend:
     mul     r9
     add     r14, r11
     adc     rbp, 0
@@ -378,12 +377,12 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     r12, 2
     lea     rdi, [rdi+16]
     cmp     r12, -1
-    jl      .lab_outer
+    jl      .Louter
 
-.lab_corner:
-    jg      .lab_sqr_diag_addlsh1
+.Lcorner:
+    jg      .Lsqr_diag
 
-.lab_small_corner:
+.Lsmall_corner:
     mov     r8, [rsi-16]
     mov     rax, [rsi-8]
     lea     rdi, [rdi+8]
@@ -392,7 +391,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     rdx, 0
     mov     [rdi-8], rdx
 
-.lab_sqr_diag_addlsh1:
+.Lsqr_diag:
     pop     rcx
     mov     rax, [rsi+rcx*8-8]
     shl     rcx, 1
@@ -400,18 +399,18 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rdi+rcx*8-8], rax
     xor     rbx, rbx
     test    cl, 2
-    jnz     .lab_dm1
+    jnz     .Ldm1
     lea     rcx, [rcx+2]
-    jmp     .lab_dm0
+    jmp     .Ldm0
 
 .p2align 4
-.lab_dtop:
+.Ldtop:
     add     r8, r10
     adc     r9, rax
     mov     [rdi+rcx*8-32], r8
     mov     [rdi+rcx*8-24], r9
 
-.lab_dm0:
+.Ldm0:
     mov     r8, [rdi+rcx*8-16]
     mov     r9, [rdi+rcx*8-8]
     adc     r8, r8
@@ -425,7 +424,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rdi+rcx*8-16], r8
     mov     [rdi+rcx*8-8], r9
 
-.lab_dm1:
+.Ldm1:
     mov     r8, [rdi+rcx*8]
     mov     r9, [rdi+rcx*8+8]
     adc     r8, r8
@@ -435,9 +434,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
     setc    bl
     mul     rax
     add     rcx, 4
-    jnc     .lab_dtop
+    jnc     .Ldtop
 
-.lab_dend:
+.Ldend:
     add     r8, r10
     adc     r9, rax
     mov     [rdi-16], r8
