@@ -25,7 +25,6 @@ cmake --build build -j
 + arm64 macOS / Linux：使用 `src/lmmp/lmmpn/asm/arm64/*.S`
 + 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/generic/` 的 C 实现
 
-汇编基线：
 在开启汇编时，所能够支持运行的架构及芯片如下：
 + X86-64：x86-64-v3 指令集；支持芯片：Intel Haswell（第4代酷睿）及以上，AMD Zen 架构（Ryzen/EPYC）及以上。
 
