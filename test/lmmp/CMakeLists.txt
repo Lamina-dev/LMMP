@@ -50,7 +50,7 @@ set_target_properties(LmmpTest PROPERTIES
 )
 
 if(WIN32)
-    # Windows 下测试进程需要找到同一目录中的 liblmmp.dll。
+    # Windows 下测试进程需要找到同一目录中的 lmmp.dll。
     add_test(NAME LmmpTest
         COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:liblmmp>;$ENV{PATH}" $<TARGET_FILE:LmmpTest>)
 else()
