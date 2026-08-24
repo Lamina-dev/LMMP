@@ -10,6 +10,7 @@ const EXCLUDE_DIRS = [
   '.vscode',
   '__pycache__',
   '.history',
+  'node_modules',
 ];
 
 function shouldExclude(item) {

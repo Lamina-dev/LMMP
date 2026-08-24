@@ -26,7 +26,7 @@ cmake --build build -j
 + 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/generic/` 的 C 实现
 
 在开启汇编时，所能够支持运行的架构及芯片如下：
-+ X86-64：x86-64-v3指令集；支持芯片：Intel Haswell及之后（酷睿4~14代，至强E3/E5 v3+），AMD Excavator及之后（锐龙、霄龙）  
++ X86-64：x86-64-v3指令集+adx指令集；支持芯片：Intel Broadwell及之后（酷睿4~14代，至强E3/E5 v3+），AMD Excavator及之后（锐龙、霄龙）  
 + ARM64：ARM64-v8.2-a指令集；支持芯片：Cortex-A55/A75/A77/A78, Neoverse-N1/E1, AWS Graviton2, Ampere Altra, 华为鲲鹏920, 富士通A64FX等。
 
 

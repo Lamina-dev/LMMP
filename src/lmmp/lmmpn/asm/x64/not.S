@@ -55,4 +55,5 @@ ASM_GSYM(lmmp_not_):
     jnz     .Ltail_loop
 
 .Lret:
+    vzeroupper
     ret
