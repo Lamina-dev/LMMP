@@ -91,6 +91,13 @@ else()
         PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
     )
 
+    if(TARGET_SYSTEM STREQUAL "WIN")
+        # MinGW 下 CMAKE_SHARED_LIBRARY_PREFIX 默认为 "lib"，会使 DLL 文件名
+        # 变为 liblmmp.dll，但 lmmp_asm.def 中 LIBRARY 名称为 lmmp，导致导入库
+        # 记录的 DLL 名与磁盘文件名不一致，运行时出现 0xc0000135。
+        set_target_properties(liblmmp PROPERTIES PREFIX "")
+    endif()
+
     target_compile_definitions(liblmmp PRIVATE
         LMMP_VERSION_STR="${LIBLMMP_VERSION}"
         LMMP_BUILD_TYPE_STR="${CMAKE_BUILD_TYPE}"

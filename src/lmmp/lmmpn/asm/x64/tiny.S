@@ -100,10 +100,12 @@ ASM_GSYM(lmmp_mulh_):
 .p2align 4
 .globl ASM_GSYM(lmmp_mullh_)
 ASM_GSYM(lmmp_mullh_):
+    /* rdx(rx2) 会在 mul 后被高 64 位覆盖，必须先保存目标指针。 */
+    mov     r9, rx2
     mov     rax, rx0
     mul     rx1
-    mov     [rx2], rax
-    mov     [rx2+8], rdx
+    mov     [r9], rax
+    mov     [r9+8], rdx
     ret
 
 # ----------------------------------------------------------------------
