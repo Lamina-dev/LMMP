@@ -188,9 +188,9 @@ function(lmmp_target_setup target)
             target_compile_definitions(${target} PRIVATE LMMP_ASM_X64=1)
             # x86-64-v3 基线 + adx 指令集
             target_compile_options(${target} PRIVATE
-                $<$<COMPILE_LANGUAGE:C>:-march=x86-64-v3 -madx>
-                $<$<COMPILE_LANGUAGE:CXX>:-march=x86-64-v3 -madx>
-                $<$<COMPILE_LANGUAGE:ASM>:-march=x86-64-v3 -madx>
+                $<$<COMPILE_LANGUAGE:C>:-march=x86-64-v3;-madx>
+                $<$<COMPILE_LANGUAGE:CXX>:-march=x86-64-v3;-madx>
+                $<$<COMPILE_LANGUAGE:ASM>:-march=x86-64-v3;-madx>
             )
         elseif(LMMP_ASM_ARCH STREQUAL "arm64")
             target_compile_definitions(${target} PRIVATE LMMP_ASM_ARM64=1)
