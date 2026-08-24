@@ -138,7 +138,7 @@ TEST_CASE("mul/unbalanced", mul_unbalanced_vs_school) {
 
 TEST_CASE("mul/mullo", mullo_vs_school) {
     u64 seed = 0xa5a5a5a5b5b5b5b5ull;
-    for (mp_size_t n : {1, 2, 5, 10, 19, 20, 30, 50, 64, 65, 80, 120, 200, 400}) {
+    for (mp_size_t n : {1, 2, 3, 4, 5, 10, 19, 20, 30, 50, 64, 65, 83, 122, 201, 337}) {
         mp_ptr a = alloc_limbs(n);
         mp_ptr b = alloc_limbs(n);
         mp_ptr dst = alloc_limbs(n);
