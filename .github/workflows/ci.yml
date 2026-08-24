@@ -101,6 +101,7 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-libs
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
 
@@ -119,6 +120,13 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel 2
+
+      - name: Diagnose DLL dependencies
+        run: |
+          echo "PATH=$PATH"
+          ls -la dist/lmmp/bin/release
+          ldd dist/lmmp/bin/release/LmmpTest.exe || true
+          objdump -p dist/lmmp/bin/release/LmmpTest.exe | grep "DLL Name" || true
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --no-tests=error
