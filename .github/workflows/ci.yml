@@ -1,0 +1,124 @@
+name: LMMP CI
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64:
+    name: Linux-x64 (GCC, x64 ASM)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report toolchain
+        run: |
+          uname -m
+          cmake --version | head -1
+          gcc --version | head -1
+
+      - name: Configure (Release, AUTO ASM)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLMMP_BUILD_BENCHMARKS=OFF \
+            -DLMMP_ASM=AUTO
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --no-tests=error
+
+  linux-arm64:
+    name: Linux-arm64 (GCC, arm64 ASM)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report toolchain
+        run: |
+          uname -m
+          cmake --version | head -1
+          gcc --version | head -1
+
+      - name: Configure (Release, AUTO ASM)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLMMP_BUILD_BENCHMARKS=OFF \
+            -DLMMP_ASM=AUTO
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --no-tests=error
+
+  macos-arm64:
+    name: macOS-arm64 (Clang, arm64 ASM)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report toolchain
+        run: |
+          uname -m
+          cmake --version | head -1
+          clang --version | head -1
+
+      - name: Configure (Release, AUTO ASM)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLMMP_BUILD_BENCHMARKS=OFF \
+            -DLMMP_ASM=AUTO
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 3
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --no-tests=error
+
+  windows-x64:
+    name: Windows-x64 (MinGW GCC, x64 ASM)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 MinGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Report toolchain
+        run: |
+          uname -m
+          cmake --version | head -1
+          gcc --version | head -1
+
+      - name: Configure (Release, AUTO ASM)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLMMP_BUILD_BENCHMARKS=OFF \
+            -DLMMP_ASM=AUTO
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --no-tests=error

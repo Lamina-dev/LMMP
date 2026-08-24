@@ -18,6 +18,7 @@ set(LMMP_TEST_SRCS
     src/test_low_limb.cpp
     src/test_asm_boundary.cpp
     src/test_asm_functions.cpp
+    src/test_deterministic_extra.cpp
     src/test_mul.cpp
     src/test_div.cpp
     src/test_str.cpp

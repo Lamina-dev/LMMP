@@ -131,7 +131,7 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
             lmmp_sub_(a, b, bn, a, an);
             an = bn;
         }
-        while (a[an - 1] == 0 && an > 0) {
+        while (an > 0 && a[an - 1] == 0) {
             --an;
         }
         // return  b = b
@@ -213,7 +213,7 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
                 an = ms->mn;
             }
         }
-        while (a[an - 1] == 0 && an > 0) {
+        while (an > 0 && a[an - 1] == 0) {
             --an;
         }
 
@@ -292,7 +292,7 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
             lmmp_div_(NULL, dst, a, an, b, bn);
             lmmp_copy(a, b, bn);
             an = bn;
-            while (dst[bn - 1] == 0 && bn > 0) {
+            while (bn > 0 && dst[bn - 1] == 0) {
                 --bn;
             }
             if (bn == 0)

@@ -1,0 +1,3 @@
+# 调优驱动可执行文件，不纳入版本控制
+lmmp_tune
+lmmp_tune.exe

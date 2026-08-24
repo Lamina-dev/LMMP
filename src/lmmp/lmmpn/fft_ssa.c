@@ -184,7 +184,7 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
     w /= LIMB_BITS;                       // 机器字级左移量
     mp_size_t l = ms->lenw;               // 系数长度（机器字）
 
-    mp_slimb_t acyo = 0, scyo = 0, ch;
+    mp_slimb_t acyo = 0, scyo = 0;
     mp_limb_t shlcyo = 0, chp = 0, chn = 0;
 
     for (mp_size_t off = 0; off < l - w; off += PART_SIZE) {
@@ -195,11 +195,15 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
             shlcyo = lmmp_shl_c_(numc + w + off, numc + w + off, cursize, shl, shlcyo);
     }
 
-    ch = shlcyo + (-scyo << shl);
-    if (ch > 0)
-        chp = ch;
-    else
-        chn = -ch;
+    {
+        /* 等价于 ch = shlcyo - (scyo << shl)，使用无符号运算避免有符号左移 UB */
+        mp_limb_t adj = (mp_limb_t)scyo << shl;
+        if (shlcyo >= adj) {
+            chp = shlcyo - adj;
+        } else {
+            chn = adj - shlcyo;
+        }
+    }
 
     scyo = 0;
     shlcyo = 0;
@@ -222,12 +226,12 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
     numc[l] = 1;
     ++chn;
     if (scyo > 0)
-        lmmp_inc_1(numc + w, scyo << shl);
+        lmmp_inc_1(numc + w, (mp_limb_t)scyo << shl);
     else if (scyo < 0) {
         if (scyo == -2 && shl == LIMB_BITS - 1)
             lmmp_dec(numc + w + 1);
         else
-            lmmp_dec_1(numc + w, -scyo << shl);
+            lmmp_dec_1(numc + w, (mp_limb_t)(-scyo) << shl);
     }
     chp += numc[l];
 

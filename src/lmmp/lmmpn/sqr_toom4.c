@@ -17,7 +17,7 @@
 #include "../../../include/lmmp/impl/toom_interp.h"
 
 
-#if MUL_TOOM44_THRESHOLD < MUL_FFT_THRESHOLD
+#if LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD < LMMP_MPARAM_STATIC_MUL_FFT_THRESHOLD
 #define lmmp_sqr_(dst, numa, n)                 \
     if ((n) < MUL_TOOM22_THRESHOLD)             \
         lmmp_sqr_basecase_((dst), (numa), (n)); \
