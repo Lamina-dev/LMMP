@@ -102,7 +102,8 @@ TEST_CASE("low/shift", shlnot_not_inplace_deterministic) {
     lmmp_not_(a, a, n);
     for (mp_size_t i = 0; i < n; ++i) TEST_CHECK_EQ(a[i], orig[i]);
 
-    for (mp_size_t shl : {1, 7, 31, 63}) {
+    const mp_size_t shls[] = {1, 7, 31, 63};
+    for (mp_size_t shl : shls) {
         std::memcpy(a, orig, n * 8);
         (void)lmmp_shlnot_(a, a, n, shl);
         BigInt shifted = BigInt::shl_bits(ba, shl);
@@ -116,14 +117,17 @@ TEST_CASE("low/shift", shlnot_not_inplace_deterministic) {
 }
 
 TEST_CASE("low/div", div_1_mod_1_boundary_deterministic) {
-    for (mp_size_t n : {1, 2, 3}) {
-        for (u64 fill : {0ull, 1ull, UINT64_MAX}) {
+    const mp_size_t ns[] = {1, 2, 3};
+    const u64 fills[] = {0ull, 1ull, ~0ull};
+    const u64 divisors[] = {1ull, 2ull, 0x8000000000000000ull, ~0ull};
+    for (mp_size_t n : ns) {
+        for (u64 fill : fills) {
             mp_ptr a = alloc_limbs(n);
             mp_ptr q = alloc_limbs(n + 1);
             for (mp_size_t i = 0; i < n; ++i) a[i] = (i == n - 1) ? fill : (fill >> 1);
             BigInt ba(a, n);
 
-            for (u64 x : {1ull, 2ull, 0x8000000000000000ull, UINT64_MAX}) {
+            for (u64 x : divisors) {
                 u64 ref_r = BigInt::mod_small(ba, x);
                 BigInt ref_q = BigInt::div_small(ba, x, ref_r);
 
@@ -171,8 +175,10 @@ TEST_CASE("low/addsub", addshl1_subshl1_boundary_deterministic) {
 }
 
 TEST_CASE("numth/combin", nPr_nCr_degenerate_boundaries) {
-    for (ulong n : {0, 1, 2, 3, 5, 10, 12}) {
-        for (ulong r : {0ull, 1ull, n}) {
+    const ulong npr_ns[] = {0ull, 1ull, 2ull, 3ull, 5ull, 10ull, 12ull};
+    for (ulong n : npr_ns) {
+        const ulong npr_rs[] = {0ull, 1ull, n};
+        for (ulong r : npr_rs) {
             if (r > n) continue;
             BigInt expect(1);
             if (r == 0) {
@@ -191,9 +197,11 @@ TEST_CASE("numth/combin", nPr_nCr_degenerate_boundaries) {
         }
     }
 
-    for (uint n : {0, 1, 2, 5, 10, 20}) {
+    const uint ncr_ns[] = {0u, 1u, 2u, 5u, 10u, 20u};
+    for (uint n : ncr_ns) {
         uint half = n / 2;
-        for (uint r : {0u, 1u, half}) {
+        const uint ncr_rs[] = {0u, 1u, half};
+        for (uint r : ncr_rs) {
             if (r > half) continue; /* nCr 要求 r <= n/2 */
             BigInt fn(1), fr(1), fnr(1);
             for (uint i = 2; i <= n; ++i) fn = BigInt::mul_school(fn, BigInt(i));

@@ -49,4 +49,10 @@ set_target_properties(LmmpTest PROPERTIES
     PDB_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 
-add_test(NAME LmmpTest COMMAND LmmpTest)
+if(WIN32)
+    # Windows 下测试进程需要找到同一目录中的 liblmmp.dll。
+    add_test(NAME LmmpTest
+        COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:liblmmp>;$ENV{PATH}" $<TARGET_FILE:LmmpTest>)
+else()
+    add_test(NAME LmmpTest COMMAND LmmpTest)
+endif()
