@@ -1111,24 +1111,24 @@ INLINE_ mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_
 INLINE_ mp_limb_t lmmp_sub_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) { LMMP_AORS_1_(-, LMMP_SUBCB_); }
 
 /**
- * @brief 计算转换为字符串，字符串需要的缓冲区长度
+ * @brief 计算转换为字节数组，字节数组需要的缓冲区长度
  * @param numa 输入指针，长度为na
  * @param na 输入的 limb 长度
  * @param base 目标基数（2~256）
  * @warning na>=0, 2<=base<=256
  * @note 将会忽略numa的前导零，
- *       1. if (numa!=NULL) 返回的长度可能会多分配一个字符空间
- *       2. if (numa==NULL) 返回na个limb长度的数的最大可能字符长度（最坏情况）
+ *       1. if (numa!=NULL) 返回的长度可能会多分配一个字节
+ *       2. if (numa==NULL) 返回na个limb长度的数的最大可能字节长度（最坏情况）
  * @return 在指定基数下的位数
  */
 LMMP_API mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base);
 
 /**
- * @brief 计算字符串转limb数组所需的 limb 缓冲区长度
- * @param src 输入字符串指针
- * @param len 字符串长度
- * @param base 字符串的基数（2~256）
- * @return 存储该字符串数值所需的 limb 缓冲区长度
+ * @brief 计算字节数组转limb数组所需的 limb 缓冲区长度
+ * @param src 输入字节数组指针
+ * @param len 字节数组长度
+ * @param base 字节数组的基数（2~256）
+ * @return 存储该字节数组数值所需的 limb 缓冲区长度
  * @warning len>=0, 2<=base<=256
  * @note 将会忽略前导零，
  *       1. if (src!=NULL) 返回的长度可能会多分配一个 limb 空间
@@ -1137,24 +1137,24 @@ LMMP_API mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base);
 LMMP_API mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base);
 
 /**
- * @brief 字符串转limb数组操作 [src,len,base] to [dst,return value,B]
- * @warning len>=0, 2<=base<=256
+ * @brief 字节数组转limb数组操作 [src,len,base] to [dst,return value,B]
  * @param dst 结果输出指针
- * @param src 字符串源指针
- * @param len 字符串长度
- * @param base 字符串的进制基数
+ * @param src 字节数组源指针
+ * @param len 字节数组长度
+ * @param base 字节数组的进制基数
+ * @warning len>=0, 2<=base<=256
  * @return 转换后的结果的 limb 长度
  */
 LMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base);
 
 /**
- * @brief limb数组转字符串操作 [numa,na,B] to [dst,return value,base]
- * @warning na>=0, 2<=base<=256
- * @param dst 字符串结果输出指针
+ * @brief limb数组转字节数组操作 [numa,na,B] to [dst,return value,base]
+ * @param dst 字节数组结果输出指针
  * @param numa 输入指针
  * @param na 输入的 limb 长度
- * @param base 目标字符串的进制基数
- * @return 转换后的字符串长度
+ * @param base 目标字节数组的进制基数
+ * @warning na>=0, 2<=base<=256
+ * @return 转换后的字节数组长度
  */
 LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base);
 
