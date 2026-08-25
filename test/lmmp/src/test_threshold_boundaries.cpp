@@ -123,7 +123,7 @@ TEST_CASE("threshold/div", divide_threshold_boundary) {
         const BigInt q_ref = BigInt::divmod_school(bn, bd, rem_ref);
 
         lmmp_div_(q, r, num, na, den, n);
-        TEST_CHECK_MSG(from_limbs(q, n + 2) == q_ref, "div quotient at boundary");
+        TEST_CHECK_MSG(from_limbs(q, na - n + 1) == q_ref, "div quotient at boundary");
         TEST_CHECK_MSG(from_limbs(r, n) == rem_ref, "div remainder at boundary");
 
         lmmp_free(num);
