@@ -87,7 +87,7 @@ static unsigned calibrate_loops(tune_bench_fn fn, void* ctx, double target_ms) {
         t = now_ns() - t0;
         if (t >= target_ms * 1e6) break;
         loops <<= 1;
-    } while (loops < 65536);
+    } while (loops < (1u << 20));
     (void)t;
     return loops;
 }
@@ -217,6 +217,230 @@ static double obj_mullo(void) {
     return sum;
 }
 
+/* ---- mul_toom44 vs mul_fft (MUL_FFT_THRESHOLD) ---- */
+static void bench_mul_toom44_call(void* v) {
+    mul_ctx* c = (mul_ctx*)v;
+    lmmp_mul_toom44_(c->d, c->a, c->n, c->b, c->n);
+}
+
+static void bench_mul_fft_call(void* v) {
+    mul_ctx* c = (mul_ctx*)v;
+    lmmp_mul_fft_(c->d, c->a, c->n, c->b, c->n);
+}
+
+static double bench_mul_toom44_size(mp_size_t n) {
+    mul_ctx c;
+    mul_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mul_toom44_call, &c, 3, 6.0);
+    mul_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+static double bench_mul_fft_size(mp_size_t n) {
+    mul_ctx c;
+    mul_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mul_fft_call, &c, 3, 6.0);
+    mul_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+/* ---- mullo_dc vs mullo_fft (MULLO_DC_THRESHOLD) ---- */
+typedef struct {
+    mp_ptr a;
+    mp_ptr b;
+    mp_ptr d;
+    mp_ptr tp;
+    mp_size_t n;
+} mullo_dc_ctx;
+
+static void mullo_dc_ctx_init(mullo_dc_ctx* c, mp_size_t n) {
+    c->n = n;
+    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->d = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(2 * n + 2) * sizeof(mp_limb_t));
+    for (mp_size_t i = 0; i < n; ++i) {
+        c->a[i] = UINT64_C(0xa5a5a5a5a5a5a5a5) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
+        c->b[i] = UINT64_C(0x5a5a5a5a5a5a5a5a) ^ (uint64_t)i * UINT64_C(0xbf58476d1ce4e5b9);
+    }
+    c->a[n - 1] |= (uint64_t)1 << 63;
+    c->b[n - 1] |= (uint64_t)1 << 63;
+}
+
+static void mullo_dc_ctx_free(mullo_dc_ctx* c) {
+    lmmp_free(c->a); lmmp_free(c->b); lmmp_free(c->d); lmmp_free(c->tp);
+}
+
+static void bench_mullo_dc_call(void* v) {
+    mullo_dc_ctx* c = (mullo_dc_ctx*)v;
+    lmmp_mullo_dc_(c->d, c->a, c->b, c->tp, c->n);
+}
+
+static void bench_mullo_fft_call(void* v) {
+    mullo_dc_ctx* c = (mullo_dc_ctx*)v;
+    lmmp_mullo_fft_(c->d, c->a, c->b, c->n, c->tp);
+}
+
+static double bench_mullo_dc_size(mp_size_t n) {
+    mullo_dc_ctx c;
+    mullo_dc_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mullo_dc_call, &c, 3, 6.0);
+    mullo_dc_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+static double bench_mullo_fft_size(mp_size_t n) {
+    mullo_dc_ctx c;
+    mullo_dc_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mullo_fft_call, &c, 3, 6.0);
+    mullo_dc_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+/* ---- mul_toom44 vs mul_mersenne (MULHI_MERSENNE_THRESHOLD 近似) ---- */
+typedef struct {
+    mp_ptr a;
+    mp_ptr b;
+    mp_ptr p;
+    mp_size_t n;
+} mulhi_ctx;
+
+static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
+    c->n = n;
+    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->p = (mp_ptr)lmmp_alloc((size_t)(2 * n + 8) * sizeof(mp_limb_t));
+    for (mp_size_t i = 0; i < n; ++i) {
+        c->a[i] = UINT64_C(0x13579bdf02468ace) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
+        c->b[i] = UINT64_C(0xfedcba9876543210) ^ (uint64_t)i * UINT64_C(0xc2b2ae3d27d4eb4f);
+    }
+    c->a[n - 1] |= (uint64_t)1 << 63;
+    c->b[n - 1] |= (uint64_t)1 << 63;
+}
+
+static void mulhi_ctx_free(mulhi_ctx* c) {
+    lmmp_free(c->a); lmmp_free(c->b); lmmp_free(c->p);
+}
+
+static void bench_mulhi_toom44_call(void* v) {
+    mulhi_ctx* c = (mulhi_ctx*)v;
+    lmmp_mul_toom44_(c->p, c->a, c->n, c->b, c->n);
+}
+
+static void bench_mulhi_mersenne_call(void* v) {
+    mulhi_ctx* c = (mulhi_ctx*)v;
+    mp_size_t m = lmmp_fft_next_size_((2 * c->n + 1) >> 1);
+    lmmp_mul_mersenne_(c->p, m, c->a, c->n, c->b, c->n);
+}
+
+static double bench_mulhi_toom44_size(mp_size_t n) {
+    mulhi_ctx c;
+    mulhi_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mulhi_toom44_call, &c, 3, 6.0);
+    mulhi_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+static double bench_mulhi_mersenne_size(mp_size_t n) {
+    mulhi_ctx c;
+    mulhi_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_mulhi_mersenne_call, &c, 3, 6.0);
+    mulhi_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+/* ---- to_str / from_str 阈值 ---- */
+typedef struct {
+    mp_ptr num;
+    mp_byte_t* buf;
+    mp_size_t n;
+    mp_size_t buflen;
+} tostr_ctx;
+
+static void tostr_ctx_init(tostr_ctx* c, mp_size_t n) {
+    c->n = n;
+    c->num = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    for (mp_size_t i = 0; i < n; ++i)
+        c->num[i] = UINT64_C(0x123456789abcdef0) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
+    c->num[n - 1] |= (uint64_t)1 << 63;
+    c->buflen = (mp_size_t)lmmp_to_str_len_(c->num, n, 10) + 1;
+    c->buf = (mp_byte_t*)lmmp_alloc((size_t)c->buflen);
+}
+
+static void tostr_ctx_free(tostr_ctx* c) {
+    lmmp_free(c->num); lmmp_free(c->buf);
+}
+
+static void bench_tostr_call(void* v) {
+    tostr_ctx* c = (tostr_ctx*)v;
+    (void)lmmp_to_str_(c->buf, c->num, c->n, 10);
+}
+
+static double bench_tostr_size(mp_size_t n) {
+    tostr_ctx c;
+    tostr_ctx_init(&c, n);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_tostr_call, &c, 3, g_quick ? 3.0 : 6.0);
+    tostr_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+static double bench_tostr_basepow_low(mp_size_t n) {
+    /* 注意：basecase 的 tp 数组大小为 1+TO_STR_BASEPOW_THRESHOLD，
+     * 而子问题在 na < TO_STR_DIVIDE_THRESHOLD 时进入 basecase，因此
+     * 强制走 divide 路径时 BASEPOW 不能低于 DIVIDE。 */
+    lmmp_tune_TO_STR_BASEPOW_THRESHOLD = lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
+    return bench_tostr_size(n);
+}
+
+static double bench_tostr_basepow_high(mp_size_t n) {
+    lmmp_tune_TO_STR_BASEPOW_THRESHOLD = 1000000;
+    return bench_tostr_size(n);
+}
+
+
+typedef struct {
+    mp_ptr dst;
+    mp_byte_t* buf;
+    mp_size_t len;
+} fromstr_ctx;
+
+static void fromstr_ctx_init(fromstr_ctx* c, mp_size_t len) {
+    c->len = len;
+    c->buf = (mp_byte_t*)lmmp_alloc((size_t)len + 1);
+    for (mp_size_t i = 0; i < len; ++i)
+        c->buf[i] = (mp_byte_t)('1' + (i % 9));
+    c->buf[len] = 0;
+    c->dst = (mp_ptr)lmmp_alloc(((size_t)lmmp_from_str_len_(c->buf, len, 10) + 2) * sizeof(mp_limb_t));
+}
+
+static void fromstr_ctx_free(fromstr_ctx* c) {
+    lmmp_free(c->dst); lmmp_free(c->buf);
+}
+
+static void bench_fromstr_call(void* v) {
+    fromstr_ctx* c = (fromstr_ctx*)v;
+    (void)lmmp_from_str_(c->dst, c->buf, c->len, 10);
+}
+
+static double bench_fromstr_size(mp_size_t len) {
+    fromstr_ctx c;
+    fromstr_ctx_init(&c, len);
+    double ns = bench_ns_per_call((tune_bench_fn)bench_fromstr_call, &c, 3, g_quick ? 3.0 : 6.0);
+    fromstr_ctx_free(&c);
+    return ns <= 0.0 ? 1e300 : ns;
+}
+
+static double bench_fromstr_basepow_low(mp_size_t len) {
+    lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = 1;
+    return bench_fromstr_size(len);
+}
+
+static double bench_fromstr_basepow_high(mp_size_t len) {
+    lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = 1000000;
+    return bench_fromstr_size(len);
+}
+
+
 /* nPr */
 typedef struct {
     mp_ptr dst;
@@ -276,14 +500,14 @@ static void npr_cache_fill(int is_uint) {
     npr_cache_entry* cache = is_uint ? g_npr_uint_cache : g_npr_ushort_cache;
     int* pn = is_uint ? &g_npr_uint_cache_n : &g_npr_ushort_cache_n;
 
-    static const ulong ushort_ns[] = {60000, 60000, 65535, 65535, 50000, 50000};
-    static const ulong ushort_rs[] = { 4000, 30000, 10000, 32768,  5000, 25000};
-    static const ulong uint_ns[] = {200000, 200000, 200000, 100000, 100000, 300000};
-    static const ulong uint_rs[] = {  5000,  50000,  20000,  10000,  50000,   1000};
+    static const ulong ushort_ns[] = {60000, 60000, 65535, 65535, 50000, 50000, 60000, 65535, 10000};
+    static const ulong ushort_rs[] = { 4000, 30000, 10000, 32768,  5000, 25000,  1000,  1000,   500};
+    static const ulong uint_ns[]   = {200000, 200000, 200000, 200000, 200000, 100000, 100000, 50000, 300000};
+    static const ulong uint_rs[]   = {  5000,  50000,  20000,  10000,   1000,  10000,   1000,  1000,   1000};
 
     const ulong* ns = is_uint ? uint_ns : ushort_ns;
     const ulong* rs = is_uint ? uint_rs : ushort_rs;
-    int count = is_uint ? 6 : 6;
+    int count = 9;
     double target_ms = g_quick ? 2.0 : 6.0;
 
     /* 强制 product：K=0,B=0 时 n+B > r*K 恒成立（n>0）。 */
@@ -558,6 +782,47 @@ static uint64_t search_1d(const char* name, uint64_t lo, uint64_t hi, uint64_t h
     return best;
 }
 
+/* ============================== 缓存式 1D 搜索 ==============================
+ * 分别用极端阈值强制走 A / B 两条路径，每个 size 只测两次；
+ * 之后在整数阈值域上全量扫描，选择总耗时最小的分隔点，避免局部极值。 */
+
+#define MAX_TUNE_SIZES 16
+
+static uint64_t search_1d_cached(const char* name,
+                                 uint64_t lo, uint64_t hi, uint64_t hint,
+                                 const mp_size_t* sizes, int nsizes,
+                                 double (*bench_low)(mp_size_t),
+                                 double (*bench_high)(mp_size_t)) {
+    double low_ns[MAX_TUNE_SIZES];
+    double high_ns[MAX_TUNE_SIZES];
+
+    printf("  %-34s measuring %d sizes in [%llu,%llu]...\n", name, nsizes,
+           (unsigned long long)lo, (unsigned long long)hi);
+    for (int i = 0; i < nsizes; ++i) {
+        low_ns[i] = bench_low(sizes[i]);
+        high_ns[i] = bench_high(sizes[i]);
+        printf("    size=%-6llu low=%.4f ms high=%.4f ms\n",
+               (unsigned long long)sizes[i], low_ns[i] * 1e-6, high_ns[i] * 1e-6);
+    }
+
+    uint64_t best = hint;
+    double best_cost = 1e300;
+    if (lo > hi) hi = lo;
+    for (uint64_t t = lo; t <= hi; ++t) {
+        double cost = 0.0;
+        for (int i = 0; i < nsizes; ++i) {
+            cost += ((uint64_t)sizes[i] < t) ? low_ns[i] : high_ns[i];
+        }
+        if (cost < best_cost) {
+            best_cost = cost;
+            best = t;
+        }
+    }
+    printf("  %-34s -> %llu (%.4f ms)\n", name,
+           (unsigned long long)best, best_cost * 1e-6);
+    return best;
+}
+
 typedef struct {
     uint64_t K;
     uint64_t B;
@@ -572,16 +837,16 @@ static pair_t search_2d_table(const char* name, int is_uint,
     printf("  %-34s start=(K=%llu,B=%llu) %.3f ms\n", name,
            (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
 
-    int k_steps = g_quick ? 20 : 40;
-    int b_steps = g_quick ? 20 : 40;
-    int rounds = g_quick ? 2 : 3;
+    int k_steps = g_quick ? 128 : 256;
+    int b_steps = g_quick ? 128 : 256;
+    int rounds = g_quick ? 4 : 6;
 
     for (int round = 0; round < rounds; ++round) {
+        double lr = log((double)(b_lo > 0 ? b_lo : 1));
+        double hr = log((double)(b_hi > 0 ? b_hi : 1));
         for (int i = 0; i <= k_steps; ++i) {
             uint64_t k = k_lo + (k_hi - k_lo) * (uint64_t)i / (uint64_t)k_steps;
             for (int j = 0; j <= b_steps; ++j) {
-                double lr = log((double)(b_lo > 0 ? b_lo : 1));
-                double hr = log((double)(b_hi > 0 ? b_hi : 1));
                 double lv = lr + (hr - lr) * (double)j / (double)b_steps;
                 uint64_t b = (uint64_t)(exp(lv) + 0.5);
                 if (b < b_lo) b = b_lo;
@@ -596,19 +861,36 @@ static pair_t search_2d_table(const char* name, int is_uint,
         }
         printf("    %-30s round=%d best=(%llu,%llu) %.3f ms\n", "", round,
                (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
-        /* 在最优值附近细化。 */
-        uint64_t k_span = (k_hi - k_lo) / 4 + 1;
-        uint64_t k_lo_new = best.K > k_span ? best.K - k_span : k_lo;
-        uint64_t k_hi_new = best.K + k_span < k_hi ? best.K + k_span : k_hi;
-        double best_lr = log((double)(best.B > 0 ? best.B : 1));
-        double lr = log((double)(b_lo > 0 ? b_lo : 1));
-        double hr = log((double)(b_hi > 0 ? b_hi : 1));
-        double half = (hr - lr) / 8.0;
-        uint64_t b_lo_new = (uint64_t)(exp(best_lr - half) + 0.5);
-        uint64_t b_hi_new = (uint64_t)(exp(best_lr + half) + 0.5);
-        if (k_hi_new <= k_lo_new) { k_lo_new = k_lo; k_hi_new = k_hi; }
-        if (b_hi_new <= b_lo_new) { b_lo_new = b_lo; b_hi_new = b_hi; }
-        k_lo = k_lo_new; k_hi = k_hi_new; b_lo = b_lo_new; b_hi = b_hi_new;
+
+        /* 若最优值贴在边界上，说明搜索域不够，先向外扩展。 */
+        uint64_t k_span = (k_hi - k_lo) / 2 + 1;
+        uint64_t b_lo_expand = b_lo, b_hi_expand = b_hi;
+        if (best.K <= k_lo + (k_hi - k_lo) / 64) {
+            k_lo = best.K > k_span ? best.K - k_span : 1;
+            k_hi = best.K + k_span;
+        } else if (best.K >= k_hi - (k_hi - k_lo) / 64) {
+            k_lo = best.K > k_span ? best.K - k_span : 1;
+            k_hi = best.K + k_span;
+        } else {
+            k_lo = best.K > k_span ? best.K - k_span : 1;
+            k_hi = best.K + k_span;
+        }
+        if (best.B <= b_lo * 2) {
+            b_lo_expand = 1;
+            b_hi_expand = b_hi;
+        } else if (best.B >= b_hi / 2) {
+            b_lo_expand = b_lo;
+            b_hi_expand = b_hi * 4;
+        } else {
+            double best_lr = log((double)best.B);
+            double span_lr = (hr - lr);
+            b_lo_expand = (uint64_t)(exp(best_lr - span_lr * 0.25) + 0.5);
+            b_hi_expand = (uint64_t)(exp(best_lr + span_lr * 0.25) + 0.5);
+        }
+        if (b_lo_expand < 1) b_lo_expand = 1;
+        if (b_hi_expand <= b_lo_expand) b_hi_expand = b_lo_expand * 2;
+        b_lo = b_lo_expand;
+        b_hi = b_hi_expand;
     }
 
     if (is_uint) apply_npr_uint(best.K, best.B);
@@ -780,8 +1062,8 @@ int main(int argc, char** argv) {
         uint64_t old_k = lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
         uint64_t old_b = lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
         npr_cache_fill(0);
-        pair_t p = search_2d_table("PERMUTATION_USHORT", 0, 2, 64, old_k,
-                                   512, 262144, old_b);
+        pair_t p = search_2d_table("PERMUTATION_USHORT", 0, 1, 128, old_k,
+                                   1, 1u << 20, old_b);
         add_tuned("PERMUTATION_USHORT_K_THRESHOLD", old_k, p.K);
         add_tuned("PERMUTATION_USHORT_B_THRESHOLD", old_b, p.B);
         lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = p.K;
@@ -792,8 +1074,8 @@ int main(int argc, char** argv) {
         uint64_t old_k = lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
         uint64_t old_b = lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
         npr_cache_fill(1);
-        pair_t p = search_2d_table("PERMUTATION_UINT", 1, 16, 512, old_k,
-                                   65536, 16777216, old_b);
+        pair_t p = search_2d_table("PERMUTATION_UINT", 1, 1, 512, old_k,
+                                   1, 1u << 24, old_b);
         add_tuned("PERMUTATION_UINT_K_THRESHOLD", old_k, p.K);
         add_tuned("PERMUTATION_UINT_B_THRESHOLD", old_b, p.B);
         lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = p.K;
@@ -822,6 +1104,51 @@ int main(int argc, char** argv) {
                                apply_elem, obj_elem);
         add_tuned("ELEM_MUL_BASECASE_THRESHOLD", old, v);
         lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD = v;
+    }
+    if (want(only, "mul_fft")) {
+        printf("\n[Tune] MUL_FFT_THRESHOLD\n");
+        static const mp_size_t sizes[] = {512, 768, 1024, 1536, 2048, 3072, 4096};
+        uint64_t old = lmmp_tune_MUL_FFT_THRESHOLD;
+        uint64_t v = search_1d_cached("MUL_FFT_THRESHOLD", 512, 4096, old, sizes, 7,
+                                      bench_mul_toom44_size, bench_mul_fft_size);
+        add_tuned("MUL_FFT_THRESHOLD", old, v);
+        lmmp_tune_MUL_FFT_THRESHOLD = v;
+    }
+    if (want(only, "mullo_dc")) {
+        printf("\n[Tune] MULLO_DC_THRESHOLD\n");
+        static const mp_size_t sizes[] = {512, 1024, 1536, 2048, 3072, 4096, 6144};
+        uint64_t old = lmmp_tune_MULLO_DC_THRESHOLD;
+        uint64_t v = search_1d_cached("MULLO_DC_THRESHOLD", 512, 8192, old, sizes, 7,
+                                      bench_mullo_dc_size, bench_mullo_fft_size);
+        add_tuned("MULLO_DC_THRESHOLD", old, v);
+        lmmp_tune_MULLO_DC_THRESHOLD = v;
+    }
+    if (want(only, "mulhi_mersenne")) {
+        printf("\n[Tune] MULHI_MERSENNE_THRESHOLD\n");
+        static const mp_size_t sizes[] = {128, 192, 256, 384, 512, 768, 1024};
+        uint64_t old = lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+        uint64_t v = search_1d_cached("MULHI_MERSENNE_THRESHOLD", 128, 1024, old, sizes, 7,
+                                      bench_mulhi_toom44_size, bench_mulhi_mersenne_size);
+        add_tuned("MULHI_MERSENNE_THRESHOLD", old, v);
+        lmmp_tune_MULHI_MERSENNE_THRESHOLD = v;
+    }
+    if (want(only, "to_str_basepow")) {
+        printf("\n[Tune] TO_STR_BASEPOW_THRESHOLD\n");
+        static const mp_size_t sizes[] = {24, 32, 48, 64, 96, 128};
+        uint64_t old = lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
+        uint64_t v = search_1d_cached("TO_STR_BASEPOW_THRESHOLD", 20, 256, old, sizes, 6,
+                                      bench_tostr_basepow_low, bench_tostr_basepow_high);
+        add_tuned("TO_STR_BASEPOW_THRESHOLD", old, v);
+        lmmp_tune_TO_STR_BASEPOW_THRESHOLD = v;
+    }
+    if (want(only, "from_str_basepow")) {
+        printf("\n[Tune] FROM_STR_BASEPOW_THRESHOLD\n");
+        static const mp_size_t sizes[] = {64, 128, 256, 512, 1024};
+        uint64_t old = lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
+        uint64_t v = search_1d_cached("FROM_STR_BASEPOW_THRESHOLD", 8, 512, old, sizes, 5,
+                                      bench_fromstr_basepow_low, bench_fromstr_basepow_high);
+        add_tuned("FROM_STR_BASEPOW_THRESHOLD", old, v);
+        lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = v;
     }
     if (want(only, "mat22_mul")) {
         printf("\n[Tune] MAT22_MUL_STRASSEN_THRESHOLD\n");

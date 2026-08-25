@@ -59,9 +59,14 @@ cmake --build build-tune --parallel 4
 ./tune/lmmp/bin/lmmp_tune --write
 ```
 
-`--only` 支持逗号分隔的名称列表，可用名称包括：
-`mul22`, `mul33`, `mul44`, `mullo`, `npr_ushort`, `npr_uint`,
-`ncr`, `pow1`, `elem`, `mat22_mul`, `mat22_sqr`。
+`--only` 支持逗号分隔的名称列表，当前可用名称包括：
+`mul22`, `mul33`, `mul44`, `mullo`, `mul_fft`, `mullo_dc`,
+`mulhi_mersenne`, `npr_ushort`, `npr_uint`, `ncr`, `pow1`, `elem`,
+`to_str_basepow`, `from_str_basepow`, `mat22_mul`, `mat22_sqr`。
+
+> `TO_STR_DIVIDE_THRESHOLD` 与 `FROM_STR_DIVIDE_THRESHOLD` 已接入运行时变量，
+> 但其递归分治路径对强制极端阈值更敏感，当前暂不提供 `--only` 自动搜索，
+> 后续可按“新增一个阈值”一节补充分治安全约束后再开启。
 
 ## 测量与搜索策略
 
@@ -120,3 +125,13 @@ cmake --build build-tune --parallel 4
    - 需要暴露内部 `static` 函数时，仅用 `#ifdef LMMP_TUNE` 包裹一个
      非 `static` 包装函数，例如 `src/lmmp/numth/nPr.c` 中的
      `lmmp_tune_odd_nPr_product_`。正常构建不会编译该符号。
+
+## 当前调优精度说明
+
+- 快函数测量：`calibrate_loops` 会自适应增加重复次数（上限 2^20），使每次采样
+  累计时间尽量达到目标毫秒级；`bench_ns_per_call` 对多次采样取中位数。
+- 1D 缓存搜索：`search_1d_cached` 对每个 size 分别测量 A/B 两条路径，然后在
+  整数阈值域上全量扫描，选择总耗时最小的分隔点，不会陷入局部最优。
+- 2D 缓存搜索：`search_2d_table` 先测量每个 `(n,r)` 样本的 product/factor 成本，
+  再在 K 线性 / B 几何的 128x128（quick）或 256x256（normal）细网格上扫描；
+  若最优值贴边，会自动扩大搜索域继续扫描。
