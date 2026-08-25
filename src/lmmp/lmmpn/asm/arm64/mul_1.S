@@ -21,40 +21,7 @@
 .p2align 2
 
 ASM_GSYM(lmmp_mul_1_):
-    sub     x5, x0, x1
-    cmp     x5, #8
-    b.eq    Lm1_shifted
-
     adds    x4, xzr, xzr
-
-/* 文档允许 dst == numa+1。正向写 dst[i] 会覆盖尚未读取的 numa[i+1]；
- * 这里使用单 limb 延迟流水线：先读出 next，再写当前乘积。 */
-Lm1_shifted:
-    ldr     x5, [x1]
-    mov     x6, x2
-    mov     x4, xzr
-
-Lm1_shifted_loop:
-    sub     x6, x6, #1
-    cbz     x6, Lm1_shifted_last
-    ldr     x7, [x1, #8]
-    b       Lm1_shifted_mul
-
-Lm1_shifted_last:
-    mov     x7, xzr
-
-Lm1_shifted_mul:
-    mul     x8, x5, x3
-    umulh   x5, x5, x3
-    adds    x8, x8, x4
-    str     x8, [x0], #8
-    adc     x4, x5, xzr
-    mov     x5, x7
-    add     x1, x1, #8
-    cbnz    x6, Lm1_shifted_loop
-
-    mov     x0, x4
-    ret
 
 Lm1_com:
     lsr     x17, x2, #2

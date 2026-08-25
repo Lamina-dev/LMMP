@@ -17,8 +17,8 @@
  * 内存布局语义确定性测试。
  *
  * lmmpn.h 中大量 _ 函数允许 dst 与某个输入完全重叠（eqsep），少数函数
- * 还允许更宽松的偏移重叠（例如 mul_1_ 的 dst <= numa+1、div_1_ 的
- * dstq >= numa-1）。本文件用固定极端输入逐项验证这些契约，不依赖随机数。
+ * 还允许更宽松的偏移重叠（例如 div_1_ 的 dstq >= numa-1）。
+ * 本文件用固定极端输入逐项验证这些契约，不依赖随机数。
  */
 
 #include "lmmp/lmmpn.h"
@@ -173,12 +173,6 @@ TEST_CASE("memory/mul1", mul_1_shifted_overlap) {
     const mp_limb_t c0 = lmmp_mul_1_(buf, buf, n, x);
     check_low_limbs(prod, buf, n);
     TEST_CHECK_EQ(c0, prod.d.size() > (size_t)n ? prod.d[n] : 0u);
-
-    /* dst == numa + 1，即库允许的右移一格重叠布局。 */
-    std::memcpy(buf, a, n * sizeof(mp_limb_t));
-    const mp_limb_t c1 = lmmp_mul_1_(buf + 1, buf, n, x);
-    check_low_limbs(prod, buf + 1, n);
-    TEST_CHECK_EQ(c1, prod.d.size() > (size_t)n ? prod.d[n] : 0u);
 
     /* 极端 n==1 同样允许两种布局。 */
     buf[0] = UINT64_MAX;

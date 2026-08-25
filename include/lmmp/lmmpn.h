@@ -308,7 +308,6 @@ LMMP_API mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_l
  * @param na 操作数的位数（limb数量）
  * @param x 单个limb乘数
  * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
- *          支持 dst<=numa+1 的内存布局
  * @return 运算后的进位limb值
  */
 LMMP_API mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x);
