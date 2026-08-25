@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -50,7 +50,12 @@ static mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t n = 0;
     mp_limb_t frac;
+#ifdef LMMP_TUNE
+    /* 调优模式下阈值为运行时变量，不能作为数组长度；改为临时堆分配。 */
+    mp_ptr tp = (mp_ptr)lmmp_alloc((1 + TO_STR_BASEPOW_THRESHOLD) * sizeof(mp_limb_t));
+#else
     mp_limb_t tp[1 + TO_STR_BASEPOW_THRESHOLD];
+#endif
     lmmp_copy(tp + 1, numa, na);
 
     do {
@@ -81,6 +86,9 @@ static mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t
         frac *= base;
         msbyte = lmmp_mulh_(frac, base);
     }
+#ifdef LMMP_TUNE
+    lmmp_free(tp);
+#endif
     return n;
 }
 

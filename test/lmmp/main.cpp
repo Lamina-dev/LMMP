@@ -21,6 +21,9 @@
 #include "lmmp_test.hpp"
 
 int main(int argc, char** argv) {
+    /* CI 中发生段错误时，stdout 若被缓冲会丢失最后正在运行的测试名。 */
+    std::setvbuf(stdout, NULL, _IONBF, 0);
+
     std::string filter;
     bool list = false;
     bool help = false;

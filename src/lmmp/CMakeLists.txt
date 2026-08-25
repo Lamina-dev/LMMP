@@ -47,31 +47,62 @@ else()
     message(STATUS "liblmmp: Using generic C implementation")
 endif()
 
-add_library(liblmmp SHARED ${LIBLMMP_SRCS})
-add_library(lmmp ALIAS liblmmp)
+if(LMMP_TUNE_MODE)
+    # 调优模式：生成静态核心。阈值在 LMMP_TUNE 下绑定到可写全局变量，
+    # 调优驱动会先设置这些变量再运行基准测试。
+    add_library(lmmp_tune_core STATIC ${LIBLMMP_SRCS})
+    add_library(lmmp ALIAS lmmp_tune_core)
 
-if(TARGET liblmmp AND TARGET_SYSTEM STREQUAL "LIN")
-    target_link_options(liblmmp PRIVATE -Wl,-Bsymbolic-functions)
+    if(TARGET_SYSTEM STREQUAL "LIN")
+        target_link_libraries(lmmp_tune_core PRIVATE m)
+    endif()
+
+    set_target_properties(lmmp_tune_core PROPERTIES
+        OUTPUT_NAME "lmmp_tune_core"
+        PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
+    )
+
+    target_compile_definitions(lmmp_tune_core PRIVATE
+        LMMP_TUNE=1
+        LMMP_VERSION_STR="${LIBLMMP_VERSION}"
+        LMMP_BUILD_TYPE_STR="Release"
+    )
+
+    lmmp_target_setup(lmmp_tune_core)
+    message(STATUS "liblmmp: configured successfully (static tuning core)")
+else()
+    add_library(liblmmp SHARED ${LIBLMMP_SRCS})
+    add_library(lmmp ALIAS liblmmp)
+
+    if(TARGET liblmmp AND TARGET_SYSTEM STREQUAL "LIN")
+        target_link_options(liblmmp PRIVATE -Wl,-Bsymbolic-functions)
+    endif()
+
+    if(TARGET_SYSTEM STREQUAL "WIN")
+        target_compile_definitions(liblmmp PRIVATE LIBLMMP_EXPORTS)
+    elseif(TARGET_SYSTEM STREQUAL "LIN")
+        target_link_libraries(liblmmp PRIVATE m)
+    endif()
+
+    set_target_properties(liblmmp PROPERTIES
+        OUTPUT_NAME "lmmp"
+        VERSION ${LIBLMMP_VERSION}
+        SOVERSION 1
+        PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
+    )
+
+    if(TARGET_SYSTEM STREQUAL "WIN")
+        # MinGW 下 CMAKE_SHARED_LIBRARY_PREFIX 默认为 "lib"，会使 DLL 文件名
+        # 变为 liblmmp.dll，但 lmmp_asm.def 中 LIBRARY 名称为 lmmp，导致导入库
+        # 记录的 DLL 名与磁盘文件名不一致，运行时出现 0xc0000135。
+        set_target_properties(liblmmp PROPERTIES PREFIX "")
+    endif()
+
+    target_compile_definitions(liblmmp PRIVATE
+        LMMP_VERSION_STR="${LIBLMMP_VERSION}"
+        LMMP_BUILD_TYPE_STR="${CMAKE_BUILD_TYPE}"
+    )
+
+    lmmp_target_setup(liblmmp)
+    message(STATUS "liblmmp: configured successfully (shared library)")
 endif()
-
-if(TARGET_SYSTEM STREQUAL "WIN")
-    target_compile_definitions(liblmmp PRIVATE LIBLMMP_EXPORTS)
-elseif(TARGET_SYSTEM STREQUAL "LIN")
-    target_link_libraries(liblmmp PRIVATE m)
-endif()
-
-set_target_properties(liblmmp PROPERTIES
-    OUTPUT_NAME "lmmp"
-    VERSION ${LIBLMMP_VERSION}
-    SOVERSION 1
-    PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
-)
-
-target_compile_definitions(liblmmp PRIVATE
-    LMMP_VERSION_STR="${LIBLMMP_VERSION}"
-    LMMP_BUILD_TYPE_STR="${CMAKE_BUILD_TYPE}"
-)
-
-lmmp_target_setup(liblmmp)
-
-message(STATUS "liblmmp: configured successfully (shared library)")

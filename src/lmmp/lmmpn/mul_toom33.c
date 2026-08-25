@@ -18,7 +18,7 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#if MUL_TOOM33_THRESHOLD < MUL_TOOM44_THRESHOLD
+#if LMMP_MPARAM_STATIC_MUL_TOOM33_THRESHOLD < LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD
 #define lmmp_mul_n_(dst, numa, numb, n)                      \
     if ((n) < MUL_TOOM22_THRESHOLD)                          \
         lmmp_mul_basecase_((dst), (numa), (n), (numb), (n)); \

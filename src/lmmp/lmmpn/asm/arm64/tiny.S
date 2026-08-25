@@ -39,8 +39,8 @@ ASM_GSYM(lmmp_limb_bits_):
 
 ASM_GSYM(lmmp_limb_popcnt_):
     fmov    d0, x0
-    cnt.8b  v0, v0
-    addv.8b b0, v0
+    cnt     v0.8b, v0.8b
+    addv    b0, v0.8b
     fmov    w0, s0
     ret
 

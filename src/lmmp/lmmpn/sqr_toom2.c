@@ -18,7 +18,7 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#if MUL_TOOM22_THRESHOLD < MUL_TOOM33_THRESHOLD
+#if LMMP_MPARAM_STATIC_MUL_TOOM22_THRESHOLD < LMMP_MPARAM_STATIC_MUL_TOOM33_THRESHOLD
 #define lmmp_sqr_(dst, numa, n)                 \
     if ((n) < MUL_TOOM22_THRESHOLD)             \
         lmmp_sqr_basecase_((dst), (numa), (n)); \

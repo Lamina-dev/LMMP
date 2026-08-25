@@ -43,7 +43,7 @@ mp_size_t lmmp_gcd_basecase_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr v
         lmmp_div_(NULL, dst, a, an, b, bn);
         lmmp_copy(a, b, bn);
         an = bn;
-        while (dst[bn - 1] == 0 && bn > 0) {
+        while (bn > 0 && dst[bn - 1] == 0) {
             --bn;
         }
         lmmp_copy(b, dst, bn);

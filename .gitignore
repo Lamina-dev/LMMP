@@ -2,7 +2,7 @@
 .history/
 
 # 编译产物
-build/
+build*/
 dist/
 *.o
 *.exe

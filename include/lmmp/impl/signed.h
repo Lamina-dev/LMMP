@@ -64,13 +64,13 @@ INLINE_ mp_ssize_t lmmp_add_signed_(mp_ptr dst, mp_srcptr numa, mp_ssize_t na, m
         na = -na;
         if (na < nb) {
             lmmp_sub_(dst, numb, nb, numa, na);
-            while (dst[nb - 1] == 0 && nb > 0) {
+            while (nb > 0 && dst[nb - 1] == 0) {
                 --nb;
             }
             return nb;
         } else if (na > nb) {
             lmmp_sub_(dst, numa, na, numb, nb);
-            while (dst[na - 1] == 0 && na > 0) {
+            while (na > 0 && dst[na - 1] == 0) {
                 --na;
             }
             return -na;
@@ -78,13 +78,13 @@ INLINE_ mp_ssize_t lmmp_add_signed_(mp_ptr dst, mp_srcptr numa, mp_ssize_t na, m
             int cmp = lmmp_cmp_(numa, numb, na);
             if (cmp < 0) {
                 lmmp_sub_(dst, numb, nb, numa, na);
-                while (dst[nb - 1] == 0 && nb > 0) {
+                while (nb > 0 && dst[nb - 1] == 0) {
                     --nb;
                 }
                 return nb;
             } else if (cmp > 0) {
                 lmmp_sub_(dst, numa, na, numb, nb);
-                while (dst[na - 1] == 0 && na > 0) {
+                while (na > 0 && dst[na - 1] == 0) {
                     --na;
                 }
                 return -na;
@@ -98,13 +98,13 @@ INLINE_ mp_ssize_t lmmp_add_signed_(mp_ptr dst, mp_srcptr numa, mp_ssize_t na, m
         nb = -nb;
         if (na < nb) {
             lmmp_sub_(dst, numb, nb, numa, na);
-            while (dst[nb - 1] == 0 && nb > 0) {
+            while (nb > 0 && dst[nb - 1] == 0) {
                 --nb;
             }
             return -nb;
         } else if (na > nb) {
             lmmp_sub_(dst, numa, na, numb, nb);
-            while (dst[na - 1] == 0 && na > 0) {
+            while (na > 0 && dst[na - 1] == 0) {
                 --na;
             }
             return na;
@@ -112,13 +112,13 @@ INLINE_ mp_ssize_t lmmp_add_signed_(mp_ptr dst, mp_srcptr numa, mp_ssize_t na, m
             int cmp = lmmp_cmp_(numa, numb, na);
             if (cmp < 0) {
                 lmmp_sub_(dst, numb, nb, numa, na);
-                while (dst[nb - 1] == 0 && nb > 0) {
+                while (nb > 0 && dst[nb - 1] == 0) {
                     --nb;
                 }
                 return -nb;
             } else if (cmp > 0) {
                 lmmp_sub_(dst, numa, na, numb, nb);
-                while (dst[na - 1] == 0 && na > 0) {
+                while (na > 0 && dst[na - 1] == 0) {
                     --na;
                 }
                 return na;

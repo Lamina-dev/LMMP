@@ -12,7 +12,7 @@
 #
 #  See <https://www.gnu.org/licenses/>.
 
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.20)
 project(LMMP LANGUAGES C CXX)
 
 # ==============================================================================
@@ -48,6 +48,9 @@ set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
 # 测试与基准目标默认开启，可独立关闭。
 option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
 option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
+
+# 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
+option(LMMP_TUNE_MODE "Build tuning core and tune driver" OFF)
 
 # 调试选项：由构建系统注入 LMMP_DEBUG_* 宏，不在头文件中直接定义。
 option(LMMP_DEBUG_STACK_OVERFLOW_CHECK "Enable stack overflow check (high overhead)" OFF)
@@ -267,13 +270,27 @@ endfunction()
 # ==============================================================================
 # 6. 输出目录
 # ==============================================================================
-set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
+if(LMMP_TUNE_MODE)
+    # 调优产物全部输出到 tune/lmmp/bin，与 dist 分离。
+    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/tune/lmmp)
+else()
+    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
+endif()
+
 foreach(TYPE RUNTIME ARCHIVE LIBRARY)
     set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_ROOT}/bin)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin/release)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin/relwithdebinfo)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin/minsizerel)
+    if(LMMP_TUNE_MODE)
+        # 调优模式不区分配置子目录，核心库与调优驱动放在一起。
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin)
+    else()
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin/release)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin/relwithdebinfo)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin/minsizerel)
+    endif()
 endforeach()
 
 # ==============================================================================
@@ -281,21 +298,25 @@ endforeach()
 # ==============================================================================
 add_subdirectory(src/lmmp)
 
-if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
-    add_executable(LmmpMain main.c)
-    target_link_libraries(LmmpMain PRIVATE liblmmp)
-    lmmp_target_setup(LmmpMain)
-endif()
+if(NOT LMMP_TUNE_MODE)
+    if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
+        add_executable(LmmpMain main.c)
+        target_link_libraries(LmmpMain PRIVATE liblmmp)
+        lmmp_target_setup(LmmpMain)
+    endif()
 
-if(LMMP_BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(test/lmmp)
-endif()
+    if(LMMP_BUILD_TESTS)
+        enable_testing()
+        add_subdirectory(test/lmmp)
+    endif()
 
-add_subdirectory(example/lmmp)
+    add_subdirectory(example/lmmp)
 
-if(LMMP_BUILD_BENCHMARKS)
-    add_subdirectory(benchmark/lmmp)
+    if(LMMP_BUILD_BENCHMARKS)
+        add_subdirectory(benchmark/lmmp)
+    endif()
+else()
+    add_subdirectory(tune/lmmp)
 endif()
 
 # ==============================================================================

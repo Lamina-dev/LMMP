@@ -18,6 +18,7 @@ set(LMMP_TEST_SRCS
     src/test_low_limb.cpp
     src/test_asm_boundary.cpp
     src/test_asm_functions.cpp
+    src/test_deterministic_extra.cpp
     src/test_mul.cpp
     src/test_div.cpp
     src/test_str.cpp
@@ -48,4 +49,10 @@ set_target_properties(LmmpTest PROPERTIES
     PDB_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 
-add_test(NAME LmmpTest COMMAND LmmpTest)
+if(WIN32)
+    # Windows 下测试进程需要找到同一目录中的 lmmp.dll。
+    add_test(NAME LmmpTest
+        COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:liblmmp>;$ENV{PATH}" $<TARGET_FILE:LmmpTest>)
+else()
+    add_test(NAME LmmpTest COMMAND LmmpTest)
+endif()
