@@ -34,8 +34,8 @@ int lmmp_mat22_mul_size_(
         mp_ssize_t A01 = LMMP_ABS(matA->n01);
         mp_ssize_t A10 = LMMP_ABS(matA->n10);
         mp_ssize_t A11 = LMMP_ABS(matA->n11);
-        if (A00 < MAT22_SQR_STRASSEN_THRESHOLD || A01 < MAT22_SQR_STRASSEN_THRESHOLD ||
-            A10 < MAT22_SQR_STRASSEN_THRESHOLD || A11 < MAT22_SQR_STRASSEN_THRESHOLD ) {
+        if ((uint64_t)A00 < MAT22_SQR_STRASSEN_THRESHOLD || (uint64_t)A01 < MAT22_SQR_STRASSEN_THRESHOLD ||
+            (uint64_t)A10 < MAT22_SQR_STRASSEN_THRESHOLD || (uint64_t)A11 < MAT22_SQR_STRASSEN_THRESHOLD ) {
             dst->n00 = LMMP_MAX((A00 + A00), (A01 + A10));
             dst->n01 = LMMP_MAX((A00 + A01), (A01 + A11));
             dst->n10 = LMMP_MAX((A10 + A00), (A11 + A10));
@@ -64,10 +64,10 @@ int lmmp_mat22_mul_size_(
         mp_ssize_t B01 = LMMP_ABS(matB->n01);
         mp_ssize_t B10 = LMMP_ABS(matB->n10);
         mp_ssize_t B11 = LMMP_ABS(matB->n11);
-        if (A00 < MAT22_MUL_STRASSEN_THRESHOLD || A01 < MAT22_MUL_STRASSEN_THRESHOLD ||
-            A10 < MAT22_MUL_STRASSEN_THRESHOLD || A11 < MAT22_MUL_STRASSEN_THRESHOLD ||
-            B00 < MAT22_MUL_STRASSEN_THRESHOLD || B01 < MAT22_MUL_STRASSEN_THRESHOLD ||
-            B10 < MAT22_MUL_STRASSEN_THRESHOLD || B11 < MAT22_MUL_STRASSEN_THRESHOLD) {
+        if ((uint64_t)A00 < MAT22_MUL_STRASSEN_THRESHOLD || (uint64_t)A01 < MAT22_MUL_STRASSEN_THRESHOLD ||
+            (uint64_t)A10 < MAT22_MUL_STRASSEN_THRESHOLD || (uint64_t)A11 < MAT22_MUL_STRASSEN_THRESHOLD ||
+            (uint64_t)B00 < MAT22_MUL_STRASSEN_THRESHOLD || (uint64_t)B01 < MAT22_MUL_STRASSEN_THRESHOLD ||
+            (uint64_t)B10 < MAT22_MUL_STRASSEN_THRESHOLD || (uint64_t)B11 < MAT22_MUL_STRASSEN_THRESHOLD) {
             dst->n00 = LMMP_MAX((A00 + B00), (A01 + B10));
             dst->n01 = LMMP_MAX((A00 + B01), (A01 + B11));
             dst->n10 = LMMP_MAX((A10 + B00), (A11 + B10));

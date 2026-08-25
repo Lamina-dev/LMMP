@@ -19,9 +19,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 
+file(GLOB TUNE_THRESHOLD_SRCS
+    LIST_DIRECTORIES FALSE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tune_*.c
+)
+
 add_executable(lmmp_tune
     src/lmmp_tune.c
+    src/lmmp_tune_common.c
     src/lmmp_tune_params.c
+    ${TUNE_THRESHOLD_SRCS}
 )
 
 target_include_directories(lmmp_tune

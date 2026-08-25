@@ -16,1169 +16,183 @@
 /*
  * LMMP 阈值调优驱动。
  *
- * 用法:
- *   lmmp_tune [--quick] [--write] [--only mul22,mul33,...]
- *
- * 说明:
- *   - 本程序与静态调优核心 liblmmp_tune_core 一起构建（LMMP_TUNE_MODE=ON）。
- *   - 阈值通过 include/lmmp/impl/mparam.h 中的 extern 变量绑定，本文件定义并设置它们。
- *   - 测量采用“预热 + 多次采样取中位数”的方式，并限制单次采样时间，避免个别异常值影响。
+ * 只负责命令行、模块注册和结果输出；每个阈值的测量与搜索位于独立的
+ * src/tune_<name>.c 中。默认运行全部阈值，并把结果写到
+ * tune/lmmp/bin/lmmp_tune_results.txt / .h。只有显式传入 --write 才会
+ * 修改 include/lmmp/impl/mparam.h（自动备份为 .tune-bak）。
  */
 
-#include "lmmp/lmmp.h"
-#include "lmmp/impl/ele_mul.h"
-#include "lmmp/impl/mat22_mul.h"
-#include "lmmp/impl/mparam.h"
-#include "lmmp/lmmpn.h"
-#include "lmmp/numth.h"
+#include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
 
-#include <math.h>
+#include "lmmp/lmmp.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
-#include <time.h>
+#ifndef LMMP_SOURCE_DIR
+#define LMMP_SOURCE_DIR "."
 #endif
 
-/* ============================== 计时 ============================== */
-
-static double g_tick_ns = 0.0;
-
-static void timer_init(void) {
-#ifdef _WIN32
-    LARGE_INTEGER f;
-    QueryPerformanceFrequency(&f);
-    g_tick_ns = 1e9 / (double)f.QuadPart;
-#else
-    (void)g_tick_ns;
-#endif
-}
-
-static double now_ns(void) {
-#ifdef _WIN32
-    LARGE_INTEGER c;
-    QueryPerformanceCounter(&c);
-    return (double)c.QuadPart * g_tick_ns;
-#else
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
-#endif
-}
-
-typedef void (*tune_bench_fn)(void* ctx);
-
-typedef struct {
-    tune_bench_fn fn;
-    unsigned loops;
-} tune_sample;
-
-static unsigned calibrate_loops(tune_bench_fn fn, void* ctx, double target_ms) {
-    unsigned loops = 1;
-    double t;
-    do {
-        double t0 = now_ns();
-        for (unsigned i = 0; i < loops; ++i) fn(ctx);
-        t = now_ns() - t0;
-        if (t >= target_ms * 1e6) break;
-        loops <<= 1;
-    } while (loops < (1u << 20));
-    (void)t;
-    return loops;
-}
-
-static double bench_ns_per_call(tune_bench_fn fn, void* ctx, unsigned samples, double target_ms) {
-    unsigned loops = calibrate_loops(fn, ctx, target_ms);
-    double* ts = (double*)malloc(sizeof(double) * samples);
-    if (ts == NULL) return 1e300;
-    for (unsigned s = 0; s < samples; ++s) {
-        double t0 = now_ns();
-        for (unsigned i = 0; i < loops; ++i) fn(ctx);
-        ts[s] = (now_ns() - t0) / (double)loops;
-    }
-    /* 中位数，抗少量异常计时 */
-    for (unsigned i = 0; i + 1 < samples; ++i) {
-        for (unsigned j = i + 1; j < samples; ++j) {
-            if (ts[i] > ts[j]) {
-                double tmp = ts[i];
-                ts[i] = ts[j];
-                ts[j] = tmp;
-            }
-        }
-    }
-    double med = ts[samples / 2];
-    free(ts);
-    return med;
-}
-
-/* ============================== 基准上下文 ============================== */
-
-static int g_quick = 0;
-static int g_write = 0;
-
-typedef struct {
-    mp_ptr a;
-    mp_ptr b;
-    mp_ptr d;
-    mp_size_t n;
-} mul_ctx;
-
-static void mul_ctx_init(mul_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)(2 * n + 1) * sizeof(mp_limb_t));
-    for (mp_size_t i = 0; i < n; ++i) {
-        c->a[i] = UINT64_C(0x9e3779b97f4a7c15) ^ (uint64_t)i * UINT64_C(0xbf58476d1ce4e5b9);
-        c->b[i] = UINT64_C(0x94d049bb133111eb) ^ (uint64_t)i * UINT64_C(0xc2b2ae3d27d4eb4f);
-    }
-    c->a[n - 1] |= (uint64_t)1 << 63;
-    c->b[n - 1] |= (uint64_t)1 << 63;
-}
-
-static void mul_ctx_free(mul_ctx* c) {
-    lmmp_free(c->a);
-    lmmp_free(c->b);
-    lmmp_free(c->d);
-}
-
-static void bench_mul_call(void* v) {
-    mul_ctx* c = (mul_ctx*)v;
-    lmmp_mul_(c->d, c->a, c->n, c->b, c->n);
-}
-
-static double bench_mul_size(mp_size_t n) {
-    mul_ctx c;
-    mul_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mul_call, &c, 3, 5.0);
-    mul_ctx_free(&c);
-    return ns;
-}
-
-static double obj_mul(void) {
-    static const mp_size_t sizes[] = {16, 24, 40, 80, 160, 320, 700, 1500};
-    double sum = 0.0;
-    for (unsigned i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
-        double ns = bench_mul_size(sizes[i]);
-        if (ns <= 0.0) ns = 1e300;
-        sum += ns;
-    }
-    return sum;
-}
-
-/* mullo */
-typedef struct {
-    mp_ptr a;
-    mp_ptr b;
-    mp_ptr d;
-    mp_size_t n;
-} mullo_ctx;
-
-static void mullo_ctx_init(mullo_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    for (mp_size_t i = 0; i < n; ++i) {
-        c->a[i] = UINT64_C(0xdeadbeefcafebabe) ^ (uint64_t)i * UINT64_C(0x100000001b3);
-        c->b[i] = UINT64_C(0x8a5cd789635d2dff) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
-    }
-    c->a[n - 1] |= (uint64_t)1 << 63;
-    c->b[n - 1] |= (uint64_t)1 << 63;
-}
-
-static void mullo_ctx_free(mullo_ctx* c) {
-    lmmp_free(c->a);
-    lmmp_free(c->b);
-    lmmp_free(c->d);
-}
-
-static void bench_mullo_call(void* v) {
-    mullo_ctx* c = (mullo_ctx*)v;
-    lmmp_mullo_(c->d, c->a, c->b, c->n);
-}
-
-static double obj_mullo(void) {
-    static const mp_size_t sizes[] = {5, 10, 20, 40, 80, 160, 400};
-    double sum = 0.0;
-    for (unsigned i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
-        mullo_ctx c;
-        mullo_ctx_init(&c, sizes[i]);
-        double ns = bench_ns_per_call((tune_bench_fn)bench_mullo_call, &c, 3, 5.0);
-        mullo_ctx_free(&c);
-        if (ns <= 0.0) ns = 1e300;
-        sum += ns;
-    }
-    return sum;
-}
-
-/* ---- mul_toom44 vs mul_fft (MUL_FFT_THRESHOLD) ---- */
-static void bench_mul_toom44_call(void* v) {
-    mul_ctx* c = (mul_ctx*)v;
-    lmmp_mul_toom44_(c->d, c->a, c->n, c->b, c->n);
-}
-
-static void bench_mul_fft_call(void* v) {
-    mul_ctx* c = (mul_ctx*)v;
-    lmmp_mul_fft_(c->d, c->a, c->n, c->b, c->n);
-}
-
-static double bench_mul_toom44_size(mp_size_t n) {
-    mul_ctx c;
-    mul_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mul_toom44_call, &c, 3, 6.0);
-    mul_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-static double bench_mul_fft_size(mp_size_t n) {
-    mul_ctx c;
-    mul_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mul_fft_call, &c, 3, 6.0);
-    mul_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-/* ---- mullo_dc vs mullo_fft (MULLO_DC_THRESHOLD) ---- */
-typedef struct {
-    mp_ptr a;
-    mp_ptr b;
-    mp_ptr d;
-    mp_ptr tp;
-    mp_size_t n;
-} mullo_dc_ctx;
-
-static void mullo_dc_ctx_init(mullo_dc_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(2 * n + 2) * sizeof(mp_limb_t));
-    for (mp_size_t i = 0; i < n; ++i) {
-        c->a[i] = UINT64_C(0xa5a5a5a5a5a5a5a5) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
-        c->b[i] = UINT64_C(0x5a5a5a5a5a5a5a5a) ^ (uint64_t)i * UINT64_C(0xbf58476d1ce4e5b9);
-    }
-    c->a[n - 1] |= (uint64_t)1 << 63;
-    c->b[n - 1] |= (uint64_t)1 << 63;
-}
-
-static void mullo_dc_ctx_free(mullo_dc_ctx* c) {
-    lmmp_free(c->a); lmmp_free(c->b); lmmp_free(c->d); lmmp_free(c->tp);
-}
-
-static void bench_mullo_dc_call(void* v) {
-    mullo_dc_ctx* c = (mullo_dc_ctx*)v;
-    lmmp_mullo_dc_(c->d, c->a, c->b, c->tp, c->n);
-}
-
-static void bench_mullo_fft_call(void* v) {
-    mullo_dc_ctx* c = (mullo_dc_ctx*)v;
-    lmmp_mullo_fft_(c->d, c->a, c->b, c->n, c->tp);
-}
-
-static double bench_mullo_dc_size(mp_size_t n) {
-    mullo_dc_ctx c;
-    mullo_dc_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mullo_dc_call, &c, 3, 6.0);
-    mullo_dc_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-static double bench_mullo_fft_size(mp_size_t n) {
-    mullo_dc_ctx c;
-    mullo_dc_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mullo_fft_call, &c, 3, 6.0);
-    mullo_dc_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-/* ---- mul_toom44 vs mul_mersenne (MULHI_MERSENNE_THRESHOLD 近似) ---- */
-typedef struct {
-    mp_ptr a;
-    mp_ptr b;
-    mp_ptr p;
-    mp_size_t n;
-} mulhi_ctx;
-
-static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->p = (mp_ptr)lmmp_alloc((size_t)(2 * n + 8) * sizeof(mp_limb_t));
-    for (mp_size_t i = 0; i < n; ++i) {
-        c->a[i] = UINT64_C(0x13579bdf02468ace) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
-        c->b[i] = UINT64_C(0xfedcba9876543210) ^ (uint64_t)i * UINT64_C(0xc2b2ae3d27d4eb4f);
-    }
-    c->a[n - 1] |= (uint64_t)1 << 63;
-    c->b[n - 1] |= (uint64_t)1 << 63;
-}
-
-static void mulhi_ctx_free(mulhi_ctx* c) {
-    lmmp_free(c->a); lmmp_free(c->b); lmmp_free(c->p);
-}
-
-static void bench_mulhi_toom44_call(void* v) {
-    mulhi_ctx* c = (mulhi_ctx*)v;
-    lmmp_mul_toom44_(c->p, c->a, c->n, c->b, c->n);
-}
-
-static void bench_mulhi_mersenne_call(void* v) {
-    mulhi_ctx* c = (mulhi_ctx*)v;
-    mp_size_t m = lmmp_fft_next_size_((2 * c->n + 1) >> 1);
-    lmmp_mul_mersenne_(c->p, m, c->a, c->n, c->b, c->n);
-}
-
-static double bench_mulhi_toom44_size(mp_size_t n) {
-    mulhi_ctx c;
-    mulhi_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mulhi_toom44_call, &c, 3, 6.0);
-    mulhi_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-static double bench_mulhi_mersenne_size(mp_size_t n) {
-    mulhi_ctx c;
-    mulhi_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_mulhi_mersenne_call, &c, 3, 6.0);
-    mulhi_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-/* ---- to_str / from_str 阈值 ---- */
-typedef struct {
-    mp_ptr num;
-    mp_byte_t* buf;
-    mp_size_t n;
-    mp_size_t buflen;
-} tostr_ctx;
-
-static void tostr_ctx_init(tostr_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->num = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    for (mp_size_t i = 0; i < n; ++i)
-        c->num[i] = UINT64_C(0x123456789abcdef0) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15);
-    c->num[n - 1] |= (uint64_t)1 << 63;
-    c->buflen = (mp_size_t)lmmp_to_str_len_(c->num, n, 10) + 1;
-    c->buf = (mp_byte_t*)lmmp_alloc((size_t)c->buflen);
-}
-
-static void tostr_ctx_free(tostr_ctx* c) {
-    lmmp_free(c->num); lmmp_free(c->buf);
-}
-
-static void bench_tostr_call(void* v) {
-    tostr_ctx* c = (tostr_ctx*)v;
-    (void)lmmp_to_str_(c->buf, c->num, c->n, 10);
-}
-
-static double bench_tostr_size(mp_size_t n) {
-    tostr_ctx c;
-    tostr_ctx_init(&c, n);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_tostr_call, &c, 3, g_quick ? 3.0 : 6.0);
-    tostr_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-static double bench_tostr_basepow_low(mp_size_t n) {
-    /* 注意：basecase 的 tp 数组大小为 1+TO_STR_BASEPOW_THRESHOLD，
-     * 而子问题在 na < TO_STR_DIVIDE_THRESHOLD 时进入 basecase，因此
-     * 强制走 divide 路径时 BASEPOW 不能低于 DIVIDE。 */
-    lmmp_tune_TO_STR_BASEPOW_THRESHOLD = lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
-    return bench_tostr_size(n);
-}
-
-static double bench_tostr_basepow_high(mp_size_t n) {
-    lmmp_tune_TO_STR_BASEPOW_THRESHOLD = 1000000;
-    return bench_tostr_size(n);
-}
-
-
-typedef struct {
-    mp_ptr dst;
-    mp_byte_t* buf;
-    mp_size_t len;
-} fromstr_ctx;
-
-static void fromstr_ctx_init(fromstr_ctx* c, mp_size_t len) {
-    c->len = len;
-    c->buf = (mp_byte_t*)lmmp_alloc((size_t)len + 1);
-    for (mp_size_t i = 0; i < len; ++i)
-        c->buf[i] = (mp_byte_t)('1' + (i % 9));
-    c->buf[len] = 0;
-    c->dst = (mp_ptr)lmmp_alloc(((size_t)lmmp_from_str_len_(c->buf, len, 10) + 2) * sizeof(mp_limb_t));
-}
-
-static void fromstr_ctx_free(fromstr_ctx* c) {
-    lmmp_free(c->dst); lmmp_free(c->buf);
-}
-
-static void bench_fromstr_call(void* v) {
-    fromstr_ctx* c = (fromstr_ctx*)v;
-    (void)lmmp_from_str_(c->dst, c->buf, c->len, 10);
-}
-
-static double bench_fromstr_size(mp_size_t len) {
-    fromstr_ctx c;
-    fromstr_ctx_init(&c, len);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_fromstr_call, &c, 3, g_quick ? 3.0 : 6.0);
-    fromstr_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-static double bench_fromstr_basepow_low(mp_size_t len) {
-    lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = 1;
-    return bench_fromstr_size(len);
-}
-
-static double bench_fromstr_basepow_high(mp_size_t len) {
-    lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = 1000000;
-    return bench_fromstr_size(len);
-}
-
-
-/* nPr */
-typedef struct {
-    mp_ptr dst;
-    mp_size_t rn;
-    mp_bitcnt_t bits;
-    ulong n;
-    ulong r;
-} npr_ctx;
-
-static void npr_ctx_init(npr_ctx* c, ulong n, ulong r) {
-    c->n = n;
-    c->r = r;
-    c->bits = 0;
-    c->rn = lmmp_nPr_size_(n, r, &c->bits);
-    c->dst = (mp_ptr)lmmp_alloc((size_t)c->rn * sizeof(mp_limb_t));
-}
-
-static void npr_ctx_free(npr_ctx* c) {
-    lmmp_free(c->dst);
-}
-
-static void bench_npr_call(void* v) {
-    npr_ctx* c = (npr_ctx*)v;
-    (void)lmmp_nPr_(c->dst, c->bits, c->rn, c->n, c->r);
-}
-
-static double bench_npr_pair(ulong n, ulong r, double target_ms) {
-    npr_ctx c;
-    npr_ctx_init(&c, n, r);
-    double ns = bench_ns_per_call((tune_bench_fn)bench_npr_call, &c, 3, target_ms);
-    npr_ctx_free(&c);
-    return ns <= 0.0 ? 1e300 : ns;
-}
-
-/* ============================== nPr 2D 阈值：成本表法 ==============================
- * 分别用极端阈值强制走 product / factor 两条路径，每个 (n,r) 采样点只测两次；
- * 之后任意 (K,B) 的代价都可直接查表求和，无需重新计时，因此网格可以取得很密。 */
-
-typedef struct {
-    ulong n;
-    ulong r;
-    double product_ns;
-    double factor_ns;
-} npr_cache_entry;
-
-#define NPR_CACHE_MAX 12
-
-static npr_cache_entry g_npr_ushort_cache[NPR_CACHE_MAX];
-static int g_npr_ushort_cache_n = 0;
-static npr_cache_entry g_npr_uint_cache[NPR_CACHE_MAX];
-static int g_npr_uint_cache_n = 0;
-
-static void apply_npr_ushort(uint64_t k, uint64_t b);
-static void apply_npr_uint(uint64_t k, uint64_t b);
-
-static void npr_cache_fill(int is_uint) {
-    npr_cache_entry* cache = is_uint ? g_npr_uint_cache : g_npr_ushort_cache;
-    int* pn = is_uint ? &g_npr_uint_cache_n : &g_npr_ushort_cache_n;
-
-    static const ulong ushort_ns[] = {60000, 60000, 65535, 65535, 50000, 50000, 60000, 65535, 10000};
-    static const ulong ushort_rs[] = { 4000, 30000, 10000, 32768,  5000, 25000,  1000,  1000,   500};
-    static const ulong uint_ns[]   = {200000, 200000, 200000, 200000, 200000, 100000, 100000, 50000, 300000};
-    static const ulong uint_rs[]   = {  5000,  50000,  20000,  10000,   1000,  10000,   1000,  1000,   1000};
-
-    const ulong* ns = is_uint ? uint_ns : ushort_ns;
-    const ulong* rs = is_uint ? uint_rs : ushort_rs;
-    int count = 9;
-    double target_ms = g_quick ? 2.0 : 6.0;
-
-    /* 强制 product：K=0,B=0 时 n+B > r*K 恒成立（n>0）。 */
-    if (is_uint) apply_npr_uint(0, 0);
-    else         apply_npr_ushort(0, 0);
-    for (int i = 0; i < count; ++i) {
-        cache[i].n = ns[i];
-        cache[i].r = rs[i];
-        cache[i].product_ns = bench_npr_pair(ns[i], rs[i], target_ms);
-    }
-
-    /* 强制 factor：K 取足够大，使 n+B <= r*K 对全部采样点成立。 */
-    if (is_uint) apply_npr_uint(10000000, 0);
-    else         apply_npr_ushort(1000000, 0);
-    for (int i = 0; i < count; ++i) {
-        cache[i].factor_ns = bench_npr_pair(ns[i], rs[i], target_ms);
-    }
-
-    *pn = count;
-}
-
-static double npr_cache_eval(int is_uint, uint64_t K, uint64_t B) {
-    const npr_cache_entry* cache = is_uint ? g_npr_uint_cache : g_npr_ushort_cache;
-    int count = is_uint ? g_npr_uint_cache_n : g_npr_ushort_cache_n;
-    double sum = 0.0;
-    for (int i = 0; i < count; ++i) {
-        uint64_t left = cache[i].n + B;
-        uint64_t right = cache[i].r * K;
-        sum += (left > right) ? cache[i].product_ns : cache[i].factor_ns;
-    }
-    return sum;
-}
-
-/* nCr */
-typedef struct {
-    mp_ptr dst;
-    mp_size_t rn;
-    mp_bitcnt_t bits;
-    uint n;
-    uint r;
-} ncr_ctx;
-
-static void ncr_ctx_init(ncr_ctx* c, uint n, uint r) {
-    c->n = n;
-    c->r = r;
-    c->bits = 0;
-    c->rn = lmmp_nCr_size_(n, r, &c->bits);
-    c->dst = (mp_ptr)lmmp_alloc((size_t)c->rn * sizeof(mp_limb_t));
-}
-
-static void ncr_ctx_free(ncr_ctx* c) {
-    lmmp_free(c->dst);
-}
-
-static void bench_ncr_call(void* v) {
-    ncr_ctx* c = (ncr_ctx*)v;
-    (void)lmmp_nCr_(c->dst, c->bits, c->rn, c->n, c->r);
-}
-
-static double obj_ncr(void) {
-    double sum = 0.0;
-    static const uint ns[] = {2000, 3000, 5000};
-    static const uint rs[] = {1000, 1500, 2500};
-    for (unsigned i = 0; i < 3; ++i) {
-        ncr_ctx c;
-        ncr_ctx_init(&c, ns[i], rs[i]);
-        double x = bench_ns_per_call((tune_bench_fn)bench_ncr_call, &c, 3, g_quick ? 2.0 : 5.0);
-        ncr_ctx_free(&c);
-        sum += x <= 0.0 ? 1e300 : x;
-    }
-    return sum;
-}
-
-/* pow_1 */
-typedef struct {
-    mp_ptr dst;
-    mp_size_t rn;
-    mp_limb_t base;
-    ulong exp;
-} pow1_ctx;
-
-static void pow1_ctx_init(pow1_ctx* c, mp_limb_t base, ulong exp) {
-    c->base = base;
-    c->exp = exp;
-    c->rn = lmmp_pow_1_size_(base, exp);
-    c->dst = (mp_ptr)lmmp_alloc((size_t)c->rn * sizeof(mp_limb_t));
-}
-
-static void pow1_ctx_free(pow1_ctx* c) {
-    lmmp_free(c->dst);
-}
-
-static void bench_pow1_call(void* v) {
-    pow1_ctx* c = (pow1_ctx*)v;
-    (void)lmmp_pow_1_(c->dst, c->rn, c->base, c->exp);
-}
-
-static double obj_pow1(void) {
-    double sum = 0.0;
-    for (ulong e = 1; e <= 40; ++e) {
-        pow1_ctx c;
-        pow1_ctx_init(&c, 3, e);
-        double ns = bench_ns_per_call((tune_bench_fn)bench_pow1_call, &c, 3, g_quick ? 1.0 : 3.0);
-        pow1_ctx_free(&c);
-        sum += ns <= 0.0 ? 1e300 : ns;
-    }
-    return sum;
-}
-
-/* elem_mul */
-typedef struct {
-    mp_ptr dst;
-    mp_ptr tp;
-    ulong* limbs;
-    mp_size_t n;
-} elem_ctx;
-
-static void elem_ctx_init(elem_ctx* c, mp_size_t n) {
-    c->n = n;
-    c->dst = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->tp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->limbs = (ulong*)lmmp_alloc((size_t)n * sizeof(ulong));
-    for (mp_size_t i = 0; i < n; ++i)
-        c->limbs[i] = (ulong)(UINT64_C(0x0000000100000001) ^ (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15)) | 1;
-}
-
-static void elem_ctx_free(elem_ctx* c) {
-    lmmp_free(c->dst);
-    lmmp_free(c->tp);
-    lmmp_free(c->limbs);
-}
-
-static void bench_elem_call(void* v) {
-    elem_ctx* c = (elem_ctx*)v;
-    (void)lmmp_elem_mul_ulong_(c->dst, c->limbs, c->n, c->tp);
-}
-
-static double obj_elem(void) {
-    static const mp_size_t sizes[] = {10, 25, 50, 100, 250};
-    double sum = 0.0;
-    for (unsigned i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
-        elem_ctx c;
-        elem_ctx_init(&c, sizes[i]);
-        double ns = bench_ns_per_call((tune_bench_fn)bench_elem_call, &c, 3, g_quick ? 1.0 : 3.0);
-        elem_ctx_free(&c);
-        sum += ns <= 0.0 ? 1e300 : ns;
-    }
-    return sum;
-}
-
-/* mat22 */
-typedef struct {
-    lmmp_mat22_t a;
-    lmmp_mat22_t b;
-    lmmp_mat22_t d;
-    mp_ptr va[4];
-    mp_ptr vb[4];
-    mp_ptr vd[4];
-    mp_size_t n;
-} mat22_ctx;
-
-static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
-    c->n = n;
-    for (int i = 0; i < 4; ++i) {
-        c->va[i] = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-        c->vb[i] = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-        c->vd[i] = (mp_ptr)lmmp_alloc((size_t)(2 * n + 4) * sizeof(mp_limb_t));
-        for (mp_size_t j = 0; j < n; ++j) {
-            c->va[i][j] = UINT64_C(0x0123456789abcdef) ^ (uint64_t)(i + 1) * (uint64_t)j * UINT64_C(0x9e3779b97f4a7c15);
-            c->vb[i][j] = UINT64_C(0xfedcba9876543210) ^ (uint64_t)(i + 3) * (uint64_t)j * UINT64_C(0xc2b2ae3d27d4eb4f);
-        }
-        c->va[i][n - 1] |= (uint64_t)1 << 63;
-        c->vb[i][n - 1] |= (uint64_t)1 << 63;
-    }
-    c->a.a00 = c->va[0]; c->a.a01 = c->va[1]; c->a.a10 = c->va[2]; c->a.a11 = c->va[3];
-    c->a.n00 = (mp_ssize_t)n; c->a.n01 = (mp_ssize_t)n; c->a.n10 = (mp_ssize_t)n; c->a.n11 = (mp_ssize_t)n;
-    c->b.a00 = c->vb[0]; c->b.a01 = c->vb[1]; c->b.a10 = c->vb[2]; c->b.a11 = c->vb[3];
-    c->b.n00 = (mp_ssize_t)n; c->b.n01 = (mp_ssize_t)n; c->b.n10 = (mp_ssize_t)n; c->b.n11 = (mp_ssize_t)n;
-    c->d.a00 = c->vd[0]; c->d.a01 = c->vd[1]; c->d.a10 = c->vd[2]; c->d.a11 = c->vd[3];
-    c->d.n00 = c->d.n01 = c->d.n10 = c->d.n11 = 0;
-}
-
-static void mat22_ctx_free(mat22_ctx* c) {
-    for (int i = 0; i < 4; ++i) {
-        lmmp_free(c->va[i]);
-        lmmp_free(c->vb[i]);
-        lmmp_free(c->vd[i]);
-    }
-}
-
-static void bench_mat22_mul_call(void* v) {
-    mat22_ctx* c = (mat22_ctx*)v;
-    mp_size_t tn = 0, maxa = 0;
-    int choose = lmmp_mat22_mul_size_(&c->d, &c->a, &c->b, &tn, &maxa);
-    lmmp_mat22_mul_(&c->d, &c->a, &c->b, choose, tn, maxa);
-}
-
-static void bench_mat22_sqr_call(void* v) {
-    mat22_ctx* c = (mat22_ctx*)v;
-    mp_size_t tn = 0;
-    /* 与源码一致：平方只根据元素长度选择算法 */
-    int choose = (c->n < MAT22_SQR_STRASSEN_THRESHOLD) ? 0 : 1;
-    lmmp_mat22_sqr_(&c->d, &c->a, choose, tn > 0 ? tn : 2 * c->n + 4);
-}
-
-static double obj_mat22(int square) {
-    static const mp_size_t sizes[] = {20, 40, 60, 80, 120, 200};
-    double sum = 0.0;
-    for (unsigned i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
-        mat22_ctx c;
-        mat22_ctx_init(&c, sizes[i]);
-        double ns = bench_ns_per_call(square ? (tune_bench_fn)bench_mat22_sqr_call : (tune_bench_fn)bench_mat22_mul_call,
-                                      &c, 3, g_quick ? 1.0 : 3.0);
-        mat22_ctx_free(&c);
-        sum += ns <= 0.0 ? 1e300 : ns;
-    }
-    return sum;
-}
-
-static double obj_mat22_mul_wrap(void) { return obj_mat22(0); }
-static double obj_mat22_sqr_wrap(void) { return obj_mat22(1); }
-
-/* ============================== 搜索 ============================== */
-
-typedef double (*obj_fn)(void);
-
-static uint64_t search_1d(const char* name, uint64_t lo, uint64_t hi, uint64_t hint,
-                          void (*apply)(uint64_t), obj_fn obj) {
-    uint64_t best = hint;
-    apply(best);
-    double best_ns = obj();
-    printf("  %-34s start=%llu %.3f ms\n", name, (unsigned long long)best, best_ns * 1e-6);
-
-    uint64_t cur_lo = lo, cur_hi = hi;
-    int steps = g_quick ? 6 : 10;
-    for (int round = 0; round < 3; ++round) {
-        uint64_t prev = best;
-        for (int i = 0; i <= steps; ++i) {
-            uint64_t v;
-            if (cur_hi - cur_lo <= (uint64_t)steps) {
-                v = cur_lo + (uint64_t)i;
-                if (v > cur_hi) v = cur_hi;
-            } else {
-                v = cur_lo + (cur_hi - cur_lo) * (uint64_t)i / (uint64_t)steps;
-            }
-            apply(v);
-            double ns = obj();
-            printf("    %-30s v=%llu %.3f ms\n", "", (unsigned long long)v, ns * 1e-6);
-            if (ns < best_ns) {
-                best_ns = ns;
-                best = v;
-            }
-        }
-        if (best == prev && best_ns <= 1e300) {
-            /* 小范围精细扫描已稳定 */
-            if (cur_hi - cur_lo <= 2) break;
-            cur_lo = best > cur_lo + 1 ? best - 1 : cur_lo;
-            cur_hi = best + 1 < cur_hi ? best + 1 : cur_hi;
-            steps = g_quick ? 3 : 5;
-        } else {
-            uint64_t span = cur_hi - cur_lo;
-            uint64_t nl = (best > cur_lo + span / 4) ? best - span / 4 : cur_lo;
-            uint64_t nh = (best + span / 4 < cur_hi) ? best + span / 4 : cur_hi;
-            if (nh <= nl) { nl = cur_lo; nh = cur_hi; }
-            cur_lo = nl;
-            cur_hi = nh;
-            steps = g_quick ? 4 : 7;
-        }
-    }
-    apply(best);
-    printf("  %-34s -> %llu (%.3f ms)\n", name, (unsigned long long)best, best_ns * 1e-6);
-    return best;
-}
-
-/* ============================== 缓存式 1D 搜索 ==============================
- * 分别用极端阈值强制走 A / B 两条路径，每个 size 只测两次；
- * 之后在整数阈值域上全量扫描，选择总耗时最小的分隔点，避免局部极值。 */
-
-#define MAX_TUNE_SIZES 16
-
-static uint64_t search_1d_cached(const char* name,
-                                 uint64_t lo, uint64_t hi, uint64_t hint,
-                                 const mp_size_t* sizes, int nsizes,
-                                 double (*bench_low)(mp_size_t),
-                                 double (*bench_high)(mp_size_t)) {
-    double low_ns[MAX_TUNE_SIZES];
-    double high_ns[MAX_TUNE_SIZES];
-
-    printf("  %-34s measuring %d sizes in [%llu,%llu]...\n", name, nsizes,
-           (unsigned long long)lo, (unsigned long long)hi);
-    for (int i = 0; i < nsizes; ++i) {
-        low_ns[i] = bench_low(sizes[i]);
-        high_ns[i] = bench_high(sizes[i]);
-        printf("    size=%-6llu low=%.4f ms high=%.4f ms\n",
-               (unsigned long long)sizes[i], low_ns[i] * 1e-6, high_ns[i] * 1e-6);
-    }
-
-    uint64_t best = hint;
-    double best_cost = 1e300;
-    if (lo > hi) hi = lo;
-    for (uint64_t t = lo; t <= hi; ++t) {
-        double cost = 0.0;
-        for (int i = 0; i < nsizes; ++i) {
-            cost += ((uint64_t)sizes[i] < t) ? low_ns[i] : high_ns[i];
-        }
-        if (cost < best_cost) {
-            best_cost = cost;
-            best = t;
-        }
-    }
-    printf("  %-34s -> %llu (%.4f ms)\n", name,
-           (unsigned long long)best, best_cost * 1e-6);
-    return best;
+int tune_run_mul_toom22(void);
+int tune_run_mul_toom33(void);
+int tune_run_mul_toom44(void);
+int tune_run_mul_fft(void);
+int tune_run_mullo_basecase(void);
+int tune_run_mullo_dc(void);
+int tune_run_div_divide(void);
+int tune_run_bninv_newton(void);
+int tune_run_mul_fft_modf(void);
+int tune_run_mulhi_mersenne(void);
+int tune_run_to_str_basepow(void);
+int tune_run_to_str_divide(void);
+int tune_run_from_str_basepow(void);
+int tune_run_from_str_divide(void);
+int tune_run_pow_1_exp(void);
+int tune_run_pow_win2_exp(void);
+int tune_run_pow_win2_n(void);
+int tune_run_factors_mul_n(void);
+int tune_run_permutation_ushort(void);
+int tune_run_permutation_uint(void);
+int tune_run_binomial_rn(void);
+int tune_run_elem_mul(void);
+int tune_run_mat22_mul(void);
+int tune_run_mat22_sqr(void);
+int tune_run_sqrt_invnewton(void);
+int tune_run_divexact_basecase(void);
+int tune_run_divexact_nn(void);
+
+static const tune_module_t g_modules[] = {
+    {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
+    {"mul_toom33", "mul33,MUL_TOOM33_THRESHOLD", "MUL_TOOM33_THRESHOLD", tune_run_mul_toom33},
+    {"mul_toom44", "mul44,MUL_TOOM44_THRESHOLD", "MUL_TOOM44_THRESHOLD", tune_run_mul_toom44},
+    {"mul_fft", "MUL_FFT_THRESHOLD", "MUL_FFT_THRESHOLD", tune_run_mul_fft},
+    {"mullo_basecase", "mullo,MULLO_BASECASE_THRESHOLD", "MULLO_BASECASE_THRESHOLD", tune_run_mullo_basecase},
+    {"mullo_dc", "MULLO_DC_THRESHOLD", "MULLO_DC_THRESHOLD", tune_run_mullo_dc},
+    {"div_divide", "DIV_DIVIDE_THRESHOLD", "DIV_DIVIDE_THRESHOLD", tune_run_div_divide},
+    {"bninv_newton", "bninv,BNINV_NEWTON_THRESHOLD", "BNINV_NEWTON_THRESHOLD", tune_run_bninv_newton},
+    {"mul_fft_modf", "MUL_FFT_MODF_THRESHOLD", "MUL_FFT_MODF_THRESHOLD", tune_run_mul_fft_modf},
+    {"mulhi_mersenne", "MULHI_MERSENNE_THRESHOLD", "MULHI_MERSENNE_THRESHOLD", tune_run_mulhi_mersenne},
+    {"to_str_basepow", "TO_STR_BASEPOW_THRESHOLD", "TO_STR_BASEPOW_THRESHOLD", tune_run_to_str_basepow},
+    {"to_str_divide", "TO_STR_DIVIDE_THRESHOLD", "TO_STR_DIVIDE_THRESHOLD", tune_run_to_str_divide},
+    {"from_str_basepow", "FROM_STR_BASEPOW_THRESHOLD", "FROM_STR_BASEPOW_THRESHOLD", tune_run_from_str_basepow},
+    {"from_str_divide", "FROM_STR_DIVIDE_THRESHOLD", "FROM_STR_DIVIDE_THRESHOLD", tune_run_from_str_divide},
+    {"pow_1_exp", "pow1,POW_1_EXP_THRESHOLD", "POW_1_EXP_THRESHOLD", tune_run_pow_1_exp},
+    {"pow_win2_exp", "POW_WIN2_EXP_THRESHOLD", "POW_WIN2_EXP_THRESHOLD", tune_run_pow_win2_exp},
+    {"pow_win2_n", "POW_WIN2_N_THRESHOLD", "POW_WIN2_N_THRESHOLD", tune_run_pow_win2_n},
+    {"factors_mul_n", "FACTORS_MUL_N_THRESHOLD", "FACTORS_MUL_N_THRESHOLD", tune_run_factors_mul_n},
+    {"permutation_ushort", "npr_ushort,PERMUTATION_USHORT", "PERMUTATION_USHORT_K/B_THRESHOLD", tune_run_permutation_ushort},
+    {"permutation_uint", "npr_uint,PERMUTATION_UINT", "PERMUTATION_UINT_K/B_THRESHOLD", tune_run_permutation_uint},
+    {"binomial_rn", "ncr,BINOMIAL_RN_BASECASE_THRESHOLD", "BINOMIAL_RN_BASECASE_THRESHOLD", tune_run_binomial_rn},
+    {"elem_mul", "elem,ELEM_MUL_BASECASE_THRESHOLD", "ELEM_MUL_BASECASE_THRESHOLD", tune_run_elem_mul},
+    {"mat22_mul", "MAT22_MUL_STRASSEN_THRESHOLD", "MAT22_MUL_STRASSEN_THRESHOLD", tune_run_mat22_mul},
+    {"mat22_sqr", "MAT22_SQR_STRASSEN_THRESHOLD", "MAT22_SQR_STRASSEN_THRESHOLD", tune_run_mat22_sqr},
+    {"sqrt_invnewton", "SQRT_INVNEWTON_THRESHOLD", "SQRT_INVNEWTON_THRESHOLD", tune_run_sqrt_invnewton},
+    {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
+    {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
+};
+
+static void usage(void) {
+    printf("Usage: lmmp_tune [options]\n");
+    printf("  --only <id1,id2,...>   run only selected thresholds\n");
+    printf("  --list                 list threshold module ids\n");
+    printf("  --samples <N>          odd samples per path (default 7)\n");
+    printf("  --min-ms <MS>          target duration per sample (default 10)\n");
+    printf("  --mad-limit <X>        retry if MAD/median > X (default 0.25)\n");
+    printf("  --max-retry <N>        max re-measure rounds (default 1)\n");
+    printf("  --out <FILE.txt>       result text path\n");
+    printf("  --write                write tuned values into mparam.h (with backup)\n");
+    printf("  --help, -h             show this help\n");
+}
+
+static void list_modules(void) {
+    for (size_t i = 0; i < sizeof(g_modules) / sizeof(g_modules[0]); ++i)
+        printf("%-22s %s%s%s\n", g_modules[i].id, g_modules[i].title,
+               g_modules[i].aliases != NULL ? "  aliases: " : "",
+               g_modules[i].aliases != NULL ? g_modules[i].aliases : "");
 }
-
-typedef struct {
-    uint64_t K;
-    uint64_t B;
-} pair_t;
-
-/* 在已缓存的 nPr 成本表上做细网格二维搜索。 */
-static pair_t search_2d_table(const char* name, int is_uint,
-                              uint64_t k_lo, uint64_t k_hi, uint64_t k_hint,
-                              uint64_t b_lo, uint64_t b_hi, uint64_t b_hint) {
-    pair_t best = {k_hint, b_hint};
-    double best_ns = npr_cache_eval(is_uint, best.K, best.B);
-    printf("  %-34s start=(K=%llu,B=%llu) %.3f ms\n", name,
-           (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
-
-    int k_steps = g_quick ? 128 : 256;
-    int b_steps = g_quick ? 128 : 256;
-    int rounds = g_quick ? 4 : 6;
-
-    for (int round = 0; round < rounds; ++round) {
-        double lr = log((double)(b_lo > 0 ? b_lo : 1));
-        double hr = log((double)(b_hi > 0 ? b_hi : 1));
-        for (int i = 0; i <= k_steps; ++i) {
-            uint64_t k = k_lo + (k_hi - k_lo) * (uint64_t)i / (uint64_t)k_steps;
-            for (int j = 0; j <= b_steps; ++j) {
-                double lv = lr + (hr - lr) * (double)j / (double)b_steps;
-                uint64_t b = (uint64_t)(exp(lv) + 0.5);
-                if (b < b_lo) b = b_lo;
-                if (b > b_hi) b = b_hi;
-                double ns = npr_cache_eval(is_uint, k, b);
-                if (ns < best_ns) {
-                    best_ns = ns;
-                    best.K = k;
-                    best.B = b;
-                }
-            }
-        }
-        printf("    %-30s round=%d best=(%llu,%llu) %.3f ms\n", "", round,
-               (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
-
-        /* 若最优值贴在边界上，说明搜索域不够，先向外扩展。 */
-        uint64_t k_span = (k_hi - k_lo) / 2 + 1;
-        uint64_t b_lo_expand = b_lo, b_hi_expand = b_hi;
-        if (best.K <= k_lo + (k_hi - k_lo) / 64) {
-            k_lo = best.K > k_span ? best.K - k_span : 1;
-            k_hi = best.K + k_span;
-        } else if (best.K >= k_hi - (k_hi - k_lo) / 64) {
-            k_lo = best.K > k_span ? best.K - k_span : 1;
-            k_hi = best.K + k_span;
-        } else {
-            k_lo = best.K > k_span ? best.K - k_span : 1;
-            k_hi = best.K + k_span;
-        }
-        if (best.B <= b_lo * 2) {
-            b_lo_expand = 1;
-            b_hi_expand = b_hi;
-        } else if (best.B >= b_hi / 2) {
-            b_lo_expand = b_lo;
-            b_hi_expand = b_hi * 4;
-        } else {
-            double best_lr = log((double)best.B);
-            double span_lr = (hr - lr);
-            b_lo_expand = (uint64_t)(exp(best_lr - span_lr * 0.25) + 0.5);
-            b_hi_expand = (uint64_t)(exp(best_lr + span_lr * 0.25) + 0.5);
-        }
-        if (b_lo_expand < 1) b_lo_expand = 1;
-        if (b_hi_expand <= b_lo_expand) b_hi_expand = b_lo_expand * 2;
-        b_lo = b_lo_expand;
-        b_hi = b_hi_expand;
-    }
-
-    if (is_uint) apply_npr_uint(best.K, best.B);
-    else         apply_npr_ushort(best.K, best.B);
-    best_ns = npr_cache_eval(is_uint, best.K, best.B);
-    printf("  %-34s -> (K=%llu,B=%llu) (%.3f ms)\n", name,
-           (unsigned long long)best.K, (unsigned long long)best.B, best_ns * 1e-6);
-    return best;
-}
-
-/* ============================== 阈值应用与结果输出 ============================== */
-
-typedef struct {
-    const char* name;
-    uint64_t value;
-    uint64_t old_value;
-} tuned_t;
-
-#define MAX_TUNED 12
-static tuned_t g_tuned[MAX_TUNED];
-static int g_tuned_n = 0;
-
-static void add_tuned(const char* name, uint64_t old_value, uint64_t new_value) {
-    if (g_tuned_n < MAX_TUNED) {
-        g_tuned[g_tuned_n].name = name;
-        g_tuned[g_tuned_n].old_value = old_value;
-        g_tuned[g_tuned_n].value = new_value;
-        ++g_tuned_n;
-    }
-}
-
-static void apply_mul22(uint64_t v) { lmmp_tune_MUL_TOOM22_THRESHOLD = v; }
-static void apply_mul33(uint64_t v) { lmmp_tune_MUL_TOOM33_THRESHOLD = v; }
-static void apply_mul44(uint64_t v) { lmmp_tune_MUL_TOOM44_THRESHOLD = v; }
-static void apply_mullo_base(uint64_t v) { lmmp_tune_MULLO_BASECASE_THRESHOLD = v; }
-static void apply_binom(uint64_t v) { lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD = v; }
-static void apply_pow1(uint64_t v) { lmmp_tune_POW_1_EXP_THRESHOLD = v; }
-static void apply_elem(uint64_t v) { lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD = v; }
-static void apply_mat22_mul(uint64_t v) { lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD = v; }
-static void apply_mat22_sqr(uint64_t v) { lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD = v; }
-
-static void apply_npr_ushort(uint64_t k, uint64_t b) {
-    lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = k;
-    lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD = b;
-}
-
-static void apply_npr_uint(uint64_t k, uint64_t b) {
-    lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = k;
-    lmmp_tune_PERMUTATION_UINT_B_THRESHOLD = b;
-}
-
-static int want(const char* only, const char* name) {
-    if (only == NULL || only[0] == '\0') return 1;
-    const char* p = only;
-    while (p != NULL && *p != '\0') {
-        const char* q = strchr(p, ',');
-        size_t len = q ? (size_t)(q - p) : strlen(p);
-        if (strncmp(p, name, len) == 0 && name[len] == '\0') return 1;
-        p = q ? q + 1 : NULL;
-    }
-    return 0;
-}
-
-/* ============================== mparam.h 写回 ============================== */
-
-static void write_mparam(void) {
-    const char* path = LMMP_SOURCE_DIR "/include/lmmp/impl/mparam.h";
-    FILE* f = fopen(path, "r");
-    if (f == NULL) {
-        fprintf(stderr, "Warning: cannot open %s for writing back.\n", path);
-        return;
-    }
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc((size_t)sz + 1);
-    if (buf == NULL) { fclose(f); return; }
-    size_t rd = fread(buf, 1, (size_t)sz, f);
-    buf[rd] = '\0';
-    fclose(f);
-
-    for (int i = 0; i < g_tuned_n; ++i) {
-        char needle[96];
-        snprintf(needle, sizeof(needle), "#define %s ", g_tuned[i].name);
-        char* pos = strstr(buf, needle);
-        if (pos != NULL) {
-            char* line_end = strchr(pos, '\n');
-            char* insert = (char*)malloc(256);
-            if (insert == NULL) continue;
-            snprintf(insert, 256, "#define %s %llu", g_tuned[i].name,
-                     (unsigned long long)g_tuned[i].value);
-            size_t old_line = line_end ? (size_t)(line_end - pos) : strlen(pos);
-            size_t new_len = strlen(insert);
-            size_t tail = strlen(pos);
-            if (new_len != old_line) {
-                memmove(pos + new_len, pos + old_line, tail - old_line + 1);
-            }
-            memcpy(pos, insert, new_len);
-            free(insert);
-        }
-    }
-    f = fopen(path, "w");
-    if (f == NULL) {
-        fprintf(stderr, "Warning: cannot write %s\n", path);
-    } else {
-        fwrite(buf, 1, strlen(buf), f);
-        fclose(f);
-        printf("Updated %s\n", path);
-    }
-    free(buf);
-}
-
-/* ============================== main ============================== */
 
 int main(int argc, char** argv) {
-    const char* only = NULL;
+    const char* out_txt = NULL;
+    const char* mparam_path = LMMP_SOURCE_DIR "/include/lmmp/impl/mparam.h";
+    const char* backup_path = LMMP_SOURCE_DIR "/include/lmmp/impl/mparam.h.tune-bak";
+
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--quick") == 0) {
-            g_quick = 1;
-        } else if (strcmp(argv[i], "--write") == 0) {
-            g_write = 1;
-        } else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) {
-            only = argv[++i];
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Usage: lmmp_tune [--quick] [--write] [--only name1,name2,...]\n");
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            usage();
             return 0;
+        } else if (strcmp(argv[i], "--list") == 0) {
+            list_modules();
+            return 0;
+        } else if (strcmp(argv[i], "--write") == 0) {
+            g_tune.write = 1;
+        } else if (strcmp(argv[i], "--only") == 0 && i + 1 < argc) {
+            g_tune.only = argv[++i];
+        } else if (strcmp(argv[i], "--samples") == 0 && i + 1 < argc) {
+            const int v = atoi(argv[++i]);
+            if (v < 1 || v > 31) {
+                fprintf(stderr, "--samples must be in [1,31]\n");
+                return 2;
+            }
+            g_tune.samples = (unsigned)(v | 1);
+        } else if (strcmp(argv[i], "--min-ms") == 0 && i + 1 < argc) {
+            const double v = atof(argv[++i]);
+            if (v < 0.5 || v > 1000.0) {
+                fprintf(stderr, "--min-ms must be in [0.5,1000]\n");
+                return 2;
+            }
+            g_tune.target_ms = v;
+        } else if (strcmp(argv[i], "--mad-limit") == 0 && i + 1 < argc) {
+            g_tune.mad_limit = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--max-retry") == 0 && i + 1 < argc) {
+            g_tune.max_retry = (unsigned)atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
+            out_txt = argv[++i];
+        } else {
+            fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+            usage();
+            return 2;
         }
     }
 
-    timer_init();
+    if (out_txt == NULL)
+        out_txt = LMMP_SOURCE_DIR "/tune/lmmp/bin/lmmp_tune_results.txt";
+    char* out_h = (char*)malloc(strlen(out_txt) + 4);
+    if (out_h == NULL)
+        return 2;
+    strcpy(out_h, out_txt);
+    char* dot = strrchr(out_h, '.');
+    if (dot != NULL && strcmp(dot, ".txt") == 0)
+        strcpy(dot, ".h");
+    else
+        strcat(out_h, ".h");
+
+    tune_timer_init();
     lmmp_global_init();
-    printf("LMMP tune driver\n");
-    printf("mode: %s, write: %s\n", g_quick ? "quick" : "normal", g_write ? "yes" : "no");
 
-    if (want(only, "mul22")) {
-        printf("\n[Tune] MUL_TOOM22_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MUL_TOOM22_THRESHOLD;
-        uint64_t v = search_1d("MUL_TOOM22_THRESHOLD", 5, 60, old,
-                               apply_mul22, obj_mul);
-        add_tuned("MUL_TOOM22_THRESHOLD", old, v);
-        lmmp_tune_MUL_TOOM22_THRESHOLD = v;
-    }
-    if (want(only, "mul33")) {
-        printf("\n[Tune] MUL_TOOM33_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MUL_TOOM33_THRESHOLD;
-        uint64_t v = search_1d("MUL_TOOM33_THRESHOLD", 30, 220, old,
-                               apply_mul33, obj_mul);
-        add_tuned("MUL_TOOM33_THRESHOLD", old, v);
-        lmmp_tune_MUL_TOOM33_THRESHOLD = v;
-    }
-    if (want(only, "mul44")) {
-        printf("\n[Tune] MUL_TOOM44_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MUL_TOOM44_THRESHOLD;
-        uint64_t v = search_1d("MUL_TOOM44_THRESHOLD", 200, 1200, old,
-                               apply_mul44, obj_mul);
-        add_tuned("MUL_TOOM44_THRESHOLD", old, v);
-        lmmp_tune_MUL_TOOM44_THRESHOLD = v;
-    }
-    if (want(only, "mullo")) {
-        printf("\n[Tune] MULLO_BASECASE_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MULLO_BASECASE_THRESHOLD;
-        uint64_t v = search_1d("MULLO_BASECASE_THRESHOLD", 3, 100, old,
-                               apply_mullo_base, obj_mullo);
-        add_tuned("MULLO_BASECASE_THRESHOLD", old, v);
-        lmmp_tune_MULLO_BASECASE_THRESHOLD = v;
-    }
-    if (want(only, "npr_ushort")) {
-        printf("\n[Tune] PERMUTATION_USHORT (K,B)\n");
-        uint64_t old_k = lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
-        uint64_t old_b = lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
-        npr_cache_fill(0);
-        pair_t p = search_2d_table("PERMUTATION_USHORT", 0, 1, 128, old_k,
-                                   1, 1u << 20, old_b);
-        add_tuned("PERMUTATION_USHORT_K_THRESHOLD", old_k, p.K);
-        add_tuned("PERMUTATION_USHORT_B_THRESHOLD", old_b, p.B);
-        lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = p.K;
-        lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD = p.B;
-    }
-    if (want(only, "npr_uint")) {
-        printf("\n[Tune] PERMUTATION_UINT (K,B)\n");
-        uint64_t old_k = lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
-        uint64_t old_b = lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
-        npr_cache_fill(1);
-        pair_t p = search_2d_table("PERMUTATION_UINT", 1, 1, 512, old_k,
-                                   1, 1u << 24, old_b);
-        add_tuned("PERMUTATION_UINT_K_THRESHOLD", old_k, p.K);
-        add_tuned("PERMUTATION_UINT_B_THRESHOLD", old_b, p.B);
-        lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = p.K;
-        lmmp_tune_PERMUTATION_UINT_B_THRESHOLD = p.B;
-    }
-    if (want(only, "ncr")) {
-        printf("\n[Tune] BINOMIAL_RN_BASECASE_THRESHOLD\n");
-        uint64_t old = lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD;
-        uint64_t v = search_1d("BINOMIAL_RN_BASECASE_THRESHOLD", 10, 120, old,
-                               apply_binom, obj_ncr);
-        add_tuned("BINOMIAL_RN_BASECASE_THRESHOLD", old, v);
-        lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD = v;
-    }
-    if (want(only, "pow1")) {
-        printf("\n[Tune] POW_1_EXP_THRESHOLD\n");
-        uint64_t old = lmmp_tune_POW_1_EXP_THRESHOLD;
-        uint64_t v = search_1d("POW_1_EXP_THRESHOLD", 1, 50, old,
-                               apply_pow1, obj_pow1);
-        add_tuned("POW_1_EXP_THRESHOLD", old, v);
-        lmmp_tune_POW_1_EXP_THRESHOLD = v;
-    }
-    if (want(only, "elem")) {
-        printf("\n[Tune] ELEM_MUL_BASECASE_THRESHOLD\n");
-        uint64_t old = lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
-        uint64_t v = search_1d("ELEM_MUL_BASECASE_THRESHOLD", 5, 100, old,
-                               apply_elem, obj_elem);
-        add_tuned("ELEM_MUL_BASECASE_THRESHOLD", old, v);
-        lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD = v;
-    }
-    if (want(only, "mul_fft")) {
-        printf("\n[Tune] MUL_FFT_THRESHOLD\n");
-        static const mp_size_t sizes[] = {512, 768, 1024, 1536, 2048, 3072, 4096};
-        uint64_t old = lmmp_tune_MUL_FFT_THRESHOLD;
-        uint64_t v = search_1d_cached("MUL_FFT_THRESHOLD", 512, 4096, old, sizes, 7,
-                                      bench_mul_toom44_size, bench_mul_fft_size);
-        add_tuned("MUL_FFT_THRESHOLD", old, v);
-        lmmp_tune_MUL_FFT_THRESHOLD = v;
-    }
-    if (want(only, "mullo_dc")) {
-        printf("\n[Tune] MULLO_DC_THRESHOLD\n");
-        static const mp_size_t sizes[] = {512, 1024, 1536, 2048, 3072, 4096, 6144};
-        uint64_t old = lmmp_tune_MULLO_DC_THRESHOLD;
-        uint64_t v = search_1d_cached("MULLO_DC_THRESHOLD", 512, 8192, old, sizes, 7,
-                                      bench_mullo_dc_size, bench_mullo_fft_size);
-        add_tuned("MULLO_DC_THRESHOLD", old, v);
-        lmmp_tune_MULLO_DC_THRESHOLD = v;
-    }
-    if (want(only, "mulhi_mersenne")) {
-        printf("\n[Tune] MULHI_MERSENNE_THRESHOLD\n");
-        static const mp_size_t sizes[] = {128, 192, 256, 384, 512, 768, 1024};
-        uint64_t old = lmmp_tune_MULHI_MERSENNE_THRESHOLD;
-        uint64_t v = search_1d_cached("MULHI_MERSENNE_THRESHOLD", 128, 1024, old, sizes, 7,
-                                      bench_mulhi_toom44_size, bench_mulhi_mersenne_size);
-        add_tuned("MULHI_MERSENNE_THRESHOLD", old, v);
-        lmmp_tune_MULHI_MERSENNE_THRESHOLD = v;
-    }
-    if (want(only, "to_str_basepow")) {
-        printf("\n[Tune] TO_STR_BASEPOW_THRESHOLD\n");
-        static const mp_size_t sizes[] = {24, 32, 48, 64, 96, 128};
-        uint64_t old = lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
-        uint64_t v = search_1d_cached("TO_STR_BASEPOW_THRESHOLD", 20, 256, old, sizes, 6,
-                                      bench_tostr_basepow_low, bench_tostr_basepow_high);
-        add_tuned("TO_STR_BASEPOW_THRESHOLD", old, v);
-        lmmp_tune_TO_STR_BASEPOW_THRESHOLD = v;
-    }
-    if (want(only, "from_str_basepow")) {
-        printf("\n[Tune] FROM_STR_BASEPOW_THRESHOLD\n");
-        static const mp_size_t sizes[] = {64, 128, 256, 512, 1024};
-        uint64_t old = lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
-        uint64_t v = search_1d_cached("FROM_STR_BASEPOW_THRESHOLD", 8, 512, old, sizes, 5,
-                                      bench_fromstr_basepow_low, bench_fromstr_basepow_high);
-        add_tuned("FROM_STR_BASEPOW_THRESHOLD", old, v);
-        lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = v;
-    }
-    if (want(only, "mat22_mul")) {
-        printf("\n[Tune] MAT22_MUL_STRASSEN_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
-        uint64_t v = search_1d("MAT22_MUL_STRASSEN_THRESHOLD", 20, 160, old,
-                               apply_mat22_mul, obj_mat22_mul_wrap);
-        add_tuned("MAT22_MUL_STRASSEN_THRESHOLD", old, v);
-        lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD = v;
-    }
-    if (want(only, "mat22_sqr")) {
-        printf("\n[Tune] MAT22_SQR_STRASSEN_THRESHOLD\n");
-        uint64_t old = lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;
-        uint64_t v = search_1d("MAT22_SQR_STRASSEN_THRESHOLD", 20, 160, old,
-                               apply_mat22_sqr, obj_mat22_sqr_wrap);
-        add_tuned("MAT22_SQR_STRASSEN_THRESHOLD", old, v);
-        lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD = v;
+    printf("LMMP tuning driver (high-density, GMP-style badness search)\n");
+    printf("samples_per_path=%u target_ms=%.1f mad_limit=%.3f max_retry=%u write=%s\n",
+           g_tune.samples, g_tune.target_ms, g_tune.mad_limit, g_tune.max_retry,
+           g_tune.write ? "yes" : "no");
+    printf("modules: %llu\n",
+           (unsigned long long)(sizeof(g_modules) / sizeof(g_modules[0])));
+
+    const int rc = tune_module_run(g_modules, sizeof(g_modules) / sizeof(g_modules[0]),
+                                   g_tune.only);
+    tune_record_print_summary();
+
+    if (rc == 0) {
+        tune_record_write_files(out_txt, out_h);
+        printf("\nResults written to:\n  %s\n  %s\n", out_txt, out_h);
+        if (g_tune.write)
+            tune_write_mparam(mparam_path, backup_path);
+    } else if (rc == 1) {
+        fprintf(stderr, "No module matched --only filter.\n");
+        list_modules();
     }
 
-    printf("\n==================== Tune summary ====================\n");
-    for (int i = 0; i < g_tuned_n; ++i) {
-        printf("%-38s %llu -> %llu\n", g_tuned[i].name,
-               (unsigned long long)g_tuned[i].old_value,
-               (unsigned long long)g_tuned[i].value);
-    }
-    if (g_write && g_tuned_n > 0) {
-        write_mparam();
-    } else if (g_tuned_n > 0) {
-        printf("\nUse --write to write these values back into include/lmmp/impl/mparam.h.\n");
-    }
-
+    free(out_h);
     lmmp_global_deinit();
-    return 0;
+    return rc;
 }

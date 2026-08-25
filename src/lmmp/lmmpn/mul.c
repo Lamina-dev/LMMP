@@ -49,7 +49,17 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
         if (na <= PART_SIZE || nb <= 2)
             lmmp_mul_basecase_(dst, numa, na, numb, nb);
         else {
-            mp_limb_t tp[MUL_TOOMX2_THRESHOLD];
+            mp_ptr tp;
+            int tp_heap = 0;
+            if (nb <= MUL_TOOMX2_THRESHOLD) {
+                mp_limb_t tp_local[MUL_TOOMX2_THRESHOLD];
+                tp = tp_local;
+            } else {
+                /* MUL_TOOM22_THRESHOLD 调优后可能大于 MUL_TOOMX2_THRESHOLD；
+                 * tp 必须容纳 nb 个 limb，不能继续使用固定长度数组。 */
+                tp = (mp_ptr)lmmp_alloc((size_t)nb * sizeof(mp_limb_t));
+                tp_heap = 1;
+            }
             lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
             dst += PART_SIZE;
             numa += PART_SIZE;
@@ -70,6 +80,8 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
                 lmmp_mul_basecase_(dst, numb, nb, numa, na);
             if (lmmp_add_n_(dst, dst, tp, nb))
                 lmmp_inc(dst + nb);
+            if (tp_heap)
+                lmmp_free(tp);
         }
     } else if (((na + nb) >> 1) < MUL_TOOM44_THRESHOLD || 2 * nb < MUL_TOOM44_THRESHOLD) {
         if (na < 3 * nb) {

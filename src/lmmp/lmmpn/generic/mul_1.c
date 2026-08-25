@@ -61,6 +61,18 @@ mp_limb_t lmmp_mul_1_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
             cl = (lpl0 < cl) + hpl0;
             dst[i] = lpl0;
         }
+    } else if (dst == numa + 1) {
+        /* 文档允许 dst == numa+1。普通分块顺序写会覆盖下一块尚未读取的
+         * 源 limb；这里使用单 limb 延迟流水线，先读 next 再写当前结果。 */
+        ul0 = numa[0];
+        for (i = 0; i < na; ++i) {
+            ul1 = (i + 1 < na) ? numa[i + 1] : 0;
+            _umul64to128_(ul0, x, &lpl0, &hpl0);
+            lpl0 += cl;
+            cl = (lpl0 < cl) + hpl0;
+            dst[i] = lpl0;
+            ul0 = ul1;
+        }
     } else {
         /* seq(dst,numa) */
         for (; i + 4 <= na; i += 4) {
