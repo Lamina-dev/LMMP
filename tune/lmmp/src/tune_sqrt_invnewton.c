@@ -25,6 +25,7 @@
 #define TUNE_SQRT_FIXED_NA 32
 
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_SQRT_INVNEWTON_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_SQRT_INVNEWTON_THRESHOLD = v; }
 
 typedef struct {

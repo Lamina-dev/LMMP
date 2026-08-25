@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MULLO_BASECASE_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MULLO_BASECASE_THRESHOLD = v; }
 
 typedef struct {
@@ -75,7 +77,7 @@ int tune_run_mullo_basecase(void) {
     spec.macro_name = "MULLO_BASECASE_THRESHOLD";
     spec.low_name = "mullo_basecase";
     spec.high_name = "mullo_dc";
-    spec.lo = 2;
+    spec.lo = 4;
     spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;

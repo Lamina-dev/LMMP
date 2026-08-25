@@ -21,8 +21,11 @@
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_DIVEXACT_BASECASE_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_DIVEXACT_BASECASE_THRESHOLD = v; }
+
 #define TUNE_DIVEXACT_FIXED_NN 300
 
 typedef struct {

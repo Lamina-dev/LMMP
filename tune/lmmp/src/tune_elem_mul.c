@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/impl/ele_mul.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD = v; }
 
 typedef struct {

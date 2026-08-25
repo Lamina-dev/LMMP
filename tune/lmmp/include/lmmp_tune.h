@@ -18,7 +18,6 @@
 
 #include <stdint.h>
 
-/* 与 include/lmmp/impl/mparam.h 中的 LMMP_TUNE extern 声明一一对应。 */
 extern uint64_t lmmp_tune_MUL_TOOM22_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_TOOM33_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD;

@@ -21,7 +21,9 @@
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_POW_WIN2_N_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_POW_WIN2_N_THRESHOLD = v; }
 
 #define TUNE_POW_WIN2_FIXED_EXP 63
@@ -80,7 +82,7 @@ int tune_run_pow_win2_n(void) {
     spec.macro_name = "POW_WIN2_N_THRESHOLD";
     spec.low_name = "pow_basecase_odd";
     spec.high_name = "pow_win2";
-    spec.lo = 1;
+    spec.lo = 10;
     spec.hi = 1536;
     spec.sample_lo = 16;
     spec.sample_hi = 1536;

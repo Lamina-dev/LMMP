@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MUL_FFT_MODF_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MUL_FFT_MODF_THRESHOLD = v; }
 
 typedef struct {
@@ -81,7 +83,7 @@ int tune_run_mul_fft_modf(void) {
     spec.macro_name = "MUL_FFT_MODF_THRESHOLD";
     spec.low_name = "fermat_direct_mul";
     spec.high_name = "fermat_recursive_fft";
-    spec.lo = 8;
+    spec.lo = 128;
     spec.hi = 2048;
     spec.sample_lo = 512;
     spec.sample_hi = 4096;

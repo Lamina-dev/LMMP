@@ -52,6 +52,7 @@ static double bench_mul_n(void* v) {
 }
 
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MUL_TOOM44_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MUL_TOOM44_THRESHOLD = v; }
 
 static void* make_ctx(uint64_t size, int use_high) {
@@ -76,6 +77,7 @@ static void apply_path(uint64_t size, int use_high) {
     else
         set_threshold(size + 1);
 }
+
 int tune_run_mul_toom44(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));

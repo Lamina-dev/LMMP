@@ -119,3 +119,4 @@ cmake --build build-tune --parallel 8
   建议写回前检查结果文件。
 - `--write` 是可选的。默认只生成 `bin/lmmp_tune_results.*`，不会修改任何
   库源码。
+- 建议在调优时仔细查看调优结果，并根据需要手动调整阈值。

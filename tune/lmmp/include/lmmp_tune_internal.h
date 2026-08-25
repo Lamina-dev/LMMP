@@ -105,7 +105,6 @@ size_t tune_build_points(uint64_t lo, uint64_t hi, uint64_t hint,
                          uint64_t* out, size_t cap);
 
 /*
- * GMP tuneup.c 风格的 badness 最小化：
  *   bad = max(0, chosen_ns / faster_ns - 1)
  * 在候选阈值整数域上扫描，选择总 badness 最小的阈值。
  * 若存在平坦区间，优先取更接近 hint 的候选，避免测量噪声造成平台漂移。
@@ -124,8 +123,8 @@ typedef struct tune_1d_spec {
     const char* macro_name;
     const char* low_name;
     const char* high_name;
-    uint64_t lo;
-    uint64_t hi;
+    uint64_t lo;        /* 寻优阈值下限 */
+    uint64_t hi;        /* 寻优阈值上限 */
     uint64_t sample_lo; /* 0 表示沿用 lo */
     uint64_t sample_hi; /* 0 表示沿用 hi */
     tune_pred_t pred;

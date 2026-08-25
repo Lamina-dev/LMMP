@@ -21,7 +21,9 @@
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_POW_1_EXP_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_POW_1_EXP_THRESHOLD = v; }
 
 typedef struct {
@@ -74,7 +76,7 @@ int tune_run_pow_1_exp(void) {
     spec.low_name = "pow_mul_1_loop";
     spec.high_name = "pow_1_window";
     spec.lo = 0;
-    spec.hi = 128;
+    spec.hi = 64;
     spec.sample_lo = 1;
     spec.sample_hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GT;

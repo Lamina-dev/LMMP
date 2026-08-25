@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/impl/mat22_mul.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD = v; }
 
 typedef struct {
@@ -53,6 +55,7 @@ static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
     c->d.a00 = c->vd[0]; c->d.a01 = c->vd[1]; c->d.a10 = c->vd[2]; c->d.a11 = c->vd[3];
     c->d.n00 = c->d.n01 = c->d.n10 = c->d.n11 = 0;
 }
+
 static double bench_mat22_sqr(void* v) {
     mat22_ctx* c = (mat22_ctx*)v;
     mp_size_t tn = 2 * c->n + 4;
@@ -60,8 +63,6 @@ static double bench_mat22_sqr(void* v) {
     lmmp_mat22_sqr_(&c->d, &c->a, choose, tn);
     return 0.0;
 }
-
-
 
 static void* make_ctx(uint64_t size, int use_high) {
     (void)use_high;
@@ -94,7 +95,7 @@ int tune_run_mat22_sqr(void) {
     spec.low_name = "mat22_sqr_basecase";
     spec.high_name = "mat22_sqr_strassen";
     spec.lo = 4;
-    spec.hi = 300;
+    spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

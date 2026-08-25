@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -49,6 +49,10 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
         if (na <= PART_SIZE || nb <= 2)
             lmmp_mul_basecase_(dst, numa, na, numb, nb);
         else {
+        /*
+            FIXME: 建议删除MUL_TOOMX2_THRESHOLD阈值，并将此内存分配改为内部栈分配。同时独立出一个新的函数：
+            lmmp_mul_bc_unbalanced_(dst, numa, na, numb, nb);
+        */
             mp_ptr tp;
             int tp_heap = 0;
             if (nb <= MUL_TOOMX2_THRESHOLD) {

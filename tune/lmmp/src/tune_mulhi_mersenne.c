@@ -23,23 +23,46 @@
 #include "lmmp/numth.h"
 
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MULHI_MERSENNE_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MULHI_MERSENNE_THRESHOLD = v; }
 
 typedef struct {
-    mp_ptr a;
-    mp_ptr d;
+    mp_ptr dp;
+    mp_ptr xp;
+    mp_ptr ap;
     mp_ptr tp;
     mp_size_t n;
 } mulhi_ctx;
 
 static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
     c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(5 * (n + 1) / 2 + 2) * sizeof(mp_limb_t));
-    tune_fill_limbs(c->a, n, UINT64_C(0x84c56a10b2f1132c));
-    c->a[0] |= 1u;
-    c->a[n - 1] |= LIMB_B_2;
+    c->dp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->xp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->ap = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(2 * n * sizeof(mp_limb_t)));
+    tune_fill_limbs(c->xp, n, UINT64_C(0x84c56a10b2f1132c));
+    tune_fill_limbs(c->ap, n, UINT64_C(0x137cbe91211dea3c));
+}
+
+/**
+ * @brief 计算 [dst,n] = [xp,n]*[ap,n] div B^n
+ * @param dst 结果指针
+ * @param tp scratch space, need 2*n limbs
+ * @warning [xp,n] * [ap,n] mod B^n == 1
+ */
+static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_size_t n, mp_ptr tp) {
+    if (n < MULHI_MERSENNE_THRESHOLD) {
+        lmmp_mul_n_(tp, xp, ap, n);
+        lmmp_copy(dst, tp + n, n);
+    } else {
+        mp_size_t m = lmmp_fft_next_size_((n * 2 + 1) >> 1);
+        lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
+        lmmp_dec(tp);
+        mp_size_t fn = m - n;   // 从 tp+n 开始的长度
+        mp_size_t sn = n - fn;  // 从 tp 开始的长度
+        lmmp_copy(dst, tp + n, fn);
+        lmmp_copy(dst + fn, tp, sn);
+    }
 }
 
 /*
@@ -48,7 +71,7 @@ static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
  */
 static double bench_mulhi(void* v) {
     mulhi_ctx* c = (mulhi_ctx*)v;
-    lmmp_binvert_n_dc_(c->d, c->a, c->n, c->tp);
+    binvert_mulhi_(c->dp, c->xp, c->ap, c->n, c->tp);
     return 0.0;
 }
 
@@ -63,8 +86,9 @@ static void* make_ctx(uint64_t size, int use_high) {
 static void free_ctx(void* v) {
     mulhi_ctx* c = (mulhi_ctx*)v;
     if (c != NULL) {
-        lmmp_free(c->a);
-        lmmp_free(c->d);
+        lmmp_free(c->dp);
+        lmmp_free(c->xp);
+        lmmp_free(c->ap);
         lmmp_free(c->tp);
         lmmp_free(c);
     }
@@ -81,7 +105,7 @@ int tune_run_mulhi_mersenne(void) {
     spec.macro_name = "MULHI_MERSENNE_THRESHOLD";
     spec.low_name = "mulhi_mul_n";
     spec.high_name = "mulhi_mersenne";
-    spec.lo = 8;
+    spec.lo = 128;
     spec.hi = 1024;
     spec.sample_lo = 16;
     spec.sample_hi = 1024;

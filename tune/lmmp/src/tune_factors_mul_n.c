@@ -22,7 +22,9 @@
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
 #include "lmmp/impl/ele_mul.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_FACTORS_MUL_N_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_FACTORS_MUL_N_THRESHOLD = v; }
 
 typedef struct {
@@ -91,7 +93,7 @@ int tune_run_factors_mul_n(void) {
     spec.macro_name = "FACTORS_MUL_N_THRESHOLD";
     spec.low_name = "factors_sequential";
     spec.high_name = "factors_divide";
-    spec.lo = 0;
+    spec.lo = 4;
     spec.hi = 256;
     spec.sample_lo = 1;
     spec.sample_hi = 256;

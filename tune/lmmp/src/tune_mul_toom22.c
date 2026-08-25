@@ -76,6 +76,7 @@ static void apply_path(uint64_t size, int use_high) {
     else
         set_threshold(size + 1);
 }
+
 int tune_run_mul_toom22(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));

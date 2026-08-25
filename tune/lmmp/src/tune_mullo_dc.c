@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MULLO_DC_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MULLO_DC_THRESHOLD = v; }
 
 typedef struct {
@@ -75,7 +77,7 @@ int tune_run_mullo_dc(void) {
     spec.macro_name = "MULLO_DC_THRESHOLD";
     spec.low_name = "mullo_dc";
     spec.high_name = "mullo_fft";
-    spec.lo = 128;
+    spec.lo = 1024;
     spec.hi = 8192;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;

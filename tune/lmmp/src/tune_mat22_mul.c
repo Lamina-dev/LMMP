@@ -20,7 +20,9 @@
 
 #include "lmmp/impl/mparam.h"
 #include "lmmp/impl/mat22_mul.h"
+
 static uint64_t get_threshold(void) { return (uint64_t)lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD; }
+
 static void set_threshold(uint64_t v) { lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD = v; }
 
 typedef struct {
@@ -94,7 +96,7 @@ int tune_run_mat22_mul(void) {
     spec.low_name = "mat22_mul_basecase";
     spec.high_name = "mat22_mul_strassen";
     spec.lo = 4;
-    spec.hi = 300;
+    spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;
