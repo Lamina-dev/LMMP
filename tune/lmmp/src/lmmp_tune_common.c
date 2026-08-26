@@ -68,14 +68,20 @@ double tune_now_ns(void) {
 
 #define TUNE_MAX_LOOPS ((1ull << 28) - 1)
 
-unsigned tune_calibrate(tune_bench_fn fn, void* ctx, double target_ms) {
+static unsigned tune_calibrate_prepared(tune_bench_fn fn, void* ctx,
+                                        tune_prepare_fn prep, void* prep_ctx,
+                                        double target_ms) {
     const double target_ns = target_ms * 1e6;
     unsigned long long loops = 1;
 
-    /* 首次调用同时充当 warm-up，避免冷缓存/惰性初始化进入正式样本。 */
+    /* 每个计时批次开始前重新绑定路径。首个调用同时充当 warm-up。 */
+    if (prep != NULL)
+        prep(prep_ctx);
     (void)fn(ctx);
 
     for (;;) {
+        if (prep != NULL)
+            prep(prep_ctx);
         const double t0 = tune_now_ns();
         for (unsigned long long i = 0; i < loops; ++i)
             (void)fn(ctx);
@@ -99,6 +105,10 @@ unsigned tune_calibrate(tune_bench_fn fn, void* ctx, double target_ms) {
             loops = 1;
     }
     return (unsigned)loops;
+}
+
+unsigned tune_calibrate(tune_bench_fn fn, void* ctx, double target_ms) {
+    return tune_calibrate_prepared(fn, ctx, NULL, NULL, target_ms);
 }
 
 static int compare_double(const void* a, const void* b) {
@@ -144,8 +154,11 @@ static int unstable(const tune_measure_t* m) {
     return m->mad_ns / m->median_ns > g_tune.mad_limit;
 }
 
-static tune_measure_t measure_with_loops(tune_bench_fn fn, void* ctx,
-                                         unsigned loops, unsigned samples) {
+static tune_measure_t measure_with_loops_prepared(tune_bench_fn fn,
+                                                  tune_prepare_fn prep,
+                                                  void* ctx,
+                                                  unsigned loops,
+                                                  unsigned samples) {
     tune_measure_t result;
     memset(&result, 0, sizeof(result));
 
@@ -160,6 +173,8 @@ static tune_measure_t measure_with_loops(tune_bench_fn fn, void* ctx,
 
     for (unsigned attempt = 0; attempt <= g_tune.max_retry; ++attempt) {
         for (unsigned s = 0; s < samples; ++s) {
+            if (prep != NULL)
+                prep(ctx);
             const double t0 = tune_now_ns();
             for (unsigned i = 0; i < loops; ++i)
                 (void)fn(ctx);
@@ -181,21 +196,27 @@ tune_measure_t tune_measure(tune_bench_fn fn, void* ctx,
         samples = 1;
     samples |= 1u; /* 保持奇数，使中位数直接取有序数组中间项 */
     const unsigned loops = tune_calibrate(fn, ctx, target_ms);
-    return measure_with_loops(fn, ctx, loops, samples);
+    return measure_with_loops_prepared(fn, NULL, ctx, loops, samples);
 }
 
-void tune_measure_pair(tune_bench_fn fn_low, void* ctx_low,
-                       tune_bench_fn fn_high, void* ctx_high,
-                       unsigned samples, double target_ms,
-                       tune_measure_t* low, tune_measure_t* high) {
+static void tune_measure_pair_prepared(tune_bench_fn fn_low, void* ctx_low,
+                                       tune_prepare_fn prep_low, void* prep_ctx_low,
+                                       tune_bench_fn fn_high, void* ctx_high,
+                                       tune_prepare_fn prep_high, void* prep_ctx_high,
+                                       unsigned samples, double target_ms,
+                                       tune_measure_t* low, tune_measure_t* high) {
     memset(low, 0, sizeof(*low));
     memset(high, 0, sizeof(*high));
     if (samples == 0)
         samples = 1;
     samples |= 1u;
 
-    const unsigned loops_low = tune_calibrate(fn_low, ctx_low, target_ms);
-    const unsigned loops_high = tune_calibrate(fn_high, ctx_high, target_ms);
+    const unsigned loops_low = tune_calibrate_prepared(fn_low, ctx_low,
+                                                       prep_low, prep_ctx_low,
+                                                       target_ms);
+    const unsigned loops_high = tune_calibrate_prepared(fn_high, ctx_high,
+                                                        prep_high, prep_ctx_high,
+                                                        target_ms);
 
     double* tl = (double*)malloc((size_t)samples * sizeof(double));
     double* th = (double*)malloc((size_t)samples * sizeof(double));
@@ -208,11 +229,15 @@ void tune_measure_pair(tune_bench_fn fn_low, void* ctx_low,
 
     for (unsigned attempt = 0; attempt <= g_tune.max_retry; ++attempt) {
         for (unsigned s = 0; s < samples; ++s) {
+            if (prep_low != NULL)
+                prep_low(prep_ctx_low);
             double t0 = tune_now_ns();
             for (unsigned i = 0; i < loops_low; ++i)
                 (void)fn_low(ctx_low);
             tl[s] = (tune_now_ns() - t0) / (double)loops_low;
 
+            if (prep_high != NULL)
+                prep_high(prep_ctx_high);
             t0 = tune_now_ns();
             for (unsigned i = 0; i < loops_high; ++i)
                 (void)fn_high(ctx_high);
@@ -229,6 +254,15 @@ void tune_measure_pair(tune_bench_fn fn_low, void* ctx_low,
 
     free(tl);
     free(th);
+}
+
+void tune_measure_pair(tune_bench_fn fn_low, void* ctx_low,
+                       tune_bench_fn fn_high, void* ctx_high,
+                       unsigned samples, double target_ms,
+                       tune_measure_t* low, tune_measure_t* high) {
+    tune_measure_pair_prepared(fn_low, ctx_low, NULL, NULL,
+                               fn_high, ctx_high, NULL, NULL,
+                               samples, target_ms, low, high);
 }
 
 /* ============================== 样本点生成 ============================== */
@@ -433,6 +467,34 @@ double tune_badness_at(const tune_point_t* points, size_t npoints,
     return badness;
 }
 
+typedef struct {
+    const tune_1d_spec_t* spec;
+    uint64_t size;
+    int use_high;
+} tune_path_prep_t;
+
+static void tune_apply_path_for_size(const tune_1d_spec_t* spec,
+                                     uint64_t size, int use_high) {
+    if (spec->apply_path != NULL) {
+        spec->apply_path(size, use_high);
+    } else if (spec->pred == TUNE_HIGH_WHEN_GT) {
+        if (use_high)
+            spec->set(size > spec->lo ? size - 1 : spec->lo);
+        else
+            spec->set(size);
+    } else {
+        if (use_high)
+            spec->set(spec->lo);
+        else
+            spec->set(size + 1);
+    }
+}
+
+static void tune_prepare_path(void* v) {
+    const tune_path_prep_t* prep = (const tune_path_prep_t*)v;
+    tune_apply_path_for_size(prep->spec, prep->size, prep->use_high);
+}
+
 int tune_run_1d(const tune_1d_spec_t* spec) {
     const uint64_t old_value = spec->get();
     const uint64_t hint = old_value >= spec->lo && old_value <= spec->hi
@@ -460,31 +522,34 @@ int tune_run_1d(const tune_1d_spec_t* spec) {
 
     for (size_t i = 0; i < npoints; ++i) {
         const uint64_t size = raw_points[i];
-        int use_high;
         void* ctx_low;
         void* ctx_high;
+        tune_path_prep_t prep_low;
+        tune_path_prep_t prep_high;
         tune_measure_t mlow, mhigh;
 
-        if (spec->apply_path != NULL) {
-            spec->apply_path(size, 0);
-        } else if (spec->pred == TUNE_HIGH_WHEN_GT) {
-            spec->set(size);
-        } else {
-            spec->set(size + 1);
-        }
+        /* make_ctx 可能依赖阈值，因此创建上下文前先应用对应路径。 */
+        tune_apply_path_for_size(spec, size, 0);
         ctx_low = spec->make_ctx(size, 0);
 
-        if (spec->apply_path != NULL) {
-            spec->apply_path(size, 1);
-        } else if (spec->pred == TUNE_HIGH_WHEN_GT) {
-            spec->set(size > spec->lo ? size - 1 : spec->lo);
-        } else {
-            spec->set(spec->lo);
-        }
+        tune_apply_path_for_size(spec, size, 1);
         ctx_high = spec->make_ctx(size, 1);
 
-        tune_measure_pair(spec->bench, ctx_low, spec->bench, ctx_high,
-                          g_tune.samples, g_tune.target_ms, &mlow, &mhigh);
+        /* 关键：测量框架在每个计时批次前都会调用 prepare，重新绑定
+         * low/high 阈值。否则最后一次 high 设置会污染 low 校准和采样。 */
+        prep_low.spec = spec;
+        prep_low.size = size;
+        prep_low.use_high = 0;
+        prep_high.spec = spec;
+        prep_high.size = size;
+        prep_high.use_high = 1;
+
+        tune_measure_pair_prepared(spec->bench, ctx_low,
+                                   tune_prepare_path, &prep_low,
+                                   spec->bench, ctx_high,
+                                   tune_prepare_path, &prep_high,
+                                   g_tune.samples, g_tune.target_ms,
+                                   &mlow, &mhigh);
         points[i].size = spec->map_size != NULL ? spec->map_size(size) : size;
         points[i].low_ns = mlow.median_ns;
         points[i].high_ns = mhigh.median_ns;
@@ -497,8 +562,6 @@ int tune_run_1d(const tune_1d_spec_t* spec) {
 
         spec->free_ctx(ctx_low);
         spec->free_ctx(ctx_high);
-        use_high = 0;
-        (void)use_high;
     }
 
     const tune_choice_t choice = tune_choose_1d(points, npoints, spec->lo, spec->hi,
@@ -756,18 +819,23 @@ int tune_write_mparam(const char* path, const char* backup_path) {
     }
 
     for (size_t i = 0; i < g_record_count; ++i) {
-        char needle[96];
-        snprintf(needle, sizeof(needle), "#define %s ", g_records[i].macro_name);
+        char default_name[96];
+        char needle[128];
+        snprintf(default_name, sizeof(default_name), "LMMP_DEFAULT_%s",
+                 g_records[i].macro_name);
+        snprintf(needle, sizeof(needle), "#define %s ", default_name);
         char* pos = strstr(buf, needle);
-        if (pos == NULL)
+        if (pos == NULL) {
+            fprintf(stderr, "Warning: default literal %s not found; skipped.\n",
+                    default_name);
             continue;
+        }
         char* line_end = strchr(pos, '\n');
         const size_t old_len = line_end != NULL ? (size_t)(line_end - pos)
                                                 : strlen(pos);
-        char replacement[128];
+        char replacement[160];
         snprintf(replacement, sizeof(replacement), "#define %s %llu",
-                 g_records[i].macro_name,
-                 (unsigned long long)g_records[i].new_value);
+                 default_name, (unsigned long long)g_records[i].new_value);
         const size_t new_len = strlen(replacement);
         const size_t tail = strlen(pos);
         if (new_len != old_len)

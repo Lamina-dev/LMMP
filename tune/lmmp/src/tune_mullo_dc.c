@@ -78,7 +78,7 @@ int tune_run_mullo_dc(void) {
     spec.low_name = "mullo_dc";
     spec.high_name = "mullo_fft";
     spec.lo = 1024;
-    spec.hi = 8192;
+    spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

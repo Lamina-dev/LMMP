@@ -30,6 +30,7 @@
  */
 
 typedef double (*tune_bench_fn)(void* ctx);
+typedef void (*tune_prepare_fn)(void* ctx);
 
 typedef struct {
     double median_ns;   /* 单次调用耗时中位数 */

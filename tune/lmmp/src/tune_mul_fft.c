@@ -85,7 +85,7 @@ int tune_run_mul_fft(void) {
     spec.high_name = "mul_fft";
     spec.lo = lmmp_tune_MUL_TOOM44_THRESHOLD > 64 ? lmmp_tune_MUL_TOOM44_THRESHOLD : 256;
     spec.sample_lo = spec.lo;
-    spec.hi = 8192;
+    spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

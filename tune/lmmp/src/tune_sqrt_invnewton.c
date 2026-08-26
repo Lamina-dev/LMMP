@@ -83,7 +83,7 @@ int tune_run_sqrt_invnewton(void) {
     spec.low_name = "sqrt_divide";
     spec.high_name = "sqrt_invsqrt_newton";
     spec.lo = 0;
-    spec.hi = 512;
+    spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

@@ -75,10 +75,8 @@ int tune_run_pow_1_exp(void) {
     spec.macro_name = "POW_1_EXP_THRESHOLD";
     spec.low_name = "pow_mul_1_loop";
     spec.high_name = "pow_1_window";
-    spec.lo = 0;
+    spec.lo = 4;
     spec.hi = 64;
-    spec.sample_lo = 1;
-    spec.sample_hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GT;
     spec.get = get_threshold;
     spec.set = set_threshold;

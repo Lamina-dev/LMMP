@@ -73,7 +73,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     if (use_high)
-        set_threshold(64);
+        set_threshold(size);
     else
         set_threshold(size + 1);
 }

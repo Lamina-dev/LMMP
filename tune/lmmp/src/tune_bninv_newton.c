@@ -64,7 +64,7 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    set_threshold(use_high ? 3 : size + 1);
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_bninv_newton(void) {
@@ -74,7 +74,7 @@ int tune_run_bninv_newton(void) {
     spec.low_name = "bninv_basecase";
     spec.high_name = "bninv_newton";
     spec.lo = 3;
-    spec.hi = 200;
+    spec.hi = 64;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

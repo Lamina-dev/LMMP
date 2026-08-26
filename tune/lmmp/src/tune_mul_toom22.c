@@ -72,7 +72,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     if (use_high)
-        set_threshold(5);
+        set_threshold(size); /* 仅强制根层进入 toom22，递归子问题仍按 size 以下阈值回退 */
     else
         set_threshold(size + 1);
 }

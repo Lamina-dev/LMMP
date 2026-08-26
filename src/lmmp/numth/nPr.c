@@ -209,10 +209,8 @@ mp_size_t lmmp_odd_nPr_ushort_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong
         return rn;
     } else if (n + PERMUTATION_USHORT_B_THRESHOLD > r * PERMUTATION_USHORT_K_THRESHOLD) {
         /* 测量发现，累乘法和因子分解法的算法耗时流形交线大致为直线 */
-        printf("1,");
         return lmmp_odd_nPr_product_(dst, rn, n, r);
     } else {
-        printf("2,");
         TEMP_DECL;
         ushort primen = lmmp_prime_cnt16_(n);
         ushort nfactors = primen;

@@ -85,7 +85,7 @@ int tune_run_to_str_basepow(void) {
     spec.low_name = "to_str_basecase";
     spec.high_name = "to_str_basepow_divide";
     spec.lo = 3;
-    spec.hi = 256;
+    spec.hi = 64;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

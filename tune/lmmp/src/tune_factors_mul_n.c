@@ -94,9 +94,7 @@ int tune_run_factors_mul_n(void) {
     spec.low_name = "factors_sequential";
     spec.high_name = "factors_divide";
     spec.lo = 4;
-    spec.hi = 256;
-    spec.sample_lo = 1;
-    spec.sample_hi = 256;
+    spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GT;
     spec.get = get_threshold;
     spec.set = set_threshold;

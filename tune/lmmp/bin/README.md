@@ -15,7 +15,7 @@
 # 只调指定阈值
 ./tune/lmmp/bin/lmmp_tune --only mul22,mul33,npr_ushort
 
-# 确认结果后写回 include/lmmp/impl/mparam.h
+# 确认结果后写回 include/lmmp/impl/mparam.h 中的 LMMP_DEFAULT_* 宏
 ./tune/lmmp/bin/lmmp_tune --write
 ```
 

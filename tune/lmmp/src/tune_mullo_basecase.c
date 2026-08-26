@@ -68,7 +68,7 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    set_threshold(use_high ? 2 : size + 1);
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_mullo_basecase(void) {

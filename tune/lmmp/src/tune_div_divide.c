@@ -70,7 +70,7 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    set_threshold(use_high ? 6 : size + 1);
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_div_divide(void) {
@@ -80,7 +80,7 @@ int tune_run_div_divide(void) {
     spec.low_name = "div_basecase";
     spec.high_name = "div_divide";
     spec.lo = 6;
-    spec.hi = 300;
+    spec.hi = 64;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

@@ -96,7 +96,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     (void)size;
-    set_threshold(use_high ? 8 : (UINT64_C(1) << 20));
+    set_threshold(use_high ? size : (UINT64_C(1) << 20));
 }
 
 int tune_run_mulhi_mersenne(void) {
@@ -107,8 +107,6 @@ int tune_run_mulhi_mersenne(void) {
     spec.high_name = "mulhi_mersenne";
     spec.lo = 128;
     spec.hi = 1024;
-    spec.sample_lo = 16;
-    spec.sample_hi = 1024;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

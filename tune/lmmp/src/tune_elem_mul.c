@@ -40,7 +40,8 @@ static void elem_ctx_init(elem_ctx* c, mp_size_t n) {
     c->limbs = (ulong*)lmmp_alloc((size_t)n * sizeof(ulong));
     for (mp_size_t i = 0; i < n; ++i) {
         state += UINT64_C(0x9e3779b97f4a7c15);
-        c->limbs[i] = (ulong)(state & UINT64_C(0xfffffffe)) | 1u;
+        c->limbs[i] = state + 8781273867642838712;
+        state *= UINT64_C(0x8708cae981278c9a);
     }
 }
 
@@ -69,7 +70,7 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    set_threshold(use_high ? 2 : size + 1);
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_elem_mul(void) {
@@ -79,7 +80,7 @@ int tune_run_elem_mul(void) {
     spec.low_name = "elem_basecase";
     spec.high_name = "elem_huffman";
     spec.lo = 2;
-    spec.hi = 256;
+    spec.hi = 512;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

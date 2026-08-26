@@ -43,6 +43,18 @@ static double bench_npr(void* v) {
     return 0.0;
 }
 
+static double bench_npr_product(void* v) {
+    lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = 0;
+    lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD = 0;
+    return bench_npr(v);
+}
+
+static double bench_npr_factor(void* v) {
+    lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD = UINT64_C(100000);
+    lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD = 0;
+    return bench_npr(v);
+}
+
 static void* make_ctx(uint64_t n, uint64_t r) {
     npr_ctx* c = (npr_ctx*)lmmp_alloc(sizeof(npr_ctx));
     if (c != NULL)
@@ -59,9 +71,10 @@ static void free_ctx(void* v) {
 }
 
 int tune_run_permutation_ushort(void) {
-#define SIZE 12
-    static const uint64_t ns[SIZE] = {2048, 4096, 8192, 10000, 16384, 20000, 32768, 40000, 49152, 50000, 5681, 65535};
-    static const uint64_t rf[SIZE] = {2, 3, 5, 10, 15, 20, 30, 50, 75, 100, 120, 150};
+#define SIZE 16
+    static const uint64_t ns[SIZE] = {8192, 10000, 12020, 16384, 20000, 23000, 27918, 32768,
+                                      36000, 40000, 44912, 45152, 50000, 56812, 65001, 65535};
+    static const uint64_t rf[SIZE] = {2, 3, 4, 5, 7, 10, 15, 20, 25, 30, 45, 65, 80, 100, 120, 150};
     tune_line_point_t points[SIZE * SIZE];
     size_t npoints = 0;
 
@@ -86,7 +99,7 @@ int tune_run_permutation_ushort(void) {
             lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD = 0;
             cf = make_ctx(n, r);
 
-            tune_measure_pair(bench_npr, cp, bench_npr, cf,
+            tune_measure_pair(bench_npr_product, cp, bench_npr_factor, cf,
                               g_tune.samples, g_tune.target_ms, &mp, &mf);
             printf("    n=%-8llu r=%-8llu product=%10.3f ns factor=%10.3f ns\n",
                    (unsigned long long)n, (unsigned long long)r,

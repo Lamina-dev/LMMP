@@ -96,7 +96,7 @@ int tune_run_mat22_mul(void) {
     spec.low_name = "mat22_mul_basecase";
     spec.high_name = "mat22_mul_strassen";
     spec.lo = 4;
-    spec.hi = 128;
+    spec.hi = 32;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

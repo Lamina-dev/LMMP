@@ -34,6 +34,10 @@ cmake --build build-tune --parallel 8
 
 调优模式与正常动态库构建互斥，不会影响 `dist/` 下的正常产物。
 
+默认阈值只维护 `mparam.h` 中的 `LMMP_DEFAULT_*` 字面量宏。非调优构建的算法
+宏、`lmmp_tune_params.c` 的初始值、`--write` 的写回目标都引用这一组宏；修改
+默认值时只需要改这一处。
+
 ## 运行
 
 ```bash
@@ -46,7 +50,7 @@ cmake --build build-tune --parallel 8
 # 只调若干阈值（id 或兼容别名均可，逗号分隔）
 ./tune/lmmp/bin/lmmp_tune --only mul22,mul33,npr_ushort
 
-# 调优并把结果写回 include/lmmp/impl/mparam.h
+# 调优并把结果写回 include/lmmp/impl/mparam.h 中的 LMMP_DEFAULT_* 宏
 # 写回前自动备份 mparam.h.tune-bak；不传 --write 时只写 bin/ 下的结果文件
 ./tune/lmmp/bin/lmmp_tune --write
 ```
@@ -67,7 +71,7 @@ cmake --build build-tune --parallel 8
 | `--mad-limit <X>` | 0.25 | `MAD/median` 超过该值时整轮重测 |
 | `--max-retry <N>` | 1 | 不稳定样本的最大重测轮数 |
 | `--out <file>` | `bin/lmmp_tune_results.txt` | 结果文本路径，同时生成同名 `.h` |
-| `--write` | 关 | 写回 `mparam.h` 并生成 `.tune-bak` 备份 |
+| `--write` | 关 | 写回 `mparam.h` 中的 `LMMP_DEFAULT_*` 并生成 `.tune-bak` 备份 |
 
 不再提供 `--quick`。旧程序的快速模式采样过少、网格过粗，是前后两次调优结果
 漂移的主要来源之一。如只想快速验证构建，可使用
@@ -75,23 +79,31 @@ cmake --build build-tune --parallel 8
 
 ## 测量与搜索策略
 
-1. **成对交替测量**：对每个一维样本点，先分别校准 low/high 两条路径的重复
-   次数，再按 `L,A,L,A,...` 或 `A,B,A,B,...` 交替采样。这样后台负载漂移和
-   CPU 温漂会同时作用于两条曲线，降低相对偏差。
-2. **中位数 + MAD 复核**：每个采样点默认 7 或 9 次重复，排序后取中位数；
+1. **成对交替测量 + 每批次重新绑定路径**：对每个一维样本点，先分别校准
+   low/high 两条路径的重复次数，再按 `A,B,A,B,...` 交替采样；每次校准批次
+   和采样批次开始前都会重新执行 `apply_path(size, low/high)`，确保 A 样本
+   只测 A 分支、B 样本只测 B 分支。后台负载漂移和 CPU 温漂也会同时作用于
+   两条曲线。
+2. **递归叶阈值采用“单层 high”测量**：对会递归调用自身的叶阈值
+   （`MUL_TOOM22/33/44`、`MULLO_BASECASE`、`ELEM_MUL`、`DIV_DIVIDE`、
+   `BNINV_NEWTON`、`MULHI_MERSENNE`），low 设为 `size+1`，high 只设为
+   `size`。这样 high 仅强制根层进入新算法，递归子问题仍回落到旧算法，
+   避免把 high 曲线测成“无限深层递归”并系统性推大阈值。
+3. **中位数 + MAD 复核**：每个采样点默认 7 或 9 次重复，排序后取中位数；
    若 `MAD/median` 超过阈值则整轮重测。中位数本身不受少数极慢/极快样本主导。
-3. **密集样本点**：小范围逐整数，大范围按 1.06 几何步进，并在旧默认值附近
+4. **密集样本点**：小范围逐整数，大范围按 1.06 几何步进，并在旧默认值附近
    额外加密。
-4. **GMP 风格 badness 搜索**：对候选阈值，把每个样本点错选路径的相对损失
+5. **GMP 风格 badness 搜索**：对候选阈值，把每个样本点错选路径的相对损失
    `chosen/faster - 1` 求和，选择总 badness 最小的整数阈值。若最小值附近
    存在 1% 以内的平坦区间，优先保留靠近旧默认值的候选，避免测量噪声在等价
    区间里随机游走。
-5. **二维 nPr 阈值**：先对稠密 `(n,r)` 样本分别强制 product/factor 路径并
+6. **二维 nPr 阈值**：先对稠密 `(n,r)` 样本分别强制 product/factor 路径并
    交替测量，再在 K 逐整数、B 对数稠密网格上求最小 badness；同样有平坦区
    间回靠旧值策略。
-6. **递归内部阈值**：`TO_STR_DIVIDE_THRESHOLD` 与
-   `FROM_STR_DIVIDE_THRESHOLD` 无法化简为两条独立曲线，改为固定外层阈值后，
-   在候选阈值整数域上逐点在线测量并做归一化 badness 选择。
+7. **递归内部阈值**：`TO_STR_DIVIDE_THRESHOLD`、`FROM_STR_DIVIDE_THRESHOLD`
+   以及 `MUL_FFT_MODF_THRESHOLD` 无法化简为“按 size 直接二分的两条曲线”，
+   改为固定外层参数后，在候选阈值域上逐点在线测量并做归一化 badness 选择；
+   `MUL_FFT_MODF` 先粗网格、再在最优附近加密。
 
 ## 当前接入的阈值
 
@@ -115,8 +127,8 @@ cmake --build build-tune --parallel 8
 - 调优结果与 CPU、OS、编译器、后台负载有关，仅对本机/同类机型有效。
 - 完整模式耗时较长（本机约数十分钟），运行期间应尽量关闭重负载任务。
 - `mparam.h` 中 `MUL_TOOM22 < MUL_TOOM33 < MUL_TOOM44 < MUL_FFT` 的静态
-  断言使用固定默认值；如最终写入值破坏顺序，相关 `#if` 会以默认顺序为准。
-  建议写回前检查结果文件。
+  断言与 `LMMP_DEFAULT_*` 保持一致；如最终写入值破坏顺序，相关 `#if` 会以
+  默认顺序为准。建议写回前检查结果文件。
 - `--write` 是可选的。默认只生成 `bin/lmmp_tune_results.*`，不会修改任何
-  库源码。
+  库源码；显式 `--write` 只替换 `LMMP_DEFAULT_*` 字面量宏。
 - 建议在调优时仔细查看调优结果，并根据需要手动调整阈值。
