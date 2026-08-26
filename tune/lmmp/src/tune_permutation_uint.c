@@ -59,20 +59,20 @@ static void free_ctx(void* v) {
 }
 
 int tune_run_permutation_uint(void) {
-    static const uint64_t ns[] = {65536, 100000, 200000, 500000, 1000000};
-    static const uint64_t rf[] = {1, 2, 5, 10, 20, 35, 50, 70};
-    enum { MAXP = 64 };
-    tune_line_point_t points[MAXP];
+#define SIZE 12
+    static const uint64_t ns[SIZE] = {65536, 70000, 100000, 150000, 200000, 250000, 350000, 500000, 660000, 780000, 1000000, 1200000};
+    static const uint64_t rf[SIZE] = {2, 3, 5, 10, 15, 20, 50, 75, 100, 120, 150, 170};
+    tune_line_point_t points[SIZE * SIZE];
     size_t npoints = 0;
 
     const uint64_t old_k = lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
     const uint64_t old_b = lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
 
     printf("  measuring product/factor pairs (n, r fractions in %%)...\n");
-    for (size_t i = 0; i < sizeof(ns) / sizeof(ns[0]); ++i) {
-        for (size_t j = 0; j < sizeof(rf) / sizeof(rf[0]); ++j) {
+    for (size_t i = 0; i < SIZE; ++i) {
+        for (size_t j = 0; j < SIZE; ++j) {
             const uint64_t n = ns[i];
-            const uint64_t r = n * rf[j] / 100;
+            const uint64_t r = n * rf[j] / 500;
             if (r < 12 || r > n)
                 continue;
             tune_measure_t mp, mf;
@@ -82,7 +82,7 @@ int tune_run_permutation_uint(void) {
             lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = 0;
             lmmp_tune_PERMUTATION_UINT_B_THRESHOLD = 0;
             cp = make_ctx(n, r);
-            lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = UINT64_C(1000000000000);
+            lmmp_tune_PERMUTATION_UINT_K_THRESHOLD = UINT64_C(100000);
             lmmp_tune_PERMUTATION_UINT_B_THRESHOLD = 0;
             cf = make_ctx(n, r);
 
@@ -116,4 +116,5 @@ int tune_run_permutation_uint(void) {
     tune_record_add("PERMUTATION_UINT_B_THRESHOLD", old_b, choice.b,
                     choice.badness, choice.badness);
     return 0;
+#undef SIZE
 }

@@ -127,14 +127,6 @@
 #define FROM_STR_BASEPOW_THRESHOLD 100
 #endif
 
-// L1缓存大小，请将此值设置为实际单核CPU的L1缓存大小（字节数）
-// 8192 字节通常远远小于现代CPU的L1缓存大小，主要为分块缓存大小考虑
-#define L1_CACHE_SIZE 8192
-
-// L2缓存大小，请将此值设置为实际单核CPU的L2缓存大小（字节数）
-// 1Mb 字节是一个相对保守的数值
-#define L2_CACHE_SIZE (1ull << 20)
-
 #ifndef LIMB_BYTES
 #define LIMB_BYTES 8
 #endif
@@ -145,43 +137,6 @@
 #define LMMP_MPARAM_STATIC_MUL_TOOM33_THRESHOLD 65
 #define LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD 481
 #define LMMP_MPARAM_STATIC_MUL_FFT_THRESHOLD 2316
-
-#ifdef LMMP_TUNE
-#include <stdint.h>
-/* 可调阈值运行时绑定（由 tune/lmmp/src/lmmp_tune_params.c 定义）。 */
-extern uint64_t lmmp_tune_MUL_TOOM22_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_TOOM33_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
-extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
-extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
-extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
-extern uint64_t lmmp_tune_SQRT_INVNEWTON_THRESHOLD;
-extern uint64_t lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
-extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
-extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
-extern uint64_t lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
-extern uint64_t lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD;
-extern uint64_t lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
-extern uint64_t lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
-extern uint64_t lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;
-extern uint64_t lmmp_tune_POW_1_EXP_THRESHOLD;
-extern uint64_t lmmp_tune_POW_WIN2_EXP_THRESHOLD;
-extern uint64_t lmmp_tune_POW_WIN2_N_THRESHOLD;
-extern uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
-extern uint64_t lmmp_tune_BNINV_NEWTON_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD;
-extern uint64_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
-extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
-extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
-extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
-extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
-extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
-extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
-#endif
-
-// L1缓存分块大小
-#define PART_SIZE (L1_CACHE_SIZE / LIMB_BYTES / 2)
 
 // 2x2矩阵乘法选择STRASSEN算法的阈值
 #ifdef LMMP_TUNE
@@ -257,7 +212,7 @@ extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 #ifdef LMMP_TUNE
 #define ELEM_MUL_BASECASE_THRESHOLD lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD
 #else
-#define ELEM_MUL_BASECASE_THRESHOLD 25
+#define ELEM_MUL_BASECASE_THRESHOLD 32
 #endif
 
 // 使用梅森乘法计算高位的阈值
@@ -280,6 +235,42 @@ extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 #define DIVEXACT_NN_THRESHOLD 350
 #endif
 
+#ifdef LMMP_TUNE
+#include <stdint.h>
+/* 可调阈值运行时绑定（由 tune/lmmp/src/lmmp_tune_params.c 定义）。 */
+extern uint64_t lmmp_tune_MUL_TOOM22_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_TOOM33_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
+extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
+extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_SQRT_INVNEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
+extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
+extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
+extern uint64_t lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
+extern uint64_t lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
+extern uint64_t lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;
+extern uint64_t lmmp_tune_POW_1_EXP_THRESHOLD;
+extern uint64_t lmmp_tune_POW_WIN2_EXP_THRESHOLD;
+extern uint64_t lmmp_tune_POW_WIN2_N_THRESHOLD;
+extern uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
+extern uint64_t lmmp_tune_BNINV_NEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
+extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
+extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
+#endif
+
+// 某些计算中，一次性处理的64位数组的长度（此大小为64位数组的长度）
+#define PART_SIZE 256
 
 // cache 一次处理的位图数量
 #define PRIME_CACHE_BLOCK_NUM 64

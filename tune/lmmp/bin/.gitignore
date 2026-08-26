@@ -1,6 +1,7 @@
 # 调优模式输出目录：核心库与调优驱动均为生成物，不纳入版本控制
 *.a
 *.lib
+*.pdb
 lmmp_tune
 lmmp_tune.exe
 lmmp_tune_results.h
