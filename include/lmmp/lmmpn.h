@@ -365,6 +365,18 @@ LMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
 LMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
+ * @brief 基础不平衡乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
+ * @param dst 输出结果缓冲区，长度至少为 na+nb
+ * @param numa 第一个输入操作数，长度为 na
+ * @param na 第一个操作数的 limb 长度
+ * @param numb 第二个输入操作数，长度为 nb
+ * @param nb 第二个操作数的 limb 长度
+ * @warning 0<nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_mul_basecase_unbalanced_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+
+/**
  * @brief Toom-22乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
  * @param dst 输出结果缓冲区，长度至少为 na+nb
  * @param numa 第一个输入操作数，长度为 na

@@ -24,7 +24,7 @@
 
 uint64_t lmmp_tune_MUL_TOOM22_THRESHOLD = 20;
 uint64_t lmmp_tune_MUL_TOOM33_THRESHOLD = 65;
-uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD = 581;
+uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD = 481;
 uint64_t lmmp_tune_MUL_FFT_THRESHOLD = 2316;
 uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD = 20;
 uint64_t lmmp_tune_MULLO_DC_THRESHOLD = 3521;
@@ -43,11 +43,11 @@ uint64_t lmmp_tune_POW_WIN2_EXP_THRESHOLD = 50;
 uint64_t lmmp_tune_POW_WIN2_N_THRESHOLD = 400;
 uint64_t lmmp_tune_FACTORS_MUL_N_THRESHOLD = 30;
 uint64_t lmmp_tune_BNINV_NEWTON_THRESHOLD = 20;
-uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD = 477;
+uint64_t lmmp_tune_MUL_FFT_MODF_THRESHOLD = 427;
 uint64_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD = 20;
 uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD = 30;
 uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD = 45;
 uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD = 100;
-uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD = 477;
+uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD = 427;
 uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD = 50;
 uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD = 350;

@@ -35,3 +35,27 @@ set_target_properties(LmmpBenchmark PROPERTIES
     OUTPUT_NAME "LmmpBenchmark"
     PDB_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
+
+if(LMMP_BUILD_MEASURES)
+    set(LMMP_MEASURE_SRCS
+        measure.cpp
+        src/measure_basic.cpp
+    )
+
+    add_executable(LmmpMeasure ${LMMP_MEASURE_SRCS})
+
+    target_include_directories(LmmpMeasure
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(LmmpMeasure PRIVATE lmmp)
+
+    lmmp_target_setup(LmmpMeasure)
+
+    set_target_properties(LmmpMeasure PROPERTIES
+        OUTPUT_NAME "LmmpMeasure"
+        PDB_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
+endif()

@@ -17,7 +17,7 @@
 #define __LMMP_MPARAM_H__
 
 // 默认线程局部栈大小（不可变更），单位为字节
-#define LMMP_DEFAULT_STACK_SIZE (320 * 1024)
+#define LMMP_DEFAULT_STACK_SIZE (512 * 1024)
 
 // 线程局部内存池大小（可以为0，表示不使用线程局部内存池），单位为字节
 #define LMMP_POOL_SIZE (512 * 1024)
@@ -29,7 +29,7 @@
 #define DIV_DIVIDE_THRESHOLD 50
 #endif
 // 乘法逆元L阈值：用于选择乘法逆元计算策略的临界值
-#define DIV_MULINV_L_THRESHOLD 477
+#define DIV_MULINV_L_THRESHOLD 427
 // 乘法逆元N阈值：用于选择乘法逆元计算策略的临界值
 #define DIV_MULINV_N_THRESHOLD 1736
 
@@ -39,7 +39,7 @@
 #define INV_MODM_THRESHOLD 734
 
 // 梅森变换乘法逆元阈值：超过此规模选择梅森变换计算乘法逆元
-#define DIV_MULINV_MODM_THRESHOLD 477
+#define DIV_MULINV_MODM_THRESHOLD 427
 
 // 平方根计算中，牛顿逆平方乘法阈值
 #ifdef LMMP_TUNE
@@ -56,8 +56,6 @@
 #else
 #define MUL_TOOM22_THRESHOLD 20
 #endif
-// Toom-X2乘法阈值：较短乘数小于此值使用Toom-X2不平衡乘法
-#define MUL_TOOMX2_THRESHOLD 30
 // Toom-33乘法阈值：超过此规模使用Toom-33乘法
 #ifdef LMMP_TUNE
 #define MUL_TOOM33_THRESHOLD lmmp_tune_MUL_TOOM33_THRESHOLD
@@ -68,7 +66,7 @@
 #ifdef LMMP_TUNE
 #define MUL_TOOM44_THRESHOLD lmmp_tune_MUL_TOOM44_THRESHOLD
 #else
-#define MUL_TOOM44_THRESHOLD 581
+#define MUL_TOOM44_THRESHOLD 481
 #endif
 // FFT乘法阈值：超过此规模使用快速傅里叶变换(FFT)乘法
 #ifdef LMMP_TUNE
@@ -81,9 +79,9 @@
 #ifdef LMMP_TUNE
 #define MULLO_BASECASE_THRESHOLD lmmp_tune_MULLO_BASECASE_THRESHOLD
 #else
-#define MULLO_BASECASE_THRESHOLD 20
+#define MULLO_BASECASE_THRESHOLD 50
 #endif
-// 低位除法阈值：低于此规模使用不平衡分治乘法
+// 低位乘法阈值：低于此规模使用分治乘法
 #ifdef LMMP_TUNE
 #define MULLO_DC_THRESHOLD lmmp_tune_MULLO_DC_THRESHOLD
 #else
@@ -101,7 +99,7 @@
 #ifdef LMMP_TUNE
 #define MUL_FFT_MODF_THRESHOLD lmmp_tune_MUL_FFT_MODF_THRESHOLD
 #else
-#define MUL_FFT_MODF_THRESHOLD 477
+#define MUL_FFT_MODF_THRESHOLD 427
 #endif
 
 // 转字符串除法阈值：字符串转换时选择除法算法的临界值
@@ -145,7 +143,7 @@
  * 调优模式下运行时阈值可能改变，因此编译期断言必须使用这些不变默认值。 */
 #define LMMP_MPARAM_STATIC_MUL_TOOM22_THRESHOLD 20
 #define LMMP_MPARAM_STATIC_MUL_TOOM33_THRESHOLD 65
-#define LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD 581
+#define LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD 481
 #define LMMP_MPARAM_STATIC_MUL_FFT_THRESHOLD 2316
 
 #ifdef LMMP_TUNE
@@ -266,7 +264,7 @@ extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 #ifdef LMMP_TUNE
 #define MULHI_MERSENNE_THRESHOLD lmmp_tune_MULHI_MERSENNE_THRESHOLD
 #else
-#define MULHI_MERSENNE_THRESHOLD 477
+#define MULHI_MERSENNE_THRESHOLD 427
 #endif
 
 // 精确除法中，除数小于此阈值时使用朴素法

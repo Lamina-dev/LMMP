@@ -37,6 +37,7 @@ cmake --build build -j
 | `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
 | `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
+| `LMMP_BUILD_MEASURES` | `ON` / `OFF` | `OFF` | 是否构建测量工具（需要同时构建基准） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
 | `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
