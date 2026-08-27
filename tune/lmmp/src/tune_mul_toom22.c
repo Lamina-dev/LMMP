@@ -83,8 +83,8 @@ int tune_run_mul_toom22(void) {
     spec.macro_name = "MUL_TOOM22_THRESHOLD";
     spec.low_name = "mul_basecase";
     spec.high_name = "mul_toom22";
-    spec.lo = 5;
-    spec.hi = lmmp_tune_MUL_TOOM33_THRESHOLD > 6 ? lmmp_tune_MUL_TOOM33_THRESHOLD - 1 : 60;
+    spec.lo = 20;
+    spec.hi = lmmp_tune_MUL_TOOM33_THRESHOLD > 20 ? lmmp_tune_MUL_TOOM33_THRESHOLD - 1 : 60;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

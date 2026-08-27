@@ -97,6 +97,54 @@ TEST_CASE("numth/binvert", binvert_n_dc) {
     }
 }
 
+TEST_CASE("numth/binvert", binvert_near_balanced) {
+    // 回归：4n < 5na 的平衡化分支曾以长度 n 拷贝 numa（实际只有 na 个 limb）而越界读
+    u64 seed = 0xc0ffee1234567890ull;
+    for (mp_size_t na : {8, 40, 80}) {
+        mp_size_t n = na + na / 5;
+        mp_ptr a = alloc_limbs(na);
+        mp_ptr inv = alloc_limbs(n);
+        random_limbs(a, na, seed);
+        a[0] |= 1;
+        BigInt ba(a, na);
+        lmmp_binvert_(inv, a, na, n);
+        verify_inverse(ba, inv, n);
+        lmmp_free(a);
+        lmmp_free(inv);
+    }
+}
+
+TEST_CASE("numth/binvert", bninv_power2_top_limb) {
+    // 回归：顶 limb 为 2 的幂时，归一化后顶 limb 恰为 2^63，曾触发
+    // appr_newton 的严格大于断言失败（发布版为 assume UB）
+    u64 seed = 0x9d1f2e3c4b5a6978ull;
+    for (mp_size_t na : {3, 8, 40}) {
+        for (u64 top : {1ull, 4ull, 1ull << 32, 1ull << 63}) {
+            for (mp_size_t ni : {na, na / 2}) {
+                if (ni < 1) ni = 1;
+                mp_ptr a = alloc_limbs(na);
+                mp_ptr q = alloc_limbs(na + ni + 2);
+                random_limbs(a, na, seed);
+                a[0] |= 1;
+                a[na - 1] = top;
+                lmmp_bninv_(q, a, na, ni);
+
+                // 参照：ref = B^(2*(na+ni)) / (numa * B^ni)。文档误差为 +[0|1]，放宽到 2
+                BigInt num(a, na);
+                BigInt den = BigInt::shl_bits(num, 64 * (size_t)ni);
+                BigInt numer = BigInt::shl_bits(BigInt(1), 64 * (size_t)2 * (na + ni));
+                BigInt rem;
+                BigInt ref = BigInt::divmod_school(numer, den, rem);
+                BigInt got(q, na + ni + 2);
+                BigInt diff = ref < got ? BigInt::sub_abs(got, ref) : BigInt::sub_abs(ref, got);
+                TEST_CHECK_MSG(diff <= BigInt(2), "bninv close to reference quotient");
+                lmmp_free(a);
+                lmmp_free(q);
+            }
+        }
+    }
+}
+
 TEST_CASE("numth/binvert", binvert_unbalanced_variants) {
     u64 seed = 0xa1b2c3d4e5f60718ull;
 

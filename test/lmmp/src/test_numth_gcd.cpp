@@ -117,3 +117,45 @@ TEST_CASE("numth/gcd", gcd_basecase_vs_lehmer) {
         }
     }
 }
+
+TEST_CASE("numth/gcd", gcd_lehmer_large) {
+    // 回归：A==0 分支曾用 b 而非 q*b 作减数，且 bn 被乘积进位污染，
+    // 未初始化 limb 可能混入结果。大尺寸与悬殊比例都会经过 Lehmer 矩阵路径。
+    u64 seed = 0x2545f4914f6cdd1dull;
+    struct { mp_size_t un, vn; } sizes[] = {{60, 3}, {120, 7}, {200, 50}, {300, 299}, {400, 2}};
+    for (auto& s : sizes) {
+        for (int iter = 0; iter < 3; ++iter) {
+            mp_ptr u = alloc_limbs(s.un);
+            mp_ptr v = alloc_limbs(s.vn);
+            mp_ptr d = alloc_limbs(s.vn);
+            random_limbs(u, s.un, seed);
+            random_limbs(v, s.vn, seed);
+            BigInt bu(u, s.un), bv(v, s.vn);
+
+            mp_size_t gn = lmmp_gcd_lehmer_(d, u, s.un, v, s.vn);
+            TEST_CHECK_MSG(gn > 0, "gcd positive length");
+
+            // 除源性：u mod d == 0 且 v mod d == 0（余数仅写入 r[0..gn)）
+            mp_ptr r = alloc_limbs(gn);
+            lmmp_div_(NULL, r, u, s.un, d, gn);
+            bool divides_u = true;
+            for (mp_size_t i = 0; i < gn; ++i) if (r[i] != 0) divides_u = false;
+            TEST_CHECK_MSG(divides_u, "gcd divides u");
+            lmmp_div_(NULL, r, v, s.vn, d, gn);
+            bool divides_v = true;
+            for (mp_size_t i = 0; i < gn; ++i) if (r[i] != 0) divides_v = false;
+            TEST_CHECK_MSG(divides_v, "gcd divides v");
+            lmmp_free(r);
+
+            // 与独立的欧几里得 basecase 实现交叉验证（控制耗时，限中等尺寸）
+            if (s.un <= 120) {
+                mp_ptr d2 = alloc_limbs(s.vn);
+                mp_size_t g2 = lmmp_gcd_basecase_(d2, u, s.un, v, s.vn);
+                TEST_CHECK_EQ(gn, g2);
+                TEST_CHECK_MSG(from_limbs(d, gn) == from_limbs(d2, g2), "lehmer matches basecase");
+                lmmp_free(d2);
+            }
+            lmmp_free(u); lmmp_free(v); lmmp_free(d);
+        }
+    }
+}
