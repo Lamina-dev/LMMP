@@ -144,9 +144,19 @@ int main(int argc, char** argv) {
             }
             g_tune.target_ms = v;
         } else if (strcmp(argv[i], "--mad-limit") == 0 && i + 1 < argc) {
-            g_tune.mad_limit = atof(argv[++i]);
+            const double v = atof(argv[++i]);
+            if (!(v > 0.0) || v > 10.0) {
+                fprintf(stderr, "--mad-limit must be in (0,10]\n");
+                return 2;
+            }
+            g_tune.mad_limit = v;
         } else if (strcmp(argv[i], "--max-retry") == 0 && i + 1 < argc) {
-            g_tune.max_retry = (unsigned)atoi(argv[++i]);
+            const int v = atoi(argv[++i]);
+            if (v < 0 || v > 16) {
+                fprintf(stderr, "--max-retry must be in [0,16]\n");
+                return 2;
+            }
+            g_tune.max_retry = (unsigned)v;
         } else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
             out_txt = argv[++i];
         } else {
@@ -182,15 +192,17 @@ int main(int argc, char** argv) {
                                    g_tune.only);
     tune_record_print_summary();
 
-    if (rc == 0) {
-        tune_record_write_files(out_txt, out_h);
-        printf("\nResults written to:\n  %s\n  %s\n", out_txt, out_h);
-        if (g_tune.write)
-            tune_write_mparam(mparam_path, backup_path);
-    } else if (rc == 1) {
+    if (rc == 1) {
         fprintf(stderr, "No module matched --only filter.\n");
         list_modules();
-    }
+    } else {
+        if (tune_record_write_files(out_txt, out_h) == 0)
+            printf("\nResults written to:\n  %s\n  %s\n", out_txt, out_h);
+        else
+            fprintf(stderr, "Failed to write result files.\n");
+        if (rc == 0 && g_tune.write)
+            tune_write_mparam(mparam_path, backup_path);
+     }
 
     free(out_h);
     lmmp_global_deinit();

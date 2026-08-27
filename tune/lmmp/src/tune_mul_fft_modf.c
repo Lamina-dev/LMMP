@@ -86,7 +86,7 @@ int tune_run_mul_fft_modf(void) {
     static const uint64_t sizes[] = {512, 1024, 1536, 2048, 3072, 4096};
     enum { NS = 6, MAXC = 256 };
     const uint64_t old_value = lmmp_tune_MUL_FFT_MODF_THRESHOLD;
-    uint64_t coarse[MAXC];
+    uint64_t coarse[2 * MAXC];
     uint64_t fine[MAXC];
     const uint64_t lo = 128;
     const uint64_t hi = 1024;
@@ -124,16 +124,16 @@ int tune_run_mul_fft_modf(void) {
     const size_t nfine = tune_build_points(rlo, rhi, best_t, fine, MAXC);
     double* times2 = measure_candidates(fine, nfine, ctx, NS);
     if (times2 != NULL) {
-        double* merged = (double*)realloc(times,
-                                          (ncoarse + nfine) * NS * sizeof(double));
+        double* merged = (double*)realloc(times, (ncoarse + nfine) * NS * sizeof(double));
         if (merged != NULL) {
             times = merged;
-            for (size_t c = 0; c < nfine; ++c)
+            const size_t nfine_used = nfine <= 2 * MAXC - ncoarse ? nfine : 2 * MAXC - ncoarse;
+            for (size_t c = 0; c < nfine_used; ++c)
                 for (size_t s = 0; s < NS; ++s)
                     times[(ncoarse + c) * NS + s] = times2[c * NS + s];
-            for (size_t c = 0; c < nfine; ++c)
+            for (size_t c = 0; c < nfine_used; ++c)
                 coarse[ncoarse + c] = fine[c];
-            ncand = ncoarse + nfine;
+            ncand = ncoarse + nfine_used;
         }
         free(times2);
     }

@@ -82,8 +82,8 @@ int tune_run_pow_win2_n(void) {
     spec.macro_name = "POW_WIN2_N_THRESHOLD";
     spec.low_name = "pow_basecase_odd";
     spec.high_name = "pow_win2";
-    spec.lo = 16;
-    spec.hi = 256;
+    spec.lo = 128;
+    spec.hi = 512;
     spec.pred = TUNE_HIGH_WHEN_GT;
     spec.get = get_threshold;
     spec.set = set_threshold;

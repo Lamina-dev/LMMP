@@ -34,15 +34,12 @@ typedef struct {
     uint nfactors;
 } factors_ctx;
 
-static uint next_prime(uint v) {
-    for (;;) {
-        uint q;
-        v += 2;
-        for (q = 3; (uint64_t)q * q <= v; q += 2)
-            if (v % q == 0)
-                break;
-        if ((uint64_t)q * q > v)
-            return v;
+static void factors_ctx_fill(factors_ctx* c) {
+    c->fac[0].j = 1;
+    for (uint i = 1; i < c->nfactors; ++i) {
+        c->fac[i].j = c->nfactors / (c->fac[i].f - 1);
+        if (c->fac[i].j == 0)
+            c->fac[i].j = 1;
     }
 }
 
@@ -56,7 +53,7 @@ static void factors_ctx_init(factors_ctx* c, uint nfactors) {
     c->fac[0].f = 1;
     uint p = 2;
     for (uint i = 1; i < nfactors; ++i) {
-        p = next_prime(p);
+        p = lmmp_next_prime_ulong_(p);
         c->fac[i].f = p;
         c->fac[i].j = nfactors / (p - 1);
         if (c->fac[i].j == 0)
@@ -66,6 +63,7 @@ static void factors_ctx_init(factors_ctx* c, uint nfactors) {
 
 static double bench_factors(void* v) {
     factors_ctx* c = (factors_ctx*)v;
+    factors_ctx_fill(c);
     (void)lmmp_factors_mul_(c->dst, c->rn, c->fac, c->nfactors);
     return 0.0;
 }

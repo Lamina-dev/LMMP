@@ -24,4 +24,4 @@
 - `lmmp_tune_results.txt`：旧值/新值表格。
 - `lmmp_tune_results.h`：可直接查看或复用的宏定义。
 
-详细说明见 `tune/lmmp/README.md` 和 `tune/lmmp/TUNING_REPORT.md`。
+详细说明见 `tune/lmmp/README.md`。

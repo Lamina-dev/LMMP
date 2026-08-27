@@ -79,8 +79,8 @@ int tune_run_elem_mul(void) {
     spec.macro_name = "ELEM_MUL_BASECASE_THRESHOLD";
     spec.low_name = "elem_basecase";
     spec.high_name = "elem_huffman";
-    spec.lo = 2;
-    spec.hi = 512;
+    spec.lo = 4;
+    spec.hi = 128;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

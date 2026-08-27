@@ -86,7 +86,8 @@ int tune_run_to_str_divide(void) {
             for (uint64_t u = TLO; u <= THI; ++u)
                 if (times[u - TLO][s] < fastest)
                     fastest = times[u - TLO][s];
-            badness += times[t - TLO][s] / fastest - 1.0;
+            if (fastest > 0.0)
+                badness += times[t - TLO][s] / fastest - 1.0;
         }
         per_candidate[t] = badness;
         if (badness < best_badness) {

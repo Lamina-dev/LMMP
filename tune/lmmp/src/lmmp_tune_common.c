@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
+#ifdef LMMP_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
@@ -43,7 +43,7 @@ tune_options_t g_tune = {
 static double g_tick_ns = 1.0;
 
 void tune_timer_init(void) {
-#ifdef _WIN32
+#ifdef LMMP_WINDOWS
     LARGE_INTEGER freq;
     if (QueryPerformanceFrequency(&freq) && freq.QuadPart > 0)
         g_tick_ns = 1e9 / (double)freq.QuadPart;
@@ -53,7 +53,7 @@ void tune_timer_init(void) {
 }
 
 double tune_now_ns(void) {
-#ifdef _WIN32
+#ifdef LMMP_WINDOWS
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     return (double)counter.QuadPart * g_tick_ns;
@@ -796,7 +796,8 @@ int tune_write_mparam(const char* path, const char* backup_path) {
         fclose(f);
         return -1;
     }
-    char* buf = (char*)malloc((size_t)sz + 1);
+    const size_t extra = g_record_count * 160;
+    char* buf = (char*)malloc((size_t)sz + extra + 1);
     if (buf == NULL) {
         fclose(f);
         return -1;

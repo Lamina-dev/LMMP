@@ -47,14 +47,16 @@ static void divexact_ctx_init(divexact_ctx* c, mp_size_t nn, mp_size_t dn) {
     c->dst = (mp_ptr)lmmp_alloc((size_t)(nn + 1) * sizeof(mp_limb_t));
     tune_fill_limbs(c->q, qn, UINT64_C(0x8f1bbcdcbfa97e39));
     tune_fill_limbs(c->dp, dn, UINT64_C(0x9b05688c2b3e6c1f));
-    c->q[qn - 1] |= LIMB_B_2;
+    if (qn == 1)
+        c->q[0] = 1;
+    else
+        c->q[qn - 1] = 0;
     c->dp[0] |= 1u;
     c->dp[dn - 1] |= LIMB_B_2;
     if (qn >= dn)
         lmmp_mul_(c->np, c->q, qn, c->dp, dn);
     else
         lmmp_mul_(c->np, c->dp, dn, c->q, qn);
-    c->np[nn] = 0;
 }
 
 static double bench_divexact(void* v) {

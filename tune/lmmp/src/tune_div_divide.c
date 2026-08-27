@@ -47,6 +47,7 @@ static void div_ctx_init(div_ctx* c, mp_size_t n) {
 
 static double bench_div(void* v) {
     div_ctx* c = (div_ctx*)v;
+    tune_fill_limbs(c->a, 2 * c->n, UINT64_C(0x3e982912cb42f82b));
     (void)lmmp_div_s_(c->q, c->a, 2 * c->n, c->b, c->n);
     return 0.0;
 }
