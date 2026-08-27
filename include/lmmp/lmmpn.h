@@ -865,7 +865,7 @@ LMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
  * @param na 输入指针的 limb 长度
  * @param ni 精度因子
  * @warning na>0, sep(dstq,numa), dstq!=NULL, numa[na-1]!=0
- * @note 也就是计算 B^(2*na+ni) div ([numa,na]，存在接近2^-64的绝对误差
+ * @note 也就是计算 B^(2*na+ni) div [numa,na] + [0|-ept]，存在接近2^-64的绝对误差
  */
 LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t ni);
 

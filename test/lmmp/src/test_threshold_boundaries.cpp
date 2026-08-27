@@ -13,13 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/*
- * 算法阈值边界确定性测试。
- *
- * 对 mparam.h 中当前静态阈值，在 T-1 / T / T+1 处用独立参考实现或
- * 等价的库内关系交叉验证，确保分派点两侧都正确。
- */
-
 #include "lmmp/impl/mparam.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
@@ -144,7 +137,7 @@ TEST_CASE("threshold/divexact", divexact_two_threshold_boundaries) {
         {DIVEXACT_NN_THRESHOLD + 1, DIVEXACT_BASECASE_THRESHOLD + 1}
     };
     for (const auto& c : cases) {
-        const mp_size_t qn = c.nn - c.dn + 1;
+        const mp_size_t qn = c.nn - c.dn;
         mp_ptr q0 = alloc_limbs(qn);
         mp_ptr dp = alloc_limbs(c.dn);
         mp_ptr np = alloc_limbs(c.nn + 2);
