@@ -1,4 +1,4 @@
-#
+﻿#
 #  Copyright (C) 2026 HJimmyK(Jericho Knox)
 #
 #  This file is part of LMMP.
@@ -45,9 +45,10 @@ endif()
 set(LMMP_ASM "AUTO" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO")
 set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
 
-# 测试与基准目标默认开启，可独立关闭。
+# 构建目标
 option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
 option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
+option(LMMP_BUILD_EXAMPLES "Build LMMP examples" OFF)
 option(LMMP_BUILD_MEASURES "Build LMMP measurements(need build benchmarks)" OFF)
 
 # 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
@@ -300,18 +301,14 @@ endforeach()
 add_subdirectory(src/lmmp)
 
 if(NOT LMMP_TUNE_MODE)
-    if(EXISTS ${CMAKE_SOURCE_DIR}/main.c)
-        add_executable(LmmpMain main.c)
-        target_link_libraries(LmmpMain PRIVATE liblmmp)
-        lmmp_target_setup(LmmpMain)
-    endif()
-
     if(LMMP_BUILD_TESTS)
         enable_testing()
         add_subdirectory(test/lmmp)
     endif()
 
-    add_subdirectory(example/lmmp)
+    if(LMMP_BUILD_EXAMPLES)
+        add_subdirectory(example/lmmp)
+    endif()
 
     if(LMMP_BUILD_BENCHMARKS)
         add_subdirectory(benchmark/lmmp)

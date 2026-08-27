@@ -37,6 +37,7 @@ cmake --build build -j
 | `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
 | `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
+| `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序 |
 | `LMMP_BUILD_MEASURES` | `ON` / `OFF` | `OFF` | 是否构建测量工具（需要同时构建基准） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
@@ -87,7 +88,6 @@ LMMP/                       # 项目根目录
 ├── LICENSE                 # 许可证文件
 ├── README.md               # README
 ├── CMakeLists.txt          # 根目录CMake（全局配置：构建类型、C/C++标准、输出目录等）
-├── main.c                  # 项目主程序（编译后生成LmmpMain可执行文件）
 ├── dist/                   # 编译产物根目录（自动生成，存放所有库和可执行文件）
 │   └── lmmp/               # LMMP项目专属产物目录
 │       └── bin/            # 可执行文件输出目录
