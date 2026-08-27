@@ -68,7 +68,6 @@ struct File {
             std::fprintf(stderr, "Failed to open file");
             exit(1);
         }
-        fprintf(fp, "======= %s =======\n", name);
         fprintf(fp, "length/op,ns/op,ops/sec,iter\n");
     }
     ~File() {

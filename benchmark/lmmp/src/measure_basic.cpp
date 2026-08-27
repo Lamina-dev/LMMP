@@ -108,7 +108,7 @@ MEASURE_CASE("lmmpn/mul", mul_toom33) {
     fill_random(a, n, 0x120e3489bceull);
     fill_random(b, n, 0x92cab543221ull);
     File f("mul_toom33");
-    for (mp_size_t i = 20; i <= n; i += 2) {
+    for (mp_size_t i = 30; i <= n; i += 2) {
         auto m = measure([&] { lmmp_mul_toom33_(d, a, i, b, i); }, i, 8);
         write(f, m);
         progress_bar(i, n, 40, "    Measuring");
@@ -125,7 +125,7 @@ MEASURE_CASE("lmmpn/mul", mul_toom44) {
     fill_random(a, n, 0x120e3489bceull);
     fill_random(b, n, 0x92cab543221ull);
     File f("mul_toom44");
-    for (mp_size_t i = 20; i <= n; i += 5) {
+    for (mp_size_t i = 40; i <= n; i += 5) {
         auto m = measure([&] { lmmp_mul_toom44_(d, a, i, b, i); }, i, 8);
         write(f, m);
         progress_bar(i, n, 40, "    Measuring");

@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--list") == 0) {
             list = true;
         } else {
-            std::printf("Usage: LmmpBenchmark [--filter <substr>] [--list]\n");
+            std::printf("Usage: LmmpMeasure [--filter <substr>] [--list]\n");
             return 1;
         }
     }
