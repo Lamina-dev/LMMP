@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/mparam.h"
+#include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
 
@@ -45,32 +46,8 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
             lmmp_sqr_(dst, numa, na);
         else
             lmmp_mul_n_(dst, numa, numb, na);
-    } else if ((nb < MUL_TOOM22_THRESHOLD || nb < MUL_TOOMX2_THRESHOLD) && !(4 * na < 5 * nb)) {
-        if (na <= PART_SIZE || nb <= 2)
-            lmmp_mul_basecase_(dst, numa, na, numb, nb);
-        else {
-            mp_limb_t tp[MUL_TOOMX2_THRESHOLD];
-            lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
-            dst += PART_SIZE;
-            numa += PART_SIZE;
-            na -= PART_SIZE;
-            lmmp_copy(tp, dst, nb);
-            while (na > PART_SIZE) {
-                lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
-                if (lmmp_add_n_(dst, dst, tp, nb))
-                    lmmp_inc(dst + nb);
-                dst += PART_SIZE;
-                numa += PART_SIZE;
-                na -= PART_SIZE;
-                lmmp_copy(tp, dst, nb);
-            }
-            if (na >= nb)
-                lmmp_mul_basecase_(dst, numa, na, numb, nb);
-            else
-                lmmp_mul_basecase_(dst, numb, nb, numa, na);
-            if (lmmp_add_n_(dst, dst, tp, nb))
-                lmmp_inc(dst + nb);
-        }
+    } else if (nb < MUL_TOOM22_THRESHOLD && !(4 * na < 5 * nb)) {
+        lmmp_mul_basecase_unbalanced_(dst, numa, na, numb, nb);
     } else if (((na + nb) >> 1) < MUL_TOOM44_THRESHOLD || 2 * nb < MUL_TOOM44_THRESHOLD) {
         if (na < 3 * nb) {
             if (4 * na < 5 * nb) {
@@ -103,6 +80,44 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
             lmmp_mul_fft_(dst, numa, na, numb, nb);
         else
             lmmp_mul_fft_unbalance_(dst, numa, na, numb, nb);
+    }
+}
+
+void lmmp_mul_basecase_unbalanced_(
+    mp_ptr    restrict  dst,
+    mp_srcptr restrict numa,
+    mp_size_t            na,
+    mp_srcptr restrict numb,
+    mp_size_t            nb
+) {
+    lmmp_param_assert(na >= nb);
+    lmmp_param_assert(nb >= 1);
+    if (na <= PART_SIZE || nb <= 2)
+        lmmp_mul_basecase_(dst, numa, na, numb, nb);
+    else {
+        TEMP_S_DECL;
+        mp_ptr restrict tp = SALLOC_TYPE(nb, mp_limb_t);
+        lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
+        dst += PART_SIZE;
+        numa += PART_SIZE;
+        na -= PART_SIZE;
+        lmmp_copy(tp, dst, nb);
+        while (na > PART_SIZE) {
+            lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
+            if (lmmp_add_n_(dst, dst, tp, nb))
+            lmmp_inc(dst + nb);
+            dst += PART_SIZE;
+            numa += PART_SIZE;
+            na -= PART_SIZE;
+            lmmp_copy(tp, dst, nb);
+        }
+        if (na >= nb)
+            lmmp_mul_basecase_(dst, numa, na, numb, nb);
+        else
+            lmmp_mul_basecase_(dst, numb, nb, numa, na);
+        if (lmmp_add_n_(dst, dst, tp, nb))
+            lmmp_inc(dst + nb);
+        TEMP_S_FREE;
     }
 }
 

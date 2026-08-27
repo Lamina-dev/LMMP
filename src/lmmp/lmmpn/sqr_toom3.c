@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -18,7 +18,6 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#if LMMP_MPARAM_STATIC_MUL_TOOM33_THRESHOLD < LMMP_MPARAM_STATIC_MUL_TOOM44_THRESHOLD
 #define lmmp_sqr_(dst, numa, n)                 \
     if ((n) < MUL_TOOM22_THRESHOLD)             \
         lmmp_sqr_basecase_((dst), (numa), (n)); \
@@ -26,7 +25,6 @@
         lmmp_sqr_toom2_((dst), (numa), (n));    \
     else                                        \
         lmmp_sqr_toom3_((dst), (numa), (n))
-#endif
 
 /*
 Evaluate in: -1, 0, +1, +2, +inf

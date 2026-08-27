@@ -5,7 +5,7 @@
 #
 #  LMMP is free software: you can redistribute it and/or modify it under
 #  the terms of the GNU Lesser General Public License (LGPL) as published
-#   by the Free Software Foundation; either version 3 of the License, or
+#  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
 #  This program is distributed WITHOUT ANY WARRANTY. 
@@ -48,6 +48,7 @@ set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
 # 测试与基准目标默认开启，可独立关闭。
 option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
 option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
+option(LMMP_BUILD_MEASURES "Build LMMP measurements(need build benchmarks)" OFF)
 
 # 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
 option(LMMP_TUNE_MODE "Build tuning core and tune driver" OFF)

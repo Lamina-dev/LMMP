@@ -37,6 +37,7 @@ cmake --build build -j
 | `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
 | `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
+| `LMMP_BUILD_MEASURES` | `ON` / `OFF` | `OFF` | 是否构建测量工具（需要同时构建基准） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
 | `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
@@ -45,9 +46,9 @@ cmake --build build -j
 | `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
 | `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
 
-## 测试与基准
+## 测试、基准与调优
 
-新测试与基准框架均为项目内实现，不依赖任何非标准库。测试默认随主项目一起构建（可用 `-DLMMP_BUILD_TESTS=OFF` / `-DLMMP_BUILD_BENCHMARKS=OFF` 关闭）。
+LMMP 提供测试、基准和调优功能。测试与基准默认随主项目一起构建（可用 `-DLMMP_BUILD_TESTS=OFF` / `-DLMMP_BUILD_BENCHMARKS=OFF` 关闭）。调优功能需单独配置，默认不参与项目构建。关于调优程序，可以阅读 `tune/lmmp/README.md`。
 
 ```bash
 # 构建
@@ -126,6 +127,12 @@ LMMP/                       # 项目根目录
 │       ├── include/        # 测试私有头文件（仅测试内部使用）
 │       ├── src/            # 测试源代码目录
 │       └── main.cpp        # 测试主程序入口函数main()
+├── tune/                   # 调优程序根目录（调优程序单独构建）
+│   └── lmmp/               # LMMP项目基准测试目录
+│       ├── CMakeLists.txt  # 调优程序CMake配置
+│       ├── include/        # 调优私有头文件（仅测试内部使用）
+│       ├── src/            # 调优源代码目录
+│       └── bin/            # 调优可执行文件输出目录
 └── build/                  # 构建目录（外部构建，仅供参考）
     ├── CMakeCache.txt      # CMake缓存文件（自动生成）
     ├── Makefile            # 编译脚本（Linux/Mac，自动生成）

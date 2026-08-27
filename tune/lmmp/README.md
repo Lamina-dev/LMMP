@@ -1,31 +1,26 @@
 # LMMP 阈值调优程序
 
-本目录是独立于正常动态库构建的调优套件，按 `include/`、`src/`、`bin/` 组织：
+本目录是独立于正常动态库构建的调优套件。调优模式会编译一个静态调优核心
+`liblmmp_tune_core.a`，其中 `include/lmmp/impl/mparam.h` 的可调阈值被绑定到
+`uint64_t` 运行时变量；调优驱动先设置变量，再运行基准，因此候选阈值搜索不需要
+反复重新编译核心。
 
 ```
 tune/lmmp/
 ├── include/
-│   └── lmmp_tune.h          # 可调阈值变量声明
+│   ├── lmmp_tune.h            # 可调阈值变量声明
+│   └── lmmp_tune_internal.h   # 计时/统计/搜索公共接口与模块注册声明
 ├── src/
-│   ├── lmmp_tune.c          # 调优驱动（基准测试 + 搜索 + 写回）
-│   └── lmmp_tune_params.c   # LMMP_TUNE 阈值变量定义
-├── bin/
-│   ├── README.md
-│   └── .gitignore           # 忽略编译出的 lmmp_tune
+│   ├── lmmp_tune.c            # CLI、模块注册、结果输出
+│   ├── lmmp_tune_common.c     # 计时、配对测量、badness 搜索、结果写回
+│   ├── lmmp_tune_params.c     # LMMP_TUNE 阈值变量定义
+│   └── tune_<name>.c          # 每个阈值（或 nPr 的 K/B 阈值对）一个文件
+├── bin/                       # 构建产物和调优结果
+│   ├── lmmp_tune
+│   ├── lmmp_tune_results.txt  # 最后一次运行结果（旧值 -> 新值）
+│   └── lmmp_tune_results.h    # 便于查看/复用的宏定义版本
 └── CMakeLists.txt
 ```
-
-## 原理
-
-1. 根 CMake 打开 `LMMP_TUNE_MODE` 后，`src/lmmp` 会编译一个**静态调优核心**
-   `liblmmp_tune_core.a`。该核心使用与正常库完全相同的源码，但在编译时定义
-   `LMMP_TUNE`。此时 `include/lmmp/impl/mparam.h` 中部分阈值宏不再展开为
-   整数常量，而是绑定到 `tune/lmmp/src/lmmp_tune_params.c` 中定义的一组
-   `uint64_t` 全局变量。
-2. `lmmp_tune` 调优驱动先设置这些变量，再运行基准测试。改变阈值时**不需要
-   重新编译库**，因此可以在合理时间内完成多维搜索。
-3. 搜索完成后，驱动打印推荐阈值；使用 `--write` 时会把推荐值写回
-   `include/lmmp/impl/mparam.h` 中对应 `#define` 的默认值。
 
 ## 构建
 
@@ -34,104 +29,106 @@ cmake -S . -B build-tune \
   -DCMAKE_BUILD_TYPE=Release \
   -DLMMP_TUNE_MODE=ON \
   -DLMMP_ASM=AUTO
-cmake --build build-tune --parallel 4
+cmake --build build-tune --parallel 8
 ```
 
-产物（调优模式全部输出到 `tune/lmmp/bin`，与 `dist` 分离）：
+调优模式与正常动态库构建互斥，不会影响 `dist/` 下的正常产物。
 
-- `tune/lmmp/bin/liblmmp_tune_core.a`（Linux/macOS 静态核心）
-- `tune/lmmp/bin/lmmp_tune_core.lib`（Windows 静态核心）
-- `tune/lmmp/bin/lmmp_tune` / `tune/lmmp/bin/lmmp_tune.exe`（调优驱动）
+默认阈值只维护 `mparam.h` 中的 `LMMP_DEFAULT_*` 字面量宏。非调优构建的算法
+宏、`lmmp_tune_params.c` 的初始值、`--write` 的写回目标都引用这一组宏；修改
+默认值时只需要改这一处。
 
 ## 运行
 
 ```bash
-# 查看帮助
-./tune/lmmp/bin/lmmp_tune --help
+# 列出全部阈值模块
+./tune/lmmp/bin/lmmp_tune --list
 
-# 快速探索部分阈值（速度较快，适合跑通流程）
-./tune/lmmp/bin/lmmp_tune --quick --only mul22,mul33,npr_ushort
-
-# 完整调优所有已接入阈值
+# 完整调优全部 29 个已接入阈值
 ./tune/lmmp/bin/lmmp_tune
 
-# 调优并将结果写回 include/lmmp/impl/mparam.h
+# 只调若干阈值（id 或兼容别名均可，逗号分隔）
+./tune/lmmp/bin/lmmp_tune --only mul22,mul33,npr_ushort
+
+# 调优并把结果写回 include/lmmp/impl/mparam.h 中的 LMMP_DEFAULT_* 宏
+# 写回前自动备份 mparam.h.tune-bak；不传 --write 时只写 bin/ 下的结果文件
 ./tune/lmmp/bin/lmmp_tune --write
 ```
 
-`--only` 支持逗号分隔的名称列表，当前可用名称包括：
-`mul22`, `mul33`, `mul44`, `mullo`, `mul_fft`, `mullo_dc`,
-`mulhi_mersenne`, `npr_ushort`, `npr_uint`, `ncr`, `pow1`, `elem`,
-`to_str_basepow`, `from_str_basepow`, `mat22_mul`, `mat22_sqr`。
+结果文件默认写入：
 
-> `TO_STR_DIVIDE_THRESHOLD` 与 `FROM_STR_DIVIDE_THRESHOLD` 已接入运行时变量，
-> 但其递归分治路径对强制极端阈值更敏感，当前暂不提供 `--only` 自动搜索，
-> 后续可按“新增一个阈值”一节补充分治安全约束后再开启。
+- `tune/lmmp/bin/lmmp_tune_results.txt`
+- `tune/lmmp/bin/lmmp_tune_results.h`
+
+可用参数：
+
+| 参数 | 默认值 | 说明 |
+|---|---:|---|
+| `--only <a,b,...>` | 全部 | 只运行指定模块 |
+| `--list` | - | 列出模块 id、标题和兼容别名 |
+| `--samples <N>` | 7 | 每点每路径的重复采样数，内部强制为奇数 |
+| `--min-ms <MS>` | 10 | 每次采样希望达到的累计计时毫秒数 |
+| `--mad-limit <X>` | 0.25 | `MAD/median` 超过该值时整轮重测 |
+| `--max-retry <N>` | 1 | 不稳定样本的最大重测轮数 |
+| `--out <file>` | `bin/lmmp_tune_results.txt` | 结果文本路径，同时生成同名 `.h` |
+| `--write` | 关 | 写回 `mparam.h` 中的 `LMMP_DEFAULT_*` 并生成 `.tune-bak` 备份 |
+
+不再提供 `--quick`。旧程序的快速模式采样过少、网格过粗，是前后两次调优结果
+漂移的主要来源之一。如只想快速验证构建，可使用
+`--only mul22 --samples 3 --min-ms 1`。
 
 ## 测量与搜索策略
 
-- **计时**：Windows 使用 `QueryPerformanceCounter`，Linux/macOS 使用
-  `clock_gettime(CLOCK_MONOTONIC)`。每个候选阈值先预热，再做多次采样并取
-  **中位数**，避免个别异常测量值主导结果。
-- **一维阈值**：三轮“粗网格 + 局部细化”搜索；`--quick` 时减少候选点数。
-- **二维阈值**：对 `(K, B)` 先做几何/线性粗网格，再在最优值附近做两轮
-  局部细化。当前用于 `nPr` 的 ushort/uint 两组 `(K, B)` 阈值。
-- **跳过项**：`L1_CACHE_SIZE`、`L2_CACHE_SIZE`、`PART_SIZE`、
-  `LMMP_DEFAULT_STACK_SIZE`、`LMMP_POOL_SIZE` 等缓存/内存池参数与内存
-  分配策略相关，不参与自动调优；`PRIME_CACHE_*`、`MP_*` 等为固定常量，
-  也不参与调优。
+1. **成对交替测量 + 每批次重新绑定路径**：对每个一维样本点，先分别校准
+   low/high 两条路径的重复次数，再按 `A,B,A,B,...` 交替采样；每次校准批次
+   和采样批次开始前都会重新执行 `apply_path(size, low/high)`，确保 A 样本
+   只测 A 分支、B 样本只测 B 分支。后台负载漂移和 CPU 温漂也会同时作用于
+   两条曲线。
+2. **递归叶阈值采用“单层 high”测量**：对会递归调用自身的叶阈值
+   （`MUL_TOOM22/33/44`、`MULLO_BASECASE`、`ELEM_MUL`、`DIV_DIVIDE`、
+   `BNINV_NEWTON`、`MULHI_MERSENNE`），low 设为 `size+1`，high 只设为
+   `size`。这样 high 仅强制根层进入新算法，递归子问题仍回落到旧算法，
+   避免把 high 曲线测成“无限深层递归”并系统性推大阈值。
+3. **中位数 + MAD 复核**：每个采样点默认 7 或 9 次重复，排序后取中位数；
+   若 `MAD/median` 超过阈值则整轮重测。中位数本身不受少数极慢/极快样本主导。
+4. **密集样本点**：小范围逐整数，大范围按 1.06 几何步进，并在旧默认值附近
+   额外加密。
+5. **GMP 风格 badness 搜索**：对候选阈值，把每个样本点错选路径的相对损失
+   `chosen/faster - 1` 求和，选择总 badness 最小的整数阈值。若最小值附近
+   存在 1% 以内的平坦区间，优先保留靠近旧默认值的候选，避免测量噪声在等价
+   区间里随机游走。
+6. **二维 nPr 阈值**：先对稠密 `(n,r)` 样本分别强制 product/factor 路径并
+   交替测量，再在 K 逐整数、B 对数稠密网格上求最小 badness；同样有平坦区
+   间回靠旧值策略。
+7. **递归内部阈值**：`TO_STR_DIVIDE_THRESHOLD`、`FROM_STR_DIVIDE_THRESHOLD`
+   以及 `MUL_FFT_MODF_THRESHOLD` 无法化简为“按 size 直接二分的两条曲线”，
+   改为固定外层参数后，在候选阈值域上逐点在线测量并做归一化 badness 选择；
+   `MUL_FFT_MODF` 先粗网格、再在最优附近加密。
+
+## 当前接入的阈值
+
+`--list` 输出全部模块。旧名称仍作为别名保留：`mul22`、`mul33`、`mul44`、
+`mullo`、`npr_ushort`、`npr_uint`、`ncr`、`pow1`、`elem`、`bninv`。
+
+覆盖范围为 `mparam.h` 中全部 29 个 `LMMP_TUNE` 运行时阈值：
+
+- 乘法/低位乘法：`MUL_TOOM22/33/44`、`MUL_FFT`、`MULLO_BASECASE`、
+  `MULLO_DC`、`MUL_FFT_MODF`、`MULHI_MERSENNE`
+- 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON`
+- 字符串转换：`TO_STR_DIVIDE/BASEPOW`、`FROM_STR_DIVIDE/BASEPOW`
+- 数论组合：`PERMUTATION_USHORT_K/B`、`PERMUTATION_UINT_K/B`、
+  `BINOMIAL_RN_BASECASE`、`ELEM_MUL_BASECASE`、`FACTORS_MUL_N`
+- 幂：`POW_1_EXP`、`POW_WIN2_EXP`、`POW_WIN2_N`
+- 精确除法：`DIVEXACT_BASECASE`、`DIVEXACT_NN`
+- 2x2 矩阵：`MAT22_MUL_STRASSEN`、`MAT22_SQR_STRASSEN`
 
 ## 注意事项
 
-- 调优结果受 CPU、操作系统、编译器版本和后台负载影响，建议在目标平台的
-  空闲机器上运行完整模式。
-- 建议先运行 `--quick` 确认流程，再以完整模式复核。确认前不要轻易
-  `--write`。
-- 如果改变后的阈值破坏了 `MUL_TOOM22 < MUL_TOOM33 < MUL_TOOM44 < MUL_FFT`
-  的顺序约束，相关 `#if` 会以静态默认值为准，调优时请留意打印结果。
-
-## 如何新增一个待调优阈值
-
-调优框架采用“测量两个算法的成本曲线/成本表，再离线搜索最优阈值”的方式。新增一个阈值通常需要以下步骤：
-
-1. **在 `include/lmmp/impl/mparam.h` 中接入运行时变量**
-   - 在 `LMMP_TUNE` 声明块中加入 `extern uint64_t lmmp_tune_XXX_THRESHOLD;`
-   - 把原来的 `#define XXX_THRESHOLD value` 包成：
-     ```c
-     #ifdef LMMP_TUNE
-     #define XXX_THRESHOLD lmmp_tune_XXX_THRESHOLD
-     #else
-     #define XXX_THRESHOLD value
-     #endif
-     ```
-   - 若该宏被用于数组长度（例如 `TO_STR_BASEPOW_THRESHOLD`），还需在对应 `.c` 中增加
-     `#ifdef LMMP_TUNE` 的堆分配路径，否则运行时会因 VLA/数组长度报错。
-
-2. **在 `tune/lmmp/src/lmmp_tune_params.c` 和 `tune/lmmp/include/lmmp_tune.h` 中**
-   - 增加变量定义和 `extern` 声明。
-
-3. **在 `tune/lmmp/src/lmmp_tune.c` 中添加基准**
-   - 1D 阈值：参照 `obj_mul` / `bench_mul_size` 的写法。测量时先把阈值设到
-     两个极端（强制走 A / 强制走 B），分别得到每个 size 的两条成本曲线；
-     然后既可按 `search_1d` 做在线搜索，也可把曲线缓存后离线扫描最优分隔点。
-   - 2D 阈值：参照 `npr_cache_fill` / `npr_cache_eval` 的写法。对每个采样点
-     分别测量两种算法的耗时，之后对任意 `(K,B)` 只需查表求和，无需重新计时。
-
-4. **在 `main()` 的 `--only` 列表中增加对应名字**
-   - 目前支持：`mul22`, `mul33`, `mul44`, `mullo`, `npr_ushort`, `npr_uint`,
-     `ncr`, `pow1`, `elem`, `mat22_mul`, `mat22_sqr`。
-
-5. **非调优时保持零暴露**
-   - 需要暴露内部 `static` 函数时，仅用 `#ifdef LMMP_TUNE` 包裹一个
-     非 `static` 包装函数，例如 `src/lmmp/numth/nPr.c` 中的
-     `lmmp_tune_odd_nPr_product_`。正常构建不会编译该符号。
-
-## 当前调优精度说明
-
-- 快函数测量：`calibrate_loops` 会自适应增加重复次数（上限 2^20），使每次采样
-  累计时间尽量达到目标毫秒级；`bench_ns_per_call` 对多次采样取中位数。
-- 1D 缓存搜索：`search_1d_cached` 对每个 size 分别测量 A/B 两条路径，然后在
-  整数阈值域上全量扫描，选择总耗时最小的分隔点，不会陷入局部最优。
-- 2D 缓存搜索：`search_2d_table` 先测量每个 `(n,r)` 样本的 product/factor 成本，
-  再在 K 线性 / B 几何的 128x128（quick）或 256x256（normal）细网格上扫描；
-  若最优值贴边，会自动扩大搜索域继续扫描。
+- 调优结果与 CPU、OS、编译器、后台负载有关，仅对本机/同类机型有效。
+- 完整模式耗时较长（本机约数十分钟），运行期间应尽量关闭重负载任务。
+- `mparam.h` 中 `MUL_TOOM22 < MUL_TOOM33 < MUL_TOOM44 < MUL_FFT` 的静态
+  断言与 `LMMP_DEFAULT_*` 保持一致；如最终写入值破坏顺序，相关 `#if` 会以
+  默认顺序为准。建议写回前检查结果文件。
+- `--write` 是可选的。默认只生成 `bin/lmmp_tune_results.*`，不会修改任何
+  库源码；显式 `--write` 只替换 `LMMP_DEFAULT_*` 字面量宏。
+- 建议在调优时仔细查看调优结果，并根据需要手动调整阈值。
