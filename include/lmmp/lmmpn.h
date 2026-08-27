@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -859,13 +859,13 @@ LMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size
 LMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
 
 /**
- * @brief 精确逆元计算 [dstq,na+ni+2] = B^(2*(na+ni)) / ([numa,na] * B^ni)
- * @param dstq 输出商的缓冲区，长度至少为na+ni+2
- * @param numa 输入被除数（长度na）
- * @param na 被除数的 limb 长度
+ * @brief 近似逆元计算 [dstq,na+ni+2] = B^(2*(na+ni)) / ([numa,na] * B^ni) + [0|-ept]
+ * @param dstq 输出逆元的缓冲区，长度至少为na+ni+2
+ * @param numa 输入指针（长度na）
+ * @param na 输入指针的 limb 长度
  * @param ni 精度因子
  * @warning na>0, sep(dstq,numa), dstq!=NULL, numa[na-1]!=0
- * @note 也就是计算 B^(2*na+ni) div ([numa,na]
+ * @note 也就是计算 B^(2*na+ni) div ([numa,na]，存在接近2^-64的绝对误差
  */
 LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t ni);
 

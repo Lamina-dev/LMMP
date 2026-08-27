@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -209,7 +209,7 @@ void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) 
 void lmmp_sqr_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
     lmmp_param_assert(na > 0);
     lmmp_param_assert(dst != NULL && numa != NULL);
-    mp_size_t hn = lmmp_fft_next_size_((na + na + 1) >> 1);
+    mp_size_t hn = lmmp_fft_next_size_(na);
     lmmp_debug_assert(na <= hn);
     mp_ptr tp = ALLOC_TYPE(hn + 1, mp_limb_t);
 

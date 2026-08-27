@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -18,11 +18,6 @@
 
 
 mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
-    /*
-    这段代码看起来有点奇怪的原因是，对于使用x64汇编时，我们会使用带进位的加法和减法，而x64中
-    只能使用同一个进位寄存器，所以我们需要将两条指令分开执行。
-    而不使用汇编时，编译器通常不会使用进位寄存器。因此我们可以同时读取两路内存，以减少读写次数。
-    */
 #ifdef LMMP_ASM
     mp_limb_t acyo = 0, scyo = 0;
     mp_size_t off, this_n;

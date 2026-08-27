@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -155,7 +155,7 @@ mp_size_t lmmp_pow_(mp_ptr restrict dst, mp_size_t rn, mp_srcptr restrict base, 
             if (exp <= POW_1_EXP_THRESHOLD) {
                 dst[0] = base[0];
                 rn = 1;
-                for (mp_size_t i = 1; i < exp; ++i) {
+                for (ulong i = 1; i < exp; ++i) {
                     dst[rn] = lmmp_mul_1_(dst, dst, rn, base[0]);
                     ++rn;
                     rn -= (dst[rn - 1] == 0);
