@@ -450,6 +450,7 @@ mp_size_t lmmp_primefac_(mp_ptr restrict dst, mp_size_t rn, uint n) {
     } else if (n <= MP_USHORT_MAX) {
         TEMP_S_DECL;
         ushort primen = lmmp_prime_cnt16_(n);
+        /* 至少4个质数的乘积才可能填满一个limb */
         ulongp restrict pp = SALLOC_TYPE(primen / 4 + 1, ulong);
         ulong t = 1;
         mp_size_t pn = 0;
@@ -481,6 +482,7 @@ mp_size_t lmmp_primefac_(mp_ptr restrict dst, mp_size_t rn, uint n) {
         TEMP_B_DECL;
         lmmp_prime_int_table_init_(n);
         uint pn = lmmp_prime_size_(n);
+        /* 至少2个质数的乘积才可能填满一个limb */
         ulongp restrict pp = BALLOC_TYPE(pn / 2 + 1, ulong);
         pn = 0;
         ulong t = 2;  // 2 is the smallest prime number

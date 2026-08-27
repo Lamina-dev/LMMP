@@ -97,12 +97,13 @@ void lmmp_strong_rng_extern_(lmmp_strong_rng_t* rng, mp_size_t k) {
     lmmp_param_assert(rng != NULL);
     lmmp_param_assert(k > 0);
     if (k <= rng->stream.k) return;
+    mp_size_t old_k = rng->stream.k;
     rng->stream.state = (mp_limb_t*)lmmp_realloc(rng->stream.state, k * sizeof(mp_limb_t));
 
     mp_limb_t new_seed = lmmp_seed_generator(rng->stream.k);
     new_seed = rotl(new_seed, 37) ^ lmmp_seed_generator(k);
-    pcg64_le_seq_init(&rng->stream, rng->stream.k, new_seed);
     rng->stream.k = k;
+    pcg64_le_seq_init(&rng->stream, old_k, new_seed);
 }
 
 void lmmp_strong_rng_free_(lmmp_strong_rng_t* rng) {

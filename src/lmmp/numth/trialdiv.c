@@ -87,6 +87,7 @@ ushortp lmmp_trialdiv_(mp_srcptr restrict np, mp_size_t nn, ushort N, ushort* rn
     and divide [np,nn] by the product to get remainder.
     */
         TEMP_S_DECL;
+        /* 至少4个质数的乘积才可能填满一个limb */
         ulongp restrict pp = SALLOC_TYPE(primen / 4 + 1, ulong);
         ulong t = 1;
         mp_size_t pn = 0;

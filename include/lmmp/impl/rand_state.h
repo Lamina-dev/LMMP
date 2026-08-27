@@ -54,6 +54,8 @@ INLINE_ mp_limb_t lmmp_seed_generator(mp_limb_t seed) {
 
 INLINE_ void pcg64_128_action(mp_limb_t state[2], const mp_limb_t inc[2]) {
     // state = (state * PCG64_MULT + inc) mod 2^128
+    // state * M = s0*m0 + ((s0*m1 + s1*m0) mod 2^64) << 64  (mod 2^128)
+    // 交叉项 s0*m1 与 s1*m0 只有低 64 位落在 2^128 以内，高 64 位模掉
     mp_limb_t tmp[2] = {0, 0};
     _umul64to128_(state[0], PCG128_DEFAULT_MULTIPLIER_LO, tmp, tmp + 1);
     tmp[1] += state[1] * PCG128_DEFAULT_MULTIPLIER_LO;

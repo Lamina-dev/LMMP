@@ -111,25 +111,26 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
 #define an (*an)
 #define bn (*bn)
     if (A == 0) {
-        /*     / 0  1 \ / a \
-               \ 1 -q / \ b /            */
+        /*     / 0  1 \ / a \   =  /        b        \
+               \ 1 -q / \ b /      \ a - q*b (new a) /            */
         lmmp_debug_assert(B == 1 && C == 1 && D < 0);
         mp_limb_t c = lmmp_mul_1_(ms->tp, b, bn, -D);
+        mp_size_t tn = bn;
         if (c != 0) {
-            ++bn;
-            (ms->tp)[bn - 1] = c;
+            ++tn;
+            (ms->tp)[tn - 1] = c;
         }
-        if (an > bn) {
-            lmmp_sub_(a, a, an, b, bn);
-        } else if (an == bn) {
-            int cmp = lmmp_cmp_(a, b, an);
-            if (cmp >= 0) 
-                lmmp_sub_(a, a, an, b, bn);
+        if (an > tn) {
+            lmmp_sub_(a, a, an, ms->tp, tn);
+        } else if (an == tn) {
+            int cmp = lmmp_cmp_(a, ms->tp, an);
+            if (cmp >= 0)
+                lmmp_sub_(a, a, an, ms->tp, tn);
             else
-                lmmp_sub_(a, b, bn, a, an);
+                lmmp_sub_(a, ms->tp, tn, a, an);
         } else {
-            lmmp_sub_(a, b, bn, a, an);
-            an = bn;
+            lmmp_sub_(a, ms->tp, tn, a, an);
+            an = tn;
         }
         while (an > 0 && a[an - 1] == 0) {
             --an;
@@ -177,7 +178,7 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
                 ms->nn = ms->mn;
             }
         }
-        while (ms->np[ms->nn - 1] == 0 && ms->nn > 0) {
+        while (ms->nn > 0 && ms->np[ms->nn - 1] == 0) {
             --(ms->nn);
         }
 
