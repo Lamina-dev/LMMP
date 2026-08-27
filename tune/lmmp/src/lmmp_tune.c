@@ -201,7 +201,10 @@ int main(int argc, char** argv) {
         else
             fprintf(stderr, "Failed to write result files.\n");
         if (rc == 0 && g_tune.write)
-            tune_write_mparam(mparam_path, backup_path);
+            rc = tune_write_mparam(mparam_path, backup_path);
+            if (rc == -1) {
+                fprintf(stderr, "Failed to write mparam.h.\n");
+            }
      }
 
     free(out_h);

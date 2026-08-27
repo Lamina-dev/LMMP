@@ -27,6 +27,7 @@ static void set_threshold(uint64_t v) { lmmp_tune_DIV_DIVIDE_THRESHOLD = v; }
 
 typedef struct {
     mp_ptr a;
+    mp_ptr a_copy;
     mp_ptr b;
     mp_ptr q;
     mp_size_t n;
@@ -34,20 +35,20 @@ typedef struct {
 
 static void div_ctx_init(div_ctx* c, mp_size_t n) {
     c->n = n;
-    c->a = (mp_ptr)lmmp_alloc((size_t)(2 * n + 2) * sizeof(mp_limb_t));
+    c->a = (mp_ptr)lmmp_alloc((size_t)(2 * n) * sizeof(mp_limb_t));
+    c->a_copy = (mp_ptr)lmmp_alloc((size_t)(2 * n) * sizeof(mp_limb_t));
     c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->q = (mp_ptr)lmmp_alloc((size_t)(n + 2) * sizeof(mp_limb_t));
     tune_fill_limbs(c->a, 2 * n, UINT64_C(0x3c6ef372fe94f82b));
     tune_fill_limbs(c->b, n, UINT64_C(0xa54ff53a5f1d36f1));
     c->a[2 * n - 1] &= ~LIMB_B_2;   /* a < B^(2n)，保证商长度可控 */
     c->b[n - 1] |= LIMB_B_2;        /* 除数规整化 */
-    c->a[2 * n] = 0;
-    c->a[2 * n + 1] = 0;
+    memcpy(c->a_copy, c->a, (size_t)(2 * n) * sizeof(mp_limb_t));
 }
 
 static double bench_div(void* v) {
     div_ctx* c = (div_ctx*)v;
-    tune_fill_limbs(c->a, 2 * c->n, UINT64_C(0x3e982912cb42f82b));
+    memcpy(c->a, c->a_copy, (size_t)(2 * c->n) * sizeof(mp_limb_t)); // 重置a
     (void)lmmp_div_s_(c->q, c->a, 2 * c->n, c->b, c->n);
     return 0.0;
 }
@@ -64,6 +65,7 @@ static void free_ctx(void* v) {
     div_ctx* c = (div_ctx*)v;
     if (c != NULL) {
         lmmp_free(c->a);
+        lmmp_free(c->a_copy);
         lmmp_free(c->b);
         lmmp_free(c->q);
         lmmp_free(c);

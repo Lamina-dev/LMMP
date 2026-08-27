@@ -31,17 +31,9 @@ typedef struct {
     mp_ptr dst;
     mp_size_t rn;
     fac_t* fac;
+    fac_t* templ;
     uint nfactors;
 } factors_ctx;
-
-static void factors_ctx_fill(factors_ctx* c) {
-    c->fac[0].j = 1;
-    for (uint i = 1; i < c->nfactors; ++i) {
-        c->fac[i].j = c->nfactors / (c->fac[i].f - 1);
-        if (c->fac[i].j == 0)
-            c->fac[i].j = 1;
-    }
-}
 
 static void factors_ctx_init(factors_ctx* c, uint nfactors) {
     c->nfactors = nfactors;
@@ -49,6 +41,7 @@ static void factors_ctx_init(factors_ctx* c, uint nfactors) {
     c->rn = 2 * nfactors + 4;
     c->dst = (mp_ptr)lmmp_alloc((size_t)(c->rn) * sizeof(mp_limb_t));
     c->fac = (fac_t*)lmmp_alloc((size_t)nfactors * sizeof(fac_t));
+    c->templ = (fac_t*)lmmp_alloc((size_t)nfactors * sizeof(fac_t));
     c->fac[0].j = 1;
     c->fac[0].f = 1;
     uint p = 2;
@@ -59,11 +52,12 @@ static void factors_ctx_init(factors_ctx* c, uint nfactors) {
         if (c->fac[i].j == 0)
             c->fac[i].j = 1;
     }
+    memcpy(c->templ, c->fac, sizeof(fac_t) * nfactors);
 }
 
 static double bench_factors(void* v) {
     factors_ctx* c = (factors_ctx*)v;
-    factors_ctx_fill(c);
+    memcpy(c->fac, c->templ, sizeof(fac_t) * c->nfactors);
     (void)lmmp_factors_mul_(c->dst, c->rn, c->fac, c->nfactors);
     return 0.0;
 }
@@ -81,6 +75,7 @@ static void free_ctx(void* v) {
     if (c != NULL) {
         lmmp_free(c->dst);
         lmmp_free(c->fac);
+        lmmp_free(c->templ);
         lmmp_free(c);
     }
 }
