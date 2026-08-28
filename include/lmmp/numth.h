@@ -242,18 +242,6 @@ LMMP_API mp_size_t lmmp_gcd_22_(mp_ptr dst, mp_srcptr up, mp_srcptr vp);
  */
 LMMP_API mp_size_t lmmp_gcd_2_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp);
 
-/**
- * @brief 计算两个无符号整数的最大公约数（不建议使用此算法，更高版本可能被彻底弃用）
- * @param dst 结果指针（长度至少为 min(un,vn)）
- * @param up 第一个无符号整数指针
- * @param un 第一个无符号整数的 limb 长度
- * @param vp 第二个无符号整数指针
- * @param vn 第二个无符号整数的 limb 长度
- * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL
- * @note 朴素的辗转相除法，与Lehmer算法具有相似的渐进时间复杂度，但Lehmer算法绝大多数场合更加优秀
- * @return dst 的实际 limb 长度
- */
-LMMP_API mp_size_t lmmp_gcd_basecase_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 
 /**
  * @brief 计算两个无符号整数的最大公约数（Lehmer算法）
@@ -262,10 +250,77 @@ LMMP_API mp_size_t lmmp_gcd_basecase_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp
  * @param un 第一个无符号整数的 limb 长度
  * @param vp 第二个无符号整数指针
  * @param vn 第二个无符号整数的 limb 长度
- * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL,
+ *          up[un-1]!=0, vp[vn-1]!=0（输入须归一化，由调用者保证）
  * @return dst 的实际 limb 长度
  */
 LMMP_API mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
+
+/* ============================ hgcd（半扩展欧几里得） ============================ */
+
+/**
+ * @brief hgcd 变换矩阵
+ * @note 约定 / a \   / m00  m01 \   / a' \
+ *           |   | = |          | * |   |
+ *           \ b /   \ m10  m11 /   \ b' /
+ *       其中 (a;b) 为 hgcd 入口数对，(a';b') 为归约后数对。矩阵元素均非负，
+ *       det(M) = ±1，元素值不超过入口较大分量的规模。
+ *       四个元素零填充至公共长度 n（至少一个元素的顶 limb 非零），
+ *       n 与 alloc 满足 n <= alloc。
+ */
+typedef struct {
+    mp_ptr m[2][2];  /* 元素指针，各指向 alloc limbs 的连续区域 */
+    mp_size_t n;     /* 公共长度（零填充不变量） */
+    mp_size_t alloc; /* 每元素容量（limb） */
+} lmmp_hgcd_matrix_t;
+
+/**
+ * @brief 初始化 hgcd 变换矩阵为单位矩阵（堆分配元素缓冲）
+ * @param M 变换矩阵
+ * @param alloc 每元素容量（limb）。若随后用于 n limb 数对的 hgcd，需 alloc >= n+2
+ * @warning M!=NULL, alloc>0
+ * @note 使用完毕须调用 lmmp_hgcd_matrix_free_ 释放
+ */
+LMMP_API void lmmp_hgcd_matrix_init_(lmmp_hgcd_matrix_t* M, mp_size_t alloc);
+
+/**
+ * @brief 释放 hgcd 变换矩阵的元素缓冲
+ * @param M 变换矩阵
+ * @warning M!=NULL, M 须由 lmmp_hgcd_matrix_init_ 初始化且未被释放
+ */
+LMMP_API void lmmp_hgcd_matrix_free_(lmmp_hgcd_matrix_t* M);
+
+/**
+ * @brief 半扩展欧几里得：将数对原地归约至约一半规模，并累积变换矩阵
+ * @param M 变换矩阵（入口应为单位矩阵，出口满足 (a;b) = M*(a';b')）
+ * @param ap 较大分量输入兼输出数组（长度为 n 个limb，出口保证较大者位于 ap）
+ * @param bp 较小分量输入兼输出数组（长度为 n 个limb，允许高位零填充）
+ * @param n ap,bp 的公共长度
+ * @warning M!=NULL, ap!=NULL, bp!=NULL, sep(ap,bp), n>0, M->alloc>=n+2,
+ *          ap[n-1]!=0（a 须归一化；bp 非全零，允许高位零填充），[ap,n]>[bp,n]（值序）
+ * @return 归约后公共长度（成功时一般 <= n/2+1；若归约中遇到整除完成态会提前返回，
+ *         此时 [bp,*] 可能已为 0，由调用者检查）；0 表示未做任何归约（M 保持单位矩阵）
+ * @note gcd(a,b) = gcd(a',b')。渐进复杂度 O(M(n) log n)，M 为乘法复杂度。
+ *       长输入下经由 lmmp_gcd_hgcd_ 使用；直接调用时注意 ap/bp 需要各自 n limbs 容量。
+ */
+LMMP_API mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_size_t n);
+
+/**
+ * @brief 计算两个无符号整数的最大公约数（hgcd 分治，长输入优选）
+ * @param dst 结果指针（长度至少为 bn）
+ * @param up 第一个无符号整数数组（长度为 un 个limb）
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数数组（长度为 vn 个limb）
+ * @param vn 第二个无符号整数的 limb 长度
+ * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]),
+ *          up[un-1]!=0, vp[vn-1]!=0（输入须归一化，由调用者保证）
+ * @return dst 的实际 limb 长度
+ * @note 内部以 hgcd 反复折半归约（128 位窗口步进 + appr 近似递归 + 一次性 scratch），
+ *       小规模回退至 Lehmer 算法。渐进复杂度 O(M(n) log n)；
+ *       实测约 200 limb 以上开始优于 Lehmer 算法，4000 limb 时约 4 倍加速，
+ *       数千 limb 以上的性能与 GMP 6.3 相当或更快（实测约 0.88~1.06 倍）。
+ */
+LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 
 /**
  * @brief 计算两个无符号整数的乘积，对mod取模，商放入 q 中

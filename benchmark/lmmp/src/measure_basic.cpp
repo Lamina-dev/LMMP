@@ -14,6 +14,7 @@
  */
 
 #include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
 #include "lmmp/mprand.h"
 #include "lmmp_measure.hpp"
 
@@ -202,4 +203,70 @@ MEASURE_CASE("lmmpn/mullo", mullo_fft) {
     }
     printf("    Done\n");
     lmmp_free(a); lmmp_free(b); lmmp_free(c); lmmp_free(d);
+}
+
+MEASURE_CASE("numth/gcd", gcd_lehmer) {
+    const mp_size_t n = 2000;
+    mp_ptr a = alloc_limbs(n);
+    mp_ptr b = alloc_limbs(n);
+    mp_ptr d = alloc_limbs(n);
+    fill_random(a, n, 0x120bce34ba89eull);
+    fill_random(b, n, 0x2cab542332219ull);
+    a[n - 1] |= (mp_limb_t)1 << 63;
+    b[n - 1] >>= 1;
+    if (b[n - 1] == 0) b[n - 1] = 1;
+    File f("gcd_lehmer");
+    for (mp_size_t i = 4; i <= n; i += 10) {
+        a[i - 1] |= 1;
+        b[i - 1] |= 1; /* 契约：输入须归一化（顶 limb 非零） */
+        auto m = measure([&] { lmmp_gcd_lehmer_(d, a, i, b, i); }, i, 5);
+        write(f, m);
+        progress_bar(i, n, 40, "    Measuring");
+    }
+    printf("    Done\n");
+    lmmp_free(a); lmmp_free(b); lmmp_free(d);
+}
+
+MEASURE_CASE("numth/gcd", gcd_hgcd) {
+    const mp_size_t n = 5000;
+    mp_ptr a = alloc_limbs(n);
+    mp_ptr b = alloc_limbs(n);
+    mp_ptr d = alloc_limbs(n);
+    fill_random(a, n, 0x120e3489bceull);
+    fill_random(b, n, 0x92cab543221ull);
+    a[n - 1] |= (mp_limb_t)1 << 63;
+    b[n - 1] >>= 1;
+    if (b[n - 1] == 0) b[n - 1] = 1;
+    File f("gcd_hgcd");
+    for (mp_size_t i = 64; i <= n; i += 4) {
+        a[i - 1] |= 1;
+        b[i - 1] |= 1; /* 契约：输入须归一化（顶 limb 非零） */
+        auto m = measure([&] { lmmp_gcd_hgcd_(d, a, i, b, i); }, i, 5);
+        write(f, m);
+        progress_bar(i, n, 40, "    Measuring");
+    }
+    printf("    Done\n");
+    lmmp_free(a); lmmp_free(b); lmmp_free(d);
+}
+
+MEASURE_CASE("numth/gcd", gcd_hgcd_large) {
+    const mp_size_t n = 50000;
+    mp_ptr a = alloc_limbs(n);
+    mp_ptr b = alloc_limbs(n);
+    mp_ptr d = alloc_limbs(n);
+    fill_random(a, n, 0x120e3489bceull);
+    fill_random(b, n, 0x92cab543221ull);
+    a[n - 1] |= (mp_limb_t)1 << 63;
+    b[n - 1] >>= 1;
+    if (b[n - 1] == 0) b[n - 1] = 1;
+    File f("gcd_hgcd_large");
+    for (mp_size_t i = 4000; i <= n; i += 500) {
+        a[i - 1] |= 1;
+        b[i - 1] |= 1; /* 契约：输入须归一化（顶 limb 非零） */
+        auto m = measure([&] { lmmp_gcd_hgcd_(d, a, i, b, i); }, i, 2);
+        write(f, m);
+        progress_bar(i, n, 40, "    Measuring");
+    }
+    printf("    Done\n");
+    lmmp_free(a); lmmp_free(b); lmmp_free(d);
 }

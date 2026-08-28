@@ -243,6 +243,9 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
     lmmp_param_assert(up != NULL && vp != NULL);
     lmmp_param_assert(dst != NULL);
 
+    lmmp_param_assert(up[un - 1] != 0);
+    lmmp_param_assert(vp[vn - 1] != 0);
+
     if (un < vn) {
         LMMP_SWAP(up, vp, mp_srcptr);
         LMMP_SWAP(un, vn, mp_size_t);
@@ -284,7 +287,7 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
         } else if (an == 1 && bn == 1) {
             dst[0] = lmmp_gcd_11_(a[0], b[0]);
             return 1;
-        } 
+        }
         // a > b
         lmmp_lehmer_extract_(a, an, b, bn, &x, &y);
         lmmp_gcd_lehmer_step_(x, y, &M);
