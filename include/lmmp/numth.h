@@ -265,13 +265,16 @@ LMMP_API mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_s
  *           \ b /   \ m10  m11 /   \ b' /
  *       其中 (a;b) 为 hgcd 入口数对，(a';b') 为归约后数对。矩阵元素均非负，
  *       det(M) = ±1，元素值不超过入口较大分量的规模。
- *       四个元素零填充至公共长度 n（至少一个元素的顶 limb 非零），
- *       n 与 alloc 满足 n <= alloc。
+ *       每个元素显式存储真实长度 n[i][j]（归一化，顶 limb 非零；
+ *       n[i][j]==0 表示零元素），不做零填充：元素缓冲 [0, n[i][j]) 之外
+ *       的内容无效，一切访问以长度为准。长度由库内计算过程显式维护
+ *       （乘法进位/最高位），不做前导零扫描。
+ *       各元素长度 <= alloc。
  */
 typedef struct {
-    mp_ptr m[2][2];  /* 元素指针，各指向 alloc limbs 的连续区域 */
-    mp_size_t n;     /* 公共长度（零填充不变量） */
-    mp_size_t alloc; /* 每元素容量（limb） */
+    mp_ptr m[2][2];     /* 元素指针，各指向 alloc limbs 的连续区域 */
+    mp_size_t n[2][2];  /* 各元素真实长度（归一化；0 表示零元素） */
+    mp_size_t alloc;    /* 每元素容量（limb） */
 } lmmp_hgcd_matrix_t;
 
 /**

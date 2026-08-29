@@ -188,8 +188,8 @@ int main(int argc, char** argv) {
     printf("modules: %llu\n",
            (unsigned long long)(sizeof(g_modules) / sizeof(g_modules[0])));
 
-    const int rc = tune_module_run(g_modules, sizeof(g_modules) / sizeof(g_modules[0]),
-                                   g_tune.only);
+    int rc = tune_module_run(g_modules, sizeof(g_modules) / sizeof(g_modules[0]),
+                             g_tune.only);
     tune_record_print_summary();
 
     if (rc == 1) {

@@ -152,9 +152,7 @@ namespace {
 
 // 读取 hgcd 矩阵元素为 BigInt（去除零填充）
 BigInt hgcd_elem(const lmmp_hgcd_matrix_t* M, int i, int j) {
-    mp_size_t l = M->n;
-    while (l > 0 && M->m[i][j][l - 1] == 0) --l;
-    return BigInt(M->m[i][j], (size_t)l);
+    return BigInt(M->m[i][j], (size_t)M->n[i][j]);
 }
 
 // 检验 [p,n] 是否被 [d,dn] 整除

@@ -85,16 +85,28 @@ det 符号穿线：矩阵的行列式符号在递归中逐点跟踪（F(q) 型�
 
 四、矩阵复合（lmmp_hgcd_matrix_mul_）
 
-M <- M * M1 经由库内 lmmp_mat22_mul_ 完成（大元素自动走 Strassen 7 乘），
-M 为单位阵时退化为直接拷贝。矩阵存储采用"单公共长度 + 零填充"布局：四个
-元素零填充至公共长度 M->n，配合指针交换实现 O(1) 的行列交换。
+M <- M * M1 经由库内 lmmp_mat22_mul_ 完成，按元素最大长度自动分派：
+basecase（8 乘）或 Winograd-Strassen（7 乘；FFT 缓存乘法路径曾实现并
+证伪后删除，见 mat22_mul.h 头注）。M 为单位阵时退化为按长度直接拷贝。
+矩阵存储为"逐元素显式长度"布局：各元素真实长度存于 M->n[i][j]（归一
+化，0 表示零元素），无零填充不变量；与 lmmp_mat22_t 公共前缀同构（指
+针强转零开销），配合指针交换实现 O(1) 的行列交换。
+
+长度维护纪律：矩阵元素长度一律经显式字段与计算信息（乘法进位/积的最
+高 limb、加减的进位与大小比较结果）维护，禁止对矩阵元素做逐 limb 的
+前导零扫描。数对（零填充公共长度表示）中的少量 norm 保留于：无进位信
+息可用的结果（除法余数、模减回绕、加减抵消后的输出分量）与语义性归
+一化（Lehmer 收尾契约），均已就地注释。
 
 五、内存管理
 
 全部内部函数经由穿线的递增分配器（lmmp_hgcd_scratch_t）获取临时空间：
 顶层按 lmmp_hgcd_scratch_size_ 给出的上界一次性分配，各函数入口取标记、
 出口恢复，兄弟调用复用同一区域，无逐层堆分配。lmmp_gcd_hgcd_ 的数对工作
-缓冲与矩阵缓冲也在循环外一次分配复用。
+缓冲与矩阵缓冲也在循环外一次分配复用。scratch 上界按"沿递归路径取 max"
+核算（子层临时空间与本层合并相位共享同一区域，仅常驻高位副本跨层叠加，
+见 lmmp_hgcd_scratch_size_ 注），约 15n limb，较早期逐层累加的 48n 缩至
+约 1/3（51000 limb 约 19.6MB -> 6.1MB）。
 
 六、模乘合并变体（lmmp_hgcd_apply_mod_）
 
@@ -113,10 +125,23 @@ M 为单位阵时退化为直接拷贝。矩阵存储采用"单公共长度 + �
 实测约 800 limb 以上优于 Lehmer 的 O(n^2)，4000 limb 约 4 倍加速；
 16000-46000 limb 与 GMP 6.3 相当或更快。
 
-主要开销相位（51000 limb 实测，占递归核总耗时）：apply_mod 约 42%，
-matrix_mul 约 36%，step 约 17%，adjust 约 3%。后续可优化方向：
-matrix22 乘在 FFT 域的变换不变性复用（GMP 同位置亦有 FIXME 注记）、
-apply_mod 的频域线性组合（8 次变换替代 4 次独立模乘的 12 次）。
+主要开销相位（51000 limb 实测，占递归核总耗时）：matrix_mul 约 36%，
+apply_mod 约 30%，step 约 20%，adjust 约 3%。
+
+已探索并证伪的优化方向（避免重复投入）：
+1. matrix22 乘的 FFT 域变换共享（GMP 同位置 FIXME 所指的 invariance）：
+   Strassen 的 7 个乘积共 14 个因子两两互异——这正是 Strassen 以不共享
+   操作数换取乘法次数的原理——不存在可复用的前向变换；逐积 lmmp_mul_
+   的 CRT 拆分（两半尺寸模乘）变换总量与共享方案等价。
+2. apply_mod 的频域线性组合（两积之差的系数域模减，省一次逆变换）：
+   曾实现于 mul_fft.c 并交叉验证，系数域 ±1 单位的簿记与逆变换后的
+   装配校正不兼容（负真值固定偏差 ±2），已删除。现有 fa/fb 缓存已是
+   该结构下的变换最优（6 前向 + 4 逆 + 4 点乘）。
+
+正确性注记：显式长度重构曾遗留两处"未写先读"——matrix_mul_u_ 双项
+分支中 l1 > l0 且 addmul 进位为 0 时顶位 [L] 无写入方（以补零区间含
+顶位修复），adjust_ 中乘积仅写 [0, p+n_ij) 而后续按 mn 定长读取
+（以乘积尾部补零修复）。堆残留数据可稳定复现（详见 git 历史）。
 
 参考：
     GMP 的 hgcd/hgcd_appr/hgcd_reduce/hgcd_matrix_adjust 设计思想，
@@ -131,15 +156,33 @@ apply_mod 的频域线性组合（8 次变换替代 4 次独立模乘的 12 次�
 #include "../../../include/lmmp/numth.h"
 
 
-/* 递归阈值：公共长度超过该值时启用分治路径（经验值，待接入 tune 体系） */
+
+/* 递归阈值：公共长度超过该值时启用分治路径。实测扫描 96~512（本机
+   i7-14 代，11k~51k limb 三点 A/B 交替）性能差异在噪声内（±2%），
+   维持 128；中小规模（600~8k）192 略优亦在噪声内。待接入 tune 体系 */
 #define HGCD_RECURSE_THRESHOLD 128
 
-/* 归一化：返回 [p,n] 去除前导零后的真实长度（只读，不修改内存） */
-static inline mp_size_t lmmp_hgcd_norm_(mp_srcptr p, mp_size_t n) {
+/* 归一化：返回 [p,n] 去除前导零后的真实长度（只读，不修改内存）。
+   使用纪律：仅用于数对（公共长度零填充表示，真实长度无处显式存储，
+   且常无进位信息可用——如除法余数、模减回绕结果）；矩阵元素的长度
+   一律经显式字段 M->n[i][j] 与计算过程（进位/乘积最高位）维护，
+   禁止对矩阵元素做前导零扫描 */
+static mp_size_t lmmp_hgcd_norm_(mp_srcptr p, mp_size_t n) {
     while (n > 0 && p[n - 1] == 0) {
         --n;
     }
     return n;
+}
+
+/* 矩阵元素长度最大值（显式字段，无扫描） */
+static mp_size_t lmmp_hgcd_matrix_maxlen_(const lmmp_hgcd_matrix_t* M) {
+    mp_size_t mx = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (M->n[i / 2][i % 2] > mx) {
+            mx = M->n[i / 2][i % 2];
+        }
+    }
+    return mx;
 }
 
 /* 乘法辅助：按较长一方在前调用 lmmp_mul_，自动满足其 na>=nb 要求（dst 写 na+nb limbs） */
@@ -169,18 +212,36 @@ static inline mp_ptr lmmp_hgcd_salloc_(lmmp_hgcd_scratch_t* sc, mp_size_t n) {
  * @brief 计算 hgcd 内部临时空间大小
  * @param n 输入长度
  * @warning n>0
- * @note 逐层累计：每层顺序峰值（sa/sb 副本、adjust/apply_mod 缓冲、矩阵复合
- *       缓冲等，约 24n）加常驻（高位副本 2hn 与子矩阵 4(hn+2)），几何级数
- *       收敛；基础循环 8n。计算保守取向
+ * @note 峰值沿递归路径取 max 而非逐层求和：递增分配器经 mark 复位使
+ *       子层临时空间与本层合并相位（sa/sb 副本、adjust/apply_mod/矩阵
+ *       复合缓冲，合计约 14n）共享同一区域，二者不同时达峰；真正叠加
+ *       的只有递归期间常驻的高位副本与子矩阵缓冲。子问题规模上界取
+ *       2n/3 + 2（阶段 B 的 p2 分裂在最不利时接近该比例，严于实际的
+ *       n - n/2 与 2n_cur - n0 - 5）。本层合并相位预算 15n + 512（含
+ *       apply_mod 折叠缓冲的 next_size 取整余量与矩阵复合 9(2mx+4)），
+ *       步进循环 8n + 64。对比旧的逐层累加（约 48n）内存占用降至约 1/3
  */
 static mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n) {
-    mp_size_t total = 0;
+    mp_size_t acc = 0;           /* 递归路径常驻前缀（高位副本累计） */
+    mp_size_t best = 8 * n + 64; /* 基础步进循环（含除法回退路径） */
     while (n > HGCD_RECURSE_THRESHOLD) {
-        mp_size_t hn = n - n / 2;
-        total += 24 * n + 6 * (hn + 2) + 32;
+        mp_size_t hn = 2 * n / 3 + 2; /* 子问题规模上界（见注） */
+        mp_size_t level = acc + 15 * n + 512; /* 本层合并相位峰值 */
+        if (level > best) {
+            best = level;
+        }
+        acc += 6 * hn + 16; /* ha/hb/M1buf：子递归期间常驻不释放 */
+        mp_size_t steps = acc + 8 * n + 64; /* 桥接/收尾步进循环峰值 */
+        if (steps > best) {
+            best = steps;
+        }
         n = hn;
     }
-    return total + 8 * n + 64;
+    mp_size_t tail = acc + 8 * n + 64;
+    if (tail > best) {
+        best = tail;
+    }
+    return best;
 }
 
 /**
@@ -189,6 +250,8 @@ static mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n) {
 static inline void lmmp_hgcd_matrix_swap_cols_(lmmp_hgcd_matrix_t* M) {
     LMMP_SWAP(M->m[0][0], M->m[0][1], mp_ptr);
     LMMP_SWAP(M->m[1][0], M->m[1][1], mp_ptr);
+    LMMP_SWAP(M->n[0][0], M->n[0][1], mp_size_t);
+    LMMP_SWAP(M->n[1][0], M->n[1][1], mp_size_t);
 }
 
 /**
@@ -294,16 +357,18 @@ static int lmmp_hgcd_lehmer2_(
 
 /**
  * @brief M <- M*U，U 为单 limb 元素的非负矩阵
- * @param M 变换矩阵：输入读各元素 [0,M->n)，输出写各元素 [0,nn) 并零填充至
- *          新公共长度 nn
- * @param sc 临时空间（2*(M->n+2) limbs）
- * @param detsign det(M) 的符号，输入输出同源（乘 det(U)=[1|-1] 调整）
+ * @param M 变换矩阵：输入读各元素 [0,M->n[i][j])，输出写各元素与
+ *          M->n[i][j]（新长度至多旧长度+1）
+ * @param sc 临时空间（max(M->n[i][j])+2 个limb）
+ * @param detsign det(M) 的符号，输入输出同源（乘 det(U)=±1 调整）
  * @param u00 U 的元素 m00（非负且 < 2^62）
  * @param u01 U 的元素 m01（非负且 < 2^62）
  * @param u10 U 的元素 m10（非负且 < 2^62）
  * @param u11 U 的元素 m11（非负且 < 2^62）
- * @warning sc!=NULL, M!=NULL, M->n+2 <= M->alloc
- * @note 新公共长度 nn 至多 M->n+1
+ * @warning sc!=NULL, M!=NULL, max(M->n[i][j])+2 <= M->alloc
+ * @note 长度显式维护：col' = u_a*col_a + u_b*col_b 的长度为
+ *       L+进位（L = max(la,lb)，双乘进位之和 < 2^63 无再进位），
+ *       mul_1/addmul_1 的进位经 [l,L) 区补零对齐后并入顶端
  */
 static void lmmp_hgcd_matrix_mul_u_(
     lmmp_hgcd_matrix_t* M,
@@ -319,49 +384,105 @@ static void lmmp_hgcd_matrix_mul_u_(
     _umul64to128_(u00, u11, &dlo, &dhi);
     _umul64to128_(u01, u10, &elo, &ehi);
     *detsign *= (dhi > ehi || (dhi == ehi && dlo >= elo)) ? 1 : -1;
-    mp_size_t n = M->n;
-    lmmp_debug_assert(n + 2 <= M->alloc);
+    mp_size_t mx = lmmp_hgcd_matrix_maxlen_(M);
+    lmmp_debug_assert(mx + 2 <= M->alloc);
     mp_size_t mark = sc->used;
-    mp_ptr t0 = lmmp_hgcd_salloc_(sc, n + 2);
-    mp_ptr t1 = lmmp_hgcd_salloc_(sc, n + 2);
-    mp_limb_t c, cc;
+    mp_ptr t = lmmp_hgcd_salloc_(sc, mx + 2);
 
-    /* 新 col1 暂存（先于 col0 的原地更新）：col1' = u01*col0 + u11*col1 */
-    c = lmmp_mul_1_(t0, M->m[0][0], n, u01);
-    cc = lmmp_addmul_1_(t0, M->m[0][1], n, u11);
-    t0[n] = c + cc;
-    c = lmmp_mul_1_(t1, M->m[1][0], n, u01);
-    cc = lmmp_addmul_1_(t1, M->m[1][1], n, u11);
-    t1[n] = c + cc;
-
-    /* 新 col0 原地：col0' = u00*col0 + u10*col1（col1 尚未被覆盖） */
     for (int row = 0; row < 2; ++row) {
-        c = lmmp_mul_1_(M->m[row][0], M->m[row][0], n, u00);
-        M->m[row][0][n] = c;
-        cc = lmmp_addmul_1_(M->m[row][0], M->m[row][1], n, u10);
-        M->m[row][0][n] += cc;
+        mp_ptr c0 = M->m[row][0];
+        mp_ptr c1 = M->m[row][1];
+        mp_size_t l0 = M->n[row][0];
+        mp_size_t l1 = M->n[row][1];
+        mp_size_t L = l0 > l1 ? l0 : l1;
+        /*
+        新 col1 = u01*col0 + u11*col1，暂存 t（col0/col1 均待读取）。
+        系数为零或元素为零的项跳过（mul_1/addmul_1 的 do-while 汇编对
+        零长度不安全；且零系数使"和 >= B^(L-1)"的下界失效，须按实际
+        参与项归一化）：
+        - 单项 u*x：积 ∈ [x, 2^62*x] 长度为 l 或 l+1（l 为 x 的长度），
+          顶 limb 单次判断；
+        - 双项：和 >= max(两项) >= B^(L-1)，至多两个前导零 limb，
+          经 [l0, L] 补零对齐后双进位并入顶端（和 < 2^63 无再进位），
+          两次顶判断。l1 > l0 时补零区间须含顶位 [L] 预置 0：addmul
+          进位为 0 时 [L] 无写入方，而和 < B^l1 = B^L 真值为 0，
+          不预置则 (t[L] != 0) 读到未初始化残留
+        */
+        mp_limb_t c, cc;
+        mp_size_t l1n;
+        if (u01 == 0 || l0 == 0) {
+            if (u11 == 0 || l1 == 0) {
+                l1n = 0; /* 两项皆零（det=±1 保证不会两列同零，防御） */
+            } else {
+                c = lmmp_mul_1_(t, c1, l1, u11);
+                t[l1] = c;
+                l1n = l1 + (c != 0);
+            }
+        } else if (u11 == 0 || l1 == 0) {
+            c = lmmp_mul_1_(t, c0, l0, u01);
+            t[l0] = c;
+            l1n = l0 + (c != 0);
+        } else {
+            c = lmmp_mul_1_(t, c0, l0, u01);
+            t[l0] = c;
+            /* 对齐补零（长度差，矩阵元素通常 0~2）；l1 > l0 时 L == l1，
+               多补的 [L] 供顶位判断与 add_1_ 回读（见上） */
+            lmmp_zero(t + l0 + 1, L - l0 + (l1 > l0));
+            cc = lmmp_addmul_1_(t, c1, l1, u11);
+            /* 进位属于 [l1] 位置，经 add_1_ 传播，顶端无出界（和 < 2^63） */
+            if (cc != 0) {
+                lmmp_add_1_(t + l1, t + l1, L + 1 - l1, cc);
+            }
+            l1n = L + (t[L] != 0);
+            if (t[l1n - 1] == 0 && l1n > 1) {
+                --l1n;
+            }
+            if (t[l1n - 1] == 0 && l1n > 1) {
+                --l1n;
+            }
+        }
+        /* 新 col0 = u00*col0 + u10*col1，原地（col1 尚未覆写），同构 */
+        mp_size_t l0n;
+        if (u00 == 0 || l0 == 0) {
+            if (u10 == 0 || l1 == 0) {
+                l0n = 0;
+            } else {
+                c = lmmp_mul_1_(c0, c1, l1, u10);
+                c0[l1] = c;
+                l0n = l1 + (c != 0);
+            }
+        } else if (u10 == 0 || l1 == 0) {
+            c = lmmp_mul_1_(c0, c0, l0, u00);
+            c0[l0] = c;
+            l0n = l0 + (c != 0);
+        } else {
+            c = lmmp_mul_1_(c0, c0, l0, u00);
+            c0[l0] = c;
+            lmmp_zero(c0 + l0 + 1, L - l0 + (l1 > l0)); /* 含顶位预置（见上） */
+            cc = lmmp_addmul_1_(c0, c1, l1, u10);
+            if (cc != 0) {
+                lmmp_add_1_(c0 + l1, c0 + l1, L + 1 - l1, cc);
+            }
+            l0n = L + (c0[L] != 0);
+            if (c0[l0n - 1] == 0 && l0n > 1) {
+                --l0n;
+            }
+            if (c0[l0n - 1] == 0 && l0n > 1) {
+                --l0n;
+            }
+        }
+        lmmp_copy(c1, t, l1n);
+        M->n[row][0] = l0n;
+        M->n[row][1] = l1n;
     }
-
-    /* 回填 col1 并统一零填充至新公共长度 */
-    lmmp_copy(M->m[0][1], t0, n + 1);
-    lmmp_copy(M->m[1][1], t1, n + 1);
-    mp_size_t nn = n + 1;
-    if ((M->m[0][0][nn - 1] | M->m[0][1][nn - 1] | M->m[1][0][nn - 1] | M->m[1][1][nn - 1]) == 0) {
-        --nn;
-    }
-    lmmp_zero(M->m[0][0] + nn, n + 1 - nn);
-    lmmp_zero(M->m[0][1] + nn, n + 1 - nn);
-    lmmp_zero(M->m[1][0] + nn, n + 1 - nn);
-    lmmp_zero(M->m[1][1] + nn, n + 1 - nn);
-    M->n = nn;
     sc->used = mark;
 }
 
 /**
  * @brief 真除法步进的矩阵累积
- * @param M 变换矩阵：输入读各元素 [0,M->n)，输出写两列 [0,nn) 并零填充至
- *          新公共长度 nn（nn>=M->n，至多 qn+M->n+1）
- * @param sc 临时空间（2*(qn+M->n+1) limbs）
+ * @param M 变换矩阵：输入读各元素 [0,M->n[i][j])，输出写更新列各元素
+ *          与长度（另一列仅按 col 语义搬移/保持）
+ * @param sc 临时空间（2*(qn+max(M->n[i][j])+1) limbs）
  * @param detsign det(M) 的符号，输入输出同源（col=0 时乘 det(F)=-1 变号）
  * @param q 商数组（读取 [q,qn)，q[qn-1]>0）
  * @param qn 商的 limb 长度，qn>0
@@ -380,7 +501,10 @@ static void lmmp_hgcd_matrix_mul_u_(
  *                列语义：新 col1 = q*col0 + col1，col0 不变。
  *                验证：E(q)*(r;b) = (r+q*b; b) = (a; b)
  *                （E(q) = F(q)*P，P 为列交换，即数对翻转在矩阵侧的簿记）
- * @warning M!=NULL, sc!=NULL, q!=NULL, qn>0
+ * @warning M!=NULL, sc!=NULL, q!=NULL, qn>0, sep(q,M)
+ * @note 更新列长度显式维护：t = q*col0 + col1 的长度 = max(lt, l1)+进位，
+ *       其中积长 lt = qn+l0 或 qn+l0-1（积 >= B^(qn+l0-2)，顶 limb 单次
+ *       判断）；l0==0（零元素）时 t = col1 长度直接已知
  */
 static void lmmp_hgcd_matrix_update_q_(
     lmmp_hgcd_matrix_t*  M,
@@ -393,44 +517,60 @@ static void lmmp_hgcd_matrix_update_q_(
     if (col == 0) {
         *detsign = -*detsign; /* F(q) det = -1 */
     }
-    mp_size_t n = M->n;
-    mp_size_t N = qn + n + 1;
+    mp_size_t mx = lmmp_hgcd_matrix_maxlen_(M);
     mp_size_t mark = sc->used;
-    mp_ptr t0 = lmmp_hgcd_salloc_(sc, N);
-    mp_ptr t1 = lmmp_hgcd_salloc_(sc, N);
+    mp_ptr t = lmmp_hgcd_salloc_(sc, qn + mx + 1);
 
     /*
     F(q)：col0' = q*col0 + col1，col1' = col0_old
     E(q)：col1' = q*col0 + col1，col0' 不变
     两种情形的更新列均为 q*col0 + col1，区别在另一列的去向
-    */
+     */
     for (int row = 0; row < 2; ++row) {
-        mp_ptr t = row ? t1 : t0;
-        lmmp_hgcd_mul_ab_(t, M->m[row][0], n, q, qn);
-        mp_limb_t carry = lmmp_add_(t, t, n + qn, M->m[row][1], n);
-        t[n + qn] = carry;
-    }
-
-    mp_size_t m0 = lmmp_hgcd_norm_(t0, N);
-    mp_size_t m1 = lmmp_hgcd_norm_(t1, N);
-    mp_size_t nn = m0 > m1 ? m0 : m1;
-    if (nn < n) {
-        nn = n;
-    }
-    lmmp_debug_assert(nn <= M->alloc);
-
-    int dst = col == 0 ? 0 : 1; /* 更新列：F 更新 col0，E 更新 col1 */
-    for (int row = 0; row < 2; ++row) {
-        mp_ptr t = row ? t1 : t0;
-        mp_size_t m = row ? m1 : m0;
-        if (col == 0) {
-            lmmp_copy(M->m[row][1], M->m[row][0], n); /* col1 <- col0_old */
-            lmmp_zero(M->m[row][1] + n, nn - n);
+        mp_size_t l0 = M->n[row][0];
+        mp_size_t l1 = M->n[row][1];
+        mp_size_t lt;
+        if (l0 == 0) {
+            lmmp_copy(t, M->m[row][1], l1);
+            lt = l1;
+        } else {
+            lmmp_hgcd_mul_ab_(t, q, qn, M->m[row][0], l0);
+            if (l1 == 0) {
+                /* 零元素：lmmp_add_ 对 nb==0 不安全（内联宏经 do-while 汇编），
+                   且积 >= B^(qn+l0-2)，长度顶 limb 单次判断 */
+                lt = qn + l0 - (t[qn + l0 - 1] == 0);
+            } else {
+                /* 乘积缓冲 [0, qn+l0) 有效，若 col1 更长需先清零对齐区，
+                   再以两者最大长度相加，满足 lmmp_add_ 的 na>=nb 契约 */
+                mp_size_t m = qn + l0;
+                if (l1 > m) {
+                    lmmp_zero(t + m, l1 - m);
+                    m = l1;
+                }
+                mp_limb_t carry = lmmp_add_(t, t, m, M->m[row][1], l1);
+                /* lmmp_add_ 等长相加的进位仅经返回值报告，需显式落盘 */
+                if (carry != 0) {
+                    t[m] = carry;
+                }
+                lt = m + (carry != 0);
+                /* 归一化：和 >= max(积, col1) >= B^(m-1)，至多两个前导零 limb */
+                if (t[lt - 1] == 0 && lt > 1) {
+                    --lt;
+                }
+                if (t[lt - 1] == 0 && lt > 1) {
+                    --lt;
+                }
+            }
         }
-        lmmp_copy(M->m[row][dst], t, m);
-        lmmp_zero(M->m[row][dst] + m, nn - m);
+        int dst = col == 0 ? 0 : 1;
+        if (col == 0) {
+            /* col1 <- col0_old（指针与长度一并搬移后写回更新列） */
+            lmmp_copy(M->m[row][1], M->m[row][0], l0);
+            M->n[row][1] = l0;
+        }
+        lmmp_copy(M->m[row][dst], t, lt);
+        M->n[row][dst] = lt;
     }
-    M->n = nn;
     sc->used = mark;
 }
 
@@ -443,104 +583,58 @@ static void lmmp_hgcd_matrix_update_q_(
  */
 static void lmmp_hgcd_matrix_init_buf_(lmmp_hgcd_matrix_t* M, mp_ptr buf, mp_size_t alloc) {
     lmmp_debug_assert(M != NULL && buf != NULL && alloc > 0);
+    /* 初始清零仅为缓冲卫生（一次性）；运行期以长度字段为准，无零填充不变量 */
     lmmp_zero(buf, 4 * alloc);
     M->m[0][0] = buf;
     M->m[0][1] = buf + alloc;
     M->m[1][0] = buf + 2 * alloc;
     M->m[1][1] = buf + 3 * alloc;
-    M->n = 1;
+    M->n[0][0] = 1;
+    M->n[0][1] = 0;
+    M->n[1][0] = 0;
+    M->n[1][1] = 1;
     M->alloc = alloc;
     M->m[0][0][0] = 1;
     M->m[1][1][0] = 1;
 }
 
 /**
- * @brief M <- M*M1
- * @param M 左矩阵，输入读各元素长度为 M->n，输出写各元素长度为 nn
- * @param M1 右矩阵（只读，各元素长度为 M1->n 个limb）
- * @param sc 临时空间（约 11*(M->n+M1->n)+40 个limb）
- * @warning M!=NULL, M1!=NULL, sc!=NULL, sep(M,M1), 新公共长度 nn<=M->alloc
- * @note M 为单位阵时退化为直接拷贝 M1（M1 元素已零填充至 M1->n，可整段拷贝）
+ * @brief M <- M*M1（经由库内 lmmp_mat22_mul_，按元素最大长度自动分派
+ *        basecase / Winograd-Strassen 路径）
+ * @param M 左矩阵，输入读各元素 [0,M->n[i][j])，输出写各元素与长度字段
+ *          （新长度 <= max(M->n[i][k]) + max(M1->n[k][j]) + 1）
+ * @param M1 右矩阵（只读，各元素 [0,M1->n[i][j]) 有效）
+ * @param sc 临时空间（9*(2*mx+4) 个limb，mx 为两矩阵元素最大长度）
+ * @warning M!=NULL, M1!=NULL, sc!=NULL, sep(M,M1),
+ *          maxlen(M)+maxlen(M1)+2 <= M->alloc（结果容量，下限不变量保证）
+ * @note M 为单位阵时退化为按长度直接拷贝 M1。lmmp_hgcd_matrix_t 与
+ *       lmmp_mat22_t 公共前缀同构（m[2][2]+n[2][2]），指针强转零开销
  */
 static void lmmp_hgcd_matrix_mul_(lmmp_hgcd_matrix_t* M, const lmmp_hgcd_matrix_t* M1, lmmp_hgcd_scratch_t* sc) {
-    mp_size_t n = M->n;
-    mp_size_t n1 = M1->n;
-
-    if (n == 1 && M->m[0][0][0] == 1 && M->m[1][1][0] == 1 && M->m[0][1][0] == 0 && M->m[1][0][0] == 0) {
-        /* M 为单位阵：M*M1 = M1，整段拷贝（M1 已零填充至公共长度 n1） */
-        lmmp_debug_assert(M1->n <= M->alloc);
+    mp_size_t mlen = lmmp_hgcd_matrix_maxlen_(M);
+    mp_size_t m1len = lmmp_hgcd_matrix_maxlen_(M1);
+    if (M->n[0][0] == 1 && M->m[0][0][0] == 1 && M->n[1][1] == 1 && M->m[1][1][0] == 1 &&
+        M->n[0][1] == 0 && M->n[1][0] == 0) {
+        /* M 为单位阵：M*M1 = M1，按各元素真实长度整段拷贝 */
+        lmmp_debug_assert(m1len <= M->alloc);
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 2; ++j) {
-                lmmp_copy(M->m[i][j], M1->m[i][j], n1);
+                lmmp_copy(M->m[i][j], M1->m[i][j], M1->n[i][j]);
+                M->n[i][j] = M1->n[i][j];
             }
         }
-        M->n = n1;
         return;
     }
 
+    lmmp_debug_assert(mlen + m1len + 2 <= M->alloc);
     mp_size_t mark = sc->used;
-    mp_size_t N = n + n1 + 4;
-    lmmp_mat22_t va, vb, vd;
-    va.a00 = M->m[0][0];
-    va.a01 = M->m[0][1];
-    va.a10 = M->m[1][0];
-    va.a11 = M->m[1][1];
-    va.n00 = lmmp_hgcd_norm_(M->m[0][0], n);
-    va.n01 = lmmp_hgcd_norm_(M->m[0][1], n);
-    va.n10 = lmmp_hgcd_norm_(M->m[1][0], n);
-    va.n11 = lmmp_hgcd_norm_(M->m[1][1], n);
-    vb.a00 = M1->m[0][0];
-    vb.a01 = M1->m[0][1];
-    vb.a10 = M1->m[1][0];
-    vb.a11 = M1->m[1][1];
-    vb.n00 = lmmp_hgcd_norm_(M1->m[0][0], n1);
-    vb.n01 = lmmp_hgcd_norm_(M1->m[0][1], n1);
-    vb.n10 = lmmp_hgcd_norm_(M1->m[1][0], n1);
-    vb.n11 = lmmp_hgcd_norm_(M1->m[1][1], n1);
-    vd.a00 = lmmp_hgcd_salloc_(sc, N);
-    vd.a01 = lmmp_hgcd_salloc_(sc, N);
-    vd.a10 = lmmp_hgcd_salloc_(sc, N);
-    vd.a11 = lmmp_hgcd_salloc_(sc, N);
-
-    mp_size_t tn = 0;
-    mp_size_t maxa = 0;
-    int choose = lmmp_mat22_mul_size_(&vd, &va, &vb, &tn, &maxa);
-    lmmp_debug_assert(tn <= N);
-    if (choose == 0) {
-        mp_ptr tp = lmmp_hgcd_salloc_(sc, 2 * tn + 2);
-        lmmp_mat22_mul_basecase_(&vd, &va, &vb, tp, tn);
-    } else {
-        mp_ptr tp = lmmp_hgcd_salloc_(sc, 8 * (tn + 2));
-        lmmp_mat22_mul_strassen_(&vd, &va, &vb, tp, tn, maxa);
+    mp_size_t mx = lmmp_hgcd_matrix_maxlen_(M);
+    mp_size_t mx1 = lmmp_hgcd_matrix_maxlen_(M1);
+    if (mx1 > mx) {
+        mx = mx1;
     }
-
-    /* 逐元素拷回并统一公共长度（vd 各元素为非负真值长度） */
-    mp_size_t nn = 1;
-    mp_size_t lens[2][2];
-    lens[0][0] = vd.n00;
-    lens[0][1] = vd.n01;
-    lens[1][0] = vd.n10;
-    lens[1][1] = vd.n11;
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            if (lens[i][j] > nn) {
-                nn = lens[i][j];
-            }
-        }
-    }
-    lmmp_debug_assert(nn <= M->alloc);
-    mp_ptr srcs[2][2];
-    srcs[0][0] = vd.a00;
-    srcs[0][1] = vd.a01;
-    srcs[1][0] = vd.a10;
-    srcs[1][1] = vd.a11;
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            lmmp_copy(M->m[i][j], srcs[i][j], lens[i][j]);
-            lmmp_zero(M->m[i][j] + lens[i][j], nn - lens[i][j]);
-        }
-    }
-    M->n = nn;
+    mp_ptr tp = lmmp_hgcd_salloc_(sc, 9 * (2 * mx + 4));
+    lmmp_mat22_mul_((lmmp_mat22_t*)M, (const lmmp_mat22_t*)M, (const lmmp_mat22_t*)M1, tp);
     sc->used = mark;
 }
 
@@ -572,6 +666,7 @@ static mp_size_t lmmp_hgcd_adjust_(
     int                  detsign,
     mp_ptr               dap,
     mp_ptr               dbp,
+    mp_size_t*           blen,
     mp_srcptr            ha,
     mp_srcptr            hb,
     mp_size_t            hn0,
@@ -581,7 +676,7 @@ static mp_size_t lmmp_hgcd_adjust_(
     mp_size_t            p,
     lmmp_hgcd_scratch_t* sc
 ) {
-    mp_size_t mn = M1->n;
+    mp_size_t mn = lmmp_hgcd_matrix_maxlen_(M1);
     mp_size_t mark = sc->used;
     mp_size_t N = p + mn + 1;
     mp_ptr t0 = lmmp_hgcd_salloc_(sc, N);
@@ -590,15 +685,43 @@ static mp_size_t lmmp_hgcd_adjust_(
     mp_ptr t3 = lmmp_hgcd_salloc_(sc, N);
     /* 长度前提（由子递归的下限不变量保证，防御性检查） */
     if (n - p < mn || n < p + mn) {
+        *blen = 0;
         sc->used = mark;
         return 0;
     }
 
+    /*
+    det 由穿线符号跟踪（构造保证 = ±1）。零元素（长度 0）跳过乘法——
+    lmmp_mul_ 契约要求 nb>0，乘积缓冲置零以维持后续加减的定长语义。
+    乘积仅写 [0, p+n_ij)，而后续加减按 mn 定长读取 [p, p+mn)：
+    元素长度 n_ij < mn 时须补零 [p+n_ij, p+mn)，否则读到未写残留
+    */
     int det = detsign;
-    lmmp_hgcd_mul_ab_(t0, ap, p, M1->m[1][1], mn); /* m11*a_lo */
-    lmmp_hgcd_mul_ab_(t1, ap, p, M1->m[1][0], mn); /* m10*a_lo */
-    lmmp_hgcd_mul_ab_(t2, bp, p, M1->m[0][1], mn); /* m01*b_lo */
-    lmmp_hgcd_mul_ab_(t3, bp, p, M1->m[0][0], mn); /* m00*b_lo */
+    mp_size_t n11 = M1->n[1][1], n10 = M1->n[1][0], n01 = M1->n[0][1], n00 = M1->n[0][0];
+    if (n11 != 0) {
+        lmmp_hgcd_mul_ab_(t0, ap, p, M1->m[1][1], n11); /* m11*a_lo */
+        lmmp_zero(t0 + p + n11, mn - n11);
+    } else {
+        lmmp_zero(t0, N);
+    }
+    if (n10 != 0) {
+        lmmp_hgcd_mul_ab_(t1, ap, p, M1->m[1][0], n10); /* m10*a_lo */
+        lmmp_zero(t1 + p + n10, mn - n10);
+    } else {
+        lmmp_zero(t1, N);
+    }
+    if (n01 != 0) {
+        lmmp_hgcd_mul_ab_(t2, bp, p, M1->m[0][1], n01); /* m01*b_lo */
+        lmmp_zero(t2 + p + n01, mn - n01);
+    } else {
+        lmmp_zero(t2, N);
+    }
+    if (n00 != 0) {
+        lmmp_hgcd_mul_ab_(t3, bp, p, M1->m[0][0], n00); /* m00*b_lo */
+        lmmp_zero(t3 + p + n00, mn - n00);
+    } else {
+        lmmp_zero(t3, N);
+    }
 
     /*
     det=+1：new_a = ha + t0 - t2，new_b = hb + t3 - t1
@@ -639,10 +762,24 @@ static mp_size_t lmmp_hgcd_adjust_(
         return 0; /* 过冲：new_b < 0 */
     }
 
-    mp_size_t rn = n;
-    while (rn > 1 && dap[rn - 1] == 0 && dbp[rn - 1] == 0) {
-        --rn;
+    /*
+    结果分量经加减抵消，长度无进位信息可用，须扫描获取（数对输出）；
+    返回公共长度 rn = max(la,lb)，blen 出参单独给出分量 b 的长度
+    （供上层校验，免去二次扫描）。数对为零填充公共长度表示：输出
+    需将两分量补零至 rn（上层的规范化序比较按公共长度读取）
+    */
+    mp_size_t la = n;
+    while (la > 0 && dap[la - 1] == 0) {
+        --la;
     }
+    mp_size_t lb = n;
+    while (lb > 0 && dbp[lb - 1] == 0) {
+        --lb;
+    }
+    mp_size_t rn = la > lb ? la : lb;
+    lmmp_zero(dap + la, rn - la);
+    lmmp_zero(dbp + lb, rn - lb);
+    *blen = lb;
     sc->used = mark;
     return rn;
 }
@@ -709,8 +846,13 @@ static mp_size_t lmmp_hgcd_step_(
             lmmp_debug_assert(h0 == h1);
         }
 
-        mp_size_t an = lmmp_hgcd_norm_(t0, n);
-        mp_size_t bn = lmmp_hgcd_norm_(t3, n);
+        /*
+        an,bn ∈ {n-1, n}：V0 = u11*a - u01*b > a/2^62 >= B^(n-1)/2^62
+        > 2^(64n-127)，即长度 >= n-1；又 V0 < B^n（mul/submul 高位 limb
+        相等的断言保证非负且无出界）——单次顶 limb 判断即得真实长度
+        */
+        mp_size_t an = n - (t0[n - 1] == 0);
+        mp_size_t bn = n - (t3[n - 1] == 0);
         if (an < fl || bn < fl) {
             sc->used = mark;
             return 0; /* 继续将破坏下限（差值已达目标规模），数对保持原值 */
@@ -739,12 +881,20 @@ static mp_size_t lmmp_hgcd_step_(
     除法回退（带下限）：先试全除 a = q*b + r；
     若 r 将跌破下限，改用部分除法：Q = (a - B^(fl-1)) div b，r' = a - Q*b >= B^(fl-1)
     */
+    /* 数对为零填充公共长度表示，除数真实长度显式信息不可得，须扫描
+       （下限不变量保证 nb >= fl，扫描量有界；此回退路径罕见） */
     mp_size_t nb = lmmp_hgcd_norm_(bp, n);
     mp_size_t mark = sc->used;
     mp_ptr q = lmmp_hgcd_salloc_(sc, n + 2);
     mp_ptr r = lmmp_hgcd_salloc_(sc, n + 2);
     lmmp_div_(q, r, ap, n, bp, nb);
-    mp_size_t qn = lmmp_hgcd_norm_(q, n - nb + 1);
+    /*
+    全商 qn ∈ {n-nb, n-nb+1}：a >= B^(n-1) 且 b < B^nb，故
+    q >= B^(n-nb-1)（nb==n 时 q >= 1，因 a >= b）；q < B^(n-nb+1)
+    ——单次顶 limb 判断
+    */
+    mp_size_t qn = n - nb + 1 - (q[n - nb] == 0);
+    /* 余数无下界（可为任意小），长度须扫描；此回退路径罕见 */
     mp_size_t rr = lmmp_hgcd_norm_(r, nb);
 
     if (rr >= fl) {
@@ -764,6 +914,7 @@ static mp_size_t lmmp_hgcd_step_(
     lmmp_copy(t, ap, n);
     lmmp_dec(t + (fl - 1));
     lmmp_div_(q, r, t, n, bp, nb);
+    /* 部分商可为零（t < b 时），下界缺失，长度须扫描；此回退路径罕见 */
     qn = lmmp_hgcd_norm_(q, n - nb + 1);
     if (qn == 0) {
         sc->used = mark;
@@ -772,7 +923,9 @@ static mp_size_t lmmp_hgcd_step_(
     /*
     r' = (t mod b) + B^(fl-1)。由 a = q*b + r（r < B^(fl-1)）可推得
     t mod b = b + r - B^(fl-1)，故 r' = b + r <= a < B^n，
-    即 rr <= n：数对写界不超出输入公共长度
+    即 rr <= n：数对写界不超出输入公共长度。r 的长度相对 nb 无下界
+    （首次步进 b 可远短于下限，r' 由 r 主导），长度信息不存在，
+    须扫描；此回退路径罕见
     */
     lmmp_zero(r + nb, n + 2 - nb);
     lmmp_inc(r + (fl - 1));
@@ -852,17 +1005,20 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     int                  detsign,
     mp_ptr               dap,
     mp_ptr               dbp,
+    mp_size_t*           blen,
     mp_srcptr            ap,
     mp_srcptr            bp,
     mp_size_t            n,
     lmmp_hgcd_scratch_t* sc
 ) {
     mp_size_t mark = sc->used;
-    mp_size_t m00 = lmmp_hgcd_norm_(M1->m[0][0], M1->n);
-    mp_size_t m01 = lmmp_hgcd_norm_(M1->m[0][1], M1->n);
-    mp_size_t m10 = lmmp_hgcd_norm_(M1->m[1][0], M1->n);
-    mp_size_t m11 = lmmp_hgcd_norm_(M1->m[1][1], M1->n);
-    mp_size_t an = lmmp_hgcd_norm_(ap, n);
+    mp_size_t m00 = M1->n[0][0];
+    mp_size_t m01 = M1->n[0][1];
+    mp_size_t m10 = M1->n[1][0];
+    mp_size_t m11 = M1->n[1][1];
+    mp_size_t an = n; /* 契约 ap[n-1]>0，真实长度即 n */
+    /* 数对为零填充公共长度表示，b 真实长度显式信息不可得，须扫描
+       （下限不变量保证 bn >= fl，扫描量有界） */
     mp_size_t bn = lmmp_hgcd_norm_(bp, n);
 
     /* 结果 limb 上界（GMP 公式）：new_a < B^min(an-m00, bn-m10)+1 等 */
@@ -874,7 +1030,8 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     ++nn;
 
     mp_size_t rn = lmmp_fft_next_size_(nn + 1);
-    if (rn <= M1->n || rn > n + 1) {
+    if (rn <= lmmp_hgcd_matrix_maxlen_(M1) || rn > n + 1) {
+        *blen = 0;
         sc->used = mark;
         return 0; /* 尺寸关系异常（防御） */
     }
@@ -891,12 +1048,19 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     mp_ptr t10 = lmmp_hgcd_salloc_(sc, rn);
     /*
     fa 与 fb 各参与两次模乘（分别乘两个矩阵元素），用缓存版梅森乘法
-    复用其前向变换，第二次模乘省去一次全尺寸 FFT（约省 40%）
+    复用其前向变换，第二次模乘省去一次全尺寸前向变换。cache_ 契约
+    要求后续调用与 init 的操作数等长，而逐元素长度可能相差（矩阵元素
+    平衡，通常 0~2 limb）：显式补零对齐到 ml
     */
+    mp_size_t ml = lmmp_hgcd_matrix_maxlen_(M1);
+    lmmp_zero(M1->m[0][0] + m00, ml - m00);
+    lmmp_zero(M1->m[0][1] + m01, ml - m01);
+    lmmp_zero(M1->m[1][0] + m10, ml - m10);
+    lmmp_zero(M1->m[1][1] + m11, ml - m11);
     fft_gr_cache ca, cb;
-    lmmp_mul_mersenne_cache_init_(t11, rn, M1->m[1][1], M1->n, fa, rn, &ca);
+    lmmp_mul_mersenne_cache_init_(t11, rn, M1->m[1][1], ml, fa, rn, &ca);
     lmmp_mul_mersenne_cache_(t10, M1->m[1][0], &ca);
-    lmmp_mul_mersenne_cache_init_(t01, rn, M1->m[0][1], M1->n, fb, rn, &cb);
+    lmmp_mul_mersenne_cache_init_(t01, rn, M1->m[0][1], ml, fb, rn, &cb);
     lmmp_mul_mersenne_cache_(t00, M1->m[0][0], &cb);
     lmmp_fft_gr_cache_free_(&ca);
     lmmp_fft_gr_cache_free_(&cb);
@@ -919,22 +1083,26 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     }
 
     /* 真值校验：结果必须落在 nn limb 内（负值回绕会产生接近 rn 的长度） */
+    /* 模减回绕结果无进位信息，长度须扫描（数对中间量） */
     mp_size_t alen = lmmp_hgcd_norm_(va, rn);
-    mp_size_t blen = lmmp_hgcd_norm_(vb, rn);
-    if (alen > nn || blen > nn) {
+    mp_size_t lb = lmmp_hgcd_norm_(vb, rn);
+    if (alen > nn || lb > nn) {
+        *blen = 0;
         sc->used = mark;
         return 0; /* 过冲 */
     }
 
-    mp_size_t rn_out = alen > blen ? alen : blen;
+    mp_size_t rn_out = alen > lb ? alen : lb;
     if (rn_out == 0) {
+        *blen = 0;
         sc->used = mark;
         return 0;
     }
+    *blen = lb;
     lmmp_copy(dap, va, alen);
     lmmp_zero(dap + alen, rn_out - alen);
-    lmmp_copy(dbp, vb, blen);
-    lmmp_zero(dbp + blen, rn_out - blen);
+    lmmp_copy(dbp, vb, lb);
+    lmmp_zero(dbp + lb, rn_out - lb);
     sc->used = mark;
     return rn_out;
 }
@@ -989,7 +1157,7 @@ static mp_size_t lmmp_hgcd_core_(
 
         /* 阶段 A：对高半部分递归，规模降至约 3n/4 */
         mp_size_t p = n0 / 2;
-        if (lmmp_hgcd_norm_(bp + p, n0 - p) > 0) {
+        if (!lmmp_zero_q_(bp + p, n0 - p)) { /* b 高半存在非零才可递归（存在性检查，非求长度） */
             mp_size_t mark = sc->used;
             mp_size_t hn = n0 - p;
             /* 高位副本恰 hn limbs：递归核的数对读写均不超出其公共长度 */
@@ -1011,20 +1179,14 @@ static mp_size_t lmmp_hgcd_core_(
                 mp_ptr sa = lmmp_hgcd_salloc_(sc, n0 + 1);
                 mp_ptr sb = lmmp_hgcd_salloc_(sc, n0 + 1);
                 mp_size_t rn;
+                mp_size_t blen;
                 if (use_mod) {
-                    rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, ap, bp, n0, sc);
+                    rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n0, sc);
                 } else {
-                    rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, ha, hb, nn, ap, bp, n0, p, sc);
+                    rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, &blen, ha, hb, nn, ap, bp, n0, p, sc);
                 }
-                mp_size_t maxlen = lmmp_hgcd_norm_(M1.m[0][0], M1.n);
-                mp_size_t l;
-                l = lmmp_hgcd_norm_(M1.m[0][1], M1.n);
-                if (l > maxlen) maxlen = l;
-                l = lmmp_hgcd_norm_(M1.m[1][0], M1.n);
-                if (l > maxlen) maxlen = l;
-                l = lmmp_hgcd_norm_(M1.m[1][1], M1.n);
-                if (l > maxlen) maxlen = l;
-                if (rn > 0 && rn < n0 && lmmp_hgcd_norm_(sb, rn) > maxlen) {
+                mp_size_t maxlen = lmmp_hgcd_matrix_maxlen_(&M1);
+                if (rn > 0 && rn < n0 && blen > maxlen) {
                     if (lmmp_cmp_(sa, sb, rn) >= 0) {
                         lmmp_copy(ap, sa, rn);
                         lmmp_copy(bp, sb, rn);
@@ -1060,7 +1222,7 @@ static mp_size_t lmmp_hgcd_core_(
         /* 阶段 B：再次对高半递归，规模降至约 fl */
         if (n > fl + 2) {
             mp_size_t p2 = 2 * fl - n + 1;
-            if (lmmp_hgcd_norm_(bp + p2, n - p2) > 0) {
+            if (!lmmp_zero_q_(bp + p2, n - p2)) { /* 同上：存在性检查 */
                 mp_size_t mark = sc->used;
                 mp_size_t hn = n - p2;
                 /* 高位副本恰 hn limbs：递归核的数对读写均不超出其公共长度 */
@@ -1080,7 +1242,7 @@ static mp_size_t lmmp_hgcd_core_(
                 */
                 if (appr) {
                     mp_size_t nn = lmmp_hgcd_core_(&M1, ha, hb, hn, sc, &dsub, 1);
-                    if (nn > 0 && M->n + M1.n + 2 <= M->alloc) {
+                    if (nn > 0 && lmmp_hgcd_matrix_maxlen_(M) + lmmp_hgcd_matrix_maxlen_(&M1) + 2 <= M->alloc) {
                         lmmp_hgcd_matrix_mul_(M, &M1, sc);
                         *detsign *= dsub;
                         sc->used = mark;
@@ -1095,20 +1257,14 @@ static mp_size_t lmmp_hgcd_core_(
                     mp_ptr sa = lmmp_hgcd_salloc_(sc, n + 1);
                     mp_ptr sb = lmmp_hgcd_salloc_(sc, n + 1);
                     mp_size_t rn;
+                    mp_size_t blen;
                     if (n >= HGCD_MODMUL_THRESHOLD) {
-                        rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, ap, bp, n, sc);
+                        rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n, sc);
                     } else {
-                        rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, ha, hb, nn, ap, bp, n, p2, sc);
+                    rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, &blen, ha, hb, nn, ap, bp, n, p2, sc);
                     }
-                    mp_size_t maxlen = lmmp_hgcd_norm_(M1.m[0][0], M1.n);
-                    mp_size_t l;
-                    l = lmmp_hgcd_norm_(M1.m[0][1], M1.n);
-                    if (l > maxlen) maxlen = l;
-                    l = lmmp_hgcd_norm_(M1.m[1][0], M1.n);
-                    if (l > maxlen) maxlen = l;
-                    l = lmmp_hgcd_norm_(M1.m[1][1], M1.n);
-                    if (l > maxlen) maxlen = l;
-                    if (rn > 0 && rn < n && lmmp_hgcd_norm_(sb, rn) > maxlen) {
+                    mp_size_t maxlen = lmmp_hgcd_matrix_maxlen_(&M1);
+                    if (rn > 0 && rn < n && blen > maxlen) {
                         if (lmmp_cmp_(sa, sb, rn) >= 0) {
                             lmmp_copy(ap, sa, rn);
                             lmmp_copy(bp, sb, rn);
@@ -1158,7 +1314,7 @@ void lmmp_hgcd_matrix_free_(lmmp_hgcd_matrix_t* M) {
     M->m[0][1] = NULL;
     M->m[1][0] = NULL;
     M->m[1][1] = NULL;
-    M->n = 0;
+    M->n[0][0] = M->n[0][1] = M->n[1][0] = M->n[1][1] = 0;
     M->alloc = 0;
 }
 
@@ -1170,7 +1326,7 @@ mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_size_t n) {
     if (lmmp_cmp_(ap, bp, n) <= 0) {
         return 0; /* a == b：gcd 即自身，无归约意义；a < b 违反契约 */
     }
-    /* 一次性 scratch（每元素缓冲需 n+2 容量，由调用方保证） */
+    /* 一次性 scratch（矩阵元素缓冲需 n+2 容量，由调用方保证） */
     mp_size_t scsz = lmmp_hgcd_scratch_size_(n) + 2 * n + 16;
     mp_ptr scbuf = (mp_ptr)lmmp_alloc((size_t)scsz * sizeof(mp_limb_t));
     lmmp_hgcd_scratch_t sc = {scbuf, scsz, 0};
@@ -1195,7 +1351,7 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
 
     mp_size_t rn;
     if (lmmp_cmp_(wa, wb, cap) == 0) {
-        rn = lmmp_hgcd_norm_(wa, cap);
+        rn = an; /* wa 为归一化输入 ap 的副本，真实长度即 an */
         lmmp_copy(dst, wa, rn);
         lmmp_free(wa);
         lmmp_free(wb);
@@ -1226,8 +1382,8 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
         }
         /* [nn,cur) 为无效残留：循环内所有读写均以返回长度为界 */
         cur = nn;
-        if (lmmp_hgcd_norm_(wb, cur) == 0) {
-            break; /* b 归约为 0：gcd = a */
+        if (lmmp_zero_q_(wb, cur)) {
+            break; /* b 归约为 0：gcd = a（存在性检查） */
         }
         if (lmmp_cmp_(wa, wb, cur) < 0) {
             LMMP_SWAP(wa, wb, mp_ptr); /* 指针交换 */
@@ -1237,6 +1393,8 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
     lmmp_free(scbuf);
     lmmp_free(mbuf);
 
+    /* 数对为零填充公共长度表示，且 Lehmer 收尾契约要求归一化输入，
+       真实长度须扫描获取（输出端一次性） */
     mp_size_t ra = lmmp_hgcd_norm_(wa, cur);
     mp_size_t rb = lmmp_hgcd_norm_(wb, cur);
     if (rb == 0) {
