@@ -318,10 +318,6 @@ LMMP_API mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_si
  * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]),
  *          up[un-1]!=0, vp[vn-1]!=0（输入须归一化，由调用者保证）
  * @return dst 的实际 limb 长度
- * @note 内部以 hgcd 反复折半归约（128 位窗口步进 + appr 近似递归 + 一次性 scratch），
- *       小规模回退至 Lehmer 算法。渐进复杂度 O(M(n) log n)；
- *       实测约 200 limb 以上开始优于 Lehmer 算法，4000 limb 时约 4 倍加速，
- *       数千 limb 以上的性能与 GMP 6.3 相当或更快（实测约 0.88~1.06 倍）。
  */
 LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 

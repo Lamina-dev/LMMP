@@ -47,7 +47,7 @@ static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
     c->a.n[0][0] = n; c->a.n[0][1] = n; c->a.n[1][0] = n; c->a.n[1][1] = n;
     c->d.p[0][0] = c->vd[0]; c->d.p[0][1] = c->vd[1]; c->d.p[1][0] = c->vd[2]; c->d.p[1][1] = c->vd[3];
     c->d.n[0][0] = c->d.n[0][1] = c->d.n[1][0] = c->d.n[1][1] = 0;
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(9 * (2 * n + 4)) * sizeof(mp_limb_t));
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(15 * n + 14) * sizeof(mp_limb_t));
 }
 
 static double bench_mat22_sqr(void* v) {

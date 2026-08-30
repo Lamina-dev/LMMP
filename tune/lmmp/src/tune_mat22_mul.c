@@ -59,7 +59,7 @@ static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
             c->d.n[i][j] = 0;
         }
     }
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(9 * (2 * n + 4)) * sizeof(mp_limb_t));
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(8 * (2 * n) + 16) * sizeof(mp_limb_t));
 }
 
 static double bench_mat22_mul(void* v) {
