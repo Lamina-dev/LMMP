@@ -48,7 +48,7 @@ bool is_prime_small(u32 n) {
 
 }  // namespace
 
-TEST_CASE("numth/combin", factorial) {
+TEST_CASE("numth/fac", factorial) {
     for (u32 n : {0, 1, 2, 5, 10, 20, 50, 100, 200}) {
         BigInt expect = ref_factorial(n);
         mp_bitcnt_t bits = 0;
@@ -61,9 +61,9 @@ TEST_CASE("numth/combin", factorial) {
     }
 }
 
-TEST_CASE("numth/combin", double_hyper_super_primefac) {
+TEST_CASE("numth/fac_extern", double_hyper_super_primefac) {
     // 双阶乘
-    for (u32 n : {0, 1, 2, 3, 10, 21, 50}) {
+    for (u32 n : {0, 1, 2, 3, 10, 21, 50, 107}) {
         BigInt expect(1);
         for (u32 i = (n % 2 == 0 ? 2 : 1); i <= n; i += 2) expect = BigInt::mul_school(expect, BigInt(i));
         mp_bitcnt_t bits = 0;
@@ -75,7 +75,7 @@ TEST_CASE("numth/combin", double_hyper_super_primefac) {
     }
 
     // hyper factorial: prod k^k
-    for (u16 n : {1, 2, 3, 5, 8}) {
+    for (u16 n : {1, 3, 5, 8, 20}) {
         BigInt expect(1);
         for (u16 k = 1; k <= n; ++k) expect = BigInt::mul_school(expect, BigInt::pow(BigInt(k), k));
         mp_bitcnt_t bits = 0;
@@ -87,7 +87,7 @@ TEST_CASE("numth/combin", double_hyper_super_primefac) {
     }
 
     // super factorial: prod k!
-    for (u16 n : {1, 2, 3, 5, 8}) {
+    for (u16 n : {1, 3, 5, 8, 30}) {
         BigInt expect(1);
         for (u16 k = 1; k <= n; ++k) expect = BigInt::mul_school(expect, ref_factorial(k));
         mp_bitcnt_t bits = 0;
@@ -99,7 +99,7 @@ TEST_CASE("numth/combin", double_hyper_super_primefac) {
     }
 
     // prime factorial: prod primes <= n
-    for (u32 n : {2, 3, 10, 20, 50}) {
+    for (u32 n : {2, 3, 10, 20, 50, 700}) {
         BigInt expect(1);
         for (u32 p = 2; p <= n; ++p) if (is_prime_small(p)) expect = BigInt::mul_school(expect, BigInt(p));
         mp_size_t need = lmmp_primefac_size_(n);
@@ -110,7 +110,7 @@ TEST_CASE("numth/combin", double_hyper_super_primefac) {
     }
 }
 
-TEST_CASE("numth/combin", nPr_nCr_multinomial_arith) {
+TEST_CASE("numth/number", nPr_nCr_multinomial_arith) {
     // nPr
     for (ulong n : {0, 1, 5, 10, 20, 50, 100}) {
         for (ulong r = 0; r <= n; r += (n > 20 ? 20 : 1)) {
@@ -175,7 +175,7 @@ TEST_CASE("numth/combin", nPr_nCr_multinomial_arith) {
     }
 }
 
-TEST_CASE("numth/combin", trialdiv_remove) {
+TEST_CASE("numth/trialdiv", trialdiv_remove) {
     // trialdiv
     for (mp_size_t n : {1, 2, 3, 5}) {
         mp_ptr p = alloc_limbs(n);

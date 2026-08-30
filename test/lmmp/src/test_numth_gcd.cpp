@@ -174,7 +174,7 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
     // 注意：刻意不使用 lmmp_gcd_lehmer_ 作为参照（其提取函数在长度不等的输入上存在
     // 独立缺陷），gcd 不变性由矩阵关系（幺模变换）数学保证。
     u64 seed = 0x51ce1b7ea4df7c21ull;
-    for (mp_size_t n : {3, 4, 5, 8, 16, 31, 32, 33, 50, 64, 100, 200}) {
+    for (mp_size_t n : {3, 5, 8, 16, 33, 50, 64, 100, 217, 511}) {
         for (int bmode = 0; bmode < 4; ++bmode) {
             for (int iter = 0; iter < 3; ++iter) {
                 mp_ptr a = alloc_limbs(n);
@@ -248,7 +248,7 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
 TEST_CASE("numth/gcd", gcd_hgcd_correctness) {
     // gcd_hgcd 正确性：小尺寸对照 BigInt 欧几里得参照；大尺寸用整除性与已知构造验证
     u64 seed = 0x2b44ae9d4d6c8f13ull;
-    for (mp_size_t n : {1, 2, 3, 5, 8, 16, 33, 64, 120, 200}) {
+    for (mp_size_t n : {1, 3, 5, 8, 16, 33, 64, 120, 200, 321}) {
         for (int mode = 0; mode < 5; ++mode) {
             for (int iter = 0; iter < 3; ++iter) {
                 mp_ptr a = alloc_limbs(n);
