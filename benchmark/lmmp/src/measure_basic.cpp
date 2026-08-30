@@ -250,7 +250,7 @@ MEASURE_CASE("numth/gcd", gcd_hgcd) {
 }
 
 MEASURE_CASE("numth/gcd", gcd_hgcd_large) {
-    const mp_size_t n = 50000;
+    const mp_size_t n = 100000;
     mp_ptr a = alloc_limbs(n);
     mp_ptr b = alloc_limbs(n);
     mp_ptr d = alloc_limbs(n);
@@ -260,7 +260,7 @@ MEASURE_CASE("numth/gcd", gcd_hgcd_large) {
     b[n - 1] >>= 1;
     if (b[n - 1] == 0) b[n - 1] = 1;
     File f("gcd_hgcd_large");
-    for (mp_size_t i = 4000; i <= n; i += 500) {
+    for (mp_size_t i = 10000; i <= n; i += 5000) {
         a[i - 1] |= 1;
         b[i - 1] |= 1; /* 契约：输入须归一化（顶 limb 非零） */
         auto m = measure([&] { lmmp_gcd_hgcd_(d, a, i, b, i); }, i, 2);

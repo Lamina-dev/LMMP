@@ -76,8 +76,8 @@ struct File {
 };
 
 inline Measurement measure(const std::function<void()>& op, uint64_t n, uint64_t k = 2) {
-    // 预热
-    for (uint64_t i = 0; i < k; ++i) op();
+    // 预热一次
+    op();
 
     double elapsed = 0.0;
     auto t0 = Clock::now();
