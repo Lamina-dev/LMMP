@@ -31,10 +31,15 @@ static void lmmp_gcd_lehmer_step_(slong u, slong v, mp_gcd_lehmer_t* gcd) {
 #define C (gcd->m21)
 #define D (gcd->m22)
 
-    lmmp_debug_assert(u >= 0 && v >= 0);
-    lmmp_debug_assert(u >= v);
     A = 1; B = 0;
     C = 0; D = 1;
+    /* 截断前缀顺序未决时, 使用一次精确安全的减法变换推进迭代. */
+    if (u < v) {
+        A = 0; B = 1;
+        C = 1; D = -1;
+        return;
+    }
+    lmmp_debug_assert(u >= 0 && v >= 0);
 
     while (v != 0) {
         slong q = u / v;
