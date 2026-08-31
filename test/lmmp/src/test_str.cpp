@@ -83,7 +83,7 @@ void check_roundtrip(const BigInt& x, int base) {
 }  // namespace
 
 TEST_CASE("str/roundtrip", to_str_from_str_roundtrip) {
-    u64 seed = 0xe34590cd6b789abeful;
+    u64 seed = 0xe3459cd6b789abeful;
     int bases[] = {2, 8, 10, 16, 36, 62, 100, 256};
     for (int base : bases) {
         for (size_t n : {1, 2, 5, 10, 20, 40}) {

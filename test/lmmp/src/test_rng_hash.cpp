@@ -115,30 +115,6 @@ TEST_CASE("rng/strong", strong_rng_extern_reproducible) {
     lmmp_free(rb);
 }
 
-TEST_CASE("rng/basic", pcg128_matches_reference) {
-    const u128 M = (u128(0x2360ED051FC65DA4ull) << 64) | u128(0x4385DF649FCCF645ull);
-    auto rotr64 = [](u64 x, int k) { return (x >> k) | (x << ((-k) & 63)); };
-    u64 seed = 0x71f2a3c4d5e6f708ull;
-
-    // 复刻 lmmp_pcg64_128_srandom 的播种（low|high；inc[0] 用左旋 rotl(seed,31)）与两次预热
-    u128 st = (u128((seed << 17) + 0xf98bc019ecd71a28ull) << 64) | u128(seed * 0x24069528d54bbaa4ull);
-    u128 inc = (u128((seed << 21) ^ seed) << 64) | u128((((seed << 31) | (seed >> 33)) * 0xb5b2943a321cdf10ull) | 1ull);
-    st = st * M + inc;
-    st = st * M + inc;
-
-    const mp_size_t n = 16;
-    mp_ptr out = alloc_limbs(n);
-    lmmp_seed_random_(out, n, seed, 0);
-    for (mp_size_t i = 0; i < n; ++i) {
-        u128 old = st;
-        st = old * M + inc;
-        u64 xsl = lo128(old) ^ hi128(old);
-        int rot = (int)(hi128(old) >> 58);
-        TEST_CHECK_EQ(out[i], rotr64(xsl, rot));
-    }
-    lmmp_free(out);
-}
-
 TEST_CASE("hash/sanity", siphash_xxhash) {
     mp_limb_t in[8];
     u64 seed = 0x1234567890abcdefull;

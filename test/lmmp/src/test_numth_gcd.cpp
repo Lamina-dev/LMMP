@@ -343,3 +343,29 @@ TEST_CASE("numth/gcd", gcd_hgcd_correctness) {
         }
     }
 }
+
+TEST_CASE("numth/gcd", gcd_empty) {
+    for (mp_size_t n : {2, 3, 5, 8, 16, 53, 64, 120, 200, 321}) {
+        mp_ptr a = alloc_limbs(n);
+        mp_ptr b = alloc_limbs(n);
+        mp_ptr c = alloc_limbs(n);
+        mp_ptr d = alloc_limbs(n);
+
+        lmmp_zero(a, n - 1);
+        lmmp_zero(b, n - 1);
+        a[n - 1] = 1;
+        b[n - 1] = 1;
+        mp_size_t cn = lmmp_gcd_lehmer_(c, a, n, b, n);
+        TEST_CHECK_MSG(cn == n && c[n - 1] == 1, "lehmer gcd high limb is one");
+        for (mp_size_t i = 0; i < cn - 1; i++) {
+            TEST_CHECK_MSG(c[i] == 0, "lehmer gcd low limbs is zero");
+        }
+
+        mp_size_t dn = lmmp_gcd_hgcd_(d, a, n, b, n);
+        TEST_CHECK_MSG(dn == n && d[n - 1] == 1, "hgcd gcd is equal to B^n");
+        for (mp_size_t i = 0; i < dn - 1; i++) {
+            TEST_CHECK_MSG(d[i] == 0, "lehmer gcd low limbs is zero");
+        }
+        lmmp_free(a); lmmp_free(b); lmmp_free(c); lmmp_free(d);
+    }
+}
