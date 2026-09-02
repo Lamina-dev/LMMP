@@ -202,11 +202,12 @@ int main(int argc, char** argv) {
             printf("\nResults written to:\n  %s\n  %s\n", out_txt, out_h);
         else
             fprintf(stderr, "Failed to write result files.\n");
-        if (rc == 0 && g_tune.write)
+        if (rc == 0 && g_tune.write) {
             rc = tune_write_mparam(mparam_path, backup_path);
             if (rc == -1) {
                 fprintf(stderr, "Failed to write mparam.h.\n");
             }
+        }
      }
 
     free(out_h);
