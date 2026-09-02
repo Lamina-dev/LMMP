@@ -135,9 +135,7 @@ apply_mod 约 30%，step 约 20%，adjust 约 3%。
 #include "../../../include/lmmp/numth.h"
 
 
-/* 递归阈值：公共长度超过该值时启用分治路径。实测扫描 96~512（本机
-   i7-14 代，11k~51k limb 三点 A/B 交替）性能差异在噪声内（±2%），
-   维持 128；中小规模（600~8k）192 略优亦在噪声内。待接入 tune 体系 */
+/* 递归阈值：公共长度超过该值时启用分治路径。待接入 tune 体系 */
 #define HGCD_RECURSE_THRESHOLD 64
 
 static mp_size_t lmmp_hgcd_norm_(mp_srcptr p, mp_size_t n) {
