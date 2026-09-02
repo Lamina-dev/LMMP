@@ -344,6 +344,46 @@ TEST_CASE("numth/gcd", gcd_hgcd_correctness) {
     }
 }
 
+TEST_CASE("numth/gcd", gcd_dispatch) {
+    // 通用分发入口：小尺寸对照 BigInt 参照；跨越 GCD_HGCD_THRESHOLD 的大尺寸
+    // 用整除性与两算法交叉一致验证
+    u64 seed = 0x853c49e6748fea9bull;
+    for (mp_size_t n : {1, 2, 3, 5, 9, 17, 33, 60}) {
+        for (int iter = 0; iter < 5; ++iter) {
+            mp_size_t un = n;
+            mp_size_t vn = 1 + (mp_size_t)(xorshift64(seed) % (u64)n);
+            mp_ptr u = alloc_limbs(un);
+            mp_ptr v = alloc_limbs(vn);
+            mp_ptr d = alloc_limbs(un);
+            random_limbs(u, un, seed);
+            random_limbs(v, vn, seed);
+            BigInt bu(u, un), bv(v, vn);
+            BigInt g = BigInt::gcd_euclid(bu, bv);
+            mp_size_t gn = lmmp_gcd_(d, u, un, v, vn);
+            TEST_CHECK_MSG(from_limbs(d, gn) == g, "gcd_ value");
+            lmmp_free(u); lmmp_free(v); lmmp_free(d);
+        }
+    }
+
+    // 大尺寸（ Lehmer 与 hgcd 两条路径）交叉一致 + 整除性
+    for (mp_size_t n : {700, 900, 1300}) {
+        mp_ptr u = alloc_limbs(n);
+        mp_ptr v = alloc_limbs(n);
+        random_limbs(u, n, seed);
+        random_limbs(v, n, seed);
+        v[n - 1] >>= 1;
+        if (v[n - 1] == 0) v[n - 1] = 1;
+        mp_ptr d1 = alloc_limbs(n);
+        mp_ptr d2 = alloc_limbs(n);
+        mp_size_t g1 = lmmp_gcd_lehmer_(d1, u, n, v, n);
+        mp_size_t g2 = lmmp_gcd_(d2, u, n, v, n);
+        TEST_CHECK_MSG(g1 == g2 && memcmp(d1, d2, (size_t)g1 * sizeof(mp_limb_t)) == 0,
+                       "gcd_ matches lehmer");
+        TEST_CHECK_MSG(divides_all(d2, g2, u, n), "gcd_ divides u");
+        lmmp_free(u); lmmp_free(v); lmmp_free(d1); lmmp_free(d2);
+    }
+}
+
 TEST_CASE("numth/gcd", gcd_empty) {
     for (mp_size_t n : {2, 3, 5, 8, 16, 53, 64, 120, 200, 321}) {
         mp_ptr a = alloc_limbs(n);

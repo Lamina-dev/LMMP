@@ -62,6 +62,7 @@ int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_gcd_hgcd(void);
 
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
@@ -91,6 +92,7 @@ static const tune_module_t g_modules[] = {
     {"sqrt_invnewton", "SQRT_INVNEWTON_THRESHOLD", "SQRT_INVNEWTON_THRESHOLD", tune_run_sqrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
+    {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
 };
 
 static void usage(void) {

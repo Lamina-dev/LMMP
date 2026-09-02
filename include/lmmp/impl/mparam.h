@@ -238,6 +238,14 @@
 #define MULHI_MERSENNE_THRESHOLD LMMP_DEFAULT_MULHI_MERSENNE_THRESHOLD
 #endif
 
+// gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
+#define LMMP_DEFAULT_GCD_HGCD_THRESHOLD 117
+#ifdef LMMP_TUNE
+#define GCD_HGCD_THRESHOLD lmmp_tune_GCD_HGCD_THRESHOLD
+#else
+#define GCD_HGCD_THRESHOLD LMMP_DEFAULT_GCD_HGCD_THRESHOLD
+#endif
+
 // 精确除法中，除数小于此阈值时使用朴素法
 #define LMMP_DEFAULT_DIVEXACT_BASECASE_THRESHOLD 50
 #ifdef LMMP_TUNE
@@ -285,6 +293,7 @@ extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
+extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
 #endif
 
 // 某些计算中，一次性处理的64位数组的长度（此大小为64位数组的长度）
