@@ -85,7 +85,7 @@ output:
 static void lmmp_bninv_appr_newton_(mp_ptr restrict dstq, mp_srcptr restrict numa, mp_size_t na, mp_size_t ni) {
     lmmp_param_assert(na >= 3);
     lmmp_param_assert(dstq != NULL && numa != NULL);
-    lmmp_param_assert(numa[na - 1] > LIMB_B_2);
+    lmmp_param_assert(numa[na - 1] >= LIMB_B_2);
     TEMP_DECL;
     if (na < BNINV_NEWTON_THRESHOLD) {
         mp_ptr restrict bnp = TALLOC_TYPE(2 * na + ni + 1, mp_limb_t);

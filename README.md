@@ -40,10 +40,10 @@ cmake --build build -j
 | `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序 |
 | `LMMP_BUILD_MEASURES` | `ON` / `OFF` | `OFF` | 是否构建测量工具（需要同时构建基准） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
-| `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | 栈溢出检查（开销：高） |
+| `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部栈溢出检查（开销：高） |
 | `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
 | `LMMP_DEBUG_PARAM_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | 函数参数检查（开销：中） |
-| `LMMP_DEBUG_MEMORY_CHECK` | `ON` / `OFF` | `OFF` | 全面堆/栈内存检查（开销：很高） |
+| `LMMP_DEBUG_MEMORY_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部堆/栈内存检查（开销：很高） |
 | `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
 | `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
 

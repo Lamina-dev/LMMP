@@ -298,17 +298,36 @@ static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_
 typedef uint64_t u128[2];
 typedef uint64_t u192[3];
 
-#define _u128lshl(x, y, n)                                             \
-    do {                                                               \
-        (*((x) + 1)) = ((*(y)) >> (64 - (n))) | ((*((y) + 1)) << (n)); \
-        (*(x)) = (*(y)) << (n);                                        \
-    } while (0)
+// 处理 n==0 与 n==64 的边界（C 标准中移位 64 位是 UB），x 与 y 允许别名
+static inline void _u128lshr_fn(uint64_t* x, const uint64_t* y, int n) {
+    if (n == 0) {
+        x[0] = y[0];
+        x[1] = y[1];
+    } else if (n >= 64) {
+        x[0] = y[1];
+        x[1] = 0;
+    } else {
+        x[0] = (y[0] >> n) | (y[1] << (64 - n));
+        x[1] = y[1] >> n;
+    }
+}
 
-#define _u128lshr(x, y, n)                                       \
-    do {                                                         \
-        (*(x)) = ((*(y)) >> (n)) | ((*((y) + 1)) << (64 - (n))); \
-        (*((x) + 1)) = (*((y) + 1)) >> (n);                      \
-    } while (0)
+static inline void _u128lshl_fn(uint64_t* x, const uint64_t* y, int n) {
+    if (n == 0) {
+        x[0] = y[0];
+        x[1] = y[1];
+    } else if (n >= 64) {
+        x[0] = 0;
+        x[1] = y[0];
+    } else {
+        x[1] = (y[0] >> (64 - n)) | (y[1] << n);
+        x[0] = y[0] << n;
+    }
+}
+
+#define _u128lshl(x, y, n) _u128lshl_fn((x), (y), (n))
+
+#define _u128lshr(x, y, n) _u128lshr_fn((x), (y), (n))
 
 #define _u128high(x) (*((x) + 1))
 

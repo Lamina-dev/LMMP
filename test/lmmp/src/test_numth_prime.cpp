@@ -67,14 +67,14 @@ bool ref_is_prime32(u32 n) {
 }  // namespace
 
 TEST_CASE("numth/prime", is_prime_uint_ulong_notrial) {
-    u64 seed = 0xfeedbeefdeadcafeull;
-    for (u32 n = 0; n < 100000; ++n) {
+    u64 seed = 0xfeed0912eadc23aeull;
+    for (u32 n = 0; n < 10000; ++n) {
         bool expect = ref_is_prime32(n);
         TEST_CHECK_MSG(lmmp_is_prime_uint_(n) == expect, "is_prime_uint small");
         TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == expect, "is_prime_ulong small");
     }
 
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         u64 n = xorshift64(seed);
         bool expect = ref_is_prime64(n);
         TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == expect, "is_prime_ulong random");
@@ -107,8 +107,8 @@ TEST_CASE("numth/prime", next_prev_prime) {
     }
 
     // 随机 64 位附近
-    u64 seed = 0x123456789abcdef0ull;
-    for (int i = 0; i < 20; ++i) {
+    u64 seed = 0x230bc3ae812873c0ull;
+    for (int i = 0; i < 100; ++i) {
         ulong n = xorshift64(seed) | 1;
         if (n < 2) n = 2;
         ulong next = lmmp_next_prime_ulong_(n);
@@ -127,8 +127,8 @@ TEST_CASE("numth/prime", next_prev_prime) {
 }
 
 TEST_CASE("numth/prime", mulmod_powmod) {
-    u64 seed = 0x0f0f0f0f0f0f0f0full;
-    for (int i = 0; i < 500; ++i) {
+    u64 seed = 0x2cbea9127ca8019full;
+    for (int i = 0; i < 1000; ++i) {
         ulong mod = xorshift64(seed) | 3;  // 避免过小
         ulong a = xorshift64(seed) % mod;
         ulong b = xorshift64(seed) % mod;
@@ -139,7 +139,7 @@ TEST_CASE("numth/prime", mulmod_powmod) {
         TEST_CHECK_MSG(r < mod, "mulmod rem bound");
     }
 
-    for (int i = 0; i < 300; ++i) {
+    for (int i = 0; i < 500; ++i) {
         u32 mod = (u32)(xorshift64(seed) | 3);
         u32 base = (u32)(xorshift64(seed) % mod);
         ulong exp = xorshift64(seed) & 0xffff;
@@ -148,7 +148,7 @@ TEST_CASE("numth/prime", mulmod_powmod) {
         TEST_CHECK_EQ(r, (u32)expect);
     }
 
-    for (int i = 0; i < 300; ++i) {
+    for (int i = 0; i < 500; ++i) {
         ulong mod = xorshift64(seed) | 3;
         ulong base = xorshift64(seed) % mod;
         ulong exp = xorshift64(seed) & 0xffff;

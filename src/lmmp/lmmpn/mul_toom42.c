@@ -414,7 +414,7 @@ void lmmp_mul_toom42_unbalance_(
     mp_size_t            nb
 ) {
     lmmp_param_assert(na >= 3 * nb);
-    lmmp_param_assert(nb > 20);
+    lmmp_param_assert(nb >= 20);
     TEMP_S_DECL;
     mp_limb_t* restrict ws = SALLOC_TYPE(nb, mp_limb_t);
 

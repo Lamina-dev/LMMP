@@ -62,6 +62,7 @@ int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_gcd_hgcd(void);
 
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
@@ -91,6 +92,7 @@ static const tune_module_t g_modules[] = {
     {"sqrt_invnewton", "SQRT_INVNEWTON_THRESHOLD", "SQRT_INVNEWTON_THRESHOLD", tune_run_sqrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
+    {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
 };
 
 static void usage(void) {
@@ -188,8 +190,8 @@ int main(int argc, char** argv) {
     printf("modules: %llu\n",
            (unsigned long long)(sizeof(g_modules) / sizeof(g_modules[0])));
 
-    const int rc = tune_module_run(g_modules, sizeof(g_modules) / sizeof(g_modules[0]),
-                                   g_tune.only);
+    int rc = tune_module_run(g_modules, sizeof(g_modules) / sizeof(g_modules[0]),
+                             g_tune.only);
     tune_record_print_summary();
 
     if (rc == 1) {
@@ -200,11 +202,12 @@ int main(int argc, char** argv) {
             printf("\nResults written to:\n  %s\n  %s\n", out_txt, out_h);
         else
             fprintf(stderr, "Failed to write result files.\n");
-        if (rc == 0 && g_tune.write)
+        if (rc == 0 && g_tune.write) {
             rc = tune_write_mparam(mparam_path, backup_path);
             if (rc == -1) {
                 fprintf(stderr, "Failed to write mparam.h.\n");
             }
+        }
      }
 
     free(out_h);

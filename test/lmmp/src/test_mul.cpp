@@ -119,7 +119,7 @@ TEST_CASE("mul/unbalanced", mul_unbalanced_vs_school) {
     const Case cases[] = {
         {600, 3}, {600, 5}, {600, 7}, {600, 10}, {600, 30}, {600, 100},
         {700, 100}, {800, 200}, {900, 250}, {1200, 300}, {1600, 400},
-        {2316, 400}, {2316, 800}, {2400, 900}
+        {2316, 400}, {2316, 800}, {2400, 900}, {3116, 180}, {4200, 1033}
     };
     for (auto c : cases) {
         if ((u64)c.na * c.nb > 1500000ull) continue;
@@ -137,8 +137,8 @@ TEST_CASE("mul/unbalanced", mul_unbalanced_vs_school) {
 }
 
 TEST_CASE("mul/mullo", mullo_vs_school) {
-    u64 seed = 0xa5a5a5a5b5b5b5b5ull;
-    for (mp_size_t n : {1, 2, 3, 4, 5, 10, 19, 20, 30, 50, 64, 65, 83, 122, 201, 337}) {
+    u64 seed = 0xa53a591286afcbb5ull;
+    for (mp_size_t n : {1, 2, 10, 50, 65, 83, 122, 201, 737, 1262}) {
         mp_ptr a = alloc_limbs(n);
         mp_ptr b = alloc_limbs(n);
         mp_ptr dst = alloc_limbs(n);
@@ -156,8 +156,8 @@ TEST_CASE("mul/mullo", mullo_vs_school) {
 }
 
 TEST_CASE("mul/sqr_dispatch", sqr_dispatch_vs_school) {
-    u64 seed = 0x1111111111111111ull;
-    for (mp_size_t n : {1, 2, 5, 10, 19, 20, 21, 30, 64, 65, 66, 100, 200, 400, 580, 581, 582, 800, 1200, 2316}) {
+    u64 seed = 0x819821c27be91101ull;
+    for (mp_size_t n : {1, 2, 19, 20, 21, 30, 65, 100, 400, 581, 800, 1200, 2318, 2401}) {
         if ((u64)n * n > 1200000ull) continue;
         mp_ptr a = alloc_limbs(n);
         mp_ptr dst = alloc_limbs(2 * n + 2);

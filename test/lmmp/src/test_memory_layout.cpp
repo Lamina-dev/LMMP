@@ -13,14 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/*
- * 内存布局语义确定性测试。
- *
- * lmmpn.h 中大量 _ 函数允许 dst 与某个输入完全重叠（eqsep），少数函数
- * 还允许更宽松的偏移重叠（例如 div_1_ 的 dstq >= numa-1）。
- * 本文件用固定极端输入逐项验证这些契约，不依赖随机数。
- */
-
 #include "lmmp/lmmpn.h"
 #include "lmmp_test.hpp"
 #include "lmmp_test_utils.hpp"

@@ -4,8 +4,8 @@
  *  This file is part of LMMP.
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
- *  the terms of the GNU Lesser General Public License (LGPL) as published
- *  by the Free Software Foundation; either version 3 of the License, or
+ *  the terms of the GNU Lesser General Public License (LGPL) as published by
+ *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -13,7 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 阈值调优：MAT22_MUL_STRASSEN_THRESHOLD */
+/* 阈值调优：MAT22_MUL_STRASSEN_THRESHOLD（basecase 与 Strassen 的分界） */
 
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
@@ -32,6 +32,7 @@ typedef struct {
     mp_ptr va[4];
     mp_ptr vb[4];
     mp_ptr vd[4];
+    mp_ptr tp;
     mp_size_t n;
 } mat22_ctx;
 
@@ -48,20 +49,22 @@ static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
         c->va[i][n - 1] |= LIMB_B_2;
         c->vb[i][n - 1] |= LIMB_B_2;
     }
-    c->a.a00 = c->va[0]; c->a.a01 = c->va[1]; c->a.a10 = c->va[2]; c->a.a11 = c->va[3];
-    c->a.n00 = (mp_ssize_t)n; c->a.n01 = (mp_ssize_t)n; c->a.n10 = (mp_ssize_t)n; c->a.n11 = (mp_ssize_t)n;
-    c->b.a00 = c->vb[0]; c->b.a01 = c->vb[1]; c->b.a10 = c->vb[2]; c->b.a11 = c->vb[3];
-    c->b.n00 = (mp_ssize_t)n; c->b.n01 = (mp_ssize_t)n; c->b.n10 = (mp_ssize_t)n; c->b.n11 = (mp_ssize_t)n;
-    c->d.a00 = c->vd[0]; c->d.a01 = c->vd[1]; c->d.a10 = c->vd[2]; c->d.a11 = c->vd[3];
-    c->d.n00 = c->d.n01 = c->d.n10 = c->d.n11 = 0;
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            c->a.p[i][j] = c->va[2 * i + j];
+            c->a.n[i][j] = n;
+            c->b.p[i][j] = c->vb[2 * i + j];
+            c->b.n[i][j] = n;
+            c->d.p[i][j] = c->vd[2 * i + j];
+            c->d.n[i][j] = 0;
+        }
+    }
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(8 * (2 * n) + 16) * sizeof(mp_limb_t));
 }
 
 static double bench_mat22_mul(void* v) {
     mat22_ctx* c = (mat22_ctx*)v;
-    mp_size_t tn = 0;
-    mp_size_t maxa = 0;
-    const int choose = lmmp_mat22_mul_size_(&c->d, &c->a, &c->b, &tn, &maxa);
-    lmmp_mat22_mul_(&c->d, &c->a, &c->b, choose, tn, maxa);
+    lmmp_mat22_mul_(&c->d, &c->a, &c->b, c->tp);
     return 0.0;
 }
 
@@ -81,6 +84,7 @@ static void free_ctx(void* v) {
             lmmp_free(c->vb[i]);
             lmmp_free(c->vd[i]);
         }
+        lmmp_free(c->tp);
         lmmp_free(c);
     }
 }

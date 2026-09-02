@@ -8,7 +8,7 @@ dist/
 *.exe
 *.out
 
-# 系统文件
+.zcode
 .DS_Store
 .clang-format
 Thumbs.db

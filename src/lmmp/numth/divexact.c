@@ -270,6 +270,7 @@ void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr rest
         hi = lmmp_submul_1_(np + i, dp, dn, q);
         lmmp_debug_assert(np[i] == 0);
 #if LMMP_DEBUG_ASSERT_CHECK == 1
+        // 末轮hi必定为 0
         if (hi && i + dn < nn) {
             lmmp_dec_1(np + i + dn, hi);
         } else {

@@ -87,7 +87,7 @@ bool ref_perfect_square(const BigInt& n) {
 }  // namespace
 
 TEST_CASE("numth/sqrt", sqrt_ulong_sqrt_1_sqrt_2) {
-    u64 seed = 0x3141592653589793ull;
+    u64 seed = 0x31415bc81297c793ull;
     for (int i = 0; i < 1000; ++i) {
         u64 x = xorshift64(seed);
         u64 s = isqrt_u64(x);
@@ -194,7 +194,7 @@ TEST_CASE("numth/cbrt", cbrt_ulong_cbrt_3_nthroot) {
 }
 
 TEST_CASE("numth/cbrt", cbrt_divide) {
-    u64 seed = 0x0f1e2d3c4b5a6978ull;
+    u64 seed = 0x0f15ae2697d3c4b8ull;
     for (mp_size_t ns : {1, 2, 5, 10}) {
         mp_size_t na = 3 * ns;
         mp_ptr numa = alloc_limbs(na);
@@ -219,7 +219,7 @@ TEST_CASE("numth/perfsqr", perfsqr_filter_perfsqr) {
     u64 seed = 0x1122334455667788ull;
 
     // 完全平方数必须返回 true
-    for (size_t n : {1, 2, 3, 5, 8}) {
+    for (size_t n : {1, 2, 3, 5, 8, 17}) {
         BigInt s;
         s.d.resize(n);
         for (size_t i = 0; i < n; ++i) s.d[i] = xorshift64(seed);

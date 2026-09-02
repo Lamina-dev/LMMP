@@ -88,6 +88,33 @@ TEST_CASE("rng/strong", strong_random) {
     lmmp_free(b);
 }
 
+TEST_CASE("rng/strong", strong_rng_extern_reproducible) {
+    // 回归：扩容时新增状态曾未初始化（realloc 不清零，且初始化循环上界在更新 k 之前取值）
+    const mp_size_t k1 = 8;
+    const mp_size_t k2 = 24;
+
+    lmmp_strong_rng_t* a = lmmp_strong_rng_init_(k1, 7);
+    lmmp_strong_rng_extern_(a, k2);
+    lmmp_strong_rng_t* b = lmmp_strong_rng_init_(k1, 7);
+    lmmp_strong_rng_extern_(b, k2);
+
+    mp_ptr ra = alloc_limbs(k2);
+    mp_ptr rb = alloc_limbs(k2);
+    mp_size_t na = lmmp_strong_random_(ra, k2, a);
+    mp_size_t nb = lmmp_strong_random_(rb, k2, b);
+    TEST_CHECK_EQ(na, nb);
+    TEST_CHECK_MSG(na > 0, "extern grown rng nonzero output length");
+    bool same = true;
+    for (mp_size_t i = 0; i < na; ++i)
+        if (ra[i] != rb[i]) same = false;
+    TEST_CHECK_MSG(same, "extern growth deterministic");
+
+    lmmp_strong_rng_free_(a);
+    lmmp_strong_rng_free_(b);
+    lmmp_free(ra);
+    lmmp_free(rb);
+}
+
 TEST_CASE("hash/sanity", siphash_xxhash) {
     mp_limb_t in[8];
     u64 seed = 0x1234567890abcdefull;

@@ -4,8 +4,8 @@
  *  This file is part of LMMP.
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
- *  the terms of the GNU Lesser General Public License (LGPL) as published
- *  by the Free Software Foundation; either version 3 of the License, or
+ *  the terms of the GNU Lesser General Public License (LGPL) as published by
+ *   by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -13,7 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 阈值调优：MAT22_SQR_STRASSEN_THRESHOLD */
+/* 阈值调优：MAT22_SQR_STRASSEN_THRESHOLD（对称 basecase 与 Strassen 平方的分界） */
 
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
@@ -27,40 +27,32 @@ static void set_threshold(uint64_t v) { lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD =
 
 typedef struct {
     lmmp_mat22_t a;
-    lmmp_mat22_t b;
     lmmp_mat22_t d;
     mp_ptr va[4];
-    mp_ptr vb[4];
     mp_ptr vd[4];
+    mp_ptr tp;
     mp_size_t n;
 } mat22_ctx;
 
 static void mat22_ctx_init(mat22_ctx* c, mp_size_t n) {
     uint64_t sa = UINT64_C(0xbb67ae8584caa73b);
-    uint64_t sb = UINT64_C(0x3c6ef372fe94f82b);
     c->n = n;
     for (int i = 0; i < 4; ++i) {
         c->va[i] = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-        c->vb[i] = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
         c->vd[i] = (mp_ptr)lmmp_alloc((size_t)(2 * n + 4) * sizeof(mp_limb_t));
         tune_fill_limbs(c->va[i], n, sa + (uint64_t)i * UINT64_C(0x100000001b3));
-        tune_fill_limbs(c->vb[i], n, sb + (uint64_t)i * UINT64_C(0x9e3779b97f4a7c15));
         c->va[i][n - 1] |= LIMB_B_2;
-        c->vb[i][n - 1] |= LIMB_B_2;
     }
-    c->a.a00 = c->va[0]; c->a.a01 = c->va[1]; c->a.a10 = c->va[2]; c->a.a11 = c->va[3];
-    c->a.n00 = (mp_ssize_t)n; c->a.n01 = (mp_ssize_t)n; c->a.n10 = (mp_ssize_t)n; c->a.n11 = (mp_ssize_t)n;
-    c->b.a00 = c->vb[0]; c->b.a01 = c->vb[1]; c->b.a10 = c->vb[2]; c->b.a11 = c->vb[3];
-    c->b.n00 = (mp_ssize_t)n; c->b.n01 = (mp_ssize_t)n; c->b.n10 = (mp_ssize_t)n; c->b.n11 = (mp_ssize_t)n;
-    c->d.a00 = c->vd[0]; c->d.a01 = c->vd[1]; c->d.a10 = c->vd[2]; c->d.a11 = c->vd[3];
-    c->d.n00 = c->d.n01 = c->d.n10 = c->d.n11 = 0;
+    c->a.p[0][0] = c->va[0]; c->a.p[0][1] = c->va[1]; c->a.p[1][0] = c->va[2]; c->a.p[1][1] = c->va[3];
+    c->a.n[0][0] = n; c->a.n[0][1] = n; c->a.n[1][0] = n; c->a.n[1][1] = n;
+    c->d.p[0][0] = c->vd[0]; c->d.p[0][1] = c->vd[1]; c->d.p[1][0] = c->vd[2]; c->d.p[1][1] = c->vd[3];
+    c->d.n[0][0] = c->d.n[0][1] = c->d.n[1][0] = c->d.n[1][1] = 0;
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(15 * n + 14) * sizeof(mp_limb_t));
 }
 
 static double bench_mat22_sqr(void* v) {
     mat22_ctx* c = (mat22_ctx*)v;
-    mp_size_t tn = 2 * c->n + 4;
-    const int choose = (c->n < lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD) ? 0 : 1;
-    lmmp_mat22_sqr_(&c->d, &c->a, choose, tn);
+    lmmp_mat22_sqr_(&c->d, &c->a, c->tp);
     return 0.0;
 }
 
@@ -77,9 +69,9 @@ static void free_ctx(void* v) {
     if (c != NULL) {
         for (int i = 0; i < 4; ++i) {
             lmmp_free(c->va[i]);
-            lmmp_free(c->vb[i]);
             lmmp_free(c->vd[i]);
         }
+        lmmp_free(c->tp);
         lmmp_free(c);
     }
 }

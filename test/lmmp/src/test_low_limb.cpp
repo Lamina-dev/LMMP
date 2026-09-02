@@ -194,7 +194,10 @@ TEST_CASE("low/shift", shl_shr) {
                 // 库 shl 输出 n limbs，且返回移出的高 s 位（低位补 0）
                 mp_limb_t ret = lmmp_shl_(dst, a, n, s);
                 BigInt got(dst, n);
-                TEST_CHECK_MSG(limb_vec_eq(BigInt(expected_shl.d.data(), expected_shl.d.size() > n ? n : expected_shl.d.size()), dst, n), "shl low limbs match");
+                TEST_CHECK_MSG(
+                    limb_vec_eq(BigInt(expected_shl.d.data(), expected_shl.d.size() > n ? n : expected_shl.d.size()), dst, n),
+                    "shl low limbs match"
+                );
                 // 返回值为移出的高 s 位
                 BigInt full = expected_shl;
                 BigInt high = BigInt::shr_bits(full, n * 64);

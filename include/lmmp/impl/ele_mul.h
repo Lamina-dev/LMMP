@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -130,7 +130,6 @@ typedef fac_t* fac_ptr;
  *          已假定进入朴素乘法时，因子数组元素都小于等于0xffff，同时假定了，因子数组为小因子大指数形式，
  *          可以存在大的因子有略大的指数，但整体的趋势应是小因子大指数。
  *          在组合数以及由阶乘和幂次构成的有理数中，暂未见不满足这些假设的例子。
- *          
  * @return 结果数组的长度
  */
 mp_size_t lmmp_factors_mul_(mp_ptr dst, mp_size_t rn, fac_ptr fac, uint nfactors);
@@ -142,8 +141,7 @@ mp_size_t lmmp_factors_mul_(mp_ptr dst, mp_size_t rn, fac_ptr fac, uint nfactors
  * @param fac 因子数组（将会被递归覆盖），且因子数组元素都不可超过ushort范围
  * @param nfactors 因子数组的长度
  * @warning 因子必须要单调递增，且因子数组元素都不可超过ushort范围，可以接受重复因子（但不推荐这样做），
- *          已假定进入朴素乘法时，因子数组元素都小于等于0xfff，同时假定了，因子数组为小因子大指数形式，
- *          可以存在大的因子有略大的指数，但整体的趋势应是小因子大指数。
+ *          已假定了，因子数组为小因子大指数形式，可以存在大的因子有略大的指数，但整体的趋势应是小因子大指数。
  *          在组合数以及由阶乘和幂次构成的有理数中，暂未见不满足这些假设的例子。
  * @return 结果数组的长度
  */
