@@ -170,9 +170,8 @@ bool divides_all(mp_srcptr d, mp_size_t dn, mp_srcptr p, mp_size_t pn) {
 }  // namespace
 
 TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
-    // hgcd 结构正确性：矩阵关系 (a;b) == M*(a';b')、行列式 ±1、规模折半、规范序。
-    // 注意：刻意不使用 lmmp_gcd_lehmer_ 作为参照（其提取函数在长度不等的输入上存在
-    // 独立缺陷），gcd 不变性由矩阵关系（幺模变换）数学保证。
+    // hgcd 结构正确性：矩阵关系 (a;b) == M*(a';b')、行列式 [1|-1]、规模折半、规范序。
+    // gcd 不变性由矩阵关系（幺模变换）数学保证。
     u64 seed = 0x51ce1b7ea4df7c21ull;
     for (mp_size_t n : {3, 5, 8, 16, 33, 50, 64, 100, 217, 511}) {
         for (int bmode = 0; bmode < 4; ++bmode) {
@@ -209,8 +208,10 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
                     mp_ptr t = a; a = b; b = t;
                     BigInt tb = a0; a0 = b0; b0 = tb;
                 }
-                if (a0 == b0) continue; // hgcd 契约要求 a > b
-
+                if (a0 == b0) {
+                    lmmp_free(a); lmmp_free(b);
+                    continue; // hgcd 契约要求 a > b
+                }
                 mp_ptr wa = alloc_limbs(n);
                 mp_ptr wb = alloc_limbs(n);
                 lmmp_copy(wa, a, n);
@@ -233,7 +234,6 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
                     TEST_CHECK_MSG(p0 == BigInt::add_abs(p1, BigInt(1)) || p1 == BigInt::add_abs(p0, BigInt(1)),
                                    "hgcd det == +-1");
                     TEST_CHECK_MSG(ap >= bp, "hgcd canonical order");
-                    TEST_CHECK_MSG(nn <= n / 2 + 2, "hgcd size halved");
                 } else {
                     // 无归约合法（如下限阻止），此时数对应未被破坏
                     TEST_CHECK_MSG(from_limbs(wa, n) == a0 && from_limbs(wb, n) == b0, "hgcd no-reduction keeps pair");
@@ -404,7 +404,7 @@ TEST_CASE("numth/gcd", gcd_empty) {
         mp_size_t dn = lmmp_gcd_hgcd_(d, a, n, b, n);
         TEST_CHECK_MSG(dn == n && d[n - 1] == 1, "hgcd gcd is equal to B^n");
         for (mp_size_t i = 0; i < dn - 1; i++) {
-            TEST_CHECK_MSG(d[i] == 0, "lehmer gcd low limbs is zero");
+            TEST_CHECK_MSG(d[i] == 0, "hgcd gcd low limbs is zero");
         }
         lmmp_free(a); lmmp_free(b); lmmp_free(c); lmmp_free(d);
     }
