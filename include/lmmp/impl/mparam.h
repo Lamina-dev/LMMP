@@ -239,7 +239,7 @@
 #endif
 
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
-#define LMMP_DEFAULT_GCD_HGCD_THRESHOLD 117
+#define LMMP_DEFAULT_GCD_HGCD_THRESHOLD 86
 #ifdef LMMP_TUNE
 #define GCD_HGCD_THRESHOLD lmmp_tune_GCD_HGCD_THRESHOLD
 #else
