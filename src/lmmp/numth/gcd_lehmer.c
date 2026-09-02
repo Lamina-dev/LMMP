@@ -20,12 +20,12 @@
 typedef struct {
     slong m11, m12;
     slong m21, m22;
-} mp_gcd_lehmer_t;
+} lmmp_gcd_lehmer_t;
 
 #define LEHMER_MIN_V 0x100000000ll
 #define LEHMER_EXACT_BITS 63
 
-static void lmmp_gcd_lehmer_step_(slong u, slong v, mp_gcd_lehmer_t* gcd) {
+static void lmmp_gcd_lehmer_step_(slong u, slong v, lmmp_gcd_lehmer_t* gcd) {
 #define A (gcd->m11)
 #define B (gcd->m12)
 #define C (gcd->m21)
@@ -97,13 +97,41 @@ typedef struct {
 } lehmer_stack_t;
 
 /**
+ * @brief dst = |x - y|（大数减法取绝对值），返回归一化长度
+ * @warning eqsep(dst,[x|y])
+ */
+static mp_size_t lmmp_lehmer_sub_mag_(mp_ptr dst, mp_srcptr x, mp_size_t xn, mp_srcptr y, mp_size_t yn) {
+    mp_size_t rn;
+    if (xn > yn) {
+        lmmp_sub_(dst, x, xn, y, yn);
+        rn = xn;
+    } else if (xn < yn) {
+        lmmp_sub_(dst, y, yn, x, xn);
+        rn = yn;
+    } else {
+        int cmp = lmmp_cmp_(x, y, xn);
+        if (cmp >= 0) {
+            lmmp_sub_(dst, x, xn, y, yn);
+        } else {
+            lmmp_sub_(dst, y, yn, x, xn);
+        }
+        rn = xn;
+    }
+    while (rn > 0 && dst[rn - 1] == 0) {
+        --rn;
+    }
+    return rn;
+}
+
+/**
  * @brief    / a \ = / A  B \ * / a \
- *           \ b /   \ C  D /   \ b /            
+ *           \ b /   \ C  D /   \ b /
  * @warning [a,an] > [b,bn]
  * @note 不保证返回结果 [a,an] > [b,bn]
- * @return a和b是否有一个为0
+ * @return a和b是否有一个为0；返回 true 时保证 [a,an] 非零（若 a 先归零
+ *         则将 b 移入 a，gcd 即 a）
  */
-static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, mp_gcd_lehmer_t* M, lehmer_stack_t* ms) {
+static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, lmmp_gcd_lehmer_t* M, lehmer_stack_t* ms) {
 #define A (M->m11)
 #define B (M->m12)
 #define C (M->m21)
@@ -120,24 +148,16 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
             ++tn;
             (ms->tp)[tn - 1] = c;
         }
-        if (an > tn) {
-            lmmp_sub_(a, a, an, ms->tp, tn);
-        } else if (an == tn) {
-            int cmp = lmmp_cmp_(a, ms->tp, an);
-            if (cmp >= 0)
-                lmmp_sub_(a, a, an, ms->tp, tn);
-            else
-                lmmp_sub_(a, ms->tp, tn, a, an);
-        } else {
-            lmmp_sub_(a, ms->tp, tn, a, an);
-            an = tn;
+        // a = |a - q*b|, b = b
+        an = lmmp_lehmer_sub_mag_(a, a, an, ms->tp, tn);
+        if (an == 0) {
+            // a - q*b == 0：b | a，gcd = b，移入 a
+            lmmp_copy(a, b, bn);
+            an = bn;
+            b[0] = 0;
+            bn = 0;
         }
-        while (an > 0 && a[an - 1] == 0) {
-            --an;
-        }
-        // return  b = b
-        //         a = a - q * b
-        return an == 0;
+        return bn == 0;
     } else {
         if (A < 0) {
             A = -A;
@@ -146,84 +166,42 @@ static bool lmmp_lehmer_mul_(mp_ptr a, mp_size_t* an, mp_ptr b, mp_size_t* bn, m
             B = -B;
             C = -C;
         }
-        // A * a + B * b
+        // ms->np = |A * a - (-B) * b|（B 取负后系数均为正，差的绝对值即线性组合）
         mp_limb_t ca = lmmp_mul_1_(ms->tp, a, an, A);
-        if (ca == 0)
-            ms->tn = an;
-        else {
-            ms->tn = an + 1;
-            (ms->tp)[ms->tn - 1] = ca;
-        }
+        ms->tn = an;
+        if (ca != 0)
+            (ms->tp)[ms->tn++] = ca;
         ca = lmmp_mul_1_(ms->mp, b, bn, B);
-        if (ca == 0)
-            ms->mn = bn;
-        else {
-            ms->mn = bn + 1;
-            (ms->mp)[ms->mn - 1] = ca;
-        }
+        ms->mn = bn;
+        if (ca != 0)
+            (ms->mp)[ms->mn++] = ca;
+        ms->nn = lmmp_lehmer_sub_mag_(ms->np, ms->tp, ms->tn, ms->mp, ms->mn);
 
-        if (ms->tn > ms->mn) {
-            lmmp_sub_(ms->np, ms->tp, ms->tn, ms->mp, ms->mn);
-            ms->nn = ms->tn;
-        } else if (ms->mn > ms->tn) {
-            lmmp_sub_(ms->np, ms->mp, ms->mn, ms->tp, ms->tn);
-            ms->nn = ms->mn;
-        } else {
-            int cmp = lmmp_cmp_(ms->tp, ms->mp, ms->tn);
-            if (cmp >= 0) {
-                lmmp_sub_(ms->np, ms->tp, ms->tn, ms->mp, ms->mn);
-                ms->nn = ms->tn;
-            } else {
-                lmmp_sub_(ms->np, ms->mp, ms->mn, ms->tp, ms->tn);
-                ms->nn = ms->mn;
-            }
-        }
-        while (ms->nn > 0 && ms->np[ms->nn - 1] == 0) {
-            --(ms->nn);
-        }
-
-        // C * a + D * b
+        // a = |C * a - (-D) * b|
         ca = lmmp_mul_1_(ms->tp, a, an, C);
-        if (ca == 0)
-            ms->tn = an;
-        else {
-            ms->tn = an + 1;
-            (ms->tp)[ms->tn - 1] = ca;
-        }
+        ms->tn = an;
+        if (ca != 0)
+            (ms->tp)[ms->tn++] = ca;
         ca = lmmp_mul_1_(ms->mp, b, bn, D);
-        if (ca == 0)
-            ms->mn = bn;
-        else {
-            ms->mn = bn + 1;
-            (ms->mp)[ms->mn - 1] = ca;
-        }
-
-        if (ms->tn > ms->mn) {
-            lmmp_sub_(a, ms->tp, ms->tn, ms->mp, ms->mn);
-            an = ms->tn;
-        } else if (ms->mn > ms->tn) {
-            lmmp_sub_(a, ms->mp, ms->mn, ms->tp, ms->tn);
-            an = ms->mn;
-        } else {
-            int cmp = lmmp_cmp_(ms->tp, ms->mp, ms->tn);
-            if (cmp >= 0) {
-                lmmp_sub_(a, ms->tp, ms->tn, ms->mp, ms->mn);
-                an = ms->tn;
-            } else {
-                lmmp_sub_(a, ms->mp, ms->mn, ms->tp, ms->tn);
-                an = ms->mn;
-            }
-        }
-        while (an > 0 && a[an - 1] == 0) {
-            --an;
-        }
+        ms->mn = bn;
+        if (ca != 0)
+            (ms->mp)[ms->mn++] = ca;
+        an = lmmp_lehmer_sub_mag_(a, ms->tp, ms->tn, ms->mp, ms->mn);
 
         // now       a = C * a + D * b
         //      ms->np = A * a + B * b
+        if (an == 0) {
+            // a 归零：gcd = ms->np，移入 a
+            lmmp_copy(a, ms->np, ms->nn);
+            an = ms->nn;
+            b[0] = 0;
+            bn = 0;
+            return true;
+        }
         if (ms->nn > 0) {
             lmmp_copy(b, ms->np, ms->nn);
             bn = ms->nn;
-            return an == 0;
+            return false;
         } else {
             b[0] = 0;
             bn = 0;
@@ -260,7 +238,7 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
     }
     // u > v
 
-    mp_gcd_lehmer_t M;
+    lmmp_gcd_lehmer_t M;
     slong x = 0, y = 0;
 
 #define an un

@@ -250,13 +250,10 @@ LMMP_API mp_size_t lmmp_gcd_2_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr
  * @param un 第一个无符号整数的 limb 长度
  * @param vp 第二个无符号整数指针
  * @param vn 第二个无符号整数的 limb 长度
- * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL,
- *          up[un-1]!=0, vp[vn-1]!=0（输入须归一化，由调用者保证）
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL, up[un-1]!=0, vp[vn-1]!=0
  * @return dst 的实际 limb 长度
  */
 LMMP_API mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
-
-/* ============================ hgcd（半扩展欧几里得） ============================ */
 
 /**
  * @brief hgcd 变换矩阵
@@ -315,11 +312,22 @@ LMMP_API mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_si
  * @param un 第一个无符号整数的 limb 长度
  * @param vp 第二个无符号整数数组（长度为 vn 个limb）
  * @param vn 第二个无符号整数的 limb 长度
- * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]),
- *          up[un-1]!=0, vp[vn-1]!=0（输入须归一化，由调用者保证）
+ * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]), up[un-1]!=0, vp[vn-1]!=0
  * @return dst 的实际 limb 长度
  */
 LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
+
+/**
+ * @brief 计算两个无符号整数的最大公约数（通用分发入口）
+ * @param dst 结果指针（长度至少为 min(un,vn)）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数指针
+ * @param vn 第二个无符号整数的 limb 长度
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, eqsep(dst,[up|vp]), dst!=NULL, up[un-1]!=0, vp[vn-1]!=0
+ * @return dst 的实际 limb 长度
+ */
+LMMP_API mp_size_t lmmp_gcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 
 /**
  * @brief 计算两个无符号整数的乘积，对mod取模，商放入 q 中
