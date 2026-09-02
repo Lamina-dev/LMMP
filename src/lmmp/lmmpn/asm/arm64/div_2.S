@@ -1,18 +1,24 @@
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-# void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
-# mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
+// void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
+// mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
+//
+//   x0=dstq, x1=numa, x2=na, x3=numb
+//   ret x0 = qh (div_2_s_)
+//   cal: d = b << k, m = inv_2_1_(d)
+//      q = hi(m*r_hi) + r_hi + a_lo
+//      z = a - q*d, two fixups, r >>= k
 
 #include "lmmp_asm.h"
 
@@ -21,6 +27,8 @@
 .globl ASM_GSYM(lmmp_div_2_)
 .p2align 2
 
+// x19=numb, x20=numa, x21=dstq, x22=bl, x23=bh
+// na==2 -> single step; else LBB4_5
 ASM_GSYM(lmmp_div_2_):
     stp     x28, x27, [sp, #-96]!
     stp     x26, x25, [sp, #16]
@@ -93,6 +101,7 @@ ASM_GSYM(lmmp_div_2_):
     cbz     x21, LBB4_4
     str     x10, [x21]
 
+// unshift: r >>= k, store [numb,2]
 LBB4_4:
     lsr     x9, x9, x24
     lsl     x10, x8, x25
@@ -101,6 +110,7 @@ LBB4_4:
     str     x9, [x19]
     b       LBB4_47
 
+// na>2: split by dstq, k
 LBB4_5:
     mov     x24, x2
     clz     x25, x23
@@ -176,6 +186,7 @@ LBB4_5:
     b.ne    LBB4_37
     b       LBB4_39
 
+// na==2 normalised: 128-bit compare/sub
 LBB4_10:
     ldp     x8, x9, [x20]
     cmp     x9, x23
@@ -192,6 +203,7 @@ LBB4_10:
     str     x8, [x21]
     b       LBB4_48
 
+// dstq==NULL, unnormalised path
 LBB4_14:
     cbz     x25, LBB4_28
     mov     w8, #64
@@ -255,6 +267,7 @@ LBB4_14:
     mov     x10, x27
     b       LBB4_42
 
+// a < b: q = 0, r = a
 LBB4_18:
     str     x8, [x19]
     ldr     x8, [x20, #8]
@@ -263,6 +276,7 @@ LBB4_18:
     str     xzr, [x21]
     b       LBB4_48
 
+// normalised + quotient path
 LBB4_20:
     mov     x0, x23
     mov     x1, x22
@@ -339,6 +353,7 @@ LBB4_20:
     str     x8, [x21, x10, lsl #3]
     sub     x10, x24, #4
 
+// normalised unrolled loop entry
 LBB4_23:
     cmp     x24, #4
     b.eq    LBB4_26
@@ -348,14 +363,16 @@ LBB4_23:
     add     x13, x20, x11
     mov     x11, x13
 
+// normalised main loop 2x unrolled:
+// q = hi(m*r_hi)+r_hi+a_lo; z = a - q*d; two fixups
 LBB4_25:
     ldr     x14, [x11], #-16
     mul     x15, x12, x0
     umulh   x16, x12, x0
     adds    x15, x9, x15
-    adc     x12, x12, x16
+    adc     x12, x12, x16            // q = r_hi + hi(m*r_hi) + carry
     mvn     x16, x12
-    madd    x9, x23, x16, x9
+    madd    x9, x23, x16, x9         // r_lo -= (q+1)*bl via ~q
     subs    x14, x14, x22
     cset    w16, lo
     mul     x17, x12, x22
@@ -432,6 +449,7 @@ LBB4_25:
 LBB4_26:
     mov     x10, #0
 
+// normalised: last limb, remainder to [numb,2]
 LBB4_27:
     ldr     x8, [x20, x10, lsl #3]
     mul     x10, x0, x12
@@ -473,6 +491,7 @@ LBB4_27:
     stp     x8, x9, [x19]
     b       LBB4_48
 
+// dstq==NULL, normalised (mod path)
 LBB4_28:
     mov     x0, x23
     mov     x1, x22
@@ -535,12 +554,14 @@ LBB4_28:
     csel    x11, x9, x11, lo
     sub     x9, x24, #4
 
+// normalised mod loop 2x unrolled, no quotient
 LBB4_31:
     cmp     x24, #4
     b.eq    LBB4_34
     add     x8, x9, #1
     add     x9, x20, x9, lsl #3
 
+// divide step x2, remainder only
 LBB4_33:
     mul     x12, x11, x0
     umulh   x13, x11, x0
@@ -609,6 +630,7 @@ LBB4_33:
 LBB4_34:
     mov     x9, #0
 
+// normalised mod: last step
 LBB4_35:
     ldr     x8, [x20, x9, lsl #3]
     mul     x9, x0, x11
@@ -643,6 +665,7 @@ LBB4_35:
     str     x10, [x19]
     b       LBB4_47
 
+// first step, odd adjust; a_lo = lo<<k|hi>>(64-k)
 LBB4_36:
     ldr     x9, [x20, x12, lsl #3]
     lsl     x9, x9, x25
@@ -690,12 +713,14 @@ LBB4_36:
     cmp     x24, #4
     b.eq    LBB4_39
 
+// unnormalised 2x unrolled loop
 LBB4_37:
     lsl     x11, x10, #3
     add     x9, x20, x11
     add     x10, x10, #1
     add     x11, x21, x11
 
+// divide step x2, shifted a_lo
 LBB4_38:
     ldr     x14, [x9]
     lsl     x14, x14, x25
@@ -788,6 +813,7 @@ LBB4_38:
 LBB4_39:
     mov     x12, #0
 
+// unnormalised: last limb + r >> k
 LBB4_40:
     ldr     x9, [x20, x12, lsl #3]
     lsl     x9, x9, x25
@@ -834,6 +860,7 @@ LBB4_40:
     str     x9, [x19]
     b       LBB4_47
 
+// unnormalised mod: first step, odd adjust
 LBB4_41:
     ldr     x11, [x20, x10, lsl #3]
     lsl     x11, x11, x25
@@ -872,12 +899,14 @@ LBB4_41:
     csel    x9, x11, x12, lo
     sub     x12, x24, #4
 
+// unnormalised mod 2x unrolled loop
 LBB4_42:
     cmp     x24, #4
     b.eq    LBB4_45
     add     x11, x20, x12, lsl #3
     add     x12, x12, #1
 
+// divide step x2, shifted a_lo
 LBB4_44:
     ldr     x13, [x11]
     lsl     x13, x13, x25
@@ -955,6 +984,7 @@ LBB4_44:
 LBB4_45:
     mov     x10, #0
 
+// unnormalised mod: last step + r >> k
 LBB4_46:
     ldr     x10, [x20, x10, lsl #3]
     lsl     x10, x10, x25
@@ -993,9 +1023,11 @@ LBB4_46:
     str     x9, [x19]
     lsr     x8, x8, x25
 
+// remainder hi limb -> [numb+8]
 LBB4_47:
     str     x8, [x19, #8]
 
+// restore and return
 LBB4_48:
     ldp     x29, x30, [sp, #80]
     ldp     x20, x19, [sp, #64]
@@ -1008,6 +1040,8 @@ LBB4_48:
 .globl ASM_GSYM(lmmp_div_2_s_)
 .p2align 2
 
+// x19=numa, x20=dstq, x21=bh, x22=bl
+// k=0: pre-divide top limbs, 2x unrolled
 ASM_GSYM(lmmp_div_2_s_):
     stp     x24, x23, [sp, #-64]!
     stp     x22, x21, [sp, #16]
@@ -1094,6 +1128,7 @@ ASM_GSYM(lmmp_div_2_s_):
     str     x9, [x20, x11, lsl #3]
     sub     x11, x23, #4
 
+// unrolled loop entry
 LBB6_3:
     cmp     x23, #4
     b.eq    LBB6_6
@@ -1103,6 +1138,7 @@ LBB6_3:
     add     x14, x19, x12
     mov     x12, x14
 
+// divide step x2, as div_2_ LBB4_25
 LBB6_5:
     ldr     x15, [x12], #-16
     mul     x16, x13, x8
@@ -1186,6 +1222,7 @@ LBB6_5:
 LBB6_6:
     mov     x11, #0
 
+// last limb: store quotient and remainder, ret qh
 LBB6_7:
     ldr     x9, [x19, x11, lsl #3]
     mul     x11, x8, x13
