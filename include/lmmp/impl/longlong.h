@@ -317,8 +317,8 @@ static inline void _u128lshl_fn(uint64_t* x, const uint64_t* y, int n) {
         x[0] = y[0];
         x[1] = y[1];
     } else if (n >= 64) {
-        x[0] = 0;
         x[1] = y[0];
+        x[0] = 0;
     } else {
         x[1] = (y[0] >> (64 - n)) | (y[1] << n);
         x[0] = y[0] << n;
