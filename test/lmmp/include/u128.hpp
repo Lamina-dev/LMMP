@@ -210,15 +210,18 @@ class uint128_t {
         uint128_t rem = dividend;
         uint128_t temp = divisor;
 
-        // 将 temp 左移到尽可能接近 rem 但不超过 rem
+        // 将 temp 左移到尽可能接近 rem 但不超过 rem。
+        // temp 最高位为 1 时不可再左移（会溢出丢位），此时 2*temp >= 2^128 > rem，
+        // temp 已是对齐上限；仅当循环因 temp > rem 退出时才需要回退一次。
         int shift = 0;
-        while (temp <= rem) {
+        while (temp <= rem && !(temp >> 127)) {
             temp <<= 1;
             ++shift;
         }
-        // 回退一次
-        temp >>= 1;
-        --shift;
+        if (temp > rem) {
+            temp >>= 1;
+            --shift;
+        }
 
         // 从高位到低位试商
         for (int i = shift; i >= 0; --i) {
