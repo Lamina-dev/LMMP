@@ -34,8 +34,7 @@ mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x) {
         ah = numa[0];
         return ah % x;
     }
-    // q: assigned for macro reuse, unused in this logic (known warning)
-    mp_limb_t t = numa[na - 2], q = 0, r = 0;
+    mp_limb_t t = numa[na - 2], q, r;
     const int shift = lmmp_leading_zeros_(x);
     if (shift > 0) {
         const int rshift = LIMB_BITS - shift;
@@ -56,6 +55,7 @@ mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x) {
         ah = r;
         al = t << shift;
         _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        (void)q;
         return r >> shift;
     } else {
         ah = 0;
@@ -74,6 +74,7 @@ mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x) {
         ah = r;
         al = t;
         _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        (void)q;
         return r;
     }
 }

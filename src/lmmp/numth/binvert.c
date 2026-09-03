@@ -217,7 +217,7 @@ void lmmp_binvert_unbalanced_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_s
 
 void lmmp_binvert_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_size_t n) {
     lmmp_param_assert(dst != NULL && numa != NULL);
-    lmmp_param_assert(na > 0 && n > 0);
+    lmmp_param_assert(na > 0 && n >= na);
     lmmp_param_assert(numa[0] % 2 == 1);
     TEMP_DECL;
     if (n == na) {

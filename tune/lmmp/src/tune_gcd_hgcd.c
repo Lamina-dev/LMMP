@@ -78,7 +78,7 @@ int tune_run_gcd_hgcd(void) {
     spec.macro_name = "GCD_HGCD_THRESHOLD";
     spec.low_name = "gcd_lehmer";
     spec.high_name = "gcd_hgcd";
-    spec.lo = 8;
+    spec.lo = 64;
     spec.hi = 1024;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
