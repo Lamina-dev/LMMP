@@ -80,7 +80,7 @@ mp_size_t lmmp_gcd_22_(mp_ptr dst, mp_srcptr up, mp_srcptr vp) {
     while (u1 | v1) {   // 至少一方仍为双 limb
         mp_limb_t t0 = u0 - v0;
         mp_limb_t t1 = u1 - v1 - (u0 < v0);
-        mp_limb_t m = (mp_limb_t)((slong)t1 >> 63);   // u<v -> 1
+        mp_limb_t m = -(mp_limb_t)(t1 >> 63);   // u<v -> 1
         if (t0 == 0) {
             if (t1 == 0)
                 break;
