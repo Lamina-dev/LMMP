@@ -1,17 +1,21 @@
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-# void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
+// void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
+//
+//   x0=numa, x1=na, x2=numb
+//   ret [numb,2] = [numa,na] mod [numb,2]
+//   cal: as div_2_, no quotient
 
 #include "lmmp_asm.h"
 
@@ -20,6 +24,7 @@
 .globl ASM_GSYM(lmmp_mod_2_)
 .p2align 2
 
+// x19=numb, x20=numa, x21=bl, x22=bh, x24/x25=k
 ASM_GSYM(lmmp_mod_2_):
     stp     x28, x27, [sp, #-96]!
     stp     x26, x25, [sp, #16]
@@ -89,6 +94,7 @@ ASM_GSYM(lmmp_mod_2_):
     lsr     x8, x9, x24
     b       LBB3_24
 
+// na>2, unnormalised: d = b << k
 LBB3_3:
     mov     x23, x1
     cbz     x24, LBB3_10
@@ -155,6 +161,7 @@ LBB3_3:
     b.ne    LBB3_20
     b       LBB3_22
 
+// na==2 normalised: 128-bit compare/sub
 LBB3_7:
     ldp     x8, x9, [x20]
     cmp     x9, x22
@@ -167,6 +174,7 @@ LBB3_7:
     sbc     x8, x8, x22
     b       LBB3_24
 
+// normalised path
 LBB3_10:
     mov     x0, x22
     mov     x1, x21
@@ -229,12 +237,14 @@ LBB3_10:
     csel    x11, x9, x11, lo
     sub     x9, x23, #4
 
+// normalised unrolled loop entry
 LBB3_13:
     cmp     x23, #4
     b.eq    LBB3_16
     add     x8, x9, #1
     add     x9, x20, x9, lsl #3
 
+// divide step x2: q = hi(m*r_hi)+r_hi+a_lo; z = a - q*d
 LBB3_15:
     mul     x12, x11, x0
     umulh   x13, x11, x0
@@ -303,6 +313,7 @@ LBB3_15:
 LBB3_16:
     mov     x9, #0
 
+// normalised: last step
 LBB3_17:
     ldr     x8, [x20, x9, lsl #3]
     mul     x9, x0, x11
@@ -337,11 +348,13 @@ LBB3_17:
     str     x10, [x19]
     b       LBB3_24
 
+// a < b: r = a
 LBB3_18:
     str     x8, [x19]
     ldr     x8, [x20, #8]
     b       LBB3_24
 
+// first step, odd adjust; a_lo = lo<<k|hi>>(64-k)
 LBB3_19:
     ldr     x11, [x20, x10, lsl #3]
     lsl     x11, x11, x24
@@ -382,10 +395,12 @@ LBB3_19:
     cmp     x23, #4
     b.eq    LBB3_22
 
+// unnormalised 2x unrolled loop
 LBB3_20:
     add     x11, x20, x12, lsl #3
     add     x12, x12, #1
 
+// divide step x2, shifted a_lo
 LBB3_21:
     ldr     x13, [x11]
     lsl     x13, x13, x24
@@ -463,6 +478,7 @@ LBB3_21:
 LBB3_22:
     mov     x10, #0
 
+// unnormalised: last step + r >> k
 LBB3_23:
     ldr     x10, [x20, x10, lsl #3]
     lsl     x10, x10, x24
@@ -501,6 +517,7 @@ LBB3_23:
     str     x9, [x19]
     lsr     x8, x8, x24
 
+// remainder hi limb, restore and return
 LBB3_24:
     str     x8, [x19, #8]
     ldp     x29, x30, [sp, #80]

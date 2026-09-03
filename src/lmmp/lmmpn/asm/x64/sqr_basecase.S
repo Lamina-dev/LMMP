@@ -1,50 +1,51 @@
-#
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-#
-# void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+//
+// void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+//
+//   Windows: dst=rcx, numa=rdx, na=r8
+//   SysV:    dst=rdi, numa=rsi, na=rdx
+//   cal: dst = sum a_i^2*B^2i + 2*sum_{i<j} a_i*a_j*B^(i+j)
 
 #include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
-    # Windows x64 : RCX=dst, RDX=numa, R8=na
     #define PUSH_RSI push rsi
     #define PUSH_RDI push rdi
     #define POP_RSI  pop rsi
     #define POP_RDI  pop rdi
 #else
-    # Linux x64 : RDI=dst, RSI=numa, RDX=na
     #define PUSH_RSI
     #define PUSH_RDI
     #define POP_RSI
     #define POP_RDI
 #endif
 
-# ====================== .code ======================
+// ====================== .code ======================
 .text
 
 .globl ASM_GSYM(lmmp_sqr_basecase_)
 .p2align 4
 
 ASM_GSYM(lmmp_sqr_basecase_):
-    # 分支1：na == 1
     cmp     rx2, 2
     jae     .Lgt1
 
-    # 单 limb 平方
+    // na == 1: dst = a0^2
     mov     rax, [rx1]
     mul     rax
     mov     [rx0], rax
@@ -52,7 +53,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     ret
 
 .Lgt1:
-    # 分支2：na == 2
+    // na == 2: dst = a0^2 | 2*a0*a1 | a1^2
     jne     .Lgt2
     mov     rax, [rx1]
     mov     r11, [rx1+8]
@@ -83,19 +84,17 @@ ASM_GSYM(lmmp_sqr_basecase_):
     ret
 
 .Lgt2:
-    # 保存非 volatile 寄存器
     PUSH_RSI
     PUSH_RDI
 
     cmp     rx2, 4
-    # RSI = numa, RDI = dst, RDX = na
-    mov     rsi, rx1
-    mov     rdi, rx0
-    mov     rdx, rx2
+    mov     rsi, rx1               // rsi = numa
+    mov     rdi, rx0               // rdi = dst
+    mov     rdx, rx2               // rdx = na
 
     jae     .Lgt3
 
-    # 分支3：na == 3
+    // na == 3: diagonals then cross terms * 2
     mov     rax, [rsi]
     mov     r10, rax
     mul     rax
@@ -147,35 +146,35 @@ ASM_GSYM(lmmp_sqr_basecase_):
     ret
 
 .Lgt3:
-.Ldo_mul_2:
-    mov     r8, [rsi]
+.Ldo_mul_2:                        // seed mul_2: dst = numa * (a0, a1)
+    mov     r8, [rsi]              // r8 = a0
     push    rbx
-    lea     rdi, [rdi+rdx*8]
+    lea     rdi, [rdi+rdx*8]       // rdi = dst + na
     mov     rax, [rsi+8]
     push    rbp
-    lea     rsi, [rsi+rdx*8]
-    mov     r9, rax
+    lea     rsi, [rsi+rdx*8]       // rsi = numa + na
+    mov     r9, rax                // r9 = a1
     push    r12
     mov     r12, 1
     push    r13
-    sub     r12, rdx
+    sub     r12, rdx               // r12 = 1-na
     push    r14
-    push    r12
+    push    r12                    // [rsp] = 1-na
 
-    mul     r8
+    mul     r8                     // seed a1*a0
     mov     [rdi+r12*8], rax
     mov     rax, [rsi+r12*8+8]
-    test    r12b, 1
+    test    r12b, 1                // (na-1) mod 2
     jnz     .Lm2b1
 
-.Lm2b0:
+.Lm2b0:                            // even entry
     lea     rcx, [r12+2]
     xor     r11, r11
     xor     rbx, rbx
     mov     r10, rdx
     jmp     .Lm2l0
 
-.Lm2b1:
+.Lm2b1:                            // odd entry
     lea     rcx, [r12+1]
     xor     rbp, rbp
     xor     r10, r10
@@ -183,7 +182,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     jmp     .Lm2l1
 
 .p2align 4
-.Lm2tp:
+.Lm2tp:                            // mul_2 loop, 2 limbs
 .Lm2l0:
     mul     r8
     add     r10, rax
@@ -216,7 +215,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     rcx, 2
     jnc     .Lm2tp
 
-.Lm2ed:
+.Lm2ed:                            // write dst[na-1..na+1]
     mul     r8
     add     r10, rax
     mov     rbp, rdx
@@ -235,15 +234,15 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     r12, 2
     lea     rdi, [rdi+16]
 
-.Ldo_addmul_2:
-    cmp     r12, -1
+.Ldo_addmul_2:                     // outer: (a_i, a_{i+1}) addmul_2
+    cmp     r12, -1                // r12 >= -1 -> corner
     jge     .Lcorner
 
 .Louter:
-    mov     r8, [rsi+r12*8-8]
+    mov     r8, [rsi+r12*8-8]      // m0 = a_i
     mov     rax, [rsi+r12*8]
-    mov     r9, rax
-    mul     r8
+    mov     r9, rax                // m1 = a_(i+1)
+    mul     r8                     // seed product
     test    r12b, 1
     jnz     .La1x1
 
@@ -287,7 +286,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     jmp     .Llo3
 
 .p2align 4
-.Ltop:
+.Ltop:                             // inner loop, 4 limbs
     mov     r13, [rdi+rcx*8-16]
     mul     r9
     mov     r10, rdx
@@ -363,7 +362,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     rcx, 4
     jnc     .Ltop
 
-.Lend:
+.Lend:                             // write last 3 limbs
     mul     r9
     add     r14, r11
     adc     rbp, 0
@@ -380,9 +379,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
     jl      .Louter
 
 .Lcorner:
-    jg      .Lsqr_diag
+    jg      .Lsqr_diag             // r12 == 0 -> diag
 
-.Lsmall_corner:
+.Lsmall_corner:                    // dst += a_(na-2)*a_(na-1)
     mov     r8, [rsi-16]
     mov     rax, [rsi-8]
     lea     rdi, [rdi+8]
@@ -391,32 +390,32 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     rdx, 0
     mov     [rdi-8], rdx
 
-.Lsqr_diag:
-    pop     rcx
-    mov     rax, [rsi+rcx*8-8]
-    shl     rcx, 1
-    mul     rax
+.Lsqr_diag:                        // dst *= 2, then add a_i^2
+    pop     rcx                    // rcx = 1-na
+    mov     rax, [rsi+rcx*8-8]     // a_0
+    shl     rcx, 1                 // rcx = 2(1-na)
+    mul     rax                    // a_0^2
     mov     [rdi+rcx*8-8], rax
-    xor     rbx, rbx
+    xor     rbx, rbx               // carry collector
     test    cl, 2
     jnz     .Ldm1
     lea     rcx, [rcx+2]
     jmp     .Ldm0
 
 .p2align 4
-.Ldtop:
+.Ldtop:                            // 2 diag limbs per iter
     add     r8, r10
     adc     r9, rax
     mov     [rdi+rcx*8-32], r8
     mov     [rdi+rcx*8-24], r9
 
-.Ldm0:
+.Ldm0:                             // even offset: dst[2i] = 2*dst[2i] + a_i^2
     mov     r8, [rdi+rcx*8-16]
     mov     r9, [rdi+rcx*8-8]
     adc     r8, r8
     adc     r9, r9
     mov     rax, [rsi+rcx*4-8]
-    lea     r10, [rdx+rbx]
+    lea     r10, [rdx+rbx]         // hi(a_(i-1)^2) + carry
     setc    bl
     mul     rax
     add     r8, r10
@@ -424,7 +423,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     mov     [rdi+rcx*8-16], r8
     mov     [rdi+rcx*8-8], r9
 
-.Ldm1:
+.Ldm1:                             // next diag limb
     mov     r8, [rdi+rcx*8]
     mov     r9, [rdi+rcx*8+8]
     adc     r8, r8
@@ -436,7 +435,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     rcx, 4
     jnc     .Ldtop
 
-.Ldend:
+.Ldend:                            // write last pair
     add     r8, r10
     adc     r9, rax
     mov     [rdi-16], r8
@@ -444,7 +443,6 @@ ASM_GSYM(lmmp_sqr_basecase_):
     adc     rdx, rbx
     mov     [rdi], rdx
 
-    # 恢复寄存器
     pop     r14
     pop     r13
     pop     r12

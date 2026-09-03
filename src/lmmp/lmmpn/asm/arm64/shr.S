@@ -1,18 +1,22 @@
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-# mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr, mp_limb_t c);
-# mp_limb_t lmmp_shr_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr);
+// mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr, mp_limb_t c);
+// mp_limb_t lmmp_shr_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shr);
+//
+//   x0=dst, x1=numa, x2=na, x3=shr, x4=c (only c_)
+//   ret x0 = numa[0] & ((1 << shr) - 1)
+//   cal: dst[i] = (numa[i] >> shr) | (numa[i+1] << (64-shr))
 
 #include "lmmp_asm.h"
 
@@ -22,31 +26,31 @@
 .p2align 2
 
 ASM_GSYM(lmmp_shr_c_):
-    mov     x15, x4
+    mov     x15, x4                 // x15 = c
     b       Lshr_ent
 
 .globl ASM_GSYM(lmmp_shr_)
 .p2align 2
 
 ASM_GSYM(lmmp_shr_):
-    mov     x15, xzr
+    mov     x15, xzr                // c = 0
 
 Lshr_ent:
-    cbz     x3, Lshr_copy
-    mov     x16, x0
-    sub     x8, xzr, x3
-    lsr     x17, x2, #2
-    tbz     x2, #0, Lshr_bx0
+    cbz     x3, Lshr_copy           // shr == 0, copy
+    mov     x16, x0                 // x16 = dst
+    sub     x8, xzr, x3             // x8 = 64 - shr
+    lsr     x17, x2, #2             // 4-limbs size
+    tbz     x2, #0, Lshr_bx0        // n mod 2 == 0
 
 Lshr_bx1:
-    ldr     x5, [x1]
+    ldr     x5, [x1]                // a0 = numa[0]
     tbnz    x2, #1, Lshr_b11
 
-Lshr_b01:
-    lsl     x0, x5, x8
-    lsr     x2, x5, x3
+Lshr_b01:                           // na % 4 == 1
+    lsl     x0, x5, x8              // ret low bits
+    lsr     x2, x5, x3              // t = a0 >> shr
     cbnz    x17, Lshr_gt1
-    orr     x2, x2, x15
+    orr     x2, x2, x15             // na == 1: t |= c
     str     x2, [x16]
     ret
 
@@ -56,9 +60,9 @@ Lshr_gt1:
     sub     x16, x16, #32
     b       Lshr_lo2
 
-Lshr_b11:
-    lsl     x0, x5, x8
-    lsr     x2, x5, x3
+Lshr_b11:                           // na % 4 == 3
+    lsl     x0, x5, x8              // ret low bits
+    lsr     x2, x5, x3              // t = a0 >> shr
     ldp     x6, x7, [x1, #8]!
     sub     x16, x16, #16
     b       Lshr_lo3
@@ -67,14 +71,14 @@ Lshr_bx0:
     ldp     x4, x5, [x1]
     tbz     x2, #1, Lshr_b00
 
-Lshr_b10:
-    lsl     x0, x4, x8
-    lsr     x13, x4, x3
-    lsl     x10, x5, x8
-    lsr     x2, x5, x3
+Lshr_b10:                           // na % 4 == 2
+    lsl     x0, x4, x8              // ret low bits
+    lsr     x13, x4, x3             // lo = a0 >> shr
+    lsl     x10, x5, x8             // hi = a1 << (64-shr)
+    lsr     x2, x5, x3              // t = a1 >> shr
     cbnz    x17, Lshr_gt2
     orr     x10, x10, x13
-    orr     x2, x2, x15
+    orr     x2, x2, x15             // na == 2: t |= c
     stp     x10, x2, [x16]
     ret
 
@@ -84,33 +88,33 @@ Lshr_gt2:
     str     x10, [x16], #-24
     b       Lshr_lo2
 
-Lshr_b00:
-    lsl     x0, x4, x8
-    lsr     x13, x4, x3
-    lsl     x10, x5, x8
-    lsr     x2, x5, x3
+Lshr_b00:                           // na % 4 == 0
+    lsl     x0, x4, x8              // ret low bits
+    lsr     x13, x4, x3             // lo = a0 >> shr
+    lsl     x10, x5, x8             // hi = a1 << (64-shr)
+    lsr     x2, x5, x3              // t = a1 >> shr
     ldp     x6, x7, [x1, #16]!
     orr     x10, x10, x13
     str     x10, [x16], #-8
     b       Lshr_lo0
 .p2align 4
 
-Lshr_top:
+Lshr_top:                           // main loop (upper)
     ldp     x4, x5, [x1, #16]
-    orr     x10, x10, x13
+    orr     x10, x10, x13           // dst[j] = lo | hi
     orr     x11, x12, x2
     stp     x11, x10, [x16, #16]
-    lsr     x2, x7, x3
+    lsr     x2, x7, x3              // t = a_hi >> shr
 
-Lshr_lo2:
-    lsl     x10, x5, x8
+Lshr_lo2:                           // main loop (lower)
+    lsl     x10, x5, x8             // hi = a << (64-shr)
     lsl     x12, x4, x8
-    lsr     x13, x4, x3
+    lsr     x13, x4, x3             // lo = a >> shr
     ldp     x6, x7, [x1, #32]!
     orr     x10, x10, x13
     orr     x11, x12, x2
     stp     x11, x10, [x16, #32]!
-    lsr     x2, x5, x3
+    lsr     x2, x5, x3              // t = a_hi >> shr
 
 Lshr_lo0:
     sub     x17, x17, #1
@@ -121,16 +125,16 @@ Lshr_lo3:
     lsr     x13, x6, x3
     cbnz    x17, Lshr_top
 
-Lshr_end:
+Lshr_end:                           // last: c into dst[na-1] high
     orr     x10, x10, x13
     orr     x11, x12, x2
     lsr     x2, x7, x3
     stp     x11, x10, [x16, #16]
-    orr     x2, x2, x15
+    orr     x2, x2, x15             // t |= c
     str     x2, [x16, #32]
     ret
 
-Lshr_copy:
+Lshr_copy:                          // shr == 0: copy, ret 0
     cmp     x0, x1
     b.eq    Lshr_copy_done
     mov     x6, x2
