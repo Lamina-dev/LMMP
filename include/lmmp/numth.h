@@ -912,15 +912,14 @@ LMMP_API ulong lmmp_cbrt_ulong_(ulong n);
 LMMP_API mp_limb_t lmmp_cbrt_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
 
 /**
- * @brief 计算近似立方根 floor(cbrt(a0+a1*B+a2*B^2))+[0|1|-1]
- * @param a0 低位 limb
- * @param a1 中位 limb
- * @param a2 高位 limb
- * @warning a1>0
- * @note a2可以为0，但a1需要大于0，即这个数至少应有65个bit
- * @return floor(cbrt(a0+a1*B+a2*B^2))+[0|1|-1]
+ * @brief 计算算术立方根 floor(cbrt([numa,n]))
+ * @param dst 结果指针（2个limb）
+ * @param numa 被开方数指针
+ * @param n 被开方数的 limb 长度
+ * @warning 3<n<=6, numa[n-1]!=0, dst!=NULL, numa!=NULL, sep(dst,numa)
+ * @return 无（结果写入 [dst,2]）
  */
-LMMP_API mp_limb_t lmmp_cbrtapprox_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
+LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 计算算术立方根 floor(cbrt([numa,3*ns]))
