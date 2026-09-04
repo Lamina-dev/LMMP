@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -15,6 +15,10 @@
 
 #ifndef __LMMP_INLINES_H__
 #define __LMMP_INLINES_H__
+
+/*
+用于内部内联，无缝替换
+*/
 
 #include "../lmmpn.h"
 #include "mparam.h"
@@ -36,7 +40,7 @@ static inline int __lmmp_limb_popcnt_(mp_limb_t x) {
 #else
     count = __builtin_popcountll(x);
 #endif
-    return count;
+    return (int)count;
 #else
     int k = 0;
     while (x) {
