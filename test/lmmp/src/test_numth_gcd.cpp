@@ -92,6 +92,103 @@ TEST_CASE("numth/gcd", gcd_22_and_gcd_2) {
     }
 }
 
+namespace {
+
+// 构造 (x << s) 的双 limb 表示，s ∈ [0,127]
+void shifted_pair(u64 x, int s, mp_ptr out) {
+    if (s < 64) {
+        out[0] = x << s;
+        out[1] = (s == 0) ? 0 : (x >> (64 - s));
+    } else {
+        out[0] = 0;
+        out[1] = x << (s - 64);
+    }
+}
+
+// 独立的 128 位欧几里得参照（不经过 BigInt/divmod_school，
+// 后者在 (x<<s) 型结构化输入上疑似存在商估计边界 bug）
+BigInt gcd128_ref(u64 u0, u64 u1, u64 v0, u64 v1) {
+    u128 ua = (u128(u1) << 64) | u128(u0);
+    u128 ub = (u128(v1) << 64) | u128(v0);
+    while (ub != u128(0)) {
+        u128 t = ua % ub;
+        ua = ub;
+        ub = t;
+    }
+    u64 gl[2] = {lo128(ua), hi128(ua)};
+    return BigInt(gl, 2);
+}
+
+}  // namespace
+
+TEST_CASE("numth/gcd", gcd_22_shapes) {
+    // 覆盖单/双 limb 与低位为 0 的形态组合。强制高位的随机测试几乎不可能
+    // 命中这些分支（单个 limb 为 0 的概率约 2^-64），gcd_22 曾因此在
+    // u0==v0==0 的路径上漏检（漏乘 B），此用例系统性遍历移位组合。
+    u64 seed = 0x51ce1b7ea4df7c21ull;
+    mp_ptr u = alloc_limbs(2);
+    mp_ptr v = alloc_limbs(2);
+    mp_ptr d = alloc_limbs(2);
+    for (int a = 0; a < 128; ++a) {
+        for (int b = 0; b < 128; b += 5) {
+            u64 x = xorshift64(seed) | 1;
+            u64 y = xorshift64(seed) | 1;
+            shifted_pair(x, a, u);
+            shifted_pair(y, b, v);
+            BigInt g = gcd128_ref(u[0], u[1], v[0], v[1]);
+            mp_size_t gn = lmmp_gcd_22_(d, u, v);
+            TEST_CHECK_MSG(from_limbs(d, gn) == g, "gcd_22 shifted pair");
+        }
+    }
+    // 确定性用例：低 limb 为 0（gcd 为 B 的倍数）、单双混合、相等、平凡值
+    struct { u64 u0, u1, v0, v1; } fixed[] = {
+        {0, 1, 0, 3},               // gcd = B
+        {0, 9, 0, 6},               // gcd = 3B
+        {0, 2, 0, 6},               // gcd = 2B, cnt = 65
+        {0, 1, 0, 1ull << 63},      // gcd = B, 一方高 limb 仅最高位
+        {1, 0, 3, 0},               // 双方单 limb
+        {0, 1, 5, 0},               // B 与单 limb 混合
+        {7, 9, 7, 9},               // 相等
+        {12, 0, 18, 0},
+        {10, 2, 0, 1},              // gcd(2B+10, B) = 2
+        {0, 1, 0, 1},               // 双方相等且均为 B
+    };
+    for (const auto& t : fixed) {
+        BigInt g = gcd128_ref(t.u0, t.u1, t.v0, t.v1);
+        u64 pu[2] = {t.u0, t.u1}, pv[2] = {t.v0, t.v1};
+        mp_size_t gn = lmmp_gcd_22_(d, pu, pv);
+        TEST_CHECK_MSG(from_limbs(d, gn) == g, "gcd_22 fixed pair");
+    }
+    lmmp_free(u); lmmp_free(v); lmmp_free(d);
+}
+
+TEST_CASE("numth/gcd", gcd_2_multiple_and_gcd_1_zero) {
+    // gcd_2：u 为 v 的整数倍 → 余数为 0 → 直接返回 v
+    u64 seed = 0x2b44ae9d4d6c8f13ull;
+    for (int iter = 0; iter < 20; ++iter) {
+        mp_ptr v = alloc_limbs(2);
+        random_limbs(v, 2, seed);
+        BigInt bv(v, 2);
+        u64 k = 3 + (xorshift64(seed) & 0xf);
+        BigInt bu = BigInt::mul_school(bv, BigInt(k));
+        mp_size_t un = (mp_size_t)bu.d.size();
+        mp_ptr up = alloc_limbs(un);
+        to_limbs(bu, up, un);
+        mp_ptr d = alloc_limbs(2);
+        mp_size_t gn = lmmp_gcd_2_(d, up, un, v);
+        TEST_CHECK_MSG(from_limbs(d, gn) == bv, "gcd_2 exact multiple");
+        lmmp_free(v); lmmp_free(up); lmmp_free(d);
+    }
+
+    // gcd_1：[up,un] == 0 → gcd(0,v) = v（契约允许 u 为 0）
+    mp_ptr z = alloc_limbs(5);
+    lmmp_zero(z, 5);
+    TEST_CHECK_EQ(lmmp_gcd_1_(z, 5, 7), 7u);
+    TEST_CHECK_EQ(lmmp_gcd_1_(z, 1, 7), 7u);
+    TEST_CHECK_EQ(lmmp_gcd_1_(z + 1, 4, 12), 12u);
+    lmmp_free(z);
+}
+
 TEST_CASE("numth/gcd", gcd_lehmer_vs_bigint) {
     u64 seed = 0x5ac635d8aa3a93e7ull;
     for (mp_size_t n : {1, 2, 5, 10, 20, 40}) {

@@ -1,29 +1,30 @@
-#
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-#
-# void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
+//
+// void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
+//
+//   Windows: numa=rcx, na=rdx, numb=r8
+//   SysV:    numa=rdi, na=rsi, numb=rdx
+//   ret: [numb,2] = [numa,na] mod [numb,2]
+//   cal: normalize b, m = (2^192-1) div b - 2^64, per limb q = (m*ah_hi + ah_lo + ah_hi)>>64, z = a - q*b, correct
 
 #include "lmmp_asm.h"
 
 .text
 .globl ASM_GSYM(lmmp_mod_2_)
 
-# ----------------------------------------------------------------------
-# void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb)
-# 余数存入 [numb]
-# ----------------------------------------------------------------------
 .p2align 4
 ASM_GSYM(lmmp_mod_2_):
     push    rbp
@@ -31,30 +32,28 @@ ASM_GSYM(lmmp_mod_2_):
     push    r12
     push    r13
     push    r14
-    push    r15                     # 用 r15 保存 numb 指针
+    push    r15                     // r15 = numb
 
-    # Windows 下保存非易失寄存器 rdi / rsi
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
 #endif
 
-    # 统一参数：r15 = numb, rsi = numa, rbx = na
 #ifdef LMMP_WINDOWS
-    mov     r15, r8                 # numb
-    mov     rsi, rcx                # numa
-    mov     rbx, rdx                # na
+    mov     r15, r8                 // numb
+    mov     rsi, rcx                // numa
+    mov     rbx, rdx                // na
 #else
-    mov     r15, rdx                # numb
-    mov     rbx, rsi                # na
-    mov     rsi, rdi                # numa
+    mov     r15, rdx                // numb
+    mov     rbx, rsi                // na
+    mov     rsi, rdi                // numa
 #endif
-    lea     rbx, [rbx-1]            # rbx = na - 1
+    lea     rbx, [rbx-1]            // rbx = na - 1
 
-    mov     r8, [r15]               # 除数低
-    mov     r9, [r15+8]             # 除数高
+    mov     r8, [r15]               // divisor low
+    mov     r9, [r15+8]             // divisor high
 
-    # ---- 被除数与除数比较 ----
+    // top compare: a vs b
     mov     r11, [rsi+rbx*8-8]
     mov     r12, [rsi+rbx*8]
     xor     r13, r13
@@ -65,30 +64,26 @@ ASM_GSYM(lmmp_mod_2_):
     setb    al
     or      dl, al
     jz      .L2
-    # qh = 0
     dec     rbx
     mov     r13, r12
     mov     r12, r11
     jz      .Lretnsh
     mov     r11, [rsi+rbx*8-8]
 
-.L2:
-    # ---- 除数规整化 ----
+.L2:                                // normalize divisor
     bsr     rcx, r9
     not     rcx
     add     rcx, 64
     shld    r9, r8, cl
     shl     r8, cl
 
-    push    rcx                     # 移位量
+    push    rcx                     // save shift k
     push    r8
     push    r9
-    mov     rx0, r9                 # 参数：除数高位
+    mov     rx0, r9                 // arg b_hi
 
-    # 栈对齐与影子空间
-    # 当前已 push 8+3=11 个寄存器，rsp ≡ 0 mod 16
 #ifdef LMMP_WINDOWS
-    sub     rsp, 32
+    sub     rsp, 32                 // shadow space
 #endif
     CALL(lmmp_inv_1_)
 #ifdef LMMP_WINDOWS
@@ -97,9 +92,9 @@ ASM_GSYM(lmmp_mod_2_):
 
     pop     r9
     pop     r8
-    mov     rbp, rax                # rbp = inv - 2^64
+    mov     rbp, rax                // rbp = inv - 2^64
 
-    # ---- 修正逆元 ----
+    // refine m: iterate until m = (2^192-1) div b - 2^64
     mov     r10, r9
     imul    r10, rax
     xor     rcx, rcx
@@ -110,7 +105,7 @@ ASM_GSYM(lmmp_mod_2_):
     adc     rcx, 0
     js      .L2f
 
-.L1b:
+.L1b:                               // m -= 1, r -= b
     dec     rbp
     sub     rax, r8
     sbb     r10, r9
@@ -118,45 +113,44 @@ ASM_GSYM(lmmp_mod_2_):
     jns     .L1b
 
 .L2f:
-    pop     rcx                     # 恢复移位量
-    # rbp = (2^192-1) div b - 2^64
-    shld    r13, r12, cl
+    pop     rcx                     // restore k
+    shld    r13, r12, cl            // top two limbs << k
     shld    r12, r11, cl
     jmp     .Lent
 
 .p2align 4
 .Ltop:
-    mov     r10, [rsi+rbx*8-8]
-    shld    r11, r10, cl
+    mov     r10, [rsi+rbx*8-8]      // next lower limb
+    shld    r11, r10, cl            // r11 = a1 << k
 
-.Llast:                             # r13:r12 = ah < b
+.Llast:                             // r13:r12 = ah < b, b = r9:r8
     mov     rax, rbp
-    mul     r13
+    mul     r13                     // rdx:rax = m * ah_hi
     mov     r14, r12
     add     r14, rax
-    adc     rdx, r13
-    mov     r13, r14                # ql
-    mov     r14, rdx                # qh
-    imul    rdx, r9
-    xchg    r13, r12
+    adc     rdx, r13                // rdx = q
+    mov     r13, r14                // r13 = q_lo
+    mov     r14, rdx
+    imul    rdx, r9                 // rdx = q*bh
+    xchg    r13, r12                // r12 = q_lo, r13 = a1
     mov     rax, r8
-    sub     r13, rdx
-    xchg    r12, r11                # r11 = ql
-    mul     r14
+    sub     r13, rdx                // a1 - q*bh
+    xchg    r12, r11                // r11 = q_lo, r12 = a0
+    mul     r14                     // rdx:rax = q*bl
     sub     r12, r8
-    sbb     r13, r9
+    sbb     r13, r9                 // pre-subtract one b
     sub     r12, rax
-    sbb     r13, rdx
+    sbb     r13, rdx                // r13:r12 = z = a - q*b
     xor     rax, rax
     xor     rdx, rdx
     cmp     r13, r11
-    cmovnc  rax, r8
+    cmovnc  rax, r8                 // no borrow: z += b
     cmovnc  rdx, r9
 
     add     r12, rax
     adc     r13, rdx
     cmp     r13, r9
-    jae     .Lfix
+    jae     .Lfix                   // z >= b: subtract again
 
 .Lok:
     mov     r11, r10
@@ -165,30 +159,28 @@ ASM_GSYM(lmmp_mod_2_):
     sub     rbx, 1
     ja      .Ltop
     jb      .Lret
-    shl     r11, cl
+    shl     r11, cl                 // last limb << k
     jmp     .Llast
 
-.Lfix:
+.Lfix:                              // 128-bit compare z >= b: z -= b
     seta    dl
     cmp     r12, r8
     setae   al
     or      al, dl
-    jz      .Lok
+    jz      .Lok                    // z < b, no fix
 
     sub     r12, r8
     sbb     r13, r9
     jmp     .Lok
 
-.Lret:
+.Lret:                              // remainder >>= k
     shrd    r12, r13, cl
     shr     r13, cl
 
 .Lretnsh:
-    # ---- 写入余数 ----
-    mov     [r15], r12
+    mov     [r15], r12              // store remainder
     mov     [r15+8], r13
 
-    # 恢复寄存器
 #ifdef LMMP_WINDOWS
     pop     rsi
     pop     rdi

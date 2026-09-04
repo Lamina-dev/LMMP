@@ -1,32 +1,34 @@
-#
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-#
-# void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+//
+// void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+//
+//   Windows: dst=rcx, numa=rdx, numb=r8, n=r9
+//   SysV:    dst=rdi, numa=rsi, numb=rdx, n=rcx
+//   cal: dst[0..n) = lo n limbs of numa*numb
 
 #include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
-    # Windows: dst=rcx, numa=rdx, numb=r8, n=r9
     #define P_DST rcx
     #define P_NUMA rdx
     #define P_NUMB r8
     #define P_N r9
 #else
-    # Linux: dst=rdi, numa=rsi, numb=rdx, n=rcx
     #define P_DST rdi
     #define P_NUMA rsi
     #define P_NUMB rdx
@@ -63,7 +65,7 @@
     pop r12
 .endm
 
-# ====================== .text ======================
+// ====================== .text ======================
 
 .text
 .globl ASM_GSYM(lmmp_mullo_basecase_)
@@ -73,74 +75,68 @@ ASM_GSYM(lmmp_mullo_basecase_):
     PUSH_ALL
 
 #ifdef LMMP_WINDOWS
-    mov     rdi, P_DST             # dst  -> rdi
-    mov     rsi, P_NUMA            # numa -> rsi
-    mov     r8,  P_NUMB            # numb -> r8
-    mov     r9,  P_N               # n    -> r9
-    mov     rcx, r8                # numb -> rcx
-    mov     rdx, r9                # n    -> rdx
-    mov     r8,  r9                # n    -> r8  (外循环计数)
+    mov     rdi, P_DST             // dst -> rdi
+    mov     rsi, P_NUMA            // numa -> rsi
+    mov     r8,  P_NUMB            // numb -> r8
+    mov     r9,  P_N               // n -> r9
+    mov     rcx, r8                // numb -> rcx
+    mov     rdx, r9                // n -> rdx
+    mov     r8,  r9                // n -> r8
 #else
-    mov     r8,  rcx               # n    -> r8
-    mov     rcx, rdx               # numb -> rcx
-    mov     rdx, r8                # n    -> rdx
+    mov     r8,  rcx               // n -> r8
+    mov     rcx, rdx               // numb -> rcx
+    mov     rdx, r8                // n -> rdx
 #endif
 
     test    rdx, rdx
-    jz      .Lret                  # n == 0
+    jz      .Lret                  // n == 0
 
     mov     rbx, rdx
-    neg     rbx                    # rbx = -n
-    lea     rsi, [rsi + rdx*8]     # rsi = numa + n
-    lea     rdi, [rdi + rdx*8]     # rdi = dst  + n
+    neg     rbx                    // rbx = -n
+    lea     rsi, [rsi + rdx*8]     // rsi = numa + n
+    lea     rdi, [rdi + rdx*8]     // rdi = dst + n
 
-    mov     r9, [rcx]              # r9 = numb[0]
-    mov     rax, [rsi + rbx*8]     # rax = numa[0]
-    mul     r9                     # rdx:rax = numa[0] * numb[0]
+    mov     r9, [rcx]              // r9 = numb[0]
+    mov     rax, [rsi + rbx*8]     // rax = numa[0]
+    mul     r9                     // rdx:rax = numa[0] * numb[0]
 
-    test    bl, 1                  # n 为奇数？
+    test    bl, 1                  // n parity
     jnz    .Lmul1_odd
 
-    # ~~~~~~~~ n 为偶数 ~~~~~~~~
-.Lmul1_even:
+.Lmul1_even:                       // n even
     mov     r10, rax
     mov     r11, rdx
-    mov     rax, [rsi + rbx*8 + 8] # 预取 numa[1]
-    test    bl, 2                  # n ≡ 2 mod 4 ?
+    mov     rax, [rsi + rbx*8 + 8]
+    test    bl, 2
     jnz     .Lmul1_even_2mod4
 
-    # n ≡ 0 mod 4
-    lea     rbp, [rbx + 2]     # rbp = -n + 2
+    lea     rbp, [rbx + 2]         // n mod 4 == 0
     jmp     .Lmul1_l0
 
-.Lmul1_even_2mod4:
-    lea     rbp, [rbx]         # rbp = -n
+.Lmul1_even_2mod4:                 // n mod 4 == 2
+    lea     rbp, [rbx]
     jmp     .Lmul1_l2
 
-    # ~~~~~~~~ n 为奇数 ~~~~~~~~
-.Lmul1_odd:
+.Lmul1_odd:                        // n odd
     mov     r11, rax
     mov     r10, rdx
-    test    bl, 2              # n ≡ 3 mod 4 ?
+    test    bl, 2
     jz      .Lmul1_odd_3mod4
 
-    # n ≡ 1 mod 4
-    lea     rbp, [rbx + 3]     # rbp = -n + 3
+    lea     rbp, [rbx + 3]         // n mod 4 == 1
     test    rbp, rbp
-    js      .Lmul1_l1          # rbp < 0 → 进入循环
-    # n == 1 直接返回
-    mov     [rdi - 8], rax     # dst[0] = 低位
-    # 进位丢弃
+    js      .Lmul1_l1
+    mov     [rdi - 8], rax         // n == 1, ret
     POP_ALL
     ret
 
-.Lmul1_odd_3mod4:
-    lea     rbp, [rbx + 1]         # rbp = -n + 1
-    mov     rax, [rsi + rbx*8 + 8] # 预取 numa[1]
+.Lmul1_odd_3mod4:                  // n mod 4 == 3
+    lea     rbp, [rbx + 1]
+    mov     rax, [rsi + rbx*8 + 8]
     jmp     .Lmul1_l3
 
 .p2align 4
-.Lmul1_tp:
+.Lmul1_tp:                         // mul_1 loop, 4 limbs
     mov     r10, rdx
     add     r11, rax
 .Lmul1_l1:
@@ -175,44 +171,37 @@ ASM_GSYM(lmmp_mullo_basecase_):
 .Lmul1_ed:
     add     r11, rax
     adc     rdx, 0
-    mov     [rdi - 8], r11     # 最后一个有效 limb dst[n-1]
-    # 不存储 [rdi]（进位丢弃）
+    mov     [rdi - 8], r11         // dst[n-1]
+    // carry discarded
 
-    dec     r8                 # r8 = n - 1
+    dec     r8                     // r8 = n - 1
     jz      .Lret
 
-    # --------------------------------------------------
-    # 准备外循环 : j = 1 .. n-1
-    #    rdi 保持 dst + n (不变)
-    #    rsi 指向 numa + (n-1)  (长度递减时每次前移 16)
-    #    rbx = -(n-1)           (当前长度 len = n-1)
-    # --------------------------------------------------
-    lea     rcx, [rcx + 8]     # numb++
-    inc     rbx                # rbx = -(n-1)
-    sub     rsi, 8             # rsi = numa + (n-1)
+    lea     rcx, [rcx + 8]         // numb++
+    inc     rbx                    // rbx = -(n-1)
+    sub     rsi, 8                 // rsi = numa + (n-1)
 
-    PUSH_EXTRA                 # push r12, r13, r14
+    PUSH_EXTRA
     push    r15
-    push    r8                 # 计数器（剩余列数）入栈
+    push    r8                     // remaining cols
 
-    # ==================== 两列并行外循环 ====================
-    # 状态：rdi=dst+n（不变），rsi=numa+L，rcx=numb+j，rbx=-L，
-    #       [rsp]=剩余列数（== L）。每轮处理 numb[j]、numb[j+1] 两列，
-    #       长度 L、L-1；只写低 n 个 limb，超出进位丢弃。
+// ======================================
+// two-column outer loop
+// ======================================
 .p2align 4
 .Louter2:
     cmp     rbx, -4
-    jg      .Ltail              # L < 4 → 进入单乘数尾部
+    jg      .Ltail                 // L < 4
 
-    mov     r9, [rcx]           # m0 = numb[j]
-    mov     r8, [rcx + 8]       # m1 = numb[j+1]
-    mov     rax, [rsi + rbx*8]  # rax = numa[0]
-    mul     r9                  # rdx:rax = numa[0] * m0
+    mov     r9, [rcx]              // m0 = numb[j]
+    mov     r8, [rcx + 8]          // m1 = numb[j+1]
+    mov     rax, [rsi + rbx*8]     // rax = numa[0]
+    mul     r9
     test    bl, 1
     jnz     .a2x1
 
 .a2x0:
-    mov     r14, [rdi + rbx*8]  # dst[j]
+    mov     r14, [rdi + rbx*8]     // dst[j]
     xor     r10, r10
     mov     r11, rdx
     test    bl, 2
@@ -252,7 +241,7 @@ ASM_GSYM(lmmp_mullo_basecase_):
     jmp     .a2lo3
 
 .p2align 4
-.a2top:
+.a2top:                            // inner loop, 4 limbs
     mov     r14, [rdi + rbp*8 - 16]
     mul     r8
     mov     r10, rdx
@@ -324,72 +313,73 @@ ASM_GSYM(lmmp_mullo_basecase_):
     jnc     .a2top
 
 .a2end:
-    mul     r8                  # 幻影乘（结果丢弃）
+    mul     r8                     // dummy mul
     add     r15, r11
     adc     r13, 0
     add     rax, r12
     adc     rdx, 0
-    mov     [rdi - 8], r15      # dst[n-1]（最后有效 limb）
+    mov     [rdi - 8], r15         // dst[n-1]
     add     rax, r13
     adc     rdx, 0
-    # 丢弃 [rdi]、[rdi+8] 的进位（超出 n 个 limb）
+    // carry discarded
 
-    sub     QWORD PTR [rsp], 2  # 剩余列数 -= 2
-    lea     rcx, [rcx + 16]     # numb += 2
-    lea     rsi, [rsi - 16]     # numa -= 2（长度 L -= 2）
-    add     rbx, 2              # rbx = -(L-2)
+    sub     QWORD PTR [rsp], 2     // cols -= 2
+    lea     rcx, [rcx + 16]        // numb += 2
+    lea     rsi, [rsi - 16]        // numa -= 2, L -= 2
+    add     rbx, 2                 // rbx = -(L-2)
     jmp     .Louter2
 
-    # ==================== 尾部（剩余 1~3 列，单乘数）====================
+// ======================================
+// tail: single-multiplier columns
+// ======================================
 .Ltail:
-    pop     r8                  # 恢复剩余列数到 r8
-    pop     r15                 # 恢复 r15
-    # 以下为原单乘数外循环
+    pop     r8                     // remaining cols
+    pop     r15
 
-.Louter:
-    mov     r9, [rcx]           # r9 = numb[j]
-    mov     rax, [rsi + rbx*8]  # rax = numa[0]
-    mul     r9                  # rdx:rax = numa[0] * numb[j]
+.Louter:                           // dst += numa * numb[j] (low part)
+    mov     r9, [rcx]              // r9 = numb[j]
+    mov     rax, [rsi + rbx*8]     // rax = numa[0]
+    mul     r9
 
     test    bl, 1
     jnz     .La1_odd
 
 .La1_even:
-    mov     r10, rax            # r10 = prod_lo
-    mov     r11, rdx            # r11 = prod_hi
+    mov     r10, rax
+    mov     r11, rdx
     mov     rax, [rsi + rbx*8 + 8]
     test    bl, 2
     jnz     .La1_even_2mod4
 
-    lea     rbp, [rbx + 2]
+    lea     rbp, [rbx + 2]         // len mod 4 == 0
     jmp     .La1_l0
 
-.La1_even_2mod4:
+.La1_even_2mod4:                   // len mod 4 == 2
     lea     rbp, [rbx]
     jmp     .La1_l2
 
 .La1_odd:
-    mov     r11, rax            # r11 = prod_lo
-    mov     r10, rdx            # r10 = prod_hi
+    mov     r11, rax
+    mov     r10, rdx
     test    bl, 2
-    jz      .La1_odd_3mod4      # bit1=0 → len ≡ 3 mod 4
+    jz      .La1_odd_3mod4
 
-.La1_odd_1mod4:
+.La1_odd_1mod4:                    // len mod 4 == 1
     lea     rbp, [rbx + 3]
     test    rbp, rbp
-    js      .La1_l1             # rbp < 0 → 进入循环
-    add     r11, [rdi - 8]      # 累加 dst[n-1] 旧值
+    js      .La1_l1
+    add     r11, [rdi - 8]         // dst[n-1] += old
     adc     r10, 0
     mov     [rdi - 8], r11
     jmp     .Lnext
 
-.La1_odd_3mod4:
+.La1_odd_3mod4:                    // len mod 4 == 3
     lea     rbp, [rbx + 1]
     mov     rax, [rsi + rbx*8 + 8]
     jmp     .La1_l3
 
 .p2align 4
-.La1_tp:
+.La1_tp:                           // inner loop, 4 limbs
     mov     r10, rdx
     add     r11, rax
 .La1_l1:
@@ -432,17 +422,17 @@ ASM_GSYM(lmmp_mullo_basecase_):
 .La1_ed:
     add     r11, rax
     adc     rdx, 0
-    add     r11, [rdi - 8]      # 累加 dst[n-1] 旧值
+    add     r11, [rdi - 8]         // dst[n-1] += old
     adc     rdx, 0
-    mov     [rdi - 8], r11      # 写入 dst[n-1]
-    # 进位 rdx 丢弃
+    mov     [rdi - 8], r11
+    // carry discarded
 
 .Lnext:
     dec     r8
     jz      .Ldone
-    lea     rcx, [rcx + 8]      # numb++
-    inc     rbx                 # len-- (rbx = -(len))
-    sub     rsi, 8              # numa 有效段末尾前移
+    lea     rcx, [rcx + 8]         // numb++
+    inc     rbx                    // len--
+    sub     rsi, 8
     jmp     .Louter
 
 .Ldone:

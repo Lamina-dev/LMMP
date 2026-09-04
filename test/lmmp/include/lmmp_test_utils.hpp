@@ -289,17 +289,18 @@ struct BigInt {
 
         skip_adjust:
             // u[j..j+n] -= qhat * v
+            // 借位必须独立传播：若把 borrow 折进 lo128(t)（y = lo + borrow），
+            // 当 lo == 2^64-1 且 borrow == 1 时 y 回绕为 0，借位静默丢失。
             u64 borrow = 0;
             u64 carry = 0;
             for (size_t i = 0; i < n; ++i) {
                 u128 t = (u128)qhat * v.d[i] + carry;
                 carry = hi128(t);
                 u64 x = u.d[j + i];
-                u64 y = lo128(t) + borrow;
-                u64 z = x - y;
-                u64 new_borrow = (x < y) ? 1 : (z > x ? 1 : 0);
+                u64 y = lo128(t);
+                u64 z = x - y - borrow;
+                borrow = (x < y) | ((x == y) & borrow);
                 u.d[j + i] = z;
-                borrow = new_borrow;
             }
             {
                 u64 x = u.d[j + n];

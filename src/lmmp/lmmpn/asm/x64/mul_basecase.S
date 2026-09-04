@@ -1,33 +1,35 @@
-#
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-#
-# void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+//
+// void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+//
+//   Windows: dst=rcx, numa=rdx, na=r8, numb=r9, nb=[rsp+0x48]
+//   SysV:    dst=rdi, numa=rsi, na=rdx, numb=rcx, nb=r8
+//   cal: dst[0..na+nb) = numa*numb, mul_1/mul_2 seed then addmul_2
 
 #include "lmmp_asm.h"
 
 .text
 
 #ifdef LMMP_WINDOWS
-    # Windows: dst=rcx, numa=rdx, na=r8, numb=r9, nb=[rsp+0x48]
     #define P_DST rcx
     #define P_NUMA rdx
     #define P_NA r8
     #define P_NUMB r9
     #define P_NB QWORD PTR [rsp+0x48]
 #else
-    # Linux: dst=rdi, numa=rsi, na=rdx, numb=rcx, nb=r8
     #define P_DST rdi
     #define P_NUMA rsi
     #define P_NA rdx
@@ -75,82 +77,80 @@
     pop     r15
 .endm
 
-# ====================== .code ======================
+// ====================== .code ======================
 
 .text
 .globl ASM_GSYM(lmmp_mul_basecase_)
 .p2align 4
 
 ASM_GSYM(lmmp_mul_basecase_):
-    # 保存保留寄存器
     PUSH_ALL
 
-    # 初始化寄存器
 #ifdef LMMP_WINDOWS
-    mov     rdi, P_DST              # dst -> rdi
-    mov     rsi, P_NUMA             # numa -> rsi
-    mov     rdx, P_NA               # na -> rdx
-    mov     rcx, P_NUMB             # numb -> rcx
-    mov     r8, P_NB                # nb -> r8
-#else
-    # Linux 下参数已就位
+    mov     rdi, P_DST              // dst -> rdi
+    mov     rsi, P_NUMA             // numa -> rsi
+    mov     rdx, P_NA               // na -> rdx
+    mov     rcx, P_NUMB             // numb -> rcx
+    mov     r8, P_NB                // nb -> r8
 #endif
 
-    mov     rbx, rdx                # rbx = na
-    neg     rbx                     # rbx = -na
+    mov     rbx, rdx                // rbx = na
+    neg     rbx                     // rbx = -na
 
-    mov     rax, [rsi]              # rax = numa[0]
-    lea     rsi, [rsi + rdx*8]      # rsi = numa + na
-    lea     rdi, [rdi + rdx*8]      # rdi = dst + na
+    mov     rax, [rsi]              // rax = numa[0]
+    lea     rsi, [rsi + rdx*8]      // rsi = numa + na
+    lea     rdi, [rdi + rdx*8]      // rdi = dst + na
 
-    mov     r9, [rcx]               # r9 = numb[0]
-    mul     r9                      # rdx:rax = numa[0] * numb[0]
+    mov     r9, [rcx]               // r9 = numb[0]
+    mul     r9                      // rdx:rax = numa[0] * numb[0]
 
-    test    r8b, 1                  # 检查 nb 奇偶性
+    test    r8b, 1                  // nb parity
     jz      .Ldo_mul_2
 
-# ==================== 分支1：nb 为奇数 ====================
+// ======================================
+// nb odd: dst = numa * numb[0] (mul_1)
+// ======================================
 .Ldo_mul_1:
-    test    bl, 1
+    test    bl, 1                   // na mod 4
     jnz     .Lm1x1
 
-.Lm1x0:
+.Lm1x0:                             // na mod 4 in {0,2}
     mov     r10, rax
     mov     r11, rdx
     mov     rax, [rsi + rbx*8 + 8]
     test    bl, 2
     jnz     .Lm110
 
-.Lm100:
+.Lm100:                             // na mod 4 == 0
     lea     rbp, [rbx + 2]
     jmp     .Lm1l0
 
-.Lm110:
+.Lm110:                             // na mod 4 == 2
     lea     rbp, [rbx]
     jmp     .Lm1l2
 
-.Lm1x1:
+.Lm1x1:                             // na mod 4 in {1,3}
     mov     r11, rax
     mov     r10, rdx
     test    bl, 2
     jz      .Lm111
 
-.Lm101:
+.Lm101:                             // na mod 4 == 3
     lea     rbp, [rbx + 3]
     test    rbp, rbp
     js      .Lm1l1
-    mov     [rdi - 8], rax
+    mov     [rdi - 8], rax          // na == 1, ret
     mov     [rdi], rdx
     POP_ALL
     ret
 
-.Lm111:
+.Lm111:                             // na mod 4 == 1
     lea     rbp, [rbx + 1]
     mov     rax, [rsi + rbx*8 + 8]
     jmp     .Lm1l3
 
 .p2align 4
-.Lm1tp:
+.Lm1tp:                             // mul_1 loop, 4 limbs
     mov     r10, rdx
     add     r11, rax
 
@@ -186,36 +186,38 @@ ASM_GSYM(lmmp_mul_basecase_):
     add     rbp, 4
     jnc     .Lm1tp
 
-.Lm1ed:
+.Lm1ed:                             // write dst[na-1], dst[na]
     add     r11, rax
     adc     rdx, 0
     mov     [rdi - 8], r11
     mov     [rdi], rdx
 
-    dec     r8                      # nb--
+    dec     r8                      // nb--
     jz      .Lret2
 
-    lea     rcx, [rcx + 8]          # numb++
-    lea     rdi, [rdi + 8]          # dst++
+    lea     rcx, [rcx + 8]          // numb++
+    lea     rdi, [rdi + 8]          // dst++
     PUSH_EXTRA
     jmp     .Ldo_addmul
 
-# ==================== 分支2：nb 为偶数 ====================
+// ======================================
+// nb even: dst = numa * numb[0..2) (mul_2)
+// ======================================
 .Ldo_mul_2:
     PUSH_EXTRA
-    mov     r14, [rcx + 8]          # r14 = numb[1]
+    mov     r14, [rcx + 8]          // r14 = numb[1]
 
-    test    bl, 1
+    test    bl, 1                   // na parity
     jnz     .Lm2b1
 
-.Lm2b0:
+.Lm2b0:                             // na even
     lea     rbp, [rbx]
     xor     r10, r10
     mov     r12, rax
     mov     r11, rdx
     jmp     .Lm2l0
 
-.Lm2b1:
+.Lm2b1:                             // na odd
     lea     rbp, [rbx + 1]
     xor     r11, r11
     xor     r12, r12
@@ -224,7 +226,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     jmp     .Lm2l1
 
 .p2align 4
-.Lm2tp:
+.Lm2tp:                             // mul_2 loop, 2 limbs
     mul     r9
     add     r10, rax
     mov     r13, rdx
@@ -258,7 +260,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     add     rbp, 2
     jnc     .Lm2tp
 
-.Lm2ed:
+.Lm2ed:                             // write dst[na-1..na+1]
     mul     r9
     add     r10, rax
     mov     r13, rdx
@@ -275,21 +277,23 @@ ASM_GSYM(lmmp_mul_basecase_):
     adc     rdx, 0
     mov     [rdi + 8], rdx
 
-    sub     r8, 2                   # nb -= 2
+    sub     r8, 2                   // nb -= 2
     jz      .Lret5
-    lea     rcx, [rcx + 16]         # numb += 2
-    lea     rdi, [rdi + 16]         # dst += 2
+    lea     rcx, [rcx + 16]         // numb += 2
+    lea     rdi, [rdi + 16]         // dst += 2
 
-# ==================== 累加乘法核心循环 ====================
+// ======================================
+// addmul_2 outer loop
+// ======================================
 .Ldo_addmul:
     PUSH_FULL
 
-.Louter:
-    mov     r9, [rcx]
-    mov     r8, [rcx + 8]
+.Louter:                            // dst += numa * (numb[j], numb[j+1])
+    mov     r9, [rcx]               // b0 = numb[j]
+    mov     r8, [rcx + 8]           // b1 = numb[j+1]
     mov     rax, [rsi + rbx*8]
-    mul     r9
-    test    bl, 1
+    mul     r9                      // seed numa[0]*b0
+    test    bl, 1                   // na mod 4
     jnz     .La1x1
 
 .La1x0:
@@ -333,7 +337,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     jmp     .Llo3
 
 .p2align 4
-.Ltop:
+.Ltop:                              // inner loop, 4 limbs
     mov     r14, [rdi + rbp*8 - 16]
     mul     r8
     mov     r10, rdx
@@ -407,7 +411,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     add     rbp, 4
     jnc     .Ltop
 
-.Lend:
+.Lend:                              // write dst[na-1..na+1]
     mul     r8
     add     r15, r11
     adc     r13, 0
@@ -419,9 +423,9 @@ ASM_GSYM(lmmp_mul_basecase_):
     mov     [rdi], rax
     mov     [rdi + 8], rdx
 
-    sub     QWORD PTR [rsp], 2
-    lea     rcx, [rcx + 16]
-    lea     rdi, [rdi + 16]
+    sub     QWORD PTR [rsp], 2      // pairs -= 2
+    lea     rcx, [rcx + 16]         // numb += 2
+    lea     rdi, [rdi + 16]         // dst += 2
     jnz     .Louter
 
     POP_FULL
