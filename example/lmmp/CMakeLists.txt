@@ -14,7 +14,8 @@
 
 
 # 收集所有示例文件
-file(GLOB EXAMPLE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/example*.cpp)
+file(GLOB EXAMPLE_FILES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/example*.cpp)
 
 # 遍历生成示例可执行文件
 foreach(EXAMPLE_FILE ${EXAMPLE_FILES})

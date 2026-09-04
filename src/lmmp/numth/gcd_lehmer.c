@@ -261,9 +261,11 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
     while (bzero == false) {
         if (an > 1 && bn == 1) {
             dst[0] = lmmp_gcd_1_(a, an, b[0]);
+            TEMP_B_FREE;
             return 1;
         } else if (an == 1 && bn == 1) {
             dst[0] = lmmp_gcd_11_(a[0], b[0]);
+            TEMP_B_FREE;
             return 1;
         }
         // a > b
