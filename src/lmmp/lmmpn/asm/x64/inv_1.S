@@ -1,21 +1,26 @@
-#
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-#
-# mp_limb_t lmmp_inv_1_(mp_limb_t x);
-#
-# mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+//
+// mp_limb_t lmmp_inv_1_(mp_limb_t x);
+//
+// mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+//
+//   Windows: x=rcx (xh=rcx, xl=rdx)
+//   SysV:    x=rdi (xh=rdi, xl=rsi)
+//   ret rax = inv: inv_1_ returns (B^2-1)/x - B, inv_2_1_ returns (B^3-1)/x - B (B = 2^64)
+//   cal: v = v3 - ((v3*x + x) >> 64), Newton from 9-bit table approx
 
 #include "lmmp_asm.h"
 
@@ -26,7 +31,7 @@
 
 .p2align 4
 ASM_GSYM(lmmp_inv_1_table_):
-    # for(i=256;i<512;++i){round(0x80000/(i+1/2))}
+    // for(i=256;i<512;++i){round(0x80000/(i+1/2))}
     .word 2044,2036,2028,2020,2013,2005,1997,1990,1982,1975,1967,1960,1953,1945,1938,1931
     .word 1924,1917,1910,1903,1896,1889,1883,1876,1869,1862,1856,1849,1843,1836,1830,1824
     .word 1817,1811,1805,1799,1792,1786,1780,1774,1768,1762,1756,1751,1745,1739,1733,1727
@@ -44,11 +49,9 @@ ASM_GSYM(lmmp_inv_1_table_):
     .word 1091,1089,1087,1084,1082,1080,1078,1075,1073,1071,1069,1067,1065,1062,1060,1058
     .word 1056,1054,1052,1050,1048,1045,1043,1041,1039,1037,1035,1033,1031,1029,1027,1025
 
-# ----------------------------------------------------------------------
-# mp_limb_t lmmp_inv_1_(mp_limb_t x)
-# 参数: x (64 位) 在 rcx (Windows) 或 rdi (Linux)
-# 返回: 结果在 rax
-# ----------------------------------------------------------------------
+// ======================================
+// lmmp_inv_1_
+// ======================================
 .p2align 4
 ASM_GSYM(lmmp_inv_1_):
 #ifdef LMMP_WINDOWS
@@ -62,7 +65,7 @@ ASM_GSYM(lmmp_inv_1_):
     lea     rcx, [rip + lmmp_inv_1_table_]
     sub     rcx, 512
     movzx   rcx, WORD PTR [rcx + rax*2]
-    # rcx = v0(10,9) = round(0x80000/(1/2+(x>>55)))
+    // rcx = v0 = round(0x80000/(1/2+(x>>55)))
 
     mov     r8, r9
     mov     rax, rcx
@@ -72,7 +75,7 @@ ASM_GSYM(lmmp_inv_1_):
     shr     rcx, 41
     shl     rax, 10
     sub     rax, rcx
-    # rax = v1(19,17) = (v0<<10) - (v0*v0*(x>>24)>>41)
+    // rax = v1 = (v0<<10) - (v0*v0*(x>>24)>>41)
 
     mov     rcx, 0x800000000000000
     imul    r8, rax
@@ -81,7 +84,7 @@ ASM_GSYM(lmmp_inv_1_):
     shl     rax, 15
     sar     rcx, 44
     add     rcx, rax
-    # rcx = v2(34,33) = (v1<<15) + (v1*(2^59-v1*(x>>24))>>44)
+    // rcx = v2 = (v1<<15) + (v1*(2^59-v1*(x>>24))>>44)
 
     mov     rax, r9
     mul     rcx
@@ -91,9 +94,10 @@ ASM_GSYM(lmmp_inv_1_):
     shl     rcx, 30
     sar     rdx, 2
     add     rcx, rdx
-    # rcx = v3(64,64) = (v2<<30) + (v2*(2^96-(v2*x>>2)-1)>>66)
-    # 严格证明：-9/8 < v3+2^64 - 2^128/x < 0
+    // rcx = v3 = (v2<<30) + (v2*(2^96-(v2*x>>2)-1)>>66)
+    // bound: -9/8 < v3+2^64 - 2^128/x < 0
 
+    // v = v3 - ((v3*x + x) >> 64)
     mov     rax, r9
     mul     rcx
     add     rax, r9
@@ -102,31 +106,27 @@ ASM_GSYM(lmmp_inv_1_):
     sub     rax, rdx
     ret
 
-# ----------------------------------------------------------------------
-# mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl)
-# 参数: xh (高 64 位) 在 rcx (Windows) 或 rdi (Linux)
-#       xl (低 64 位) 在 rdx (Windows) 或 rsi (Linux)
-# 返回: 结果在 rax
-# ----------------------------------------------------------------------
+// ======================================
+// lmmp_inv_2_1_
+// ======================================
 .p2align 4
 ASM_GSYM(lmmp_inv_2_1_):
 #ifdef LMMP_WINDOWS
-    # Windows : xh = rcx, xl = rdx
-    mov     r11, rdx                # 保存 xl
-    mov     r10, rcx                # 保存 xh
-    call    lmmp_inv_1_             # 参数在 rcx (xh)
+    mov     r11, rdx                // save xl
+    mov     r10, rcx                // save xh
+    call    lmmp_inv_1_
     mov     r8, rax
-    mov     r9, r10                 # r9 = xh
-    imul    r9, rax                 # r9 = xh * inv (低 64 位)
+    mov     r9, r10                 // r9 = xh
+    imul    r9, rax                 // r9 = xh*inv
     xor     rcx, rcx
-    mul     r11                     # rdx:rax = xl * inv
-    add     r9, r11                 # r9 = xh*inv + xl (低 64 位)
-    adc     rcx, -1                 # rcx:r9 = 128 位结果
+    mul     r11                     // rdx:rax = xl*inv
+    add     r9, r11                 // r9 = xh*inv + xl
+    adc     rcx, -1
     add     r9, rdx
     adc     rcx, 0
     js      .L2f_win
 
-.L1b_win:
+.L1b_win:                           // v -= 1, r -= b
     dec     r8
     sub     rax, r11
     sbb     r9, r10
@@ -137,20 +137,19 @@ ASM_GSYM(lmmp_inv_2_1_):
     mov     rax, r8
     ret
 #else
-    # Linux 调用约定: xh = rdi, xl = rsi
-    call    lmmp_inv_1_             # 参数在 rdi (xh)
+    call    lmmp_inv_1_
     mov     r8, rax
-    mov     r9, rdi                 # r9 = xh
-    imul    r9, rax                 # r9 = xh * inv
+    mov     r9, rdi                 // r9 = xh
+    imul    r9, rax                 // r9 = xh*inv
     xor     rcx, rcx
-    mul     rsi                     # rdx:rax = xl * inv
-    add     r9, rsi                 # r9 = xh*inv + xl
+    mul     rsi                     // rdx:rax = xl*inv
+    add     r9, rsi                 // r9 = xh*inv + xl
     adc     rcx, -1
     add     r9, rdx
     adc     rcx, 0
     js      .L2f_lin
 
-.L1b_lin:
+.L1b_lin:                           // v -= 1, r -= b
     dec     r8
     sub     rax, rsi
     sbb     r9, rdi

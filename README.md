@@ -13,7 +13,7 @@ LMMP 使用 CMake 构建，零外部依赖。当前仅支持 GNU/Clang 风格工
 + Linux：GCC / Clang
 + macOS：Clang / GCC
 
-动态库 LmmpCore 由纯 C 编写；汇编为可选优化，使用 GAS/LLVM 兼容的 `.S` 语法（不再使用 NASM）。显式开启：
+动态库 liblmmp.so/liblmmp.dylib/lmmp.dll 由纯 C 编写；汇编为可选优化，使用 GAS/LLVM 兼容的 `.S` 语法（不再使用 NASM）。显式开启：
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLMMP_ASM=ARM64
@@ -109,7 +109,7 @@ LMMP/                       # 项目根目录
 │       ├── numth/          # 数论计算子模块实现文件
 │       ├── secret/         # 密码学子模块实现文件
 │       ├── mprand/         # 随机数生成子模块实现文件
-│       └── CMakeLists.txt  # 源码目录CMake（编译LmmpCore）
+│       └── CMakeLists.txt  # 源码目录CMake
 ├── benchmark/              # 基准测试根目录
 │   └── lmmp/               # LMMP项目基准测试目录
 │       ├── CMakeLists.txt  # 基准测试CMake配置

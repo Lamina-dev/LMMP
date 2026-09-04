@@ -1,18 +1,22 @@
-#  Copyright (C) 2026 HJimmyK(Jericho Knox)
-#
-#  This file is part of LMMP.
-#
-#  LMMP is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License (LGPL) as published
-#  by the Free Software Foundation; either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed WITHOUT ANY WARRANTY.
-#
-#  See <https://www.gnu.org/licenses/>.
+//  Copyright (C) 2026 HJimmyK(Jericho Knox)
+//
+//  This file is part of LMMP.
+//
+//  LMMP is free software: you can redistribute it and/or modify it under
+//  the terms of the GNU Lesser General Public License (LGPL) as published
+//  by the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed WITHOUT ANY WARRANTY.
+//
+//  See <https://www.gnu.org/licenses/>.
 
-# mp_limb_t lmmp_inv_1_(mp_limb_t x);
-# mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+// mp_limb_t lmmp_inv_1_(mp_limb_t x);
+// mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+//
+//   x=x0, xh=x0, xl=x1
+//   ret x0 = (B^2-1)/x - B, requires MSB(x)=1
+//   cal: table + 3 Newton steps, v = v3 - ((v3*x + x) >> 64)
 
 #include "lmmp_asm.h"
 
@@ -22,38 +26,39 @@
 .p2align 2
 
 ASM_GSYM(lmmp_inv_1_):
-    lsr     x2, x0, #54
+    lsr     x2, x0, #54             // bits 55..62 of x
     adr     x1, Linv1_table
-    and     x2, x2, #0x1fe
-    ldrh    w3, [x1, x2]
+    and     x2, x2, #0x1fe          // (x>>55)*2, halfword index
+    ldrh    w3, [x1, x2]            // v0 = table, 10 bits
     lsr     x4, x0, #24
-    add     x4, x4, #1
-    ubfiz   x2, x3, #11, #16
-    umull   x3, w3, w3
-    mul     x3, x3, x4
+    add     x4, x4, #1              // t = (x>>24) + 1
+    ubfiz   x2, x3, #11, #16        // v0 << 11
+    umull   x3, w3, w3              // v0^2
+    mul     x3, x3, x4              // v0^2 * t
     sub     x2, x2, #1
-    sub     x2, x2, x3, lsr #40
-    lsl     x3, x2, #60
-    mul     x1, x2, x2
-    msub    x1, x1, x4, x3
+    sub     x2, x2, x3, lsr #40     // v1, ~30 bits
+    lsl     x3, x2, #60             // v1 << 60
+    mul     x1, x2, x2              // v1^2
+    msub    x1, x1, x4, x3          // (v1<<60) - v1^2*t
     lsl     x2, x2, #13
-    add     x1, x2, x1, lsr #47
-    and     x2, x0, #1
+    add     x1, x2, x1, lsr #47     // v2, ~61 bits
+    and     x2, x0, #1              // x2 = x & 1
     neg     x3, x2
-    and     x3, x3, x1, lsr #1
-    add     x2, x2, x0, lsr #1
-    msub    x2, x1, x2, x3
-    umulh   x2, x2, x1
+    and     x3, x3, x1, lsr #1      // odd rounding: (x&1)*(v2>>1)
+    add     x2, x2, x0, lsr #1      // x2 = ceil(x/2)
+    msub    x2, x1, x2, x3          // t = v2*ceil(x/2) - ...
+    umulh   x2, x2, x1              // hi(t*v2)
     lsl     x1, x1, #31
-    add     x1, x1, x2, lsr #1
+    add     x1, x1, x2, lsr #1      // v3, 64 bits
     mul     x3, x1, x0
-    umulh   x2, x1, x0
+    umulh   x2, x1, x0              // hi(v3*x)
     adds    x4, x3, x0
-    adc     x0, x2, x0
-    sub     x0, x1, x0
+    adc     x0, x2, x0              // hi(v3*x + x)
+    sub     x0, x1, x0              // v = v3 - ((v3*x + x) >> 64)
     ret
 .p2align 1
 
+// v0 = round(0x80000/(i+1/2)), i = 256..511
 Linv1_table:
     .hword 0x07fd, 0x07f5, 0x07ed, 0x07e5, 0x07dd, 0x07d5, 0x07ce, 0x07c6
     .hword 0x07bf, 0x07b7, 0x07b0, 0x07a8, 0x07a1, 0x079a, 0x0792, 0x078b
@@ -88,44 +93,51 @@ Linv1_table:
     .hword 0x041f, 0x041d, 0x041b, 0x0419, 0x0417, 0x0414, 0x0412, 0x0410
     .hword 0x040e, 0x040c, 0x040a, 0x0408, 0x0406, 0x0404, 0x0402, 0x0400
 
+// ----------------------------------------------------------------------
+// mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
+//
+//   xh=x0, xl=x1
+//   ret x0 = (B^3-1)/(xh*B+xl) - B
+//   cal: v = inv_1_(xh), fix by xl
+// ----------------------------------------------------------------------
 .globl ASM_GSYM(lmmp_inv_2_1_)
 .p2align 2
 
 ASM_GSYM(lmmp_inv_2_1_):
     stp     x29, x30, [sp, #-32]!
     stp     x19, x20, [sp, #16]
-    mov     x19, x0
-    mov     x20, x1
-    bl      ASM_GSYM(lmmp_inv_1_)
+    mov     x19, x0                 // x19 = xh
+    mov     x20, x1                 // x20 = xl
+    bl      ASM_GSYM(lmmp_inv_1_)   // x0 = v = inv(xh) - B
     mul     x1, x0, x19
+    mvn     x1, x1                  // ~lo(v*xh)
+    cbz     x20, Lv21_done          // xl == 0, no fix
     mvn     x1, x1
-    cbz     x20, Lv21_done
-    mvn     x1, x1
-    adds    x1, x1, x20
+    adds    x1, x1, x20             // lo(v*xh) + xl
     b.cc    Lv21_no_decr1
-    sub     x0, x0, #1
+    sub     x0, x0, #1              // overflow: v--
     cmp     x1, x19
     b.lo    Lv21_no_sub1
-    sub     x0, x0, #1
+    sub     x0, x0, #1              // >= xh: v--
     subs    x1, x1, x19
 
 Lv21_no_sub1:
-    subs    x1, x1, x19
+    subs    x1, x1, x19             // -= xh
 
 Lv21_no_decr1:
-    mul     x2, x20, x0
-    umulh   x3, x20, x0
-    adds    x1, x1, x3
+    mul     x2, x20, x0             // lo(xl*v)
+    umulh   x3, x20, x0             // hi(xl*v)
+    adds    x1, x1, x3              // mid += hi(xl*v)
     b.cc    Lv21_no_decr2
-    sub     x0, x0, #1
+    sub     x0, x0, #1              // carry: v--
     cmp     x1, x19
     b.hi    Lv21_cond_true
     b.lo    Lv21_cond_false
-    cmp     x2, x20
+    cmp     x2, x20                 // equal mid: cmp low
     b.ls    Lv21_cond_false
 
 Lv21_cond_true:
-    sub     x0, x0, #1
+    sub     x0, x0, #1              // product too big: v--
 
 Lv21_cond_false:
 
