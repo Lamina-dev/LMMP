@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -68,8 +68,8 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
         lmmp_sqrt_divide_(Ahr, rk, hi, tp, 1);
 
         /*
-        A / (2*x) = A / 2 / x
-        A % (2*x) = 2 * (A / 2 % x) + A % 2
+            A / (2*x) = A / 2 / x
+            A % (2*x) = 2 * (A / 2 % x) + A % 2
         */
         mp_limb_t r = lmmp_shr_(rk - lo, rk - lo, ns + 1, 1);
         mp_limb_t qh = lmmp_div_s_(Alr, rk - lo, ns + 1, Ahr, hi);
@@ -108,15 +108,55 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
             // - B^(2*lo)
             r -= lmmp_sub_1_(R + 2 * lo, R + 2 * lo, hi + 1 - lo, 1);
             lmmp_debug_assert(r == 0);
+        } else if (calr == 0) {
+            /*
+                calr=0 时无需维护余数，计算 Alr^2 再相减仅仅是为了判定
+                Alr 是否高估 1（即 R 与 Alr^2 的大小），此判定无需完整平方：
+
+                    Alr = H*B^(lo-2) + L,  H = [Alr+lo-2,2], L < B^(lo-2)
+                    Alr^2 = H^2*B^(2*lo-4) + E
+                    E = 2*H*L*B^(lo-2) + L^2 < 3*B^(2*lo-2)
+
+                即 Alr^2 的最高两个 limb 必落在 [H^2 的最高两个 limb, +3] 内，
+                于是仅需比较 R 与 H^2 的最高两个 limb（注意 adj=0 时 Alr < B^lo）：
+                    R 高于 B^(2*lo) 的 limb 非零                   =>  R > Alr^2
+                    [R] > [H^2]+4 （最高两 limb 意义下）            =>  R > Alr^2
+                    [R] < [H^2]     （最高两 limb 意义下）          =>  R < Alr^2
+                其余情况（最高两 limb 落入宽度 4 的窄带，如完全平方数
+                等构造输入）回退到下方的精确路径，保证正确性。
+            */
+            if (lo >= 4) {
+                mp_size_t i = ns;
+                while (i >= 2 * lo && R[i] == 0) --i;
+                if (i >= 2 * lo) {
+                    // R >= B^(2*lo) > Alr^2，Alr 未高估
+                    lmmp_copy(dst, Alr, lo);
+                    return;
+                }
+                lmmp_sqr_basecase_(Alr2, Alr + lo - 2, 2);  // [Alr2,4] = H^2
+                mp_limb_t h2h = Alr2[3], h2l = Alr2[2];     // H^2 的最高两 limb
+                mp_limb_t rh = R[2 * lo - 1], rl = R[2 * lo - 2];
+                mp_limb_t wl = h2l + 4;                     // [wh,wl] = [H^2]+4
+                mp_limb_t wh = h2h + (wl < 4);
+                if (rh > wh || (rh == wh && rl >= wl)) {
+                    lmmp_copy(dst, Alr, lo);
+                    return;
+                }
+                if (rh < h2h || (rh == h2h && rl < h2l)) {
+                    // R < Alr^2，Alr 高估 1
+                    lmmp_dec(Alr);
+                    lmmp_copy(dst, Alr, lo);
+                    return;
+                }
+            }
+            // 窄带或小尺寸回退：精确判定
+            lmmp_sqr_(Alr2, Alr, lo);
+            if (lmmp_sub_(R, R, ns + 1, Alr2, 2 * lo))
+                lmmp_dec(Alr);
+            lmmp_copy(dst, Alr, lo);
         } else {
             lmmp_sqr_(Alr2, Alr, lo);
             mp_limb_t b = lmmp_sub_(R, R, ns + 1, Alr2, 2 * lo);
-            if (calr == 0) {
-                if (b > 0)
-                    lmmp_dec(Alr);
-                lmmp_copy(dst, Alr, lo);
-                return;
-            }
             if (b > 0) {
                 // + 2*Ahr*B^lo
                 mp_limb_t cy = lmmp_addshl1_n_(R + lo, R + lo, Ahr, hi);

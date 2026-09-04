@@ -855,8 +855,8 @@ LMMP_API void lmmp_invsqrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, m
 
 /**
  * @brief 计算近似平方根 [dsts,nf+na/2+1]=[floor|round](sqrt([numa,na]*B^(2*nf)))
- * @param dsts 目标数组
- * @param numa 输入数组
+ * @param dsts 目标数组（长度为 nf+na/2+1 个limb）
+ * @param numa 输入数组（长度为 na 个limb）
  * @param na numa数组的 limb 长度
  * @param nf 精度因子
  * @warning na>0, nf>=2, dsts!=NULL, numa!=NULL, eqsep(dsts,numa)
@@ -865,9 +865,9 @@ LMMP_API void lmmp_sqrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_si
 
 /**
  * @brief 计算 [numa,na] * B^(2*nf) 的平方根和余数
- * @param dsts 平方根结果输出指针
+ * @param dsts 平方根结果输出指针（长度为 nf+na/2+1 个limb）
  * @param dstr 余数结果输出指针（NULL表示不计算余数）
- * @param numa 源操作数指针
+ * @param numa 源操作数指针（长度为 na 个limb）
  * @param na 操作数的 limb 长度
  * @param nf 精度因子
  * @note if (dstr != NULL) {
