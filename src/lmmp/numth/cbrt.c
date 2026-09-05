@@ -216,7 +216,7 @@ static void lmmp_cbrt6_fast_(mp_ptr restrict dst, mp_ptr restrict numa, mp_ptr r
     lmmp_cube_3_(tp, dst[1]);
     lmmp_sub_n_(numa + 3, numa + 3, tp, 3);  // rk = Ah - Ahr^3
 
-    lmmp_sqr_basecase_(tp + 3, dst + 1, 1);  // Ahr2 = [tp+3,2]
+    lmmp_mullh_((dst + 1)[0], (dst + 1)[0], tp + 3);  // Ahr2 = [tp+3,2]
     /*
         A / (3*x^2) = A / 3 / x^2
         A % (3*x^2) = 3 * (A / 3 % x^2) + A % 3
@@ -441,6 +441,7 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
                 mp_limb_t tm = qm + c1, c2 = tm < c1;
                 mp_limb_t th = qh2 + c2;
                 if (rh > th || (rh == th && (rm > tm || (rm == tm && rl >= tl)))) {
+                    // [R] > [3*X*H^2]+12
                     lmmp_copy(dst, Alr, lo);
                     return;
                 }

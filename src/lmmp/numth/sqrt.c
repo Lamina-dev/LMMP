@@ -137,8 +137,11 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
                 mp_limb_t h2h = Alr2[3], h2l = Alr2[2];     // H^2 的最高两 limb
                 mp_limb_t rh = R[2 * lo - 1], rl = R[2 * lo - 2];
                 mp_limb_t wl = h2l + 4;                     // [wh,wl] = [H^2]+4
-                mp_limb_t wh = h2h + (wl < 4);
-                if (rh > wh || (rh == wh && rl >= wl)) {
+                mp_limb_t carry = wl < 4;
+                mp_limb_t wh = h2h + carry;
+                carry = wh < carry;
+                if ((!carry) && (rh > wh || (rh == wh && rl >= wl))) {
+                    // [R] > [H^2]+4
                     lmmp_copy(dst, Alr, lo);
                     return;
                 }
