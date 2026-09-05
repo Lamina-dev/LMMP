@@ -27,7 +27,9 @@ n/2 limb，同时累积 2x2 变换矩阵 M 满足
 
 其中 (a'; b') 为归约后的数对。矩阵元素均非负，det(M) = ±1。由于 M 幺模，
 gcd(a, b) = gcd(a', b') 严格保持。反复调用 hgcd 直至规模降到阈值以下，再用
-Lehmer 算法收尾，即得完整 gcd（见 lmmp_gcd_hgcd_）。
+Lehmer 算法收尾，即得完整 gcd（见 lmmp_gcd_hgcd_）。lmmp_gcd_hgcd_ 对不平衡
+输入（an >= 2*bn，此时 hgcd 阶段 A 的递归失效）先做取模预归约拉近两数长度，
+详见其实现注。
 
 二、单步步进（lmmp_hgcd_step_）
 
@@ -442,7 +444,7 @@ static void lmmp_hgcd_matrix_mul_u_(
  * @brief 真除法步进的矩阵累积
  * @param M 变换矩阵：输入读各元素 [0,M->n[i][j])，输出写更新列各元素
  *          与长度（另一列仅按 col 语义搬移/保持）
- * @param sc 临时空间（2*(qn+max(M->n[i][j])+1) limbs）
+ * @param sc 临时空间（qn+max(M->n[i][j])+1 个limb）
  * @param detsign det(M) 的符号，输入输出同源（col=0 时乘 det(F)=-1 变号）
  * @param q 商数组（长度为 qn 个limb，q[qn-1]>0）
  * @param qn 商的 limb 长度，qn>0
@@ -536,15 +538,13 @@ static void lmmp_hgcd_matrix_update_q_(
 
 /**
  * @brief 将连续缓冲初始化为单位矩阵
- * @param M 变换矩阵（写入 M->m 指针、M->n=1、M->alloc）
- * @param buf 连续缓冲（写入全部 4*alloc 个limb，先清零再置对角元为 1）
+ * @param M 变换矩阵（写入 M->m 指针、M->n、M->alloc，并置对角元为 1）
+ * @param buf 连续缓冲
  * @param alloc 每元素容量（limb）
  * @warning M!=NULL, buf!=NULL, alloc>0
  */
 static void lmmp_hgcd_matrix_init_buf_(lmmp_hgcd_matrix_t* M, mp_ptr buf, mp_size_t alloc) {
     lmmp_debug_assert(M != NULL && buf != NULL && alloc > 0);
-    /* 初始清零仅为缓冲卫生（一次性）；运行期以长度字段为准，无零填充不变量 */
-    lmmp_zero(buf, 4 * alloc);
     M->m[0][0] = buf;
     M->m[0][1] = buf + alloc;
     M->m[1][0] = buf + 2 * alloc;
@@ -571,12 +571,11 @@ static void lmmp_hgcd_matrix_init_buf_(lmmp_hgcd_matrix_t* M, mp_ptr buf, mp_siz
  *       lmmp_mat22_t 公共前缀同构（m[2][2]+n[2][2]），指针强转零开销
  */
 static void lmmp_hgcd_matrix_mul_(lmmp_hgcd_matrix_t* M, const lmmp_hgcd_matrix_t* M1, lmmp_hgcd_scratch_t* sc) {
-    mp_size_t mlen = lmmp_hgcd_matrix_maxlen_(M);
-    mp_size_t m1len = lmmp_hgcd_matrix_maxlen_(M1);
-    if (M->n[0][0] == 1 && M->m[0][0][0] == 1 && M->n[1][1] == 1 && M->m[1][1][0] == 1 &&
-        M->n[0][1] == 0 && M->n[1][0] == 0) {
+    if (M->n[0][0] == 1 && M->m[0][0][0] == 1
+     && M->n[1][1] == 1 && M->m[1][1][0] == 1
+     && M->n[0][1] == 0 && M->n[1][0] == 0) {
         /* M 为单位阵：M*M1 = M1，按各元素真实长度整段拷贝 */
-        lmmp_debug_assert(m1len <= M->alloc);
+        lmmp_debug_assert(lmmp_hgcd_matrix_maxlen_(M1) <= M->alloc);
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 2; ++j) {
                 lmmp_copy(M->m[i][j], M1->m[i][j], M1->n[i][j]);
@@ -586,13 +585,10 @@ static void lmmp_hgcd_matrix_mul_(lmmp_hgcd_matrix_t* M, const lmmp_hgcd_matrix_
         return;
     }
 
-    lmmp_debug_assert(mlen + m1len + 4 <= M->alloc);
-    mp_size_t mark = sc->used;
     mp_size_t mx = lmmp_hgcd_matrix_maxlen_(M);
     mp_size_t mx1 = lmmp_hgcd_matrix_maxlen_(M1);
-    if (mx1 > mx) {
-        mx = mx1;
-    }
+    lmmp_debug_assert(mx + mx1 + 4 <= M->alloc);
+    mp_size_t mark = sc->used;
     mp_ptr tp = lmmp_hgcd_salloc_(sc, 8 * (mx + mx1) + 16);
     lmmp_mat22_mul_((lmmp_mat22_t*)M, (const lmmp_mat22_t*)M, (const lmmp_mat22_t*)M1, tp);
     sc->used = mark;
@@ -826,8 +822,8 @@ static mp_size_t lmmp_hgcd_step_(
             lmmp_copy(bp, t3, bn);
             lmmp_zero(bp + bn, nn - bn);
         } else {
+            /* M <- M*(U*P)：参数即 U*P 的元素，mul_u 内部 det 计算已正确 */
             lmmp_hgcd_matrix_mul_u_(M, sc, detsign, u01, u00, u11, u10);
-            /* 参数即 U*P 元素，mul_u 内部 det 计算已正确 */ /* M <- M*(U*P) */
             lmmp_copy(ap, t3, bn);
             lmmp_zero(ap + bn, nn - bn);
             lmmp_copy(bp, t0, an);
@@ -841,8 +837,8 @@ static mp_size_t lmmp_hgcd_step_(
     除法回退（带下限）：先试全除 a = q*b + r；
     若 r 将跌破下限，改用部分除法：Q = (a - B^(fl-1)) div b，r' = a - Q*b >= B^(fl-1)
     */
-    /* 数对为零填充公共长度表示，除数真实长度显式信息不可得，须扫描
-       （下限不变量保证 nb >= fl，扫描量有界；此回退路径罕见） */
+    /* 数对为零填充公共长度表示，除数真实长度显式信息不可得，须扫描（首步
+       进时 b 可任意小、不变量未建立，扫描量 O(n)，较除法本身可忽略） */
     mp_size_t nb = lmmp_hgcd_norm_(bp, n);
     mp_size_t mark = sc->used;
     mp_ptr q = lmmp_hgcd_salloc_(sc, n + 2);
@@ -920,8 +916,15 @@ static mp_size_t lmmp_hgcd_step_(
 #define HGCD_MODMUL_THRESHOLD 2500
 
 /**
- * @brief 将 [src,sn] 折叠为模 B^rn-1 的表示：写入 [dst,rn)。
-*/
+ * @brief 将 [src,sn] 折叠为模 B^rn-1 的表示：写入 [dst,rn)
+ * @param dst 输出数组（长度为 rn 个limb）
+ * @param src 源数组（长度为 sn 个limb，sn 与 rn 任意大小关系）
+ * @param sn src 的长度
+ * @param rn 模长（limb）
+ * @warning dst!=NULL, src!=NULL, sep(dst,src), rn>0, sn>0, dst 容量 rn
+ * @note 分段累加 [k*rn,(k+1)*rn) 并将进位 +1 回绕（B^rn ≡ 1 mod B^rn-1）。
+ *       累加和为全 F 时（≡ 0）不再产生回绕，lmmp_inc 不会越界
+ */
 static void lmmp_hgcd_fold_mod_(mp_ptr dst, mp_srcptr src, mp_size_t sn, mp_size_t rn) {
     lmmp_copy(dst, src, sn <= rn ? sn : rn);
     lmmp_zero(dst + (sn <= rn ? sn : rn), rn - (sn <= rn ? sn : rn));
@@ -1066,8 +1069,8 @@ static mp_size_t lmmp_hgcd_apply_mod_(
 /**
  * @brief hgcd 递归核：归约至约 n/2 规模
  * @param M 变换矩阵：入口应为单位矩阵，出口累积全部归约变换（元素零填充至 M->n）
- * @param ap 较大分量输入兼输出数组：输入长度为 n 个limb（ap[n-1]>0），输出写入 rn 个limb）
- * @param bp 较小分量输入兼输出数组：输入长度为 n 个limb（允许高位为零，输出写入 rn 个limb）
+ * @param ap 较大分量输入兼输出数组：输入读入 n 个limb，且ap[n-1]>0，输出写入 rn 个limb（rn 为本函数返回值）
+ * @param bp 较小分量输入兼输出数组：输入读入 n 个limb，允许高位为零，输出写入 rn 个limb
  * @param n ap,bp 的公共输入长度
  * @param sc 临时空间（容量由 lmmp_hgcd_scratch_size_ 给出）
  * @param detsign 出参，返回 det(M) 的符号
@@ -1075,8 +1078,7 @@ static mp_size_t lmmp_hgcd_apply_mod_(
  *             阶段 B 为纯矩阵复合（无数对修补）并立即返回，数对只需服务于自身
  *             步进；调用方走 lmmp_hgcd_apply_mod_（其不需要递归数对输出）时使用
  * @return 归约后公共长度（appr=0 时一般 <= n/2+2）；0 表示未做任何归约（M 保持单位矩阵）
- * @warning M!=NULL, sc!=NULL, ap!=NULL, bp!=NULL, sep(ap,bp), a>b>0, n>=3,
- *          M->alloc>=n+2
+ * @warning M!=NULL, sc!=NULL, ap!=NULL, bp!=NULL, sep(ap,bp), a>b>0, n>=3, M->alloc>=n+2
  * @note appr=0（精确模式）维持数对精确语义；appr=1 时数对最终停留在约 3n/4，
  *       仅供内部步进使用，调用方不得依赖其值。子递归模式选择：本层用
  *       apply_mod 合并（不需要子数对）时子递归可为 appr；用 adjust（需要子数对
@@ -1092,15 +1094,15 @@ static mp_size_t lmmp_hgcd_core_(
     int                  appr
 ) {
     *detsign = 1; /* 入口为单位矩阵 */
+    if (n < 3) {
+        return 0; /* lehmer2 的 127 位窗口需读至 ap[n-3]，更小规模无归约意义 */
+    }
     lmmp_debug_assert(M->alloc >= n + 2);
 
     mp_size_t s = n / 2 + 1;
     mp_size_t fl = s + 1;
     if (fl > n - 1) {
-        fl = n - 1; /* 极小规模的下限放宽（不会作为递归子问题出现） */
-    }
-    if (n <= fl) {
-        return 0; /* n <= 2，无归约意义 */
+        fl = n - 1; /* 极小规模的下限放宽（仅直接调用小 n 时出现，递归子问题不会） */
     }
     int success = 0;
     mp_size_t n0 = n;
@@ -1256,7 +1258,7 @@ static mp_size_t lmmp_hgcd_core_(
 void lmmp_hgcd_matrix_init_(lmmp_hgcd_matrix_t* M, mp_size_t alloc) {
     lmmp_param_assert(M != NULL);
     lmmp_param_assert(alloc > 0);
-    mp_ptr buf = (mp_ptr)lmmp_alloc((size_t)4 * alloc * sizeof(mp_limb_t));
+    mp_ptr buf = ALLOC_TYPE(4 * alloc, mp_limb_t);
     lmmp_hgcd_matrix_init_buf_(M, buf, alloc);
 }
 
@@ -1279,9 +1281,9 @@ mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_size_t n) {
     if (lmmp_cmp_(ap, bp, n) <= 0) {
         return 0; /* a == b：gcd 即自身，无归约意义；a < b 违反契约 */
     }
-    /* 一次性 scratch（矩阵元素缓冲需 n+2 容量，由调用方保证） */
-    mp_size_t scsz = lmmp_hgcd_scratch_size_(n) + 2 * n + 16;
-    mp_ptr scbuf = (mp_ptr)lmmp_alloc((size_t)scsz * sizeof(mp_limb_t));
+    /* 一次性 scratch（与 lmmp_gcd_hgcd_ 相同的裸上界；矩阵元素缓冲由调用方提供） */
+    mp_size_t scsz = lmmp_hgcd_scratch_size_(n);
+    mp_ptr scbuf = ALLOC_TYPE(scsz, mp_limb_t);
     lmmp_hgcd_scratch_t sc = {scbuf, scsz, 0};
     int dtop = 1;
     mp_size_t rn = lmmp_hgcd_core_(M, ap, bp, n, &sc, &dtop, 0);
@@ -1293,22 +1295,60 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
     lmmp_param_assert(dst != NULL && ap != NULL && bp != NULL);
     lmmp_param_assert(an >= bn && bn > 0);
 
-    /* 工作副本零填充至统一容量（下方的 cap 长度比较与核心归约依赖该填充） */
-    mp_size_t cap = an + 2;
-    mp_ptr wa = (mp_ptr)lmmp_alloc((size_t)cap * sizeof(mp_limb_t));
-    mp_ptr wb = (mp_ptr)lmmp_alloc((size_t)cap * sizeof(mp_limb_t));
+    /*
+    不平衡预归约：当 bn <= an/2 时，b 的高半（bp[an/2,an)）全零，hgcd 阶段 A
+    的递归无法触发，数对逐层退化为"全除 + 部分除"两次 O(M(n)) 除法步进；
+    先做一次取模将规模直接降至 b，再在平衡形状上运行分治。余数 r < b，
+    若 r 仍显著短于 b（比例 <= 1/2）则继续取模，问题规模每轮几何递减。
+    */
+    mp_ptr pre0 = NULL, pre1 = NULL;
+    if (an >= 2 * bn) {
+        pre0 = ALLOC_TYPE(bn + 1, mp_limb_t);
+        pre1 = ALLOC_TYPE(bn + 1, mp_limb_t);
+        mp_srcptr up = ap, vp = bp;
+        mp_size_t un = an, vn = bn;
+        while (un >= 2 * vn) {
+            mp_ptr rp = (vp == pre0) ? pre1 : pre0; /* 余数写入与除数分离的缓冲 */
+            lmmp_div_(NULL, rp, up, un, vp, vn);
+            mp_size_t rn = vn;
+            while (rn > 0 && rp[rn - 1] == 0) {
+                --rn;
+            }
+            if (rn == 0) { /* vp 整除 up：gcd 即 vp */
+                lmmp_copy(dst, vp, vn);
+                lmmp_free(pre0);
+                lmmp_free(pre1);
+                return vn;
+            }
+            up = vp;
+            un = vn;
+            vp = rp;
+            vn = rn;
+        }
+        ap = up; /* vp 可能指向 pre0/pre1 内部，复制进工作副本后方可释放 */
+        an = un;
+        bp = vp;
+        bn = vn;
+    }
+
+    mp_size_t cap = an;
+    mp_ptr wbuf = ALLOC_TYPE(cap * 2, mp_limb_t);
+    mp_ptr wa = wbuf;
+    mp_ptr wb = wbuf + cap;
     lmmp_copy(wa, ap, an);
-    lmmp_zero(wa + an, cap - an);
     lmmp_copy(wb, bp, bn);
     lmmp_zero(wb + bn, cap - bn);
+    if (pre0 != NULL) {
+        lmmp_free(pre0);
+        lmmp_free(pre1);
+    }
 
     mp_size_t rn;
     int cmp = lmmp_cmp_(wa, wb, cap);
     if (cmp == 0) {
         rn = an; /* wa 为归一化输入 ap 的副本，真实长度即 an */
         lmmp_copy(dst, wa, rn);
-        lmmp_free(wa);
-        lmmp_free(wb);
+        lmmp_free(wbuf);
         return rn;
     } else if (cmp < 0) {
         LMMP_SWAP(wa, wb, mp_ptr);
@@ -1316,9 +1356,9 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
 
     /* 一次性分配：scratch 与顶层矩阵缓冲，循环内复用（矩阵容量按最大 cur） */
     mp_size_t scsz = lmmp_hgcd_scratch_size_(an);
-    mp_ptr scbuf = (mp_ptr)lmmp_alloc((size_t)scsz * sizeof(mp_limb_t));
+    mp_ptr scbuf = ALLOC_TYPE(scsz, mp_limb_t);
     lmmp_hgcd_scratch_t sc = {scbuf, scsz, 0};
-    mp_ptr mbuf = (mp_ptr)lmmp_alloc((size_t)4 * (an + 2) * sizeof(mp_limb_t));
+    mp_ptr mbuf = ALLOC_TYPE(4 * (an + 2), mp_limb_t);
 
     mp_size_t cur = an;
     for (;;) {
@@ -1353,7 +1393,6 @@ mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr ap, mp_size_t an, mp_srcptr bp, m
     } else {
         rn = lmmp_gcd_lehmer_(dst, wa, ra, wb, rb);
     }
-    lmmp_free(wa);
-    lmmp_free(wb);
+    lmmp_free(wbuf);
     return rn;
 }

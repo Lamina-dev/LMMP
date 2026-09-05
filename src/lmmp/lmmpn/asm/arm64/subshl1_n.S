@@ -32,7 +32,7 @@ Lsshl_bx1:
     ldr     x5, [x1]                // a0 = numa[0]
     tbnz    x3, #1, Lsshl_b11
 
-Lsshl_b01:                           // n % 4 == 1
+Lsshl_b01:                          // n % 4 == 1
     ldr     x11, [x2]               // b0 = numb[0]
     cbz     x6, Lsshl_1
     ldp     x8, x9, [x2, #8]
@@ -51,7 +51,7 @@ Lsshl_1:                            // n == 1, ret
     cinc    x0, x0, cc
     ret
 
-Lsshl_b11:                           // n % 4 == 3
+Lsshl_b11:                          // n % 4 == 3
     ldr     x9, [x2]
     ldp     x10, x11, [x2, #8]!
     lsl     x13, x9, #1
@@ -64,20 +64,20 @@ Lsshl_b11:                           // n % 4 == 3
 Lsshl_bx0:
     tbnz    x3, #1, Lsshl_b10
 
-Lsshl_b00:                           // n % 4 == 0
+Lsshl_b00:                          // n % 4 == 0
     subs    x11, xzr, xzr           // CF = 1, no borrow
     ldp     x8, x9, [x2], #-16
     sub     x1, x1, #32
     b       Lsshl_mid
 
-Lsshl_b10:                           // n % 4 == 2
+Lsshl_b10:                          // n % 4 == 2
     subs    x9, xzr, xzr            // CF = 1, no borrow
     ldp     x10, x11, [x2]
     sub     x1, x1, #16
     cbz     x6, Lsshl_end
 .p2align 4
 
-Lsshl_top:                           // main loop (upper): extr + sbcs
+Lsshl_top:                          // main loop (upper): extr + sbcs
     ldp     x4, x5, [x1, #16]
     extr    x12, x10, x9, #63       // t = (b<<1) | (b_prev>>63)
     ldp     x8, x9, [x2, #16]
@@ -86,7 +86,7 @@ Lsshl_top:                           // main loop (upper): extr + sbcs
     sbcs    x15, x5, x13
     stp     x14, x15, [x0], #16
 
-Lsshl_mid:                           // main loop (lower)
+Lsshl_mid:                          // main loop (lower)
     ldp     x4, x5, [x1, #32]!
     extr    x12, x8, x11, #63
     ldp     x10, x11, [x2, #32]!
@@ -97,7 +97,7 @@ Lsshl_mid:                           // main loop (lower)
     sub     x6, x6, #1
     cbnz    x6, Lsshl_top
 
-Lsshl_end:                           // last 2 limb, ret = (b[n-1]>>63) - borrow
+Lsshl_end:                          // last 2 limb, ret = (b[n-1]>>63) - borrow
     ldp     x4, x5, [x1, #16]
     extr    x12, x10, x9, #63
     extr    x13, x11, x10, #63

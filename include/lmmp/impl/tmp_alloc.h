@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -140,7 +140,10 @@ static inline void lmmp_temp_pool_free_(lmmp_alloc_marker* pmarker) {
     lmmp_alloc_marker __lmmp_marker_ = {NULL, NULL, NULL}; \
     int __lmmp_temp_s_decl_guard_ = 0 // if TEMP_S_DECL without TEMP_S_FREE, compiler will warn this
 
-#define TEMP_SALLOC_THRESHOLD 0x7f00  // 小内存分配阈值（小于等于该值的内存分配在栈上）
+/*
+不可将此值设置的过大，如想设置此值更大，请将内部栈大小相应增大
+*/
+#define TEMP_SALLOC_THRESHOLD 0x7f00  // 小内存分配阈值（小于等于该值的内存可能分配在内部栈上）
 
 // 栈内存分配：使用lmmp_temp_stack_alloc_在栈上分配n字节内存（小内存）
 #define TEMP_SALLOC(n) lmmp_temp_stack_alloc_(&__lmmp_marker_, (n))

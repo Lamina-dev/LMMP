@@ -110,6 +110,7 @@ mp_size_t lmmp_huff_tree_mul_(huff_tree* ht, sint ridx, mp_ptr dst, mp_ptr tp);
  * @param tp 临时指针（长度为 n 个 limb）
  * @warning dst!=NULL, limbs!=NULL, n>0, tp!=NULL
  * @return 结果指针的 limb 长度
+ * @note 建议将limbs数组的元素累计至较大，可以减少空间占用和乘法次数
  */
 mp_size_t lmmp_elem_mul_ulong_(mp_ptr dst, const ulongp limbs, mp_size_t n, mp_ptr tp);
 

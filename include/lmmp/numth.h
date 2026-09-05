@@ -298,7 +298,7 @@ LMMP_API void lmmp_hgcd_matrix_free_(lmmp_hgcd_matrix_t* M);
  * @param n ap,bp 的公共长度
  * @warning M!=NULL, ap!=NULL, bp!=NULL, sep(ap,bp), n>0, M->alloc>=n+2,
  *          ap[n-1]!=0（a 须归一化；bp 非全零，允许高位零填充），[ap,n]>[bp,n]（值序）
- * @return 归约后公共长度（成功时一般 <= n/2+1；若归约中遇到整除完成态会提前返回，
+ * @return 归约后公共长度（成功时一般 <= n/2+2；若归约中遇到整除完成态会提前返回，
  *         此时 [bp,*] 可能已为 0，由调用者检查）；0 表示未做任何归约（M 保持单位矩阵）
  * @note gcd(a,b) = gcd(a',b')。渐进复杂度 O(M(n) log n)，M 为乘法复杂度。
  *       长输入下经由 lmmp_gcd_hgcd_ 使用；直接调用时注意 ap/bp 需要各自 n limbs 容量。
@@ -314,6 +314,9 @@ LMMP_API mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_si
  * @param vn 第二个无符号整数的 limb 长度
  * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]), up[un-1]!=0, vp[vn-1]!=0
  * @return dst 的实际 limb 长度
+ * @note 不平衡输入（un >= 2*vn）先做取模预归约将两数长度拉近，再进入
+ *       分治主路径：不平衡时 hgcd 的阶段 A 递归失效，预归约普遍更快
+ *      （越悬殊收益越大，见 hgcd.c 实现注）
  */
 LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 
@@ -855,8 +858,8 @@ LMMP_API void lmmp_invsqrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, m
 
 /**
  * @brief 计算近似平方根 [dsts,nf+na/2+1]=[floor|round](sqrt([numa,na]*B^(2*nf)))
- * @param dsts 目标数组
- * @param numa 输入数组
+ * @param dsts 目标数组（长度为 nf+na/2+1 个limb）
+ * @param numa 输入数组（长度为 na 个limb）
  * @param na numa数组的 limb 长度
  * @param nf 精度因子
  * @warning na>0, nf>=2, dsts!=NULL, numa!=NULL, eqsep(dsts,numa)
@@ -865,9 +868,9 @@ LMMP_API void lmmp_sqrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_si
 
 /**
  * @brief 计算 [numa,na] * B^(2*nf) 的平方根和余数
- * @param dsts 平方根结果输出指针
+ * @param dsts 平方根结果输出指针（长度为 nf+na/2+1 个limb）
  * @param dstr 余数结果输出指针（NULL表示不计算余数）
- * @param numa 源操作数指针
+ * @param numa 源操作数指针（长度为 na 个limb）
  * @param na 操作数的 limb 长度
  * @param nf 精度因子
  * @note if (dstr != NULL) {
@@ -905,22 +908,20 @@ LMMP_API ulong lmmp_cbrt_ulong_(ulong n);
  * @param a0 低位 limb
  * @param a1 中位 limb
  * @param a2 高位 limb
- * @warning a1>0
+ * @warning a1和a2应至少有一个大于0
  * @note a2可以为0，但a1需要大于0，即这个数至少应有65个bit
  * @return floor(cbrt(a0+a1*B+a2*B^2))
  */
 LMMP_API mp_limb_t lmmp_cbrt_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
 
 /**
- * @brief 计算近似立方根 floor(cbrt(a0+a1*B+a2*B^2))+[0|1|-1]
- * @param a0 低位 limb
- * @param a1 中位 limb
- * @param a2 高位 limb
- * @warning a1>0
- * @note a2可以为0，但a1需要大于0，即这个数至少应有65个bit
- * @return floor(cbrt(a0+a1*B+a2*B^2))+[0|1|-1]
+ * @brief 计算算术立方根 floor(cbrt([numa,na]))
+ * @param dst 结果指针（2个limb）
+ * @param numa 被开方数指针
+ * @param na 被开方数的 limb 长度
+ * @warning 3<na<=6, numa[na-1]!=0, dst!=NULL, numa!=NULL, sep(dst,numa)
  */
-LMMP_API mp_limb_t lmmp_cbrtapprox_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
+LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 计算算术立方根 floor(cbrt([numa,3*ns]))

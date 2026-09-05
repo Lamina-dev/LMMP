@@ -160,7 +160,7 @@ ASM_GSYM(lmmp_div_2_):
     jae     .Lfix                   // z >= b, correct
 
 .Lok:
-    mov     [rdi+rbx*8], r14         // store qh
+    mov     [rdi+rbx*8], r14        // store qh
     mov     r11, r10
 
 .Lent:

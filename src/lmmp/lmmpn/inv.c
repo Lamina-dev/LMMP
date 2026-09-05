@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -21,6 +21,7 @@
 
 void lmmp_inv_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
     lmmp_param_assert(na > 0);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1] >= LIMB_B_2);
     if (na == 1)
         *dst = lmmp_inv_1_(*numa);
@@ -50,6 +51,7 @@ void lmmp_inv_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t 
 
 void lmmp_invappr_newton_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
     lmmp_param_assert(na > 4);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1] >= LIMB_B_2);
     
     mp_limb_t cy;
@@ -163,6 +165,7 @@ void lmmp_invappr_newton_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_
 
 void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
     lmmp_param_assert(na > 0);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1] != 0);
     mp_limb_t high = numa[na - 1];
     int nsh = lmmp_leading_zeros_(high);
@@ -186,6 +189,8 @@ void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
 }
 
 void lmmp_invappr_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
+    lmmp_param_assert(dst != NULL && numa != NULL);
+    lmmp_param_assert(na > 0);
     if (na < INV_NEWTON_THRESHOLD)
         lmmp_inv_basecase_(dst, numa, na);
     else

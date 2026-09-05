@@ -71,7 +71,7 @@ ASM_GSYM(lmmp_mul_1_):
     add     r9, 3
     jmp     .Lcheck_post
 
-.Ldo_rem2:                           // na mod 4 == 2
+.Ldo_rem2:                               // na mod 4 == 2
     mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]   // p1 = a1*x
     add     rax, r10                     // s_0 = lo0 + carry
@@ -83,7 +83,7 @@ ASM_GSYM(lmmp_mul_1_):
     add     r9, 2
     jmp     .Lcheck_post
 
-.Ldo_rem1:                           // na mod 4 == 1
+.Ldo_rem1:                               // na mod 4 == 1
     mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
     add     rax, r10                     // s_0 = lo0 + carry
     mov     [rdi + r9*8], rax
@@ -97,7 +97,7 @@ ASM_GSYM(lmmp_mul_1_):
     jz      .Ldone
 
 .p2align 4
-.Lloop4:                             // main loop, 4 limbs
+.Lloop4:                                    // main loop, 4 limbs
     mulx    r11, rax, [rsi + r9*8]          // p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]      // p1 = a1*x
     add     rax, r10                        // s_0 = lo0 + carry

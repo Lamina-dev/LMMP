@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -164,7 +164,7 @@ mp_size_t lmmp_huff_tree_mul_(huff_tree* restrict ht, sint ridx, mp_ptr restrict
 
 mp_size_t lmmp_elem_mul_ulong_(mp_ptr restrict dst, const ulongp restrict limbs, mp_size_t n, mp_ptr restrict tp) {
     if (n < ELEM_MUL_BASECASE_THRESHOLD) {
-        lmmp_debug_assert(n > 0);
+        lmmp_param_assert(n > 0);
         dst[0] = limbs[0];
         mp_size_t rn = 1;
         for (mp_size_t i = 1; i < n; i++) {

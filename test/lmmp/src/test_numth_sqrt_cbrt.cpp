@@ -186,16 +186,52 @@ TEST_CASE("numth/cbrt", cbrt_ulong_cbrt_3_nthroot) {
         u64 c = lmmp_cbrt_3_(x[0], x[1], x[2]);
         BigInt bc(c);
         TEST_CHECK_MSG(BigInt::pow(bc, 3) <= bx && BigInt::pow(BigInt(c + 1), 3) > bx, "cbrt_3 floor property");
+    }
+}
 
-        u64 ca = lmmp_cbrtapprox_3_(x[0], x[1], x[2]);
-        BigInt bca(ca);
-        TEST_CHECK_MSG(BigInt::pow(bca, 3) <= bx && BigInt::pow(BigInt(ca + 2), 3) >= bx, "cbrtapprox_3 approx");
+TEST_CASE("numth/cbrt", cbrt_6) {
+    u64 seed = 0x6c62727436746872ull;
+    // n ∈ {4,5,6}，覆盖两个分支：顶部归一化（走除法快速路径）与任意归一化（走 log2/exp2 估计路径）
+    for (int n : {4, 5, 6}) {
+        for (int iter = 0; iter < 300; ++iter) {
+            mp_limb_t a[6] = {0, 0, 0, 0, 0, 0};
+            random_limbs(a, n, seed, false);
+            if (a[n - 1] == 0) a[n - 1] = 1;
+            if (iter % 3 == 0) a[n - 1] |= 0x6000000000000000ull;  // 快速路径条件
+            if (iter % 3 == 1) a[n - 1] &= 0x1fffffffffffffffull;  // 小顶 limb，估计路径
+            BigInt ba(a, n);
+
+            mp_limb_t r[2];
+            lmmp_cbrt_6_(r, a, n);
+            BigInt br(r, 2);
+            BigInt r3 = BigInt::pow(br, 3);
+            BigInt rp1 = BigInt::pow(BigInt::add_small(br, 1), 3);
+            TEST_CHECK_MSG(r3 <= ba && rp1 > ba, "cbrt_6 floor property");
+        }
+    }
+    // 完全立方数边界（2 limb 底数，立方为 4~6 limb）
+    for (int t = 0; t < 50; ++t) {
+        BigInt base;
+        base.d.resize(2);
+        for (size_t i = 0; i < base.d.size(); ++i) base.d[i] = xorshift64(seed);
+        base.d[1] &= 0x0000ffffffffffffull;
+        base.trim();
+        if (base.is_zero()) base = BigInt(1);
+        BigInt cube = BigInt::pow(base, 3);
+        if (cube.d.size() <= 3 || cube.d.size() > 6) continue;
+        mp_limb_t a[6] = {0, 0, 0, 0, 0, 0};
+        to_limbs(cube, a, (mp_size_t)cube.d.size());
+        BigInt ba(a, (mp_size_t)cube.d.size());
+        mp_limb_t r[2];
+        lmmp_cbrt_6_(r, a, (mp_size_t)cube.d.size());
+        BigInt br(r, 2);
+        TEST_CHECK_MSG(BigInt::pow(br, 3) == ba, "cbrt_6 perfect cube");
     }
 }
 
 TEST_CASE("numth/cbrt", cbrt_divide) {
     u64 seed = 0x0f15ae2697d3c4b8ull;
-    for (mp_size_t ns : {1, 2, 5, 10}) {
+    for (mp_size_t ns : {1, 2, 3, 5, 10}) {
         mp_size_t na = 3 * ns;
         mp_ptr numa = alloc_limbs(na);
         mp_ptr dst = alloc_limbs(ns + 1);

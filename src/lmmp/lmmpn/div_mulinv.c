@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -23,6 +23,7 @@
 void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t ni) {
     lmmp_param_assert(na >= ni);
     lmmp_param_assert(ni > 0);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1] >= LIMB_B_2);
     TEMP_DECL;
     mp_limb_t cy;
@@ -56,6 +57,8 @@ mp_limb_t lmmp_div_mulinv_(
 ) {
     lmmp_param_assert(na >= nb && nb >= ni);
     lmmp_param_assert(ni > 0);
+    lmmp_param_assert(dstq != NULL && numa != NULL);
+    lmmp_param_assert(invappr != NULL && numb != NULL);
     lmmp_param_assert(numb[nb - 1] >= LIMB_B_2);
     mp_size_t nq = na - nb, ntp = LMMP_MIN(ni, nq) + nb;
     mp_limb_t qh;

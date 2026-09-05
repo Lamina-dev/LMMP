@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -38,11 +38,12 @@ mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base) {
  * @param src 输入字符串
  * @param len 字符串长度
  * @param base 转换基数
- * @warning src[len-1]!=0
+ * @warning src[len-1]!=0, dst!=NULL, src!=NULL
  * @return 返回转换后的limb数量
  */
 static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base) {
     lmmp_param_assert(src[len - 1] != 0);
+    lmmp_param_assert(dst != NULL && src != NULL);
     mp_size_t digitspl = lmmp_bases_table[base - 2].digits_in_limb;
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t limbs = 0, i = len;
@@ -86,7 +87,7 @@ static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_si
  * @param len 字符串长度
  * @param pow 指数表
  * @param tp 临时数组
- * @warning src[len-1]!=0, sep(dst,tp)
+ * @warning src[len-1]!=0, sep(dst,tp), dst!=NULL, src!=NULL, tp!=NULL
  * @note 第一层调用时：nh>=2, [dst,2*N], [tp,limbs]
  *       后序递归时：N>=2, [dst,limbs+1], [tp,2*N-1]
  *       limbs为返回值，N = pow->np + pow->zeros
@@ -100,6 +101,7 @@ static mp_size_t lmmp_from_str_divide_(
           mp_ptr       restrict  tp
 ) {
     lmmp_param_assert(src[len - 1] != 0);
+    lmmp_param_assert(dst != NULL && src != NULL && tp != NULL);
     mp_size_t limbs;
 
     if (lmmp_from_str_len_(0, len, pow->base) < FROM_STR_DIVIDE_THRESHOLD) {
@@ -153,6 +155,7 @@ static mp_size_t lmmp_from_str_divide_(
 
 mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base) {
     lmmp_param_assert(base >= 2 && base <= 256);
+    lmmp_param_assert(dst != NULL && src != NULL);
     do {
         if (len == 0)
             return 0;

@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -298,7 +298,6 @@ static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_
 typedef uint64_t u128[2];
 typedef uint64_t u192[3];
 
-// 处理 n==0 与 n==64 的边界（C 标准中移位 64 位是 UB），x 与 y 允许别名
 static inline void _u128lshr_fn(uint64_t* x, const uint64_t* y, int n) {
     if (n == 0) {
         x[0] = y[0];
