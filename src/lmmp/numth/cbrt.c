@@ -35,7 +35,7 @@ static inline void lmmp_cube_3_(mp_ptr restrict dst, mp_limb_t a) {
 }
 
 mp_limb_t lmmp_cbrt_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2) {
-    lmmp_param_assert(a1 > 0);
+    lmmp_param_assert(a1 > 0 || a2 > 0);
     mp_limb_t x[2];
     /* exact high 65 bits */
     mp_limb_t a_hi;

@@ -908,7 +908,7 @@ LMMP_API ulong lmmp_cbrt_ulong_(ulong n);
  * @param a0 低位 limb
  * @param a1 中位 limb
  * @param a2 高位 limb
- * @warning a1>0
+ * @warning a1和a2应至少有一个大于0
  * @note a2可以为0，但a1需要大于0，即这个数至少应有65个bit
  * @return floor(cbrt(a0+a1*B+a2*B^2))
  */
