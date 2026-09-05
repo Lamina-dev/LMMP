@@ -111,9 +111,9 @@ static mp_size_t lmmp_to_str_divide_(
     mp_ptr        restrict  tpq
 ) {
     lmmp_param_assert(na > 0);
-    lmmp_param_assert(numa[na - 1] != 0);
     lmmp_param_assert(dst != NULL && numa != NULL && tpq != NULL);
     lmmp_param_assert(pow != NULL);
+    lmmp_param_assert(numa[na - 1] != 0);
     mp_size_t digits;
     if (na < TO_STR_DIVIDE_THRESHOLD) {
         digits = lmmp_to_str_basecase_(dst, numa, na, pow->base);

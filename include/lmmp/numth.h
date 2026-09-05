@@ -915,12 +915,11 @@ LMMP_API ulong lmmp_cbrt_ulong_(ulong n);
 LMMP_API mp_limb_t lmmp_cbrt_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
 
 /**
- * @brief 计算算术立方根 floor(cbrt([numa,n]))
+ * @brief 计算算术立方根 floor(cbrt([numa,na]))
  * @param dst 结果指针（2个limb）
  * @param numa 被开方数指针
- * @param n 被开方数的 limb 长度
- * @warning 3<n<=6, numa[n-1]!=0, dst!=NULL, numa!=NULL, sep(dst,numa)
- * @return 无（结果写入 [dst,2]）
+ * @param na 被开方数的 limb 长度
+ * @warning 3<na<=6, numa[na-1]!=0, dst!=NULL, numa!=NULL, sep(dst,numa)
  */
 LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 

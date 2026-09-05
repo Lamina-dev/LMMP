@@ -757,8 +757,7 @@ LMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
  * @param x 除数（单个 limb ）
  * @return 除法余数（单个 limb ）
  * @warning na>0, x!=0, eqsep(dstq,numa),
- * @warning [numa,3]<[numb,2]*B, MSB(numb)=1, inv21=inv21([numb,2]), eqsep(numa,numb), numa!=NULL,
- *          dstq>=numa-1 是可以接受的
+ * @warning eqsep(numa,dstq), numa!=NULL, na>0, x>0, dstq>=numa-1 是可以接受的
  * @note if (dstq!=NULL) [dstq,na] = [numa,na] div x
  */
 LMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);

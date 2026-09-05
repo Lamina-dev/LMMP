@@ -790,7 +790,7 @@ void log2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low) {
     uint64_t h2 = high & 0x00FFFFFFFFFFFFFFull;
 
     // xls = xl128 << 8（128bit 对齐），v = u*2^128 = hi128(xls * R2[i])
-    uint64_t xls[2] = {(low << 8) | (h2 >> 48), (h2 << 8) | (low >> 56)};
+    uint64_t xls[2] = {(low << 8), (h2 << 8) | (low >> 56)};
     uint64_t rr[4];
     _umul128to256_(xls[1], xls[0], lg2_R2[i][1], lg2_R2[i][0], rr);
     uint64_t v[2] = {rr[2], rr[3]};
