@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -76,11 +76,6 @@ void lmmp_binvert_2_(mp_ptr dst, mp_srcptr numa) {
 }
 
 static inline void _umul128to192_(uint64_t a_high, uint64_t a_low, uint64_t b_high, uint64_t b_low, uint64_t rr[3]) {
-    uint64_t p1_low, p1_high;  // p1 = a_low × b_high
-    uint64_t p2_low, p2_high;  // p2 = a_high × b_low
-    _umul64to128_(a_low, b_low, rr, rr + 1);
-    _umul64to128_(a_low, b_high, &p1_low, &p1_high);
-    _umul64to128_(a_high, b_low, &p2_low, &p2_high);
     /*
         | res0 | res1 | res2 |
         |  p0l |  p0h |      |
@@ -88,6 +83,23 @@ static inline void _umul128to192_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
                |  p2l |  p2h |
                |      |  p3l |
     */
+#if defined(__SIZEOF_INT128__)
+    // 128 位累加让进位自然落在寄存器对高位，编译器生成 add/adc 链；
+    // rr[2] 为 192 位截断结果，hi 的进一步进位按定义舍弃
+    __uint128_t p0 = (__uint128_t)a_low * b_low;
+    __uint128_t p1 = (__uint128_t)a_low * b_high;
+    __uint128_t p2 = (__uint128_t)a_high * b_low;
+    __uint128_t mid = (p0 >> 64) + (uint64_t)p1 + (uint64_t)p2;  // mid>>64 ∈ {0,1,2}
+    __uint128_t hi = (p1 >> 64) + (p2 >> 64) + a_high * b_high + (uint64_t)(mid >> 64);
+    rr[0] = (uint64_t)p0;
+    rr[1] = (uint64_t)mid;
+    rr[2] = (uint64_t)hi;
+#else
+    uint64_t p1_low, p1_high;  // p1 = a_low × b_high
+    uint64_t p2_low, p2_high;  // p2 = a_high × b_low
+    _umul64to128_(a_low, b_low, rr, rr + 1);
+    _umul64to128_(a_low, b_high, &p1_low, &p1_high);
+    _umul64to128_(a_high, b_low, &p2_low, &p2_high);
     rr[1] += p1_low;
     uint64_t carry = (rr[1] < p1_low) ? 1 : 0;
     rr[1] += p2_low;
@@ -97,6 +109,7 @@ static inline void _umul128to192_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
     rr[2] += carry;
     rr[2] += p1_high;
     rr[2] += p2_high;
+#endif
 }
 
 void lmmp_binvert_3_(mp_ptr restrict dst, mp_srcptr restrict numa) {
@@ -136,23 +149,20 @@ void lmmp_binvert_4_(mp_ptr restrict dst, mp_srcptr restrict numa) {
     */
     lmmp_binvert_2_(dst, numa);
     mp_limb_t k[4];
-    mp_limb_t z[2];
-    mp_limb_t t[2];
     _umul128to256_(dst[1], dst[0], numa[1], numa[0], k);
     lmmp_debug_assert(k[1] == 0 && k[0] == 1);
 
 #define xn (dst)
 #define k (k + 2)
-    _umul128to128_(k[1], k[0], xn[1], xn[0], z);
-    
-    _umul64to128_(xn[0], xn[0], t, t + 1);
-    t[1] += (xn[1] * xn[0]) << 1;
-    _umul128to128_(t[1], t[0], numa[3], numa[2], t);
+    u128 z = _umul128to128_(k[1], k[0], xn[1], xn[0]);
 
-    _u128add(z, z, t);
-    dst[2] = 0;
-    dst[3] = 0;
-    _u128sub(dst + 2, dst + 2, z);
+    mp_limb_t t0, t1;
+    _umul64to128_(xn[0], xn[0], &t0, &t1);
+    t1 += (xn[1] * xn[0]) << 1;
+    z += _umul128to128_(t1, t0, numa[3], numa[2]);
+
+    // dst[2..3] = -z (mod 2^128)
+    _u128store(dst + 2, (u128)0 - z);
 
 #undef xn
 #undef k
@@ -197,10 +207,8 @@ void lmmp_binvert_unbalanced_2_(mp_ptr restrict dst, mp_srcptr restrict numa, mp
     dst[0] = a_binvert[0];
     dst[1] = a_binvert[1];
 
-    mp_limb_t carry;
     mp_limb_t k[4];
     mp_limb_t t[4];
-    mp_limb_t p[2];
     _umul128to256_(a_binvert[1], a_binvert[0], numa[1], numa[0], k);
 
     // 此处本应按位取反再加一，得到相反数，但是a_binvert[0]不可能为0，所以进位必定为0
@@ -212,46 +220,32 @@ void lmmp_binvert_unbalanced_2_(mp_ptr restrict dst, mp_srcptr restrict numa, mp
     mp_size_t i = 0;
     if (n % 2 == 0) {
         for (; i < n - 4; i += 2) {
-            _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2], p);
-            dst[i + 2] = p[0];
-            dst[i + 3] = p[1];
-            _umul128to256_(p[1], p[0], numa[1], numa[0], t);
-            // t = a*p
-            // k的结果在 k[2] 和 k[3] 中
-            t[0] += k[2];
-            carry = (t[0] < k[2]) ? 1 : 0;
-            t[1] += carry;
-            carry = (t[1] < carry) ? 1 : 0;
-            t[1] += k[3];
-            carry += (t[1] < k[3]) ? 1 : 0;
-
-            k[2] = t[2] + carry;
-            carry = (k[2] < carry) ? 1 : 0;
-            k[3] = t[3] + carry;
+            u128 p = _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2]);
+            dst[i + 2] = _u128low(p);
+            dst[i + 3] = _u128high(p);
+            _umul128to256_(_u128high(p), _u128low(p), numa[1], numa[0], t);
+            // t = a*p；k = (k + t) >> 128，结果存回 k[2..3]
+            u128 klow = _u128load(k + 2);
+            u128 s = _u128load(t) + klow;
+            uint c = (uint)(s < klow);
+            _u128store(k + 2, _u128load(t + 2) + c);
         }
-        _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2], p);
-        dst[i + 2] = p[0];
-        dst[i + 3] = p[1];
+        u128 p = _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2]);
+        dst[i + 2] = _u128low(p);
+        dst[i + 3] = _u128high(p);
     } else {
         for (; i < n - 3; i += 2) {
-            _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2], p);
-            dst[i + 2] = p[0];
-            dst[i + 3] = p[1];
-            _umul128to256_(p[1], p[0], numa[1], numa[0], t);
-            // t = a*p
-            // k的结果在 k[2] 和 k[3] 中
-            t[0] += k[2];
-            carry = (t[0] < k[2]) ? 1 : 0;
-            t[1] += carry;
-            carry = (t[1] < carry) ? 1 : 0;
-            t[1] += k[3];
-            carry += (t[1] < k[3]) ? 1 : 0;
-
-            k[2] = t[2] + carry;
-            carry = (k[2] < carry) ? 1 : 0;
-            k[3] = t[3] + carry;
+            u128 p = _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2]);
+            dst[i + 2] = _u128low(p);
+            dst[i + 3] = _u128high(p);
+            _umul128to256_(_u128high(p), _u128low(p), numa[1], numa[0], t);
+            // t = a*p；k = (k + t) >> 128，结果存回 k[2..3]
+            u128 klow = _u128load(k + 2);
+            u128 s = _u128load(t) + klow;
+            uint c = (uint)(s < klow);
+            _u128store(k + 2, _u128load(t + 2) + c);
         }
-        _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2], p);
-        dst[i + 2] = p[0];
+        u128 p = _umul128to128_(a_binvert[1], a_binvert[0], k[3], k[2]);
+        dst[i + 2] = _u128low(p);
     }
 }

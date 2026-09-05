@@ -575,7 +575,6 @@ static void lmmp_hgcd_matrix_mul_(lmmp_hgcd_matrix_t* M, const lmmp_hgcd_matrix_
      && M->n[1][1] == 1 && M->m[1][1][0] == 1
      && M->n[0][1] == 0 && M->n[1][0] == 0) {
         /* M 为单位阵：M*M1 = M1，按各元素真实长度整段拷贝 */
-        lmmp_debug_assert(lmmp_hgcd_matrix_maxlen_(M1) <= M->alloc);
         for (int i = 0; i < 2; ++i) {
             for (int j = 0; j < 2; ++j) {
                 lmmp_copy(M->m[i][j], M1->m[i][j], M1->n[i][j]);

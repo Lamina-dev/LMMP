@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -116,11 +116,10 @@ ulong lmmp_mulmod_ulong_(ulong a, ulong b, ulong mod, ulongp restrict q) {
     int shl = lmmp_leading_zeros_(mod);
     mod <<= shl;
     ulong inv = lmmp_inv_1_(mod);
-    ulong ab[2];
+    u128 ab = (u128)a * b;
     ulong r;
-    _umul64to128_(a, b, ab, ab + 1);
     if (shl > 0)
-        _u128lshl(ab, ab, shl);
-    _udiv_qrnnd_preinv(*q, r, ab[1], ab[0], mod, inv);
+        ab <<= shl;
+    _udiv_qrnnd_preinv(*q, r, _u128high(ab), _u128low(ab), mod, inv);
     return r >> shl;
 }

@@ -622,70 +622,86 @@ static const uint64_t xp2_c128[11][3] = {
     {0x2149db8f67e53838ULL, 0x1bb24c0f57995e47ULL, 0x00000001e8cac735ULL},
 };
 
-// [dst,2] = [a,2]*b 的最高 128bit
+// dst = [a,2]*b 的最高 128bit
 static inline void umul128x64_tohi128(uint64_t dst[2], const uint64_t a[2], uint64_t b) {
-    uint64_t p0l, p0h, p1l, p1h;
-    _umul64to128_(a[0], b, &p0l, &p0h);
-    _umul64to128_(a[1], b, &p1l, &p1h);
-    dst[0] = p0h + p1l;
-    uint64_t c = (dst[0] < p1l);
-    dst[1] = p1h + c;
+    __uint128_t hi = (__uint128_t)a[1] * b + (uint64_t)(((__uint128_t)a[0] * b) >> 64);
+    dst[0] = (uint64_t)hi;
+    dst[1] = (uint64_t)(hi >> 64);
 }
 
-// [dst,2] = [a,2]*[b,2] 的最高 128bit
+// dst = [a,2]*[b,2] 的最高 128bit
 static inline void umul128x128_tohi128(uint64_t dst[2], const uint64_t a[2], const uint64_t b[2]) {
-    uint64_t p01l, p01h, p10l, p10h, p11l, p11h;
-    uint64_t p00h = _umul64to64hi_(a[0], b[0]);
-    _umul64to128_(a[0], b[1], &p01l, &p01h);
-    _umul64to128_(a[1], b[0], &p10l, &p10h);
-    _umul64to128_(a[1], b[1], &p11l, &p11h);
-    // w1 = p00h + p01l + p10l（w1 不输出，仅需向 w2 的进位）
-    uint64_t w1 = p00h + p01l, c = (w1 < p01l);
-    w1 += p10l, c += (w1 < p10l);
-    // w2 = p01h + p10h + p11l + c
-    uint64_t w2 = p01h + p10h, c2 = (w2 < p01h);
-    w2 += p11l, c2 += (w2 < p11l);
-    w2 += c, c2 += (w2 < c);
-    dst[0] = w2;
-    dst[1] = p11h + c2;
+    __uint128_t p01 = (__uint128_t)a[0] * b[1];
+    __uint128_t p10 = (__uint128_t)a[1] * b[0];
+    __uint128_t p11 = (__uint128_t)a[1] * b[1];
+    // w1 = p00h + p01l + p10l（不输出，仅需向 w2 的进位，128 位和保证不溢出）
+    __uint128_t w1 = (uint64_t)(((__uint128_t)a[0] * b[0]) >> 64) + (uint64_t)p01 + (uint64_t)p10;
+    // w2 = p01h + p10h + p11l + w1 进位
+    __uint128_t w2 = (p01 >> 64) + (p10 >> 64) + (uint64_t)p11 + (uint64_t)(w1 >> 64);
+    dst[0] = (uint64_t)w2;
+    dst[1] = (uint64_t)(p11 >> 64) + (uint64_t)(w2 >> 64);
 }
 
-/*
-    [dst,3] = [i192,3]*[i128,2] 的最高 192bit（精确，无舍弃项）。
-    调用点中 i128 多为约简变量 u、t 或其平方（高 limb < 2^56），
-    亦用于一般 128bit 定点值。
-*/
 static inline void umul192x128_tohi192(uint64_t dst[3], const uint64_t i192[3], const uint64_t i128[2]) {
     uint64_t a0 = i192[0], a1 = i192[1], a2 = i192[2];
     uint64_t b0 = i128[0], b1 = i128[1];
 
-    uint64_t p00_l, p00_h, p01_l, p01_h, p10_l, p10_h;
-    uint64_t p11_l, p11_h, p20_l, p20_h, p21_l, p21_h;
+    __uint128_t p01 = (__uint128_t)a0 * b1;
+    __uint128_t p10 = (__uint128_t)a1 * b0;
+    __uint128_t p11 = (__uint128_t)a1 * b1;
+    __uint128_t p20 = (__uint128_t)a2 * b0;
+    __uint128_t p21 = (__uint128_t)a2 * b1;
 
-    _umul64to128_(a0, b0, &p00_l, &p00_h);
-    _umul64to128_(a0, b1, &p01_l, &p01_h);
-    _umul64to128_(a1, b0, &p10_l, &p10_h);
-    _umul64to128_(a1, b1, &p11_l, &p11_h);
-    _umul64to128_(a2, b0, &p20_l, &p20_h);
-    _umul64to128_(a2, b1, &p21_l, &p21_h);
-
-    // w1 = p00h + p01l + p10l（不输出，仅需向 w2 的进位）
-    uint64_t w1 = p00_h + p01_l, c = (w1 < p01_l);
-    w1 += p10_l, c += (w1 < p10_l);
-    // w2 = p01h + p10h + p11l + p20l + c
-    uint64_t w2 = p01_h + p10_h, c2 = (w2 < p01_h);
-    w2 += p11_l, c2 += (w2 < p11_l);
-    w2 += p20_l, c2 += (w2 < p20_l);
-    w2 += c, c2 += (w2 < c);
+    // w1 = p00h + p01l + p10l（不输出，128 位和的进位自然落在高位，可为 2）
+    __uint128_t w1 = (uint64_t)(((__uint128_t)a0 * b0) >> 64) + (uint64_t)p01 + (uint64_t)p10;
+    // w2 = p01h + p10h + p11l + p20l + c，5 项 64 位之和保证不溢出 128 位
+    __uint128_t w2 = (p01 >> 64) + (p10 >> 64) + (uint64_t)p11 + (uint64_t)p20 + (uint64_t)(w1 >> 64);
     // w3 = p11h + p20h + p21l + c2
-    uint64_t w3 = p11_h + p20_h, c3 = (w3 < p11_h);
-    w3 += p21_l, c3 += (w3 < p21_l);
-    w3 += c2, c3 += (w3 < c2);
+    __uint128_t w3 = (p11 >> 64) + (p20 >> 64) + (uint64_t)p21 + (uint64_t)(w2 >> 64);
 
-    dst[0] = w2;
-    dst[1] = w3;
-    dst[2] = p21_h + c3;
+    dst[0] = (uint64_t)w2;
+    dst[1] = (uint64_t)w3;
+    dst[2] = (uint64_t)(p21 >> 64) + (uint64_t)(w3 >> 64);
 }
+
+// r = x + y（128 位；调用点均为 r==x 或 r==y 就地模式）
+#define add_u128(r, x, y)                                     \
+    do {                                                      \
+        (r)[0] = (x)[0] + (y)[0];                             \
+        (r)[1] = (x)[1] + (y)[1] + ((r)[0] < (y)[0] ? 1 : 0); \
+    } while (0)
+
+// r = x - y（128 位；同上）
+#define sub_u128(r, x, y)               \
+    do {                                \
+        uint64_t _b_ = (x)[0] < (y)[0]; \
+        (r)[0] = (x)[0] - (y)[0];       \
+        (r)[1] = (x)[1] - (y)[1] - _b_; \
+    } while (0)
+
+// i += j（192 位；同上）
+#define add_u192(i, j)                            \
+    do {                                          \
+        (i)[0] += (j)[0];                         \
+        uint64_t _c_ = ((i)[0] < (j)[0]) ? 1 : 0; \
+        (i)[1] += _c_;                            \
+        _c_ = ((i)[1] < _c_) ? 1 : 0;             \
+        (i)[1] += (j)[1];                         \
+        _c_ += ((i)[1] < (j)[1]) ? 1 : 0;         \
+        (i)[2] += _c_ + (j)[2];                   \
+    } while (0)
+
+// i -= j（192 位；同上）
+#define sub_u192(i, j)                             \
+    do {                                           \
+        uint64_t _b_ = ((i)[0] < (j)[0]) ? 1 : 0;  \
+        (i)[0] -= (j)[0];                          \
+        uint64_t _b1_ = ((i)[1] < (j)[1]) ? 1 : 0; \
+        (i)[1] -= (j)[1];                          \
+        _b1_ += ((i)[1] < _b_) ? 1 : 0;            \
+        (i)[1] -= _b_;                             \
+        (i)[2] = (i)[2] - ((j)[2] + _b1_);         \
+    } while (0)
 
 /* ===================== 64bit 版本（输出 64bit，工作 128bit） ===================== */
 
@@ -717,13 +733,13 @@ uint64_t log2_fixed_64(uint64_t x) {
     uint64_t B[2] = {lg2_c128[6][1], lg2_c128[6][2]};
     for (int k = 4; k >= 0; k -= 2) {
         umul128x64_tohi128(B, B, w);
-        _u128add(B, B, lg2_c128[k] + 1);
+        add_u128(B, B, lg2_c128[k] + 1);
     }
     // A(w) = c2 + w(c4 + w(c6 + w*c8))，偶次项
     uint64_t A[2] = {lg2_c128[7][1], lg2_c128[7][2]};
     for (int k = 5; k >= 1; k -= 2) {
         umul128x64_tohi128(A, A, w);
-        _u128add(A, A, lg2_c128[k] + 1);
+        add_u128(A, A, lg2_c128[k] + 1);
     }
 
     // P = 2*(u*B' - wf*A')（lg2 系数按 2^127 尺度存储以容纳 c1=1/ln2>1，
@@ -731,12 +747,12 @@ uint64_t log2_fixed_64(uint64_t x) {
     uint64_t t1[2], t2[2];
     umul128x128_tohi128(t1, v, B);
     umul128x128_tohi128(t2, wf, A);
-    _u128sub(t1, t1, t2);
+    sub_u128(t1, t1, t2);
     t1[0] = (t1[0] << 1) | (t1[1] >> 63);
     t1[1] <<= 1;
 
     // result = (L[i] + P) >> 64，溢出 2^128 时钳位；L 复用 L192 高 2 limb
-    _u128add(t1, t1, lg2_L192[i] + 1);
+    add_u128(t1, t1, lg2_L192[i] + 1);
     if (t1[1] < lg2_L192[i][2]) return UINT64_MAX;
     return t1[1];
 }
@@ -754,20 +770,20 @@ uint64_t exp2_fixed_64(uint64_t x) {
     uint64_t B[2] = {xp2_c128[6][1], xp2_c128[6][2]};
     for (int k = 4; k >= 0; k -= 2) {
         umul128x64_tohi128(B, B, w);
-        _u128add(B, B, xp2_c128[k] + 1);
+        add_u128(B, B, xp2_c128[k] + 1);
     }
     // A(w) = c2 + w(c4 + w*c6)
     uint64_t A[2] = {xp2_c128[5][1], xp2_c128[5][2]};
     for (int k = 3; k >= 1; k -= 2) {
         umul128x64_tohi128(A, A, w);
-        _u128add(A, A, xp2_c128[k] + 1);
+        add_u128(A, A, xp2_c128[k] + 1);
     }
 
     // S = s*2^128 = t*B + wf*A
     uint64_t S[2], u2[2];
     umul128x64_tohi128(S, B, t);
     umul128x128_tohi128(u2, wf, A);
-    _u128add(S, S, u2);
+    add_u128(S, S, u2);
 
     // result = Q + S>>64 + ((Q*(S>>64))>>64)，溢出时钳位；Q 复用 Q128 高 limb
     uint64_t sh = S[1];
@@ -809,43 +825,43 @@ void log2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low) {
     uint64_t Q0[3] = {lg2_c128[12][0], lg2_c128[12][1], lg2_c128[12][2]};
     for (int k = 8; k >= 0; k -= 4) {  // +c9, +c5, +c1
         umul192x128_tohi192(Q0, Q0, z);
-        _u192add(Q0, lg2_c128[k]);
+        add_u192(Q0, lg2_c128[k]);
     }
     uint64_t Q1[3] = {lg2_c128[14][0], lg2_c128[14][1], lg2_c128[14][2]};
     for (int k = 10; k >= 2; k -= 4) {  // +c11, +c7, +c3
         umul192x128_tohi192(Q1, Q1, z);
-        _u192add(Q1, lg2_c128[k]);
+        add_u192(Q1, lg2_c128[k]);
     }
     // A(w) = P0(z) + w*P1(z)，偶次项 a_k = c_{2k+2} 存于 lg2_c128[2k+1]
     uint64_t P0[3] = {lg2_c128[13][0], lg2_c128[13][1], lg2_c128[13][2]};
     for (int k = 9; k >= 1; k -= 4) {  // +c10, +c6, +c2
         umul192x128_tohi192(P0, P0, z);
-        _u192add(P0, lg2_c128[k]);
+        add_u192(P0, lg2_c128[k]);
     }
     uint64_t P1[3] = {lg2_c128[15][0], lg2_c128[15][1], lg2_c128[15][2]};
     for (int k = 11; k >= 3; k -= 4) {  // +c12, +c8, +c4
         umul192x128_tohi192(P1, P1, z);
-        _u192add(P1, lg2_c128[k]);
+        add_u192(P1, lg2_c128[k]);
     }
 
     // B = Q0 + w*Q1, A = P0 + w*P1（w*Q1 = hi192(Q1*wf)）
     umul192x128_tohi192(Q1, Q1, wf);
-    _u192add(Q1, Q0);  // 复用 Q1 作 B
+    add_u192(Q1, Q0);  // 复用 Q1 作 B
     umul192x128_tohi192(P1, P1, wf);
-    _u192add(P1, P0);  // 复用 P1 作 A
+    add_u192(P1, P0);  // 复用 P1 作 A
 
     // P = 2*(u*B' - wf*A')（lg2_c128 按 2^191 尺度存储，差值 < 2^185，
     // 左移 1 位恢复不溢出）
     uint64_t t1[3], t2[3];
     umul192x128_tohi192(t1, Q1, v);
     umul192x128_tohi192(t2, P1, wf);
-    _u192sub(t1, t2);
+    sub_u192(t1, t2);
     t1[2] = (t1[2] << 1) | (t1[1] >> 63);
     t1[1] = (t1[1] << 1) | (t1[0] >> 63);
     t1[0] <<= 1;
 
     // result192 = L192[i] + P，输出高 128bit，进位溢出时钳位
-    _u192add(t1, lg2_L192[i]);
+    add_u192(t1, lg2_L192[i]);
     if (t1[2] < lg2_L192[i][2]) {
         dst[0] = dst[1] = UINT64_MAX;
         return;
@@ -869,36 +885,36 @@ void exp2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low) {
     uint64_t Q0[3] = {xp2_c128[8][0], xp2_c128[8][1], xp2_c128[8][2]};
     for (int k = 4; k >= 0; k -= 4) {  // +c5, +c1
         umul192x128_tohi192(Q0, Q0, z);
-        _u192add(Q0, xp2_c128[k]);
+        add_u192(Q0, xp2_c128[k]);
     }
     uint64_t Q1[3] = {xp2_c128[10][0], xp2_c128[10][1], xp2_c128[10][2]};
     for (int k = 6; k >= 2; k -= 4) {  // +c7, +c3
         umul192x128_tohi192(Q1, Q1, z);
-        _u192add(Q1, xp2_c128[k]);
+        add_u192(Q1, xp2_c128[k]);
     }
     // A(w) = R0(z) + w*R1(z)，偶次项 a_k = c_{2k+2} 存于 xp2_c128[2k+1]
     uint64_t R0[3] = {xp2_c128[9][0], xp2_c128[9][1], xp2_c128[9][2]};
     for (int k = 5; k >= 1; k -= 4) {  // +c6, +c2
         umul192x128_tohi192(R0, R0, z);
-        _u192add(R0, xp2_c128[k]);
+        add_u192(R0, xp2_c128[k]);
     }
     uint64_t R1[3] = {xp2_c128[7][0], xp2_c128[7][1], xp2_c128[7][2]};
     for (int k = 3; k >= 3; k -= 4) {  // +c4
         umul192x128_tohi192(R1, R1, z);
-        _u192add(R1, xp2_c128[k]);
+        add_u192(R1, xp2_c128[k]);
     }
 
     // B = Q0 + w*Q1, A = R0 + w*R1
     umul192x128_tohi192(Q1, Q1, wf);
-    _u192add(Q1, Q0);  // Q1 <- B
+    add_u192(Q1, Q0);  // Q1 <- B
     umul192x128_tohi192(R1, R1, wf);
-    _u192add(R1, R0);  // R1 <- A
+    add_u192(R1, R0);  // R1 <- A
 
     // S = s*2^192 = t*B + wf*A
     uint64_t S[3], u2[3];
     umul192x128_tohi192(S, Q1, W);
     umul192x128_tohi192(u2, R1, wf);
-    _u192add(S, u2);
+    add_u192(S, u2);
 
     // result = Q + s*2^128 + Q*s，其中 s*2^128 = S>>64
     uint64_t sh[2] = {S[1], S[2]};

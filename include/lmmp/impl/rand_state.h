@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -60,7 +60,9 @@ INLINE_ void pcg64_128_action(mp_limb_t state[2], const mp_limb_t inc[2]) {
     _umul64to128_(state[0], PCG128_DEFAULT_MULTIPLIER_LO, tmp, tmp + 1);
     tmp[1] += state[1] * PCG128_DEFAULT_MULTIPLIER_LO;
     tmp[1] += state[0] * PCG128_DEFAULT_MULTIPLIER_HI;
-    _u128add(state, tmp, inc);
+    state[0] = tmp[0] + inc[0];
+    mp_limb_t c = state[0] < inc[0] ? 1 : 0;
+    state[1] = tmp[1] + inc[1] + c;
 }
 
 INLINE_ void lmmp_pcg64_128_srandom(pcg64_128_state* rng, mp_limb_t seed) {

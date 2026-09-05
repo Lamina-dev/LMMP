@@ -157,12 +157,6 @@ static inline uint64_t _umul64to64hi_(uint64_t a, uint64_t b) {
 }
 
 static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_high, uint64_t b_low, uint64_t rr[4]) {
-    uint64_t p1_low, p1_high;  // p1 = a_low × b_high
-    uint64_t p2_low, p2_high;  // p2 = a_high × b_low
-    _umul64to128_(a_low, b_low, rr, rr + 1);
-    _umul64to128_(a_low, b_high, &p1_low, &p1_high);
-    _umul64to128_(a_high, b_low, &p2_low, &p2_high);
-    _umul64to128_(a_high, b_high, rr + 2, rr + 3);
     /*
         | res0 | res1 | res2 | res3 |
         |  p0l |  p0h |      |      |
@@ -170,6 +164,43 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
                |  p2l |  p2h |      |
                |      |  p3l |  p3h |
     */
+#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
+    /* 4×mulx 独立发射；交叉积之和 t = p1+p2 为 129 位（b 为溢出位，
+       由 setc 提取到已死亡的 p2l 寄存器），链尾 res3 = p3h + b + c2 收拢。 */
+    uint64_t p0l, t_l, t_h, p3l, p2l, p2h, r1, r2, r3;
+    __asm__(
+        "movq   %[al], %%rdx            \n\t"
+        "mulxq  %[bl], %[p0l], %[r1]    \n\t"  // p0 = al*bl, r1 = p0h
+        "mulxq  %[bh], %[t_l], %[t_h]   \n\t"  // p1 = al*bh
+        "movq   %[ah], %%rdx            \n\t"
+        "mulxq  %[bl], %[p2l], %[p2h]   \n\t"  // p2 = ah*bl
+        "mulxq  %[bh], %[p3l], %[r3]    \n\t"  // p3 = ah*bh, r3 = p3h
+        "addq   %[p2l], %[t_l]          \n\t"  // t_l = p1l + p2l, CF = a
+        "adcxq  %[p2h], %[t_h]          \n\t"  // t_h = p1h + p2h + a, CF = b
+        "movl   $0, %k[p2l]             \n\t"  // 不动标志，清零待 setc
+        "setcb  %b[p2l]                 \n\t"  // p2l = b
+        "addq   %[t_l], %[r1]           \n\t"  // r1 = p0h + t_l = res1, CF = c1
+        "movq   %[t_h], %[r2]           \n\t"
+        "adcxq  %[p3l], %[r2]           \n\t"  // r2 = t_h + p3l + c1 = res2, CF = c2
+        "adcxq  %[p2l], %[r3]           \n\t"  // r3 = p3h + b + c2 = res3
+        : [p0l] "=&r"(p0l), [t_l] "=&r"(t_l), [t_h] "=&r"(t_h), [p3l] "=&r"(p3l),
+          [p2l] "=&r"(p2l), [p2h] "=&r"(p2h), [r1] "=&r"(r1), [r2] "=&r"(r2),
+          [r3] "=&r"(r3)
+        : [ah] "rm"(a_high), [al] "rm"(a_low), [bh] "rm"(b_high), [bl] "rm"(b_low)
+        : "cc", "rdx");
+    rr[0] = p0l;
+    rr[1] = r1;
+    rr[2] = r2;
+    rr[3] = r3;
+#else
+    /* 纯 C 路径：__uint128_t 组合写法在 GCC 下生成代码反而劣于显式
+       limb 进位链（128 位中间值引发寄存器溢出与额外 mov），保留朴素结构。 */
+    uint64_t p1_low, p1_high;  // p1 = a_low × b_high
+    uint64_t p2_low, p2_high;  // p2 = a_high × b_low
+    _umul64to128_(a_low, b_low, rr, rr + 1);
+    _umul64to128_(a_low, b_high, &p1_low, &p1_high);
+    _umul64to128_(a_high, b_low, &p2_low, &p2_high);
+    _umul64to128_(a_high, b_high, rr + 2, rr + 3);
     rr[1] += p1_low;
     uint64_t carry = (rr[1] < p1_low) ? 1 : 0;
     rr[1] += p2_low;
@@ -183,13 +214,10 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
     carry += (rr[2] < p2_high) ? 1 : 0;
 
     rr[3] += carry;
+#endif
 }
 
 static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4]) {
-    uint64_t p1_low, p1_high;  // p1 = a_low × a_high
-    _umul64to128_(a_low, a_low, rr, rr + 1);
-    _umul64to128_(a_low, a_high, &p1_low, &p1_high);
-    _umul64to128_(a_high, a_high, rr + 2, rr + 3);
     /*
         | res0 | res1 | res2 | res3 |
         |  p0l |  p0h |      |      |
@@ -197,6 +225,38 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
                |  p1l |  p1h |      |
                |      |  p3l |  p3h |
     */
+#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
+    /* 3×mulx；交叉积 p1 左移一位成为 129 位（v 为溢出位），
+       shld 一条完成高位拼接，adcx/adox 双链吸收 v 与两段进位。 */
+    uint64_t p0l, t_l, t_h, p3l, r1, r2, r3, z;
+    __asm__(
+        "movq   %[al], %%rdx            \n\t"
+        "mulxq  %[al], %[p0l], %[r1]    \n\t"  // p0 = al*al, r1 = p0h
+        "mulxq  %[ah], %[t_l], %[t_h]   \n\t"  // t = al*ah
+        "movq   %[ah], %%rdx            \n\t"
+        "mulxq  %[ah], %[p3l], %[r3]    \n\t"  // p3 = ah*ah, r3 = p3h
+        "movq   %[t_h], %[r2]           \n\t"
+        "shldq  $1, %[t_l], %[r2]       \n\t"  // r2 = t_h<<1 | t_l>>63
+        "shrq   $63, %[t_h]             \n\t"  // t_h = v（129 位溢出，属于 res3 段）
+        "leaq   (%[t_l], %[t_l]), %[t_l]\n\t"  // t_l = 2*al*ah 低 64 位（lea 不动标志）
+        "xorq   %[z], %[z]              \n\t"  // CF = OF = 0（须在移位类指令之后）
+        "adcxq  %[t_l], %[r1]           \n\t"  // r1 = p0h + t_l, CF = res2 进位
+        "adoxq  %[p3l], %[r2]           \n\t"  // r2 += p3l, OF = res3 进位
+        "adcxq  %[z], %[r2]             \n\t"  // r2 += CF = res2
+        "adoxq  %[t_h], %[r3]           \n\t"  // r3 = p3h + v + OF = res3
+        : [p0l] "=&r"(p0l), [t_l] "=&r"(t_l), [t_h] "=&r"(t_h), [p3l] "=&r"(p3l),
+          [r1] "=&r"(r1), [r2] "=&r"(r2), [r3] "=&r"(r3), [z] "=&r"(z)
+        : [ah] "rm"(a_high), [al] "rm"(a_low)
+        : "cc", "rdx");
+    rr[0] = p0l;
+    rr[1] = r1;
+    rr[2] = r2;
+    rr[3] = r3;
+#else
+    uint64_t p1_low, p1_high;  // p1 = a_low × a_high
+    _umul64to128_(a_low, a_low, rr, rr + 1);
+    _umul64to128_(a_low, a_high, &p1_low, &p1_high);
+    _umul64to128_(a_high, a_high, rr + 2, rr + 3);
     rr[3] += p1_high >> 63;
     p1_high = (p1_high << 1) | (p1_low >> 63);
     p1_low <<= 1;
@@ -209,23 +269,19 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
     carry += (rr[2] < p1_high) ? 1 : 0;
 
     rr[3] += carry;
+#endif
 }
 
-static inline void _umul128to128_(uint64_t a_high, uint64_t a_low, uint64_t b_high, uint64_t b_low, uint64_t rr[2]) {
-    _umul64to128_(a_low, b_low, rr, rr + 1);
-    rr[1] += a_low * b_high;
-    rr[1] += a_high * b_low;
+// r = 低 128 位 (a × b)，a、b 为 128 位（高/低 limb 传入）
+static inline __uint128_t _umul128to128_(uint64_t a_high, uint64_t a_low, uint64_t b_high, uint64_t b_low) {
+    // al*bh + ah*bl 的 64 位回绕和恰为交叉贡献的可见部分
+    return (__uint128_t)a_low * b_low + ((__uint128_t)(uint64_t)(a_low * b_high + a_high * b_low) << 64);
 }
 
 static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_t den, uint64_t* r) {
 #if (defined(__GNUC__) || defined(__clang__)) && defined(LMMP_ASM_X64)
     uint64_t result;
     __asm__("div %[v]" : "=a"(result), "=d"(*r) : [v] "r"(den), "a"(numlo), "d"(numhi));
-    return result;
-#elif defined(__GNUC__)
-    __uint128_t num = (__uint128_t)numhi << 64 | numlo;
-    uint64_t result = num / den;
-    *r = num % den;
     return result;
 #else
     const uint64_t b = ((uint64_t)1 << 32);
@@ -295,95 +351,41 @@ static inline uint64_t _udiv128by64to64_(uint64_t numhi, uint64_t numlo, uint64_
 #endif
 }
 
-typedef uint64_t u128[2];
-typedef uint64_t u192[3];
+/*
+    128 位辅助类型与运算（标量形式）。
 
-static inline void _u128lshr_fn(uint64_t* x, const uint64_t* y, int n) {
-    if (n == 0) {
-        x[0] = y[0];
-        x[1] = y[1];
-    } else if (n >= 64) {
-        x[0] = y[1];
-        x[1] = 0;
-    } else {
-        x[0] = (y[0] >> n) | (y[1] << (64 - n));
-        x[1] = y[1] >> n;
-    }
+    u128 直接使用编译器内建 128 位无符号标量（GCC/Clang 均提供），
+    加减/比较/移位由编译器生成 add/adc、sub/sbb、shrd 等指令对，
+    寄存器分配与 64 位标量同等对待。limb 数组与标量的转换见
+    _u128load/_u128store（用于函数参数指针等内存场景）。
+
+    注意：禁止对 u128 使用 / 与 % 运算符——部分平台的编译器会为此
+    引入 __udivti3/__umodti3 运行时库依赖（如 Windows 下的 clang 需
+    额外链接 compiler-rt）。128 位除法一律使用 _udiv128by64to64_、
+    _udiv_qrnnd_preinv、_udiv_qr_3by2 等既有接口。
+*/
+#if defined(__SIZEOF_INT128__)
+
+typedef __uint128_t u128;
+
+// limb 提取（x 为 u128 标量）
+#define _u128low(x) ((uint64_t)(x))
+
+#define _u128high(x) ((uint64_t)((x) >> 64))
+
+// 内存（limb 数组，小端序）与标量之间的装载/写回，用于函数参数指针
+static inline __uint128_t _u128load(const uint64_t* p) {
+    return ((__uint128_t)p[1] << 64) | p[0];
 }
 
-static inline void _u128lshl_fn(uint64_t* x, const uint64_t* y, int n) {
-    if (n == 0) {
-        x[0] = y[0];
-        x[1] = y[1];
-    } else if (n >= 64) {
-        x[1] = y[0];
-        x[0] = 0;
-    } else {
-        x[1] = (y[0] >> (64 - n)) | (y[1] << n);
-        x[0] = y[0] << n;
-    }
+static inline void _u128store(uint64_t* p, __uint128_t x) {
+    p[0] = (uint64_t)x;
+    p[1] = (uint64_t)(x >> 64);
 }
 
-#define _u128lshl(x, y, n) _u128lshl_fn((x), (y), (n))
-
-#define _u128lshr(x, y, n) _u128lshr_fn((x), (y), (n))
-
-#define _u128high(x) (*((x) + 1))
-
-#define _u128low(x) (*(x))
-
-#define _u128add(r, x, y)                                                       \
-    do {                                                                        \
-        (*(r)) = *(x) + *(y);                                                   \
-        (*((r) + 1)) = (*((x) + 1)) + (*((y) + 1)) + ((*(r)) < (*(y)) ? 1 : 0); \
-    } while (0)
-
-#define _u128add64(r, x, _i64)                                     \
-    do {                                                           \
-        (*(r)) = *(x) + (_i64);                                    \
-        (*((r) + 1)) = (*((x) + 1)) + (((*(r)) < (_i64)) ? 1 : 0); \
-    } while (0)
-
-#define _u128sub64(r, x, _i64)          \
-    do {                                \
-        uint64_t _c_ = (x)[0] < (_i64); \
-        (r)[0] = (x)[0] - (_i64);       \
-        (r)[1] = (x)[1] - _c_;          \
-    } while (0)
-
-// true if x < y, false otherwise
-#define _u128cmp(x, y) ((x)[1] < (y)[1] || ((x)[1] == (y)[1] && (x)[0] < (y)[0]))
-
-#define _u128sub(r, x, y)               \
-    do {                                \
-        uint64_t _c_ = (x)[0] < (y)[0]; \
-        (r)[0] = (x)[0] - (y)[0];       \
-        (r)[1] = (x)[1] - (y)[1] - _c_; \
-    } while (0)
-
-#define _u128mul(r, x, y) _umul64to128_((x), (y), (r), (((r) + 1)))
-
-#define _u192add(i192, j192)                            \
-    do {                                                \
-        (i192)[0] += (j192)[0];                         \
-        uint64_t _c_ = ((i192)[0] < (j192)[0]) ? 1 : 0; \
-        (i192)[1] += _c_;                               \
-        _c_ = ((i192)[1] < _c_) ? 1 : 0;                \
-        (i192)[1] += (j192)[1];                         \
-        _c_ += ((i192)[1] < (j192)[1]) ? 1 : 0;         \
-        (i192)[2] += _c_ + (j192)[2];                   \
-    } while (0)
-
-#define _u192sub(i192, j192)                             \
-    do {                                                 \
-        uint64_t _b_ = ((i192)[0] < (j192)[0]) ? 1 : 0;  \
-        (i192)[0] -= (j192)[0];                          \
-        uint64_t _b1_ = ((i192)[1] < (j192)[1]) ? 1 : 0; \
-        (i192)[1] -= (j192)[1];                          \
-        _b1_ += ((i192)[1] < _b_) ? 1 : 0;               \
-        (i192)[1] -= _b_;                                \
-        (i192)[2] = (i192)[2] - ((j192)[2] + _b1_);      \
-    } while (0)
+#else
+#error "u128 scalar helpers require __uint128_t (GCC/Clang 64-bit targets)"
+#endif
 
 #define _add_ssaaaa(sh, sl, ah, al, bh, bl) \
     do {                                    \
@@ -403,46 +405,49 @@ static inline void _u128lshl_fn(uint64_t* x, const uint64_t* y, int n) {
 
 // n = nh * B + nl, di = lmmp_inv_1_(d)
 // q = n / d, r = n % d
-#define _udiv_qrnnd_preinv(q, r, nh, nl, d, di)              \
-    do {                                                     \
-        uint64_t _qh_, _ql_, _r_, _mask_;                    \
-        _umul64to128_((nh), (di), &_ql_, &_qh_);             \
-        _add_ssaaaa(_qh_, _ql_, _qh_, _ql_, (nh) + 1, (nl)); \
-        _r_ = (nl) - _qh_ * (d);                             \
-        _mask_ = -(mp_limb_t)(_r_ > _ql_);                   \
-        _qh_ += _mask_;                                      \
-        _r_ += _mask_ & (d);                                 \
-        if (_r_ >= (d)) {                                    \
-            _r_ -= (d);                                      \
-            _qh_++;                                          \
-        }                                                    \
-        (r) = _r_;                                           \
-        (q) = _qh_;                                          \
+#define _udiv_qrnnd_preinv(q, r, nh, nl, d, di)                              \
+    do {                                                                     \
+        __uint128_t _s_ = (__uint128_t)(mp_limb_t)(nh) * (mp_limb_t)(di);    \
+        _s_ += ((__uint128_t)(mp_limb_t)((nh) + 1) << 64) | (mp_limb_t)(nl); \
+        mp_limb_t _qh_ = (mp_limb_t)(_s_ >> 64);                             \
+        mp_limb_t _ql_ = (mp_limb_t)_s_;                                     \
+        mp_limb_t _r_ = (mp_limb_t)(nl) - _qh_ * (mp_limb_t)(d);             \
+        mp_limb_t _mask_ = -(mp_limb_t)(_r_ > _ql_);                         \
+        _qh_ += _mask_;                                                      \
+        _r_ += _mask_ & (mp_limb_t)(d);                                      \
+        if (_r_ >= (mp_limb_t)(d)) {                                         \
+            _r_ -= (mp_limb_t)(d);                                           \
+            _qh_++;                                                          \
+        }                                                                    \
+        (r) = _r_;                                                           \
+        (q) = _qh_;                                                          \
     } while (0)
 
 // n = n2 * B^2 + n1 * B + n0, d = d1 * B + d0, dinv = lmmp_inv_2_1_(d)
 // q = n / d, r = n % d
-#define _udiv_qr_3by2(q, r1, r0, n2, n1, n0, d1, d0, dinv)                 \
-    do {                                                                   \
-        mp_limb_t _q0_, _t1_, _t0_, _mask_;                                \
-        _umul64to128_((n2), (dinv), &_q0_, &(q));                          \
-        _add_ssaaaa((q), _q0_, (q), _q0_, (n2), (n1));                     \
-        /* Compute the two most significant limbs of n - q'd */            \
-        (r1) = (n1) - (d1) * (q);                                          \
-        _sub_ddmmss((r1), (r0), (r1), (n0), (d1), (d0));                   \
-        _umul64to128_((d0), (q), &_t0_, &_t1_);                            \
-        _sub_ddmmss((r1), (r0), (r1), (r0), _t1_, _t0_);                   \
-        (q)++;                                                             \
-        /* Conditionally adjust q and the remainders */                    \
-        _mask_ = -(uint64_t)((r1) >= _q0_);                                \
-        (q) += _mask_;                                                     \
-        _add_ssaaaa((r1), (r0), (r1), (r0), _mask_ & (d1), _mask_ & (d0)); \
-        if ((r1) >= (d1)) {                                                \
-            if ((r1) > (d1) || (r0) >= (d0)) {                             \
-                (q)++;                                                     \
-                _sub_ddmmss((r1), (r0), (r1), (r0), (d1), (d0));           \
-            }                                                              \
-        }                                                                  \
+#define _udiv_qr_3by2(q, r1, r0, n2, n1, n0, d1, d0, dinv)                  \
+    do {                                                                    \
+        mp_limb_t _t0_, _t1_, _mask_;                                       \
+        __uint128_t _s_ = (__uint128_t)(mp_limb_t)(n2) * (mp_limb_t)(dinv); \
+        _s_ += ((__uint128_t)(mp_limb_t)(n2) << 64) | (mp_limb_t)(n1);      \
+        mp_limb_t _q0_ = (mp_limb_t)_s_;                                    \
+        (q) = (mp_limb_t)(_s_ >> 64);                                       \
+        /* Compute the two most significant limbs of n - q'd */             \
+        (r1) = (n1) - (d1) * (q);                                           \
+        _sub_ddmmss((r1), (r0), (r1), (n0), (d1), (d0));                    \
+        _umul64to128_((d0), (q), &_t0_, &_t1_);                             \
+        _sub_ddmmss((r1), (r0), (r1), (r0), _t1_, _t0_);                    \
+        (q)++;                                                              \
+        /* Conditionally adjust q and the remainders */                     \
+        _mask_ = -(uint64_t)((r1) >= _q0_);                                 \
+        (q) += _mask_;                                                      \
+        _add_ssaaaa((r1), (r0), (r1), (r0), _mask_ & (d1), _mask_ & (d0));  \
+        if ((r1) >= (d1)) {                                                 \
+            if ((r1) > (d1) || (r0) >= (d0)) {                              \
+                (q)++;                                                      \
+                _sub_ddmmss((r1), (r0), (r1), (r0), (d1), (d0));            \
+            }                                                               \
+        }                                                                   \
     } while (0)
 
 // q = n0 / d0, assuming d0 is a 32-bit number, d0 > 1
