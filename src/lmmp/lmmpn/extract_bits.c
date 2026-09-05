@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -19,6 +19,7 @@
 
 mp_bitcnt_t lmmp_extract_bits_(mp_srcptr restrict num, mp_size_t n, mp_limb_t* restrict ext, int bits) {
     lmmp_param_assert(bits <= LIMB_BITS && bits > 0);
+    lmmp_param_assert(num != NULL && ext != NULL);
     lmmp_param_assert(n > 0);
     if (n == 1) {
         int lb = lmmp_limb_bits_(num[0]);

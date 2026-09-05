@@ -298,7 +298,7 @@ LMMP_API void lmmp_hgcd_matrix_free_(lmmp_hgcd_matrix_t* M);
  * @param n ap,bp 的公共长度
  * @warning M!=NULL, ap!=NULL, bp!=NULL, sep(ap,bp), n>0, M->alloc>=n+2,
  *          ap[n-1]!=0（a 须归一化；bp 非全零，允许高位零填充），[ap,n]>[bp,n]（值序）
- * @return 归约后公共长度（成功时一般 <= n/2+1；若归约中遇到整除完成态会提前返回，
+ * @return 归约后公共长度（成功时一般 <= n/2+2；若归约中遇到整除完成态会提前返回，
  *         此时 [bp,*] 可能已为 0，由调用者检查）；0 表示未做任何归约（M 保持单位矩阵）
  * @note gcd(a,b) = gcd(a',b')。渐进复杂度 O(M(n) log n)，M 为乘法复杂度。
  *       长输入下经由 lmmp_gcd_hgcd_ 使用；直接调用时注意 ap/bp 需要各自 n limbs 容量。
@@ -314,6 +314,9 @@ LMMP_API mp_size_t lmmp_hgcd_(lmmp_hgcd_matrix_t* M, mp_ptr ap, mp_ptr bp, mp_si
  * @param vn 第二个无符号整数的 limb 长度
  * @warning up!=NULL, un>=vn>0, vp!=NULL, dst!=NULL, eqsep(dst,[up|vp]), up[un-1]!=0, vp[vn-1]!=0
  * @return dst 的实际 limb 长度
+ * @note 不平衡输入（un >= 2*vn）先做取模预归约将两数长度拉近，再进入
+ *       分治主路径：不平衡时 hgcd 的阶段 A 递归失效，预归约普遍更快
+ *      （越悬殊收益越大，见 hgcd.c 实现注）
  */
 LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 

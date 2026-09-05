@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -39,11 +39,12 @@ mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base) {
  * @param numa 输入数组
  * @param na 输入数组长度
  * @param base 转换基数
- * @warning numa[na-1]!=0
+ * @warning numa[na-1]!=0, dst!=NULL, numa!=NULL
  * @return 返回转换后的字符串长度
  */
 static mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base) {
     lmmp_param_assert(na > 0);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1]!= 0);
     int i;
     int digitspl = lmmp_bases_table[base - 2].digits_in_limb;
@@ -99,7 +100,7 @@ static mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t
  * @param na 输入数组长度
  * @param pow 指数表
  * @param tpq 临时数组
- * @warning numa[na-1]!=0, sep(dst,tpq)
+ * @warning numa[na-1]!=0, sep(dst,tpq), dst!=NULL, numa!=NULL, tpq!=NULL, pow!=NULL
  * @return 返回转换后的字符串长度
  */
 static mp_size_t lmmp_to_str_divide_(
@@ -111,6 +112,7 @@ static mp_size_t lmmp_to_str_divide_(
 ) {
     lmmp_param_assert(na > 0);
     lmmp_param_assert(numa[na - 1] != 0);
+    lmmp_param_assert(dst != NULL && numa != NULL && tpq != NULL);
     lmmp_param_assert(pow != NULL);
     mp_size_t digits;
     if (na < TO_STR_DIVIDE_THRESHOLD) {
@@ -182,6 +184,7 @@ static mp_size_t lmmp_to_str_divide_(
 
 mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base) {
     lmmp_param_assert(base >= 2 && base <= 256);
+    lmmp_param_assert(dst != NULL && numa != NULL);
     do {
         if (na == 0)
             return 0;

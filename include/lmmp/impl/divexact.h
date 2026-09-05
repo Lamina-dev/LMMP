@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -25,7 +25,7 @@
  * @param dst 结果存储位置
  * @param numa 被除数
  * @param na 被除数长度
- * @warning eqsep(dst,numa), na>0
+ * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
 static inline void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
     mp_limb_t c = 0;
@@ -51,7 +51,7 @@ static inline void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na) 
  * @param dst 结果存储位置
  * @param numa 被除数
  * @param na 被除数长度
- * @warning eqsep(dst,numa), na>0
+ * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
 static inline void lmmp_divexact_by9_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
     mp_limb_t c = 0;
@@ -77,7 +77,7 @@ static inline void lmmp_divexact_by9_(mp_ptr dst, mp_srcptr numa, mp_size_t na) 
  * @param dst 结果存储位置
  * @param numa 被除数
  * @param na 被除数长度
- * @warning eqsep(dst,numa), na>0
+ * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
 static inline void lmmp_divexact_by15_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
     mp_limb_t c = 0;

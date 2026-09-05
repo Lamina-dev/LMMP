@@ -523,7 +523,8 @@ LMMP_API mp_size_t lmmp_fft_next_size_(mp_size_t n);
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1)
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1),
+ *          dst!=NULL, numa!=NULL, numb!=NULL
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_fermat_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_fermat_函数
  * @return 无返回值，结果存储在dst中
  */
@@ -537,7 +538,8 @@ LMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1)
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1),
+ *          dst!=NULL, numa!=NULL, numb!=NULL
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数
  * @return 无返回值，结果存储在dst中
  */
@@ -549,7 +551,7 @@ LMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_si
  * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((2*na + 1) >> 1)
  * @param numa 操作数，长度为 na
  * @param na 操作数的 limb 长度
- * @warning eqsep(dst,numa), 0<=[numa,na]<2*B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1)
+ * @warning eqsep(dst,numa), 0<=[numa,na]<2*B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
@@ -560,7 +562,7 @@ LMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size
  * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((2*na + 1) >> 1)
  * @param numa 输入操作数，长度为 na
  * @param na 操作数的 limb 长度
- * @warning eqsep(dst,numa), 0<=[numa,na]<B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1)
+ * @warning eqsep(dst,numa), 0<=[numa,na]<B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
@@ -612,22 +614,24 @@ LMMP_API void lmmp_sqr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 等长乘法操作 [dst,2*n] = [numa,n] * [numb,n]
- * @warning n>0, sep(dst,[numa|numb])
  * @param dst 乘积结果输出指针（需要 2*n 的 limb 长度）
  * @param numa 第一个乘数指针
  * @param numb 第二个乘数指针
  * @param n limb长度
+ * @warning n>0, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
  * @brief 不等长乘法操作 [dst,na+nb] = [numa,na] * [numb,nb]
- * @warning 0<nb<=na, sep(dst,[numa|numb])
  * @param dst 乘积结果输出指针（需要 na+nb 的 limb 长度）
  * @param numa 第一个乘数指针（较长的操作数）
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个乘数指针（较短的操作数）
  * @param nb 第二个操作数的 limb 长度
+ * @warning 0<nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
@@ -710,7 +714,7 @@ LMMP_API mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
  * @param dst 输出结果缓冲区，长度为na
  * @param numa 输入操作数，长度为na
  * @param na 输入操作数的 limb 长度
- * @warning na>0, MSB(numa)=1, sep(dst,numa)
+ * @warning na>0, MSB(numa)=1, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中，[dst,na]=(B^(2*na)-1)/[numa,na] - B^na
  */
 LMMP_API void lmmp_inv_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -720,7 +724,7 @@ LMMP_API void lmmp_inv_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度为na
  * @param numa 输入操作数，长度为na
  * @param na 输入操作数的 limb 长度
- * @warning na>4, MSB(numa)=1, sep(dst,numa)
+ * @warning na>4, MSB(numa)=1, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中，[dst,na]=(B^(2*na)-1)/[numa,na]-B^na+[0|-1]
  */
 LMMP_API void lmmp_invappr_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -730,7 +734,7 @@ LMMP_API void lmmp_invappr_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度为na
  * @param numa 输入操作数，长度为na
  * @param na 输入操作数的 limb 长度
- * @warning na>0, MSB(numa)=1, sep(dst,numa)
+ * @warning na>0, MSB(numa)=1, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中，[dst,na] = (B^(2*na)-1)/[numa,na] - B^na + [0|-1]
  */
 LMMP_API void lmmp_invappr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -740,8 +744,8 @@ LMMP_API void lmmp_invappr_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param numa 输入被除数（长度3），运算后存储余数（长度2）
  * @param numb 输入除数（长度2）
  * @param inv21 除数的2-1阶逆元（提前计算好的inv21([numb,2])）
+ * @warning [numa,3]<[numb,2]*B, MSB(numb)=1, inv21=inv21([numb,2]), eqsep(numa,numb), numb!=NULL, numa!=NULL
  * @return 商值（单精度数）
- * @warning [numa,3]<[numb,2]*B, MSB(numb)=1, inv21=inv21([numb,2]), eqsep(numa,numb)
  */
 LMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
 
@@ -752,7 +756,9 @@ LMMP_API mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
  * @param na 被除数的 limb 长度
  * @param x 除数（单个 limb ）
  * @return 除法余数（单个 limb ）
- * @warning na>0, x!=0, eqsep(dstq,numa), dstq>=numa-1 是可以接受的
+ * @warning na>0, x!=0, eqsep(dstq,numa),
+ * @warning [numa,3]<[numb,2]*B, MSB(numb)=1, inv21=inv21([numb,2]), eqsep(numa,numb), numa!=NULL,
+ *          dstq>=numa-1 是可以接受的
  * @note if (dstq!=NULL) [dstq,na] = [numa,na] div x
  */
 LMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);
@@ -769,11 +775,11 @@ LMMP_API mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
 /**
  * @brief 双精度数除法 (除数为2个limb)
- * @param dstq 输出商的缓冲区，长度至少为na-1
+ * @param dstq 输出商的缓冲区，长度至少为na-1（可为NULL，此时仅计算余数）
  * @param numa 输入被除数（长度na）
  * @param na 被除数的 limb 长度
  * @param numb 输入除数（长度2）[numb,2]=[numa,na] mod [numb,2]
- * @warning na>=2, numb[1]!=0, eqsep(dstq,numa), dstq>=numa 是可以接受的
+ * @warning na>=2, numb[1]!=0, eqsep(dstq,numa), numa!=NULL, numb!=NULL, dstq>=numa 是可以接受的
  * @note if (dstq!=NULL) [dstq,na-1]=[numa,na] div [numb,2]
  */
 LMMP_API void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
@@ -791,31 +797,33 @@ LMMP_API void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
  * @brief 基础除法运算
  * @param dstq 输出商的缓冲区，长度至少为na-nb
  * @param numa 输入被除数（长度na），运算后存储余数（长度nb）
- * @param na 被除数的单精度数(limb)长度
+ * @param na 被除数的 limb 长度
  * @param numb 输入除数，长度为nb
- * @param nb 除数的单精度数(limb)长度
+ * @param nb 除数的 limb 长度
  * @param inv21 除数的2-1阶逆元（inv21([numb+nb-2,2])）
  * @return 商的最高位（qh）
- * @warning na>=nb>=3, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb)
+ * @warning na>=nb>=3, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb),
+ *          dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LMMP_API mp_limb_t
-lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
+LMMP_API mp_limb_t lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
+                                      mp_limb_t inv21);
 
 /**
  * @brief 分治除法运算
  * @param dstq 输出商的缓冲区，长度至少为na-nb
  * @param numa 输入被除数（长度na），运算后存储余数（长度nb）
- * @param na 被除数的单精度数(limb)长度
+ * @param na 被除数的 limb 长度
  * @param numb 输入除数，长度为nb
- * @param nb 除数的单精度数(limb)长度
+ * @param nb 除数的 limb 长度
  * @param inv21 除数的2-1阶逆元（inv21([numb+nb-2,2])）
  * @return 商的最高位（qh）
- * @warning na>=2*nb, nb>=6, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb)
+ * @warning na>=2*nb, nb>=6, MSB(numb)=1, inv21=inv21([numb+nb-2,2]), sep(dstq,numa,numb),
+ *          dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LMMP_API mp_limb_t
-lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
+LMMP_API mp_limb_t lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
+                                    mp_limb_t inv21);
 
 /**
  * @brief 计算预计算逆元的尺寸
@@ -843,7 +851,7 @@ INLINE_ mp_size_t lmmp_div_inv_size_(mp_size_t nq, mp_size_t nb) {
  * @param numa 输入操作数，长度为na
  * @param na 输入操作数的 limb 长度
  * @param ni 预计算逆元的目标尺寸
- * @warning na>=ni>0, MSB(numa)=1, eqsep(dst,numa)
+ * @warning na>=ni>0, MSB(numa)=1, eqsep(dst,numa), dst!=NULL, numa!=NULL
  * @note if (ni=na) [dst,na] = (B^(2*na)-1) / [numa,na] - B^na
  */
 LMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t ni);
@@ -854,7 +862,7 @@ LMMP_API void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size
  * @param numa 源操作数指针
  * @param na 操作数的 limb 长度
  * @param nf 精度因子
- * @warning na>0, numa[na-1]!=0, eqsep(dst,numa)
+ * @warning na>0, numa[na-1]!=0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
 LMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
 
@@ -864,7 +872,7 @@ LMMP_API void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf);
  * @param numa 输入指针（长度na）
  * @param na 输入指针的 limb 长度
  * @param ni 精度因子
- * @warning na>0, sep(dstq,numa), dstq!=NULL, numa[na-1]!=0
+ * @warning na>0, sep(dstq,numa), dstq!=NULL, numa[na-1]!=0, dstq!=NULL, numa!=NULL
  * @note 也就是计算 B^(2*na+ni) div [numa,na] + [0|-ept]，存在接近2^-64的绝对误差
  */
 LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t ni);
@@ -880,10 +888,11 @@ LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t n
  * @param ni 预计算逆元的 limb 长度
  * @return 商的最高位（qh）
  * @warning na>=nb>=ni>0, MSB(numb)=1, [invappr,ni]=inv_prediv([numb,nb]), sep(dstq,numa,numb,invappr))
+ *          dstq!=NULL, numa!=NULL, numb!=NULL, invappr!=NULL
  * @note qh:[dstq,na-1]=[numa,na] div x, [numa,1]=[numa,na] mod x, return qh
  */
-LMMP_API mp_limb_t
-lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_srcptr invappr, mp_size_t ni);
+LMMP_API mp_limb_t lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
+                                    mp_srcptr invappr, mp_size_t ni);
 
 /**
  * @brief 单精度数除法（除数为1个limb）
@@ -892,7 +901,7 @@ lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size
  * @param na 被除数的 limb 长度
  * @param x 除数（单个 limb ）
  * @return 商的最高位（qh）
- * @warning na>1, MSB(x)=1, sep(dstq,numa)
+ * @warning na>1, MSB(x)=1, sep(dstq,numa), dstq!=NULL, numa!=NULL
  * @note qh:[dstq,na-1]=[numa,na] div x, [numa,1]=[numa,na] mod x, return qh
  */
 LMMP_API mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
@@ -904,7 +913,7 @@ LMMP_API mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb
  * @param na 被除数的 limb 长度
  * @param numb 输入除数，长度为2
  * @return 商的最高位（qh）
- * @warning na>2, MSB(numb)=1, sep(dstq,numa,numb)
+ * @warning na>2, MSB(numb)=1, sep(dstq,numa,numb), dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-2]=[numa,na] div [numb,2], [numa,2]=[numa,na] mod [numb,2], return qh
  */
 LMMP_API mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
@@ -917,24 +926,25 @@ LMMP_API mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcp
  * @param numb 输入除数，长度为nb
  * @param nb 除数的 limb 长度
  * @return 商的最高位（qh）
- * @warning na>=nb>0, MSB(numb)=1, sep(dstq,numa,numb)
+ * @warning na>=nb>0, MSB(numb)=1, sep(dstq,numa,numb), dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,nb]=[numa,na] mod [numb,nb], return qh
  */
 LMMP_API mp_limb_t lmmp_div_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 除法和取模操作
- * @note 如果dstq不为NULL: [dstq,na-nb+1] = [numa,na] / [numb,nb] (商)
- *       如果dstr不为NULL: [dstr,nb] = [numa,na] mod [numb,nb] (余数)
- * @warning 0<nb<=na, numb[nb-1]!=0, sep(dstq,[numa|numb]), eqsep(dstr,[numa|numb]))
- *          特殊情况: nb==1时, dstq>=numa-1 是允许的
- *                   nb==2时, dstq>=numa 是允许的
  * @param dstq 商结果输出指针（NULL表示不计算商）
  * @param dstr 余数结果输出指针（NULL表示不计算余数）
  * @param numa 被除数指针
  * @param na 被除数的 limb 长度
  * @param numb 除数指针
  * @param nb 除数的 limb 长度
+ * @warning 0<nb<=na, numb[nb-1]!=0, sep(dstq,[numa|numb]), eqsep(dstr,[numa|numb]))
+ *          numa!=NULL, numb!=NULL
+ *          特殊情况: nb==1时, dstq>=numa-1 是允许的
+ *                   nb==2时, dstq>=numa 是允许的
+ * @note 如果dstq不为NULL: [dstq,na-nb+1] = [numa,na] / [numb,nb] (商)
+ *       如果dstr不为NULL: [dstr,nb] = [numa,na] mod [numb,nb] (余数)
  */
 LMMP_API void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
@@ -1021,7 +1031,7 @@ INLINE_ int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
  * @param p 指针
  * @param n 数的 limb 长度
  * @return 1(全零) / 0(非零)
- * @warning n>0
+ * @warning n>0, p!=NULL
  * @note 从最高位开始检查，只要有非零位则返回0
  */
 INLINE_ int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
@@ -1053,7 +1063,7 @@ INLINE_ int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
  * @param numb 第二个加数，长度为nb
  * @param nb 第二个加数的 limb 长度
  * @return 进位标志（1表示有进位，0表示无进位）
- * @warning 0<nb<=na, eqsep(dst,[numa|numb])
+ * @warning 0<nb<=na, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  */
 INLINE_ mp_limb_t lmmp_add_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
     LMMP_AORS_(lmmp_add_n_, ((dst[nb++] = _x_ + 1) == 0));
@@ -1067,7 +1077,7 @@ INLINE_ mp_limb_t lmmp_add_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr 
  * @param numb 减数，长度为nb
  * @param nb 减数的 limb 长度
  * @return 借位标志（1表示有借位，0表示无借位）
- * @warning 0<nb<=na, eqsep(dst,[numa|numb])
+ * @warning 0<nb<=na, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  */
 INLINE_ mp_limb_t lmmp_sub_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
     LMMP_AORS_(lmmp_sub_n_, ((dst[nb++] = _x_ - 1), _x_ == 0));
@@ -1106,7 +1116,7 @@ INLINE_ mp_limb_t lmmp_sub_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr 
  * @param na 被加数的 limb 长度
  * @param x 加数（单个 limb ）
  * @return 进位标志（1表示有进位，0表示无进位）
- * @warning na>0, eqsep(dst,numa)
+ * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
 INLINE_ mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) { LMMP_AORS_1_(+, LMMP_ADDCB_); }
 
@@ -1117,7 +1127,7 @@ INLINE_ mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_
  * @param na 被减数的 limb 长度
  * @param x 减数（单个 limb ）
  * @return 借位标志（1表示有借位，0表示无借位）
- * @warning na>0, eqsep(dst,numa)
+ * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
 INLINE_ mp_limb_t lmmp_sub_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) { LMMP_AORS_1_(-, LMMP_SUBCB_); }
 
@@ -1153,7 +1163,7 @@ LMMP_API mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int b
  * @param src 字节数组源指针
  * @param len 字节数组长度
  * @param base 字节数组的进制基数
- * @warning len>=0, 2<=base<=256
+ * @warning len>=0, 2<=base<=256, dst!=NULL, src!=NULL
  * @return 转换后的结果的 limb 长度
  */
 LMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base);
@@ -1164,7 +1174,7 @@ LMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t le
  * @param numa 输入指针
  * @param na 输入的 limb 长度
  * @param base 目标字节数组的进制基数
- * @warning na>=0, 2<=base<=256
+ * @warning na>=0, 2<=base<=256, dst!=NULL, numa!=NULL
  * @return 转换后的字节数组长度
  */
 LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base);
@@ -1175,7 +1185,7 @@ LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
  * @param n num的 limb 长度
  * @param bits 待提取的位数(1-64)
  * @param ext 提取结果输出指针
- * @warning n>0, 1<=bits<=64, ext!=NULL
+ * @warning n>0, 1<=bits<=64, ext!=NULL, num!=NULL
  * @note 如果bits大于num的实际位数，则不会保证ext有效位数为bits位；
  *       如果bits小于等于num的实际位数，则ext将会有bits位有效位数。
  * @return 剩余的低位bits数量

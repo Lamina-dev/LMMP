@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -38,6 +38,7 @@ static mp_limb_t lmmp_div_divide_n_(
     mp_ptr    restrict   tp
 ) {
     lmmp_param_assert(n >= 6);
+    lmmp_param_assert(dstq != NULL && numa != NULL && numb != NULL);
     lmmp_param_assert(numb[n - 1] >= LIMB_B_2);
     mp_size_t lo = n >> 1, hi = n - lo;
     mp_limb_t cy, qh, ql;
