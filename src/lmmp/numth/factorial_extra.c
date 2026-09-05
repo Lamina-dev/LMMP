@@ -29,7 +29,7 @@
     else                                \
         lmmp_mul_(dst, bp, bn, ap, an)
 
-// 无分支，尽管_c_为0时
+// 无分支，_c_为0时可能导致越界写入高位0
 #define mul_1(dst, rn, v)                             \
     do {                                              \
         mp_limb_t _c_ = lmmp_mul_1_(dst, dst, rn, v); \
