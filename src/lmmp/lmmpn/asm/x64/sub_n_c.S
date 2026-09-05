@@ -100,7 +100,7 @@ ASM_GSYM(lmmp_sub_n_):
 .Ltail2:
     mov     [rdi], r10
     mov     [rdi+8], r11
-    setc    al                      // return highest limb borrow
+    setc    al                     // return highest limb borrow
 #ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
@@ -109,13 +109,13 @@ ASM_GSYM(lmmp_sub_n_):
 
 .Lodd:
     test    al, 2
-    jnz     .Lodd3                  // n mod 4 == 3
+    jnz     .Lodd3                 // n mod 4 == 3
 
 .Lodd1:                            // n mod 4 == 1
     neg     r10
     mov     r11, [rsi]
     ADCSBB  r11, [rdx]             // t0 = numa[0] - numb[0] - CF
-    jrcxz   .Ltail1                 // n == 1, ret
+    jrcxz   .Ltail1                // n == 1, ret
     mov     r8, [rsi+8]
     mov     r9, [rsi+16]
     lea     rsi, [rsi+8]
@@ -127,7 +127,7 @@ ASM_GSYM(lmmp_sub_n_):
 
 .Ltail1:
     mov     [rdi], r11
-    setc    al                      // return highest limb borrow
+    setc    al                     // return highest limb borrow
 #ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
@@ -137,7 +137,7 @@ ASM_GSYM(lmmp_sub_n_):
 .Lodd3:                            // n mod 4 == 3
     neg     r10
     mov     r9, [rsi]
-    ADCSBB  r9, [rdx]               // t0
+    ADCSBB  r9, [rdx]              // t0
     mov     r10, [rsi+8]
     mov     r11, [rsi+16]
     lea     rsi, [rsi+24]
@@ -146,14 +146,14 @@ ASM_GSYM(lmmp_sub_n_):
     lea     rdx, [rdx+24]
     mov     [rdi], r9
     lea     rdi, [rdi+8]
-    jrcxz   .Lend                   // n == 3, ret
+    jrcxz   .Lend                  // n == 3, ret
 
 .p2align 4
 .Lloop:                            // main loop : 4 limb
     mov     r8, [rsi]
     mov     r9, [rsi+8]
-    ADCSBB  r8, [rdx]               // t_i   = a - b - CF
-    ADCSBB  r9, [rdx+8]             // t_i+1
+    ADCSBB  r8, [rdx]              // t_i   = a - b - CF
+    ADCSBB  r9, [rdx+8]            // t_i+1
 
 .Lent2:
     mov     [rdi], r10

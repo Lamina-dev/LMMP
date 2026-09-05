@@ -44,7 +44,7 @@ Lm1_b10:                                // n mod 4 == 2
     mul     x9, x5, x3                  // lo_1
     b       Lm1_mid-8                   // enter mid loop
 
-Lm1_2:                                 // n == 2 tail
+Lm1_2:                                  // n == 2 tail
     mul     x9, x5, x3                  // lo_1
     b       Lm1_2e
 
