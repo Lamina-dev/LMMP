@@ -481,6 +481,68 @@ TEST_CASE("numth/gcd", gcd_dispatch) {
     }
 }
 
+TEST_CASE("numth/gcd", gcd_unbalanced) {
+    // 不平衡输入系统覆盖：预归约路径（un >= 2*vn 触发）、2:1 边界两侧、
+    // 整除早退（r == 0）、链式取模（余数仍显著短于除数）、单/双 limb 除数。
+    // 与 Lehmer（原生处理不平衡）交叉对照 + 整除性验证
+    u64 seed = 0x853c49e6748fea9bull;
+    struct { mp_size_t un, vn; } sizes[] = {
+        {90, 45},   {90, 44},   {100, 50},  {100, 51},  {130, 64},
+        {130, 65},  {200, 99},  {200, 100}, {200, 50},  {200, 25},
+        {200, 10},  {200, 4},   {333, 166}, {333, 167}, {333, 83},
+        {333, 40},  {333, 5},   {333, 2},   {333, 1},
+    };
+    for (auto& s : sizes) {
+        for (int mode = 0; mode < 3; ++mode) {
+            mp_size_t d = s.un - s.vn;
+            if (mode == 2 && d <= 3) continue; // 链式取模形态需要余数空间
+            for (int iter = 0; iter < 3; ++iter) {
+                mp_ptr v = alloc_limbs(s.vn);
+                random_limbs(v, s.vn, seed);
+                mp_ptr u = alloc_limbs(s.un);
+                if (mode == 0) {
+                    // 随机（余数均匀分布，通常 1~2 次预归约后平衡）
+                    random_limbs(u, s.un, seed);
+                } else if (mode == 1) {
+                    // u = v * B^d：整除，gcd = v（预归约 r == 0 早退）
+                    lmmp_zero(u, d);
+                    lmmp_copy(u + d, v, s.vn);
+                } else {
+                    // u = v * B^d + tiny：余数仅 3 limb，触发链式取模
+                    lmmp_zero(u, d);
+                    lmmp_copy(u + d, v, s.vn);
+                    u[0] = 0x9e3779b97f4a7c15ull | 1;
+                    u[1] = 0x51ce1b7ea4df7c21ull | 1;
+                    u[2] = 0x2b44ae9d4d6c8f13ull | 1;
+                }
+
+                BigInt bv(v, s.vn);
+                mp_ptr d1 = alloc_limbs(s.un);
+                mp_ptr d2 = alloc_limbs(s.un);
+                mp_size_t g1 = lmmp_gcd_(d1, u, s.un, v, s.vn);
+                mp_size_t g2 = lmmp_gcd_lehmer_(d2, u, s.un, v, s.vn);
+                TEST_CHECK_MSG(g1 == g2 && memcmp(d1, d2, (size_t)g1 * sizeof(mp_limb_t)) == 0,
+                               "unbalanced gcd_ matches lehmer");
+                TEST_CHECK_MSG(g1 > 0, "unbalanced gcd positive length");
+                TEST_CHECK_MSG(divides_all(d1, g1, u, s.un), "unbalanced gcd divides u");
+                TEST_CHECK_MSG(divides_all(d1, g1, v, s.vn), "unbalanced gcd divides v");
+                if (mode == 1) {
+                    TEST_CHECK_MSG(BigInt(d1, (size_t)g1) == bv, "unbalanced exact-multiple gcd is v");
+                }
+                // 大输入直接走 hgcd 分治入口（含预归约）复核
+                if (s.un >= 100) {
+                    mp_ptr d3 = alloc_limbs(s.un);
+                    mp_size_t g3 = lmmp_gcd_hgcd_(d3, u, s.un, v, s.vn);
+                    TEST_CHECK_MSG(g3 == g1 && memcmp(d3, d1, (size_t)g1 * sizeof(mp_limb_t)) == 0,
+                                   "unbalanced gcd_hgcd matches");
+                    lmmp_free(d3);
+                }
+                lmmp_free(u); lmmp_free(v); lmmp_free(d1); lmmp_free(d2);
+            }
+        }
+    }
+}
+
 TEST_CASE("numth/gcd", gcd_empty) {
     for (mp_size_t n : {2, 3, 5, 8, 16, 53, 64, 120, 200, 321}) {
         mp_ptr a = alloc_limbs(n);

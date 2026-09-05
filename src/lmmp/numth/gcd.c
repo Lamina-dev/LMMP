@@ -16,9 +16,6 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/numth.h"
 
-/*
-FIXME: 在不平衡输入的情况下，可能做一次取模将长度归一化会更好。这需要进一步验证
-*/
 
 mp_size_t lmmp_gcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn) {
     lmmp_param_assert(un > 0 && vn > 0);
