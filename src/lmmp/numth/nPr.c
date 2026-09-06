@@ -21,13 +21,12 @@
 #include "../../../include/lmmp/impl/prime_table.h"
 
 
+// 无分支，_c_为0时可能导致越界写入高位0
 #define mul_1(dst, rn, v)                             \
     do {                                              \
         mp_limb_t _c_ = lmmp_mul_1_(dst, dst, rn, v); \
-        if (_c_ != 0) {                               \
-            ++rn;                                     \
-            dst[rn - 1] = _c_;                        \
-        }                                             \
+        dst[rn] = _c_;                                \
+        rn += _c_ > 0;                                \
     } while (0)
 
 #ifdef LMMP_TUNE

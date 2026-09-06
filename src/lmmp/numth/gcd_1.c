@@ -36,17 +36,17 @@ mp_limb_t lmmp_gcd_11_(mp_limb_t u, mp_limb_t v) {
     return ((u << 1) + 1) << k;
 }
 
-mp_limb_t lmmp_gcd_1_(mp_srcptr up, mp_size_t un, mp_limb_t vlimb) {
+mp_limb_t lmmp_gcd_1_(mp_srcptr up, mp_size_t un, mp_limb_t v) {
     lmmp_param_assert(un > 0);
-    lmmp_param_assert(vlimb > 0);
+    lmmp_param_assert(v > 0);
     mp_limb_t ulimb;
     if (un == 1) {
         ulimb = up[0];
     } else {
-        ulimb = lmmp_mod_1_(up, un, vlimb);
+        ulimb = lmmp_mod_1_(up, un, v);
     }
     if (ulimb == 0)
-        return vlimb;
+        return v;
     else
-        return lmmp_gcd_11_(ulimb, vlimb);
+        return lmmp_gcd_11_(ulimb, v);
 }

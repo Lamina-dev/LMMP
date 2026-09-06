@@ -149,7 +149,8 @@ LMMP_API void lmmp_divexact_1_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_limb_t
  * @param nn 被除数的 limb 长度
  * @param dp 除数指针（长度为 2 个limb）
  * @param dinv 除数的逆元指针（长度为 2 个limb）
- * @warning dp[0]%2==1, dp*dinv==1 mod 2^128, nn>1, dst!=NULL, np!=NULL, eqsep(dst,np), sep(dp,dinv,[dst|np])
+ * @warning dp[0]%2==1, dp*dinv==1 mod 2^128, nn>1, dst!=NULL, np!=NULL, dp!=NULL, dinv!=NULL
+ *          eqsep(dst,np), sep(dp,dinv,[dst|np])
  */
 LMMP_API void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_srcptr dinv);
 
@@ -218,7 +219,7 @@ LMMP_API mp_limb_t lmmp_gcd_11_(mp_limb_t u, mp_limb_t v);
  * @warning v!=0, up!=NULL, un>0
  * @return 最大公约数
  */
-LMMP_API mp_limb_t lmmp_gcd_1_(mp_srcptr up, mp_size_t un, mp_limb_t vlimb);
+LMMP_API mp_limb_t lmmp_gcd_1_(mp_srcptr up, mp_size_t un, mp_limb_t v);
 
 /**
  * @brief 计算两个无符号整数的最大公约数
@@ -226,7 +227,7 @@ LMMP_API mp_limb_t lmmp_gcd_1_(mp_srcptr up, mp_size_t un, mp_limb_t vlimb);
  * @param vp 第二个无符号整数指针，长度为 2
  * @param dst 结果指针（长度为 2，两个 limb 都会进行写入，即使最高位可能为0）
  * @warning up!=NULL, vp!=NULL, [up,2]!=0, [vp,2]!=0, dst!=NULL, eqsep(dst,[up|vp])
- * @note 我们不要求 up 和 vp 的高位不为 0，但要求两个数均不可以高低位全为 0
+ * @note up 和 vp 的高位允许为 0，但要求任一个数的高低位不能全为 0
  * @return dst 的实际 limb 长度
  */
 LMMP_API mp_size_t lmmp_gcd_22_(mp_ptr dst, mp_srcptr up, mp_srcptr vp);
@@ -242,7 +243,6 @@ LMMP_API mp_size_t lmmp_gcd_22_(mp_ptr dst, mp_srcptr up, mp_srcptr vp);
  */
 LMMP_API mp_size_t lmmp_gcd_2_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp);
 
-
 /**
  * @brief 计算两个无符号整数的最大公约数（Lehmer算法）
  * @param dst 结果指针（长度至少为 min(un,vn)）
@@ -257,9 +257,9 @@ LMMP_API mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_s
 
 /**
  * @brief hgcd 变换矩阵
- * @note 约定 / a \   / m00  m01 \   / a' \
- *           |   | = |          | * |   |
- *           \ b /   \ m10  m11 /   \ b' /
+ * @note  / a \   / m00  m01 \   / a' \
+ *        |   | = |          | * |    |
+ *        \ b /   \ m10  m11 /   \ b' /
  *       其中 (a;b) 为 hgcd 入口数对，(a';b') 为归约后数对。矩阵元素均非负，
  *       det(M) = ±1，元素值不超过入口较大分量的规模。
  *       每个元素显式存储真实长度 n[i][j]（归一化，顶 limb 非零；
@@ -894,6 +894,7 @@ LMMP_API void lmmp_sqrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_si
  *               [dsts,nf+na/2+1] = [floor|round](sqrt([numa,na]*B^(2*nf)))
  *           }
  *       }
+ * @attention 如你需要精确的floor(sqrt(x))语义，请确保nf==0
  * @warning na>0, numa[na-1]!=0, eqsep(dsts,numa), eqsep(dstr,numa)
  */
 LMMP_API void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_t nf);

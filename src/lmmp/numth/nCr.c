@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -52,7 +52,7 @@ mp_size_t lmmp_nCr_size_(uint n, uint r, mp_bitcnt_t* restrict bits) {
     return rn + 2; // more 2 limb
 }
 
-// 无分支，尽管可能导致溢出
+// 无分支，_c_为0时可能导致越界写入高位0
 #define mul_1(dst, rn, v)                             \
     do {                                              \
         mp_limb_t _c_ = lmmp_mul_1_(dst, dst, rn, v); \
@@ -300,6 +300,9 @@ mp_size_t lmmp_odd_nCr_uint_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) 
         bino_choose_t ctx;
         ctx.nPr_n = lmmp_nPr_size_(n, r, &ctx.nPr_bits);
         ctx.fac_n = lmmp_factorial_size_(r, &ctx.fac_bits);
+        /*
+        FIXME: tune this
+        */
         if (50 * ctx.nPr_n > 89 * ctx.fac_n) {
             /* 这个调优值是在近似忽略了质数表的初始化开销，主要瓶颈集中在质数表的遍历的情况下测得的 */
             /* 因此，当质数表未初始化时，这个调优值将无法代表真实性能边界 */

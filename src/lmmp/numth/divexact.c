@@ -48,9 +48,10 @@ void lmmp_divexact_1_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_limb_t d, mp_li
 }
 
 void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr restrict dp, mp_srcptr restrict dinv) {
-    lmmp_param_assert(dp[0] % 2 == 1);
     lmmp_param_assert(nn > 1);
-    lmmp_debug_assert(dst != NULL && np != NULL);
+    lmmp_param_assert(dst != NULL && np != NULL);
+    lmmp_param_assert(dp != NULL && dinv != NULL);
+    lmmp_param_assert(dp[0] % 2 == 1);
     u128 c = 0;
     u128 l, s, q;
     mp_limb_t t[4];

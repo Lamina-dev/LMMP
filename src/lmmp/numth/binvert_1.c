@@ -54,6 +54,7 @@ ulong lmmp_binvert_ulong_(ulong a) {
 }
 
 void lmmp_binvert_2_(mp_ptr dst, mp_srcptr numa) {
+    lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[0] % 2 == 1);
     mp_limb_t k, t;
     mp_limb_t a1 = numa[1];
@@ -113,6 +114,8 @@ static inline void _umul128to192_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
 }
 
 void lmmp_binvert_3_(mp_ptr restrict dst, mp_srcptr restrict numa) {
+    lmmp_param_assert(dst != NULL && numa != NULL);
+    lmmp_param_assert(numa[0] % 2 == 1);
     /*
            a == a0 + a1 * B^2
      xn * a0 == 1 + k * B^2
@@ -138,6 +141,8 @@ void lmmp_binvert_3_(mp_ptr restrict dst, mp_srcptr restrict numa) {
 }
 
 void lmmp_binvert_4_(mp_ptr restrict dst, mp_srcptr restrict numa) {
+    lmmp_param_assert(dst != NULL && numa != NULL);
+    lmmp_param_assert(numa[0] % 2 == 1);
     /*
            a == a0 + a1 * B^2
      xn * a0 == 1 + k * B^2
