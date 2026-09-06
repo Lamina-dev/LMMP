@@ -38,12 +38,13 @@ mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base) {
  * @param src 输入字符串
  * @param len 字符串长度
  * @param base 转换基数
- * @warning src[len-1]!=0, dst!=NULL, src!=NULL
+ * @warning src[len-1]!=0, dst!=NULL, src!=NULL, len>0
  * @return 返回转换后的limb数量
  */
 static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base) {
-    lmmp_param_assert(src[len - 1] != 0);
     lmmp_param_assert(dst != NULL && src != NULL);
+    lmmp_param_assert(len > 0);
+    lmmp_param_assert(src[len - 1] != 0);
     mp_size_t digitspl = lmmp_bases_table[base - 2].digits_in_limb;
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t limbs = 0, i = len;
@@ -87,7 +88,7 @@ static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_si
  * @param len 字符串长度
  * @param pow 指数表
  * @param tp 临时数组
- * @warning src[len-1]!=0, sep(dst,tp), dst!=NULL, src!=NULL, tp!=NULL
+ * @warning src[len-1]!=0, sep(dst,tp), dst!=NULL, src!=NULL, tp!=NULL, len>0
  * @note 第一层调用时：nh>=2, [dst,2*N], [tp,limbs]
  *       后序递归时：N>=2, [dst,limbs+1], [tp,2*N-1]
  *       limbs为返回值，N = pow->np + pow->zeros
@@ -100,8 +101,9 @@ static mp_size_t lmmp_from_str_divide_(
           mp_basepow_t*         pow,
           mp_ptr       restrict  tp
 ) {
-    lmmp_param_assert(src[len - 1] != 0);
     lmmp_param_assert(dst != NULL && src != NULL && tp != NULL);
+    lmmp_param_assert(len > 0);
+    lmmp_param_assert(src[len - 1] != 0);
     mp_size_t limbs;
 
     if (lmmp_from_str_len_(0, len, pow->base) < FROM_STR_DIVIDE_THRESHOLD) {
