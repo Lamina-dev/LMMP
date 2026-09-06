@@ -25,7 +25,7 @@ extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
-extern uint64_t lmmp_tune_SQRT_INVNEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_SQRT_INVNEWTON_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;

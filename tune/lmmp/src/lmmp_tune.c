@@ -89,7 +89,7 @@ static const tune_module_t g_modules[] = {
     {"elem_mul", "elem,ELEM_MUL_BASECASE_THRESHOLD", "ELEM_MUL_BASECASE_THRESHOLD", tune_run_elem_mul},
     {"mat22_mul", "MAT22_MUL_STRASSEN_THRESHOLD", "MAT22_MUL_STRASSEN_THRESHOLD", tune_run_mat22_mul},
     {"mat22_sqr", "MAT22_SQR_STRASSEN_THRESHOLD", "MAT22_SQR_STRASSEN_THRESHOLD", tune_run_mat22_sqr},
-    {"sqrt_invnewton", "SQRT_INVNEWTON_THRESHOLD", "SQRT_INVNEWTON_THRESHOLD", tune_run_sqrt_invnewton},
+    {"sqrt_invnewton", "SQRT_INVNEWTON_K_THRESHOLD", "SQRT_INVNEWTON_K_THRESHOLD", tune_run_sqrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},

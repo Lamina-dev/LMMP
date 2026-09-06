@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -176,12 +176,12 @@ void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb) {
             numb[1] = r1 >> shift;
             return;
         } else {
-            if (_u128cmp(numa, numb)) {
-                numb[0] = numa[0];
-                numb[1] = numa[1];
+            u128 a = _u128load(numa), b = _u128load(numb);
+            if (a < b) {
+                _u128store(numb, a);
                 return;
             } else {
-                _u128sub(numb, numa, numb);
+                _u128store(numb, a - b);
                 return;
             }
         }
@@ -257,14 +257,14 @@ void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb) {
             numb[1] = r1 >> shift;
             return;
         } else {
-            if (_u128cmp(numa, numb)) {
-                numb[0] = numa[0];
-                numb[1] = numa[1];
+            u128 a = _u128load(numa), b = _u128load(numb);
+            if (a < b) {
+                _u128store(numb, a);
                 if (dstq)
                     dstq[0] = 0;
                 return;
             } else {
-                _u128sub(numb, numa, numb);
+                _u128store(numb, a - b);
                 if (dstq)
                     dstq[0] = 1;
                 return;

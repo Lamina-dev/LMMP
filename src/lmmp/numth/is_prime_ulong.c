@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -27,82 +27,62 @@ mont64 可以用于任意大小的数，但由于考虑了溢出的情况，所�
 #define MONT63_MAX ((ulong)(0x7fffffffffffffff))
 
 static inline ulong mont64_reduce(u128 t, ulong m, ulong m_inv) {
-    ulong k = t[0] * m_inv;
-    u192 tmp;
-    _u128mul(tmp, k, m);
-    tmp[0] += t[0];
-    ulong c = tmp[0] < t[0];
-    tmp[1] += c;
-    c = tmp[1] == 0;
-    tmp[1] += t[1];
-    c = tmp[1] < t[1];
-    tmp[2] = c;
-    if (!c) {
-        ulong res = tmp[1] >= m ? tmp[1] - m : tmp[1];
-        return res;
-    } else {
-        _u128sub64(tmp + 1, tmp + 1, m);
-        return tmp[1];
-    }
+    // sum = k*m + t < 2^129，第 129 位 c 由 128 位回绕捕获
+    ulong k = _u128low(t) * m_inv;
+    u128 km = (u128)k * m;
+    u128 sum = km + t;
+    uint c = sum < km;
+    ulong hi = _u128high(sum);
+    if (c) return hi - m;  // 2^128 + hi - m 的低 128 位高位即结果
+    return hi >= m ? hi - m : hi;
 }
 
 static inline ulong mont64_R2(ulong m) {
-    u192 r = {0, 0, 1};
-    u128 q;
+    mp_limb_t r[3] = {0, 0, 1};
+    mp_limb_t q[2];
     lmmp_div_1_s_(q, r, 3, m);
     return r[0];
 }
 
 static inline ulong to_mont64(ulong x, ulong R2, ulong m, ulong m_inv) {
-    u128 t;
-    _u128mul(t, x, R2);
-    return mont64_reduce(t, m, m_inv);
+    return mont64_reduce((u128)x * R2, m, m_inv);
 }
 
 static inline ulong from_mont64(ulong x, ulong m, ulong m_inv) {
-    u128 t = {x, 0};
-    return mont64_reduce(t, m, m_inv);
+    return mont64_reduce(x, m, m_inv);
 }
 
 static inline ulong mont64_mul(ulong a, ulong b, ulong m, ulong m_inv) {
-    u128 t;
-    _u128mul(t, a, b);
-    return mont64_reduce(t, m, m_inv);
+    return mont64_reduce((u128)a * b, m, m_inv);
 }
 
 static inline ulong mont63_reduce(u128 t, ulong m, ulong m_inv) {
-    ulong k = t[0] * m_inv;
-    u128 tmp;
-    _u128mul(tmp, k, m);
-    _u128add(tmp, tmp, t);
-    ulong res = tmp[1] >= m ? tmp[1] - m : tmp[1];
-    return res;
+    // m < 2^63 时 k*m + t < 2^127，无 129 位溢出
+    ulong k = _u128low(t) * m_inv;
+    u128 sum = (u128)k * m + t;
+    ulong hi = _u128high(sum);
+    return hi >= m ? hi - m : hi;
 }
 
 static inline ulong mont63_R2(ulong m) {
     mp_bitcnt_t shift = 0;
     clz_shl_u64(m, m, shift);
-    u192 r = {0, 0, 1ull << shift};
-    u128 q;
+    mp_limb_t r[3] = {0, 0, 1ull << shift};
+    mp_limb_t q[2];
     lmmp_div_1_s_(q, r, 3, m);
     return r[0] >> shift;
 }
 
 static inline ulong to_mont63(ulong x, ulong R2, ulong m, ulong m_inv) {
-    u128 t;
-    _u128mul(t, x, R2);
-    return mont63_reduce(t, m, m_inv);
+    return mont63_reduce((u128)x * R2, m, m_inv);
 }
 
 static inline ulong from_mont63(ulong x, ulong m, ulong m_inv) {
-    u128 t = {x, 0};
-    return mont63_reduce(t, m, m_inv);
+    return mont63_reduce(x, m, m_inv);
 }
 
 static inline ulong mont63_mul(ulong a, ulong b, ulong m, ulong m_inv) {
-    u128 t;
-    _u128mul(t, a, b);
-    return mont63_reduce(t, m, m_inv);
+    return mont63_reduce((u128)a * b, m, m_inv);
 }
 
 uint lmmp_powmod_uint_odd_(uint base, ulong exp, uint mod) {

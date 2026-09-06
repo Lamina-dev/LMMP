@@ -48,59 +48,55 @@ void lmmp_divexact_1_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_limb_t d, mp_li
 }
 
 void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr restrict dp, mp_srcptr restrict dinv) {
-    lmmp_param_assert(dp[0] % 2 == 1);
     lmmp_param_assert(nn > 1);
-    lmmp_debug_assert(dst != NULL && np != NULL);
-    mp_limb_t c[2] = {0, 0};
-    mp_limb_t l[2], s[2], q[2], t[4];
+    lmmp_param_assert(dst != NULL && np != NULL);
+    lmmp_param_assert(dp != NULL && dinv != NULL);
+    lmmp_param_assert(dp[0] % 2 == 1);
+    u128 c = 0;
+    u128 l, s, q;
+    mp_limb_t t[4];
     mp_size_t i;
     mp_limb_t d0 = dp[0], d1 = dp[1];
     mp_limb_t ddinv0 = dinv[0], ddinv1 = dinv[1];
 
     if (nn % 2 == 0) {
         for (i = 0; i < nn - 2; i += 2) {
-            s[0] = np[i];
-            s[1] = np[i + 1];
-            _u128sub(l, s, c);
-            c[0] = _u128cmp(s, l) ? 1 : 0;
-            c[1] = 0;
-            _umul128to128_(l[1], l[0], ddinv1, ddinv0, q);
-            dst[i] = q[0];
-            dst[i + 1] = q[1];
-            _umul128to256_(q[1], q[0], d1, d0, t);
-            _u128add(c, c, t + 2);
+            s = _u128load(np + i);
+            l = s - c;
+            c = (u128)(s < l);  // 借位（原 c 非 0 时成立）
+            q = _umul128to128_(_u128high(l), _u128low(l), ddinv1, ddinv0);
+            dst[i] = _u128low(q);
+            dst[i + 1] = _u128high(q);
+            _umul128to256_(_u128high(q), _u128low(q), d1, d0, t);
+            c += _u128load(t + 2);
         }
-        s[0] = np[i];
-        s[1] = np[i + 1];
-        _u128sub(l, s, c);
-        c[0] = _u128cmp(s, l);
-        _umul128to128_(l[1], l[0], ddinv1, ddinv0, q);
-        dst[i] = q[0];
-        // 商最高 limb 为 0 时 c[0] 可能为 1；函数结果仍然正确。
+        s = _u128load(np + i);
+        l = s - c;
+        c = (u128)(s < l);
+        q = _umul128to128_(_u128high(l), _u128low(l), ddinv1, ddinv0);
+        dst[i] = _u128low(q);
+        // 商最高 limb 为 0 时 c 可能为 1；函数结果仍然正确。
     } else {
         i = 0;
         if (nn >= 5) {
             for (; i < nn - 4; i += 2) {
-                s[0] = np[i];
-                s[1] = np[i + 1];
-                _u128sub(l, s, c);
-                c[0] = _u128cmp(s, l);
-                c[1] = 0;
-                _umul128to128_(l[1], l[0], ddinv1, ddinv0, q);
-                dst[i] = q[0];
-                dst[i + 1] = q[1];
-                _umul128to256_(q[1], q[0], d1, d0, t);
-                _u128add(c, c, t + 2);
+                s = _u128load(np + i);
+                l = s - c;
+                c = (u128)(s < l);
+                q = _umul128to128_(_u128high(l), _u128low(l), ddinv1, ddinv0);
+                dst[i] = _u128low(q);
+                dst[i + 1] = _u128high(q);
+                _umul128to256_(_u128high(q), _u128low(q), d1, d0, t);
+                c += _u128load(t + 2);
             }
         }
-        s[0] = np[i];
-        s[1] = np[i + 1];
-        _u128sub(l, s, c);
-        c[0] = _u128cmp(s, l);
-        _umul128to128_(l[1], l[0], ddinv1, ddinv0, q);
-        dst[i] = q[0];
-        dst[i + 1] = q[1];
-        // 商最高 limb 为 0 时 c[0] 可能为 1；函数结果仍然正确。
+        s = _u128load(np + i);
+        l = s - c;
+        c = (u128)(s < l);
+        q = _umul128to128_(_u128high(l), _u128low(l), ddinv1, ddinv0);
+        dst[i] = _u128low(q);
+        dst[i + 1] = _u128high(q);
+        // 商最高 limb 为 0 时 c 可能为 1；函数结果仍然正确。
     }
 }
 

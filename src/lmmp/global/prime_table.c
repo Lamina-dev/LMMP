@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -41,56 +41,29 @@ static inline uint prime_table_size(uint n) {
 }
 
 /*
- * 预填充表没有排除idx == 0的情况，这是为了确保210*m+1的奇数被填充
- * 但是这会导致索引为0，也即1被错误标记，需要单独处理
-  for (int s = 0; s < 105; ++s) {
-    lmmp_bitset_t mask = 0;
-    for (int k = 0; k < 64; ++k) {
-      int idx = (s + k) % 105; // 取模周期
-      uint p = 2 * idx + 1;    // 对应的奇数
-      if (p % 3 != 0 && p % 5 != 0 && p % 7 != 0)
-        mask |= 1ULL << k;
-    }
-    wheel_mask[s] = mask;
-  }
-*/
-// 预填充表（预筛了3,5,7的倍数，以及1，和他们本身）
-static const lmmp_bitset_t wheel_mask[105] = {
-    (lmmp_bitset_t)0x916d129a64b4cb61, (lmmp_bitset_t)0x48b6894d325a65b0, (lmmp_bitset_t)0xa45b44a6992d32d8,
-    (lmmp_bitset_t)0x522da2534c96996c, (lmmp_bitset_t)0x2916d129a64b4cb6, (lmmp_bitset_t)0x948b6894d325a65b,
-    (lmmp_bitset_t)0xca45b44a6992d32d, (lmmp_bitset_t)0x6522da2534c96996, (lmmp_bitset_t)0xb2916d129a64b4cb,
-    (lmmp_bitset_t)0x5948b6894d325a65, (lmmp_bitset_t)0x2ca45b44a6992d32, (lmmp_bitset_t)0x96522da2534c9699,
-    (lmmp_bitset_t)0xcb2916d129a64b4c, (lmmp_bitset_t)0x65948b6894d325a6, (lmmp_bitset_t)0x32ca45b44a6992d3,
-    (lmmp_bitset_t)0x996522da2534c969, (lmmp_bitset_t)0x4cb2916d129a64b4, (lmmp_bitset_t)0x265948b6894d325a,
-    (lmmp_bitset_t)0x932ca45b44a6992d, (lmmp_bitset_t)0x4996522da2534c96, (lmmp_bitset_t)0xa4cb2916d129a64b,
-    (lmmp_bitset_t)0xd265948b6894d325, (lmmp_bitset_t)0x6932ca45b44a6992, (lmmp_bitset_t)0xb4996522da2534c9,
-    (lmmp_bitset_t)0x5a4cb2916d129a64, (lmmp_bitset_t)0x2d265948b6894d32, (lmmp_bitset_t)0x96932ca45b44a699,
-    (lmmp_bitset_t)0xcb4996522da2534c, (lmmp_bitset_t)0x65a4cb2916d129a6, (lmmp_bitset_t)0x32d265948b6894d3,
-    (lmmp_bitset_t)0x996932ca45b44a69, (lmmp_bitset_t)0x4cb4996522da2534, (lmmp_bitset_t)0xa65a4cb2916d129a,
-    (lmmp_bitset_t)0xd32d265948b6894d, (lmmp_bitset_t)0x6996932ca45b44a6, (lmmp_bitset_t)0xb4cb4996522da253,
-    (lmmp_bitset_t)0xda65a4cb2916d129, (lmmp_bitset_t)0x6d32d265948b6894, (lmmp_bitset_t)0x36996932ca45b44a,
-    (lmmp_bitset_t)0x1b4cb4996522da25, (lmmp_bitset_t)0xda65a4cb2916d12,  (lmmp_bitset_t)0x86d32d265948b689,
-    (lmmp_bitset_t)0xc36996932ca45b44, (lmmp_bitset_t)0x61b4cb4996522da2, (lmmp_bitset_t)0x30da65a4cb2916d1,
-    (lmmp_bitset_t)0x186d32d265948b68, (lmmp_bitset_t)0xc36996932ca45b4,  (lmmp_bitset_t)0x861b4cb4996522da,
-    (lmmp_bitset_t)0xc30da65a4cb2916d, (lmmp_bitset_t)0x6186d32d265948b6, (lmmp_bitset_t)0xb0c36996932ca45b,
-    (lmmp_bitset_t)0xd861b4cb4996522d, (lmmp_bitset_t)0x6c30da65a4cb2916, (lmmp_bitset_t)0xb6186d32d265948b,
-    (lmmp_bitset_t)0x5b0c36996932ca45, (lmmp_bitset_t)0x2d861b4cb4996522, (lmmp_bitset_t)0x96c30da65a4cb291,
-    (lmmp_bitset_t)0xcb6186d32d265948, (lmmp_bitset_t)0x65b0c36996932ca4, (lmmp_bitset_t)0x32d861b4cb499652,
-    (lmmp_bitset_t)0x996c30da65a4cb29, (lmmp_bitset_t)0x4cb6186d32d26594, (lmmp_bitset_t)0xa65b0c36996932ca,
-    (lmmp_bitset_t)0xd32d861b4cb49965, (lmmp_bitset_t)0x6996c30da65a4cb2, (lmmp_bitset_t)0xb4cb6186d32d2659,
-    (lmmp_bitset_t)0x5a65b0c36996932c, (lmmp_bitset_t)0x2d32d861b4cb4996, (lmmp_bitset_t)0x96996c30da65a4cb,
-    (lmmp_bitset_t)0x4b4cb6186d32d265, (lmmp_bitset_t)0x25a65b0c36996932, (lmmp_bitset_t)0x92d32d861b4cb499,
-    (lmmp_bitset_t)0xc96996c30da65a4c, (lmmp_bitset_t)0x64b4cb6186d32d26, (lmmp_bitset_t)0x325a65b0c3699693,
-    (lmmp_bitset_t)0x992d32d861b4cb49, (lmmp_bitset_t)0x4c96996c30da65a4, (lmmp_bitset_t)0xa64b4cb6186d32d2,
-    (lmmp_bitset_t)0xd325a65b0c369969, (lmmp_bitset_t)0x6992d32d861b4cb4, (lmmp_bitset_t)0x34c96996c30da65a,
-    (lmmp_bitset_t)0x9a64b4cb6186d32d, (lmmp_bitset_t)0x4d325a65b0c36996, (lmmp_bitset_t)0xa6992d32d861b4cb,
-    (lmmp_bitset_t)0x534c96996c30da65, (lmmp_bitset_t)0x29a64b4cb6186d32, (lmmp_bitset_t)0x94d325a65b0c3699,
-    (lmmp_bitset_t)0x4a6992d32d861b4c, (lmmp_bitset_t)0x2534c96996c30da6, (lmmp_bitset_t)0x129a64b4cb6186d3,
-    (lmmp_bitset_t)0x894d325a65b0c369, (lmmp_bitset_t)0x44a6992d32d861b4, (lmmp_bitset_t)0xa2534c96996c30da,
-    (lmmp_bitset_t)0xd129a64b4cb6186d, (lmmp_bitset_t)0x6894d325a65b0c36, (lmmp_bitset_t)0xb44a6992d32d861b,
-    (lmmp_bitset_t)0xda2534c96996c30d, (lmmp_bitset_t)0x6d129a64b4cb6186, (lmmp_bitset_t)0xb6894d325a65b0c3,
-    (lmmp_bitset_t)0x5b44a6992d32d861, (lmmp_bitset_t)0x2da2534c96996c30, (lmmp_bitset_t)0x16d129a64b4cb618,
-    (lmmp_bitset_t)0x8b6894d325a65b0c, (lmmp_bitset_t)0x45b44a6992d32d86, (lmmp_bitset_t)0x22da2534c96996c3};
+ * 1155-wheel（3*5*7*11）预筛基表：
+ *   位图中位 j 代表奇数 2j+1，wheel 值 = 1 当且仅当 2j+1 与 1155 互素。
+ *   周期 1155 位（非整字，1155 = 18*64 + 3）：
+ *   第 k 字的位 i 为周期位 (64k+i) mod 1155 的 wheel 值，k < 38，
+ *   任意起始偏移 s in [0,1155) 的字可通过 (lo >> r) | (hi << (64-r))
+ *   从两个相邻基字非对齐抽取（r = s&63，且 s+64 <= 2246 < 2310 保证不越界）。
+ *   该表未排除 idx == 0（数 1 被标记为素数），也未恢复 3,5,7,11 本身，
+ *   均由初始化末尾的修正步骤单独处理。
+ */
+static const lmmp_bitset_t wheel1155_base[38] = {
+    (lmmp_bitset_t)0x816d129a64b4cb41, (lmmp_bitset_t)0x2996c20d865a4c32, (lmmp_bitset_t)0xb49961225a2534c9,
+    (lmmp_bitset_t)0x4a6982d12d86134c, (lmmp_bitset_t)0x0c36996132ca45b0, (lmmp_bitset_t)0x948a6894d325264b,
+    (lmmp_bitset_t)0x4b48b6186d30d225, (lmmp_bitset_t)0x65a4c92916d128a6, (lmmp_bitset_t)0xa2134496994c30da,
+    (lmmp_bitset_t)0xd86194cb4916422d, (lmmp_bitset_t)0x28a45b44a4992d32, (lmmp_bitset_t)0x225865b0c3689693,
+    (lmmp_bitset_t)0x9325265948b2894d, (lmmp_bitset_t)0x6d129a6434cb6186, (lmmp_bitset_t)0x96430da45a0cb290,
+    (lmmp_bitset_t)0x996522d22434c969, (lmmp_bitset_t)0x6192d30d821b4ca4, (lmmp_bitset_t)0x16996932ca45b40a,
+    (lmmp_bitset_t)0x0b6894d325a65a0c, (lmmp_bitset_t)0x4cb6106c32d26194, (lmmp_bitset_t)0xa4cb0912d129a649,
+    (lmmp_bitset_t)0x534c16896c309a65, (lmmp_bitset_t)0x61b4cb0996522d82, (lmmp_bitset_t)0xa45344a699293258,
+    (lmmp_bitset_t)0x5a45b0c36986912c, (lmmp_bitset_t)0x2d264948b6894532, (lmmp_bitset_t)0x109a24b4ca6186d3,
+    (lmmp_bitset_t)0xc30ca65a48b2116d, (lmmp_bitset_t)0x4522da2524c96996, (lmmp_bitset_t)0x12c32d861b44b499,
+    (lmmp_bitset_t)0x992932ca45944a69, (lmmp_bitset_t)0x6894d321a65b0c34, (lmmp_bitset_t)0xb2186d22d0659483,
+    (lmmp_bitset_t)0xcb29169121a64b4c, (lmmp_bitset_t)0x0c96986c10da6524, (lmmp_bitset_t)0xb4cb4996522da053,
+    (lmmp_bitset_t)0x5b44a6992d32d060, (lmmp_bitset_t)0x65b0836196930ca0,};
 
 static const lmmp_bitset_t not_mask_64[LMMP_BITSET_BITS] = {
     (lmmp_bitset_t)0xfffffffffffffffe, (lmmp_bitset_t)0xfffffffffffffffd, (lmmp_bitset_t)0xfffffffffffffffb,
@@ -116,89 +89,149 @@ static const lmmp_bitset_t not_mask_64[LMMP_BITSET_BITS] = {
     (lmmp_bitset_t)0xefffffffffffffff, (lmmp_bitset_t)0xdfffffffffffffff, (lmmp_bitset_t)0xbfffffffffffffff,
     (lmmp_bitset_t)0x7fffffffffffffff};
 
-
 #define IDX(p) ((p) >> 1)
 #define set_not_prime(p, i) p[i / LMMP_BITSET_BITS] &= not_mask_64[(i % LMMP_BITSET_BITS)]
 #define set_prime(p, i) p[i / LMMP_BITSET_BITS] |= (1ULL << (i % LMMP_BITSET_BITS))
 
+// 分段大小（字）。512KB 恰为目标 L2 容量级，且 2^22 位 >> 65535（最大步长），
+// 保证段内每个已启动的质数至少标记 ~64 次，无近空转循环
+#define PRIME_SEG_WORDS (1u << 16)
+
+// 走周期掩码路径的最大质数。p <= 31（64/p >= 2）时收益明显，
+// 更大的质数每字命中数不足 2，掩码整字扫描反而得不偿失
+#define PRIME_PATTERN_MAX 31
+
 void lmmp_prime_int_table_init_(uint n) {
     if (n < PRIME_SHORT_TABLE_N || G.max >= n)
         return;
+
+    uint old_size = G.map_size; // 旧表字数（0 表示首次初始化）
+    uint old_max = G.max;
+    uint new_size = prime_table_size(n);
+
     if (G.map == NULL) {
-        G.max = n;
-        G.map_size = prime_table_size(n);
-        lmmp_bitset_p restrict p = ALLOC_TYPE(G.map_size, lmmp_bitset_t);
-
-        // 按 105 周期填充
-        for (uint i = 0, s = 0; i < G.map_size; ++i) {
-            p[i] = wheel_mask[s];
-            // s = (s + 64) % 105;
-            s += LMMP_BITSET_BITS;
-            if (s >= 105)
-                s -= 105;
-        }
-
-        set_not_prime(p, 0);
-        set_prime(p, IDX(3));
-        set_prime(p, IDX(5));
-        set_prime(p, IDX(7));
-
-        ushort sqrt_n = n > 4294836225 ? 0xffff : (ushort)sqrt(n);
-        uint max_idx = lmmp_prime_cnt16_(sqrt_n);
-        uint limit_idx = IDX(n);
-
-        // 从质数 11 开始（下标 4）
-        for (ushort i = 4; i < max_idx; ++i) {
-            uint prime = prime_short_table[i];
-            uint start_idx = IDX(prime * prime);
-            for (uint idx = start_idx; idx <= limit_idx; idx += prime) {
-                set_not_prime(p, idx);
-            }
-        }
-        G.map = p;
+        G.map = ALLOC_TYPE(new_size, lmmp_bitset_t);
     } else {
-        // 扩展部分（重分配）
-        uint old_N = G.max;
-        uint new_size = prime_table_size(n);
         G.map = REALLOC_TYPE(G.map, new_size, lmmp_bitset_t);
+    }
+    G.map_size = new_size;
+    G.max = n;
 
-        // 新块填充 wheel_mask
-        for (uint i = G.map_size, s = (G.map_size * 64) % 105; i < new_size; ++i) {
-            G.map[i] = wheel_mask[s];
+    lmmp_bitset_p restrict p = G.map;
+    uint limit_idx = (n - 1) >> 1;                       // 有效位上界（含），对应 <= n 的最大奇数
+    uint skip_to = old_max ? ((old_max - 1) >> 1) + 1 : 0; // 旧表有效位之后的第一个位
+
+    ushort sqrt_n = n > 4294836225 ? 0xffff : (ushort)sqrt(n);
+    uint max_idx = lmmp_prime_cnt16_(sqrt_n); // 筛质数个数上界（不含），质数从下标 5（=13）起
+
+    // next[i]：第 i 个筛质数下一个待清除的全局位索引。
+    // 保持为单调的 p*p/2（而非预先跳过旧区域），保证“已启动”的质数构成前缀，
+    // act 前缀扫描才成立；旧区域的跳过在首个段内惰性完成
+    uint* restrict next = ALLOC_TYPE(max_idx, uint);
+    for (uint i = 5; i < max_idx; ++i)
+        next[i] = IDX((uint)prime_short_table[i] * prime_short_table[i]);
+
+    uint small_end = lmmp_prime_cnt16_(PRIME_PATTERN_MAX);   // 周期掩码路径的质数前缀（下标 11）
+    lmmp_bitset_t masks[LMMP_BITSET_BITS];                   // 周期掩码（只用 [0, prime) 项）
+    uint act = 5;                                            // [5, act) 为已启动的筛质数前缀
+    uint w = old_size;
+    for (;;) {
+        uint wend = w + PRIME_SEG_WORDS;
+        uint last = 0;
+        if (wend >= new_size) {
+            wend = new_size;
+            last = 1;
+        }
+        uint seg_hi = wend * LMMP_BITSET_BITS; // 段结束全局位（不含）
+        uint end = (seg_hi <= limit_idx + 1) ? seg_hi : limit_idx + 1; // 本段标记上界（不含）
+
+        // 段内 wheel 预填充（预筛 3,5,7,11 的倍数）。
+        // 1155 周期非整字（1155 = 18*64+3），用双倍基表做非对齐抽取：s 为本段
+        // 起始字的全局位偏移 mod 1155。注意跨周期回卷（s -= 1155）会改变
+        // 字内偏移 s&63（每次 -3 mod 64），故 r 必须逐字重算，不可提出循环外。
+        // 扩容增量不足一字时（new_size == old_size）无新字可填，仅执行标记：
+        // 此时有效增量位于旧表末字的陈旧 wheel 位上，标记从 next[i]（>= skip_to）出发即可覆盖
+        uint s = (w * LMMP_BITSET_BITS) % 1155;
+        for (uint i = w; i < wend; ++i) {
+            uint r = s & 63;
+            const lmmp_bitset_t* wp = wheel1155_base + (s >> 6);
+            p[i] = r ? ((*wp >> r) | (wp[1] << (LMMP_BITSET_BITS - r))) : *wp;
             s += LMMP_BITSET_BITS;
-            if (s >= 105)
-                s -= 105;
+            if (s >= 1155)
+                s -= 1155;
         }
 
-        G.map_size = new_size;
-        G.max = n;
+        // p*p 落入界内的质数开始参与（idx 单调，构成前缀）
+        while (act < max_idx && next[act] < end)
+            ++act;
 
-        lmmp_bitset_p restrict p = G.map;
+        for (uint i = 5; i < act; ++i) {
+            uint prime = prime_short_table[i];
+            uint idx = next[i];
+            if (idx < skip_to) {
+                // 仅首段发生：上取整到 >= skip_to 的同余位，跳过旧区域
+                idx += (skip_to - idx + prime - 1) / prime * prime;
+            }
+            if (idx >= end) {
+                // 本段无需标记（仅可能发生在最后一段），保留取整后的 idx
+                next[i] = idx;
+                continue;
+            }
+            if (i < small_end) {
+                /*
+                 * 周期掩码整字清除（小质数）：
+                 *   步长 p 与 64 互素，命中位形以 64*p 位（即 p 个字）为周期。
+                 *   自 wf+1 字起按整周期构造掩码（一个周期窗口内恰好 64 个命中，
+                 *   rel0 = idx-base < p 保证铺满）；每字只需一次 AND，且掩码清除
+                 *   的是该字内的全部真实命中，跨段边界的整字清除因此也是正确的。
+                 *   首字 wf 内 idx 之前的命中（低于 p*p，含 p 自身）不可清除，
+                 *   故该字退化为稀疏清除。
+                 */
+                uint wf = idx >> 6;
+                uint wl = (end - 1) >> 6;
+                for (; idx < end && (idx >> 6) == wf; idx += prime)
+                    set_not_prime(p, idx);
+                if (idx < end) {
+                    uint base = (wf + 1) << 6; // 此时 idx ∈ [base, base+p)
+                    for (uint j = 0; j < prime; ++j)
+                        masks[j] = ~(lmmp_bitset_t)0;
+                    uint rel = idx - base;
+                    for (uint k = 0; k < LMMP_BITSET_BITS; ++k) {
+                        masks[rel >> 6] &= not_mask_64[rel & 63];
+                        rel += prime;
+                    }
+                    uint m = 0;
+                    for (uint w2 = wf + 1; w2 <= wl; ++w2) {
+                        p[w2] &= masks[m];
+                        if (++m == prime)
+                            m = 0;
+                    }
+                    // 推进 next 到最后一个已标记字之后的下一个命中
+                    uint d = ((wl + 1) << 6) - idx;
+                    idx += (d + prime - 1) / prime * prime;
+                }
+                next[i] = idx;
+            } else {
+                for (; idx < end; idx += prime) {
+                    set_not_prime(p, idx);
+                }
+                next[i] = idx;
+            }
+        }
+        if (last)
+            break;
+        w = wend;
+    }
+    lmmp_free(next);
+
+    if (old_max == 0) {
+        // 首段修正：1 不是素数；3,5,7,11 是素数（wheel 将其自身当作倍数抹除了）
+        // 标记总是从 p*p >= 169 开始，不会触碰这些低位，故放在段循环之后
         set_not_prime(p, 0);
         set_prime(p, IDX(3));
         set_prime(p, IDX(5));
         set_prime(p, IDX(7));
-        uint limit_idx = IDX(n - 1);
-        uint old_limit_idx = IDX(old_N - 1);
-
-        ushort sqrt_n = n > 4294836225 ? 0xffff : (ushort)sqrt(n);
-        uint max_idx = lmmp_prime_cnt16_(sqrt_n);
-
-        // 从质数 11 开始
-        for (ushort i = 4; i < max_idx; ++i) {
-            uint prime = prime_short_table[i];
-            uint start = prime * prime;
-            uint start_idx = IDX(start);
-
-            if (start_idx <= old_limit_idx) {
-                uint k = (old_limit_idx + 1 - start_idx + prime - 1) / prime;
-                start_idx += k * prime;
-            }
-
-            for (uint idx = start_idx; idx <= limit_idx; idx += prime) {
-                set_not_prime(p, idx);
-            }
-        }
+        set_prime(p, IDX(11));
     }
 }
 
@@ -234,10 +267,10 @@ void lmmp_prime_cache_init_(prime_cache_t* cache, uint n) {
 }
 
 void lmmp_prime_cache_next_(prime_cache_t* cache) {
-    uint size = 0;
+    uint size = 0, base;
     ulong idx = cache->start_idx;
 
-    if (idx + PRIME_CACHE_BLOCK_NUM < cache->end_idx) {
+    if (idx + PRIME_CACHE_BLOCK_NUM <= cache->end_idx) {
         lmmp_bitset_t m0, m1, m2, m3;
         uintp begin = cache->pp;
         for (uint i = 0; i < PRIME_CACHE_BLOCK_NUM / 4; ++i) {
@@ -245,30 +278,34 @@ void lmmp_prime_cache_next_(prime_cache_t* cache) {
             m1 = G.map[idx + 1];
             m2 = G.map[idx + 2];
             m3 = G.map[idx + 3];
-
+            base = idx * LMMP_BITSET_BITS * 2 + 1;
             while (m0) {
                 uint cnt = lmmp_tailing_zeros_(m0);
-                begin[size++] = ((idx + 0) * LMMP_BITSET_BITS + cnt) * 2 + 1;
+                begin[size++] = base + cnt * 2;
                 m0 &= (m0 - 1);
             }
+            base += 2 * LMMP_BITSET_BITS;
             while (m1) {
                 uint cnt = lmmp_tailing_zeros_(m1);
-                begin[size++] = ((idx + 1) * LMMP_BITSET_BITS + cnt) * 2 + 1;
+                begin[size++] = base + cnt * 2;
                 m1 &= (m1 - 1);
             }
+            base += 2 * LMMP_BITSET_BITS;
             while (m2) {
                 uint cnt = lmmp_tailing_zeros_(m2);
-                begin[size++] = ((idx + 2) * LMMP_BITSET_BITS + cnt) * 2 + 1;
+                begin[size++] = base + cnt * 2;
                 m2 &= (m2 - 1);
             }
+            base += 2 * LMMP_BITSET_BITS;
             while (m3) {
                 uint cnt = lmmp_tailing_zeros_(m3);
-                begin[size++] = ((idx + 3) * LMMP_BITSET_BITS + cnt) * 2 + 1;
+                begin[size++] = base + cnt * 2;
                 m3 &= (m3 - 1);
             }
             idx += 4;
         }
         lmmp_debug_assert(idx - cache->start_idx == PRIME_CACHE_BLOCK_NUM);
+        lmmp_debug_assert(size <= PRIME_CACHE_SIZE);
         cache->start_idx = idx;
         cache->size = size;
         return;
@@ -280,19 +317,22 @@ void lmmp_prime_cache_next_(prime_cache_t* cache) {
         lmmp_bitset_t m;
         for (uint i = idx; i < cache->end_idx; ++i) {
             m = G.map[i];
+            base = i * 2 * LMMP_BITSET_BITS + 1;
             while (m) {
                 uint cnt = lmmp_tailing_zeros_(m);
-                cache->pp[size++] = (i * LMMP_BITSET_BITS + cnt) * 2 + 1;
+                cache->pp[size++] = base + cnt * 2;
                 m &= (m - 1);
             }
         }
         idx = cache->end_idx;
         m = G.map[idx] & last_mask;
+        base = idx * 2 * LMMP_BITSET_BITS + 1;
         while (m) {
             uint cnt = lmmp_tailing_zeros_(m);
-            cache->pp[size++] = (idx * LMMP_BITSET_BITS + cnt) * 2 + 1;
+            cache->pp[size++] = base + cnt * 2;
             m &= (m - 1);
         }
+        lmmp_debug_assert(size <= PRIME_CACHE_SIZE);
         cache->start_idx = G.map_size;
         cache->size = size;
         cache->is_end = 1;
