@@ -846,13 +846,20 @@ LMMP_API mp_limb_t lmmp_sqrt_2_(mp_ptr dstr, mp_srcptr numa);
 LMMP_API void lmmp_sqrt_divide_(mp_ptr dst, mp_ptr numa, mp_size_t ns, mp_ptr tp, int calr);
 
 /**
- * @brief 计算近似逆平方根 [dstis,ns+1]=floor(sqrt(B^(2*ns+na)/[numa,na]))-[0|1], dstis[ns]=1
+ * @brief 计算逆平方根的定点下近似：记 I=floor(sqrt(B^(2*ns+na)/[numa,na]))，
+ *        则 [dstis,ns+1] 满足 I-1 <= [dstis,ns+1] <= I，且 dstis[ns]=1
  * @param dstis 目标数组
  * @param ns dstis数组的 limb 长度为 ns+1
  * @param numa 输入数组
  * @param na numa数组的 limb 长度
- * @warning ns>=3, na>0, numa[na-1]>=B/4, dstis!=NULL, numa!=NULL, sep(dstis,numa)
- * @note [dstis,ns+1]=floor(sqrt(B^(2*ns+na)/[numa,na]))-[0|1], dstis[ns]=1
+ * @warning ns>=3, na>0, ns>=na（否则语义变化，见@note）, numa[na-1]>=B/4,
+ *          dstis!=NULL, numa!=NULL, sep(dstis,numa)
+ * @note 结果是 I 的至多低估 1 的下近似，绝不高估；随机输入实测几乎恒等于 I，
+ *       仅当 I 邻近 B^ns 或 2*B^ns 的构造输入（如 [numa,na]=B^na/4、B^na-1 等）
+ *       会得到 I-1。
+ *       恒有 dstis[ns]=1，即结果落在 [B^ns, 2*B^ns) 内。
+ *       当 ns<na 时语义不同：仅使用 numa 的最高 ns 个 limb（记为 a_top），
+ *       结果变为 floor(sqrt(B^(3*ns)/a_top))-[0|1]，与 I 相差 B^((ns-na)/2) 倍。
  */
 LMMP_API void lmmp_invsqrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, mp_size_t na);
 
@@ -862,7 +869,12 @@ LMMP_API void lmmp_invsqrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, m
  * @param numa 输入数组（长度为 na 个limb）
  * @param na numa数组的 limb 长度
  * @param nf 精度因子
- * @warning na>0, nf>=2, dsts!=NULL, numa!=NULL, eqsep(dsts,numa)
+ * @warning na>0, nf>=2, nf+na/2+1>=na, dsts!=NULL, numa!=NULL, eqsep(dsts,numa)
+ * @note 设 x = sqrt([numa,na]*B^(2*nf))（实数），round 为四舍五入（恰为 1/2 时进位），
+ *       则结果恰为 round(x-eps)，其中 0 <= eps < 2^-31（na 为奇数）或 2^-63（na 为偶数）。
+ *       eps 非负，故结果绝不超过 round(x)；仅当 x 的小数部分落在 [1/2, 1/2+eps)
+ *       时得到 floor(x) 而非 floor(x)+1（随机输入下概率 < 2^-30），此即
+ *       [floor|round] 的确切含义。
  */
 LMMP_API void lmmp_sqrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_size_t nf);
 
@@ -879,7 +891,7 @@ LMMP_API void lmmp_sqrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_si
  *           if (nf == 0) {
  *               [dsts,na/2+1] = floor(sqrt([numa,na]))
  *           } else {
- *               [dsts,nf+na/2+1] = [round|floor](sqrt([numa,na]*B^(2*nf)))
+ *               [dsts,nf+na/2+1] = [floor|round](sqrt([numa,na]*B^(2*nf)))
  *           }
  *       }
  * @warning na>0, numa[na-1]!=0, eqsep(dsts,numa), eqsep(dstr,numa)

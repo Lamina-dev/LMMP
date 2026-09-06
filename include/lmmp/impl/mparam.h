@@ -42,12 +42,12 @@
 // 梅森变换乘法逆元阈值：超过此规模选择梅森变换计算乘法逆元
 #define DIV_MULINV_MODM_THRESHOLD 427
 
-// 平方根计算中，牛顿逆平方乘法阈值
-#define LMMP_DEFAULT_SQRT_INVNEWTON_THRESHOLD 50
+// 平方根计算中，无余数且极度不平衡（nf >= 此值*na）时切换牛顿逆平方路径的斜率阈值
+#define LMMP_DEFAULT_SQRT_INVNEWTON_K_THRESHOLD 20
 #ifdef LMMP_TUNE
-#define SQRT_INVNEWTON_THRESHOLD lmmp_tune_SQRT_INVNEWTON_THRESHOLD
+#define SQRT_INVNEWTON_K_THRESHOLD lmmp_tune_SQRT_INVNEWTON_K_THRESHOLD
 #else
-#define SQRT_INVNEWTON_THRESHOLD LMMP_DEFAULT_SQRT_INVNEWTON_THRESHOLD
+#define SQRT_INVNEWTON_K_THRESHOLD LMMP_DEFAULT_SQRT_INVNEWTON_K_THRESHOLD
 #endif
 // 梅森变换开方阈值：超过此规模选择梅森变换计算
 #define SQRT_NEWTON_MODM_THRESHOLD 434
@@ -271,7 +271,7 @@ extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
-extern uint64_t lmmp_tune_SQRT_INVNEWTON_THRESHOLD;
+extern uint64_t lmmp_tune_SQRT_INVNEWTON_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;

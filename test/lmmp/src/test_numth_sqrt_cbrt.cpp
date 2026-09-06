@@ -164,6 +164,178 @@ TEST_CASE("numth/sqrt", sqrt_divide_and_sqrt) {
     }
 }
 
+/*
+    覆盖 lmmp_sqrt_ 的 dstr=NULL 分数开方两条路径（选择机制随阈值变化，
+    故同时直接调用内部函数强制两条路径）：
+      divide 路径（calr=0）结果必须是精确 floor；
+      newton 路径结果为 floor 或 floor+1（最近舍入）。
+    以 dstr!=NULL 的 sqrtrem 结果为精确 floor 参考；完全平方数（及其 -1
+    邻域）覆盖 divide 快速判定的窄带回退与 newton 的舍入边界。
+    divide 路径的低层输入构造复刻 lmmp_sqrt_ 的 else 分支。
+*/
+static void sqrt_fractional_divide_forced(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_size_t nf,
+                                          mp_ptr numa2, mp_ptr tp) {
+    int nsh = lmmp_leading_zeros_(numa[na - 1]) / 2;
+    mp_size_t ns = (na + 2 * nf + 1) / 2;
+    lmmp_zero(numa2, 2 * nf);
+    if (nsh)
+        lmmp_shl_(numa2 + 2 * ns - na, numa, na, nsh * 2);
+    else
+        lmmp_copy(numa2 + 2 * ns - na, numa, na);
+    if ((na + 2 * nf) & 1) {
+        numa2[2 * nf] = 0;
+        nsh += 32;  // LIMB_BITS/2，奇 nl 时被开方数额外左移了半个 limb
+    } else {
+        dsts[ns] = 0;
+    }
+    lmmp_sqrt_divide_(dsts, numa2, ns, tp, 0);
+    if (nsh)
+        lmmp_shr_(dsts, dsts, ns, nsh);
+}
+
+TEST_CASE("numth/sqrt", sqrt_fractional_divide_newton) {
+    u64 seed = 0x2d7a3f1b9e5c8247ull;
+    const mp_size_t nas[] = {2, 4, 7, 16, 33, 64};
+    for (mp_size_t na : nas) {
+        mp_size_t nfs[] = {1, na, 10 * na, 20 * na - 1, 20 * na, 20 * na + 64, 25 * na};
+        for (mp_size_t nf : nfs) {
+            mp_size_t ns = na / 2 + 1 + nf;
+            mp_ptr numa = alloc_limbs(na);
+            mp_ptr numa2 = alloc_limbs(2 * (na + nf) + 8);
+            mp_ptr tp = alloc_limbs(3 * ns / 2 + 2);
+            mp_ptr ref = alloc_limbs(ns + 2);
+            mp_ptr rem = alloc_limbs(ns + 2);
+            mp_ptr dst0 = alloc_limbs(ns + 2);  // 生产入口（路径由阈值决定）
+            mp_ptr dst1 = alloc_limbs(ns + 2);  // 强制 divide
+            mp_ptr dst2 = alloc_limbs(ns + 2);  // 强制 newton
+
+            BigInt expect;  // 完全平方时的期望值 t*B^nf，否则为 0 表示无期望
+            random_limbs(numa, na, seed);
+            if ((na & 1) == 0) {
+                // 每 2 轮切换输入族：随机 / t^2 / t^2-1
+                static int family = 0;
+                if (family == 1 || family == 2) {
+                    mp_size_t nt = na / 2;
+                    mp_ptr t = alloc_limbs(nt);
+                    random_limbs(t, nt, seed);
+                    BigInt bs = BigInt::sqr_school(from_limbs(t, nt));
+                    if (family == 2)
+                        bs = BigInt::sub_small(bs, 1);
+                    std::memset(numa, 0, na * 8);
+                    std::memcpy(numa, bs.d.data(), bs.d.size() * 8);
+                    if (family == 1) {
+                        expect = BigInt::shl_bits(from_limbs(t, nt), 64 * (size_t)nf);
+                    }
+                }
+                family = (family + 1) % 3;
+            }
+
+            lmmp_zero(ref, ns + 2);
+            lmmp_zero(rem, ns + 2);
+            lmmp_zero(dst0, ns + 2);
+            lmmp_zero(dst1, ns + 2);
+            lmmp_zero(dst2, ns + 2);
+
+            lmmp_sqrt_(ref, rem, numa, na, nf);  // 精确 floor 参考
+            lmmp_sqrt_(dst0, NULL, numa, na, nf);
+            sqrt_fractional_divide_forced(dst1, numa, na, nf, numa2, tp);
+            BigInt bref = from_limbs(ref, ns);
+            BigInt bexp = expect.is_zero() ? bref : expect;
+
+            TEST_CHECK_MSG(from_limbs(dst1, ns) == bexp, "forced divide == exact floor");
+            if (!expect.is_zero())
+                TEST_CHECK_MSG(bref == bexp, "sqrtrem of perfect square");
+            if (nf >= 2) {
+                lmmp_sqrt_newton_(dst2, numa, na, nf);
+                BigInt bnew = from_limbs(dst2, ns);
+                BigInt bexp1 = BigInt::add_small(bexp, 1);
+                if (!expect.is_zero()) {
+                    // 被开方数为整数平方：floor == round，newton 必须精确命中
+                    TEST_CHECK_MSG(bnew == bexp, "newton of perfect square exact");
+                } else {
+                    TEST_CHECK_MSG(bnew == bexp || bnew == bexp1, "newton in {floor, floor+1}");
+                }
+                BigInt b0 = from_limbs(dst0, ns);
+                if (!expect.is_zero())
+                    TEST_CHECK_MSG(b0 == bexp, "production call of perfect square exact");
+                else
+                    TEST_CHECK_MSG(b0 == bexp || b0 == bexp1, "production call in {floor, floor+1}");
+            } else {
+                BigInt b0 = from_limbs(dst0, ns);
+                TEST_CHECK_MSG(b0 == bexp, "production call exact (nf<2, divide only)");
+            }
+
+            lmmp_free(numa); lmmp_free(numa2); lmmp_free(tp);
+            lmmp_free(ref); lmmp_free(rem);
+            lmmp_free(dst0); lmmp_free(dst1); lmmp_free(dst2);
+        }
+    }
+}
+
+/*
+    lmmp_invsqrt_newton_ 误差语义：
+      ns>=na 时记 I=floor(sqrt(B^(2ns+na)/a))，须有 I-1 <= ir <= I 且 dstis[ns]=1；
+      ns<na 时实际计算 floor(sqrt(B^(3ns)/a_top))-[0|1]，a_top 为 a 的最高 ns limb。
+    参照由 lmmp_div_（精确商）+ lmmp_sqrt_（精确 floor）构造。
+*/
+static void invsqrt_ref(mp_ptr isq, mp_srcptr a, mp_size_t nadiv, mp_size_t e, mp_ptr nb, mp_ptr q) {
+    mp_size_t L = e + 1;  // B^e 共 e+1 个 limb，最高 limb 为 1
+    lmmp_zero(nb, L);
+    nb[L - 1] = 1;
+    lmmp_div_(q, NULL, nb, L, a, nadiv);
+    mp_size_t ql = L - nadiv + 1;
+    while (ql > 1 && q[ql - 1] == 0) --ql;  // lmmp_sqrt_ 要求最高 limb 非零
+    lmmp_sqrt_(isq, NULL, q, ql, 0);
+}
+
+TEST_CASE("numth/sqrt", invsqrt_newton_semantics) {
+    u64 seed = 0x77aa55cc33ee1199ull;
+    const mp_size_t nas[] = {1, 3, 8, 16, 33};
+    const mp_size_t nss[] = {4, 8, 16, 40};
+    for (mp_size_t na : nas) {
+        for (mp_size_t ns : nss) {
+            if (ns == na) continue;
+            mp_size_t nsz = ns + 2;
+            mp_ptr a = alloc_limbs(na + 1);
+            mp_ptr dstis = alloc_limbs(nsz + 2);
+            mp_ptr isq = alloc_limbs(nsz + 2);
+            mp_ptr nb = alloc_limbs(2 * ns + na + 4);
+            mp_ptr q = alloc_limbs(2 * ns + 4);
+
+            for (int f = 0; f < 6; ++f) {
+                lmmp_zero(a, na);
+                if (f < 3) {
+                    random_limbs(a, na, seed);
+                } else if (f == 3) {
+                    a[na - 1] = LIMB_B_4;  // a = B^na/4，I=2*B^ns 边界
+                } else if (f == 4) {
+                    a[na - 1] = LIMB_B_4;
+                    a[0] += 1;
+                } else {
+                    for (mp_size_t i = 0; i < na; ++i) a[i] = ~(u64)0;  // B^na-1，I≈B^ns 边界
+                }
+
+                lmmp_zero(dstis, nsz + 2);
+                lmmp_invsqrt_newton_(dstis, ns, a, na);
+                TEST_CHECK_MSG(dstis[ns] == 1, "invsqrt top limb == 1");
+
+                if (ns > na) {
+                    invsqrt_ref(isq, a, na, 2 * ns + na, nb, q);
+                } else {
+                    invsqrt_ref(isq, a + (na - ns), ns, 3 * ns, nb, q);
+                }
+                BigInt bref = from_limbs(isq, ns + 1);
+                BigInt bir = from_limbs(dstis, ns + 1);
+                BigInt brefm1 = BigInt::sub_small(bref, 1);
+                // ir 绝不高估，至多低估 1（ns<na 时相对其自身语义）
+                TEST_CHECK_MSG(bir == brefm1 || bir == bref, "invsqrt in {I-1, I}");
+            }
+            lmmp_free(a); lmmp_free(dstis); lmmp_free(isq);
+            lmmp_free(nb); lmmp_free(q);
+        }
+    }
+}
+
 TEST_CASE("numth/cbrt", cbrt_ulong_cbrt_3_nthroot) {
     u64 seed = 0x0badcafef00dfaceull;
     for (int i = 0; i < 1000; ++i) {
