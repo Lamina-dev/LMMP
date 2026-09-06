@@ -17,8 +17,6 @@
 #include "../../../../include/lmmp/lmmpn.h"
 
 
-#if defined(__SIZEOF_INT128__)
-
 mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
     mp_limb_t cl = 0;
     mp_size_t i = 0;
@@ -88,90 +86,6 @@ mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) 
     }
     return cl;
 }
-
-#else /* !__SIZEOF_INT128__ 朴素参考实现 */
-
-mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
-    mp_limb_t cl = 0;
-    mp_size_t i = 0;
-
-    if (dst == numa) {
-        for (; i < na; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(dst[i], x, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            dst[i] = l;
-        }
-    } else {
-        for (; i < na; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(numa[i], x, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            dst[i] = l;
-        }
-    }
-    return cl;
-}
-
-mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) {
-    mp_limb_t cl = 0;
-    mp_size_t i = 0;
-
-    if (numa == numb) {
-        for (; i < n; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(numa[i], b, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            l = numa[i] + l;
-            cl += (l < numa[i]);
-            numa[i] = l;
-        }
-    } else {
-        for (; i < n; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(numb[i], b, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            l = numa[i] + l;
-            cl += (l < numa[i]);
-            numa[i] = l;
-        }
-    }
-    return cl;
-}
-
-mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) {
-    mp_limb_t cl = 0;
-    mp_size_t i = 0;
-
-    if (numa == numb) {
-        for (; i < n; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(numa[i], b, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            l = numa[i] - l;
-            cl += (l > numa[i]);
-            numa[i] = l;
-        }
-    } else {
-        for (; i < n; i++) {
-            mp_limb_t l, h;
-            _umul64to128_(numb[i], b, &l, &h);
-            l += cl;
-            cl = (l < cl) + h;
-            l = numa[i] - l;
-            cl += (l > numa[i]);
-            numa[i] = l;
-        }
-    }
-    return cl;
-}
-
-#endif /* __SIZEOF_INT128__ */
 
 void lmmp_mullo_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb, mp_size_t n) {
     mp_limb_t h;

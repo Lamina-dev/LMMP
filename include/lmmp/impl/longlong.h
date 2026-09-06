@@ -227,7 +227,10 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
     */
 #if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
     /* 3×mulx；交叉积 p1 左移一位成为 129 位（v 为溢出位），
-       shld 一条完成高位拼接，adcx/adox 双链吸收 v 与两段进位。 */
+       shld 一条完成高位拼接，adcx/adox 双链吸收 v 与两段进位。
+       res2 的两次加法（+p3l、+c1）各自至多产生一个进位且不会同时
+       产生，分别落在 OF 与 CF，故链尾须以 adox、adcx 各一条收拢，
+       缺一会导致 res2 恰为 2^64-1 再加 c1 时进位丢失（res3 少 1）。 */
     uint64_t p0l, t_l, t_h, p3l, r1, r2, r3, z;
     __asm__(
         "movq   %[al], %%rdx            \n\t"
@@ -243,7 +246,8 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
         "adcxq  %[t_l], %[r1]           \n\t"  // r1 = p0h + t_l, CF = res2 进位
         "adoxq  %[p3l], %[r2]           \n\t"  // r2 += p3l, OF = res3 进位
         "adcxq  %[z], %[r2]             \n\t"  // r2 += CF = res2
-        "adoxq  %[t_h], %[r3]           \n\t"  // r3 = p3h + v + OF = res3
+        "adoxq  %[t_h], %[r3]           \n\t"  // r3 += v + OF
+        "adcxq  %[z], %[r3]             \n\t"  // r3 += CF = res3（收拢 res2 的 c1 进位）
         : [p0l] "=&r"(p0l), [t_l] "=&r"(t_l), [t_h] "=&r"(t_h), [p3l] "=&r"(p3l),
           [r1] "=&r"(r1), [r2] "=&r"(r2), [r3] "=&r"(r3), [z] "=&r"(z)
         : [ah] "rm"(a_high), [al] "rm"(a_low)
@@ -386,22 +390,6 @@ static inline void _u128store(uint64_t* p, __uint128_t x) {
 #else
 #error "u128 scalar helpers require __uint128_t (GCC/Clang 64-bit targets)"
 #endif
-
-#define _add_ssaaaa(sh, sl, ah, al, bh, bl) \
-    do {                                    \
-        uint64_t _x_;                       \
-        _x_ = (al) + (bl);                  \
-        (sh) = (ah) + (bh) + (_x_ < (al));  \
-        (sl) = _x_;                         \
-    } while (0)
-
-#define _sub_ddmmss(sh, sl, ah, al, bh, bl) \
-    do {                                    \
-        uint64_t _x_;                       \
-        _x_ = (al) - (bl);                  \
-        (sh) = (ah) - (bh) - ((al) < (bl)); \
-        (sl) = _x_;                         \
-    } while (0)
 
 // n = nh * B + nl, di = lmmp_inv_1_(d)
 // q = n / d, r = n % d

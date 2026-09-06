@@ -16,14 +16,6 @@
 #include "../../../../include/lmmp/impl/longlong.h"
 #include "../../../../include/lmmp/lmmpn.h"
 
-/*
-    __SIZEOF_INT128__ 路径：列内乘加用 __uint128_t 单条表达式书写，
-    编译器生成 mul + add/adc 短链，乘法可乱序提前发射；首列为纯
-    mul_1 型（无 dst 累加），其余列为 addmul_1 型。两列合并外层
-    循环减少指针推进与循环开销。
-*/
-
-#if defined(__SIZEOF_INT128__)
 
 void lmmp_sqr_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
     lmmp_param_assert(na >= 1);
@@ -220,30 +212,3 @@ void lmmp_mul_basecase_(
         dp[na] = cl;
     }
 }
-
-#else /* !__SIZEOF_INT128__ 由 mul_1/addmul_1 组合的朴素参考实现 */
-
-void lmmp_sqr_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    lmmp_param_assert(na >= 1);
-
-    dst[na] = lmmp_mul_1_(dst, numa, na, numa[0]);
-    mp_size_t j;
-    for (j = 1; j < na; j++) dst[na + j] = lmmp_addmul_1_(dst + j, numa, na, numa[j]);
-}
-
-void lmmp_mul_basecase_(
-    mp_ptr    restrict  dst,
-    mp_srcptr restrict  numa,
-    mp_size_t            na,
-    mp_srcptr restrict  numb,
-    mp_size_t            nb
-) {
-    lmmp_param_assert(na >= nb);
-    lmmp_param_assert(nb >= 1);
-
-    dst[na] = lmmp_mul_1_(dst, numa, na, numb[0]);
-    mp_size_t j;
-    for (j = 1; j < nb; j++) dst[na + j] = lmmp_addmul_1_(dst + j, numa, na, numb[j]);
-}
-
-#endif /* __SIZEOF_INT128__ */
