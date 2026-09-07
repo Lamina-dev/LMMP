@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -43,6 +43,12 @@ typedef struct {
     mp_size_t nb;
 } fft_cache;
 
+typedef struct {
+    fft_cache mul; /* 双域乘法缓存（numb 侧被缓存） */
+    mp_size_t n;   /* mullo 截断长度 */
+    mp_size_t hn;  /* = lmmp_fft_next_size_(n) */
+} fft_mullo_cache;
+
 /**
  * @brief 释放费马或梅森数模乘法缓存上下文
  * @param ctx 费马或梅森数模乘法缓存上下文
@@ -59,6 +65,14 @@ static inline void lmmp_fft_cache_free_(fft_cache* ctx) {
     lmmp_fft_gr_cache_free_(&ctx->fermat);
     lmmp_fft_gr_cache_free_(&ctx->mersenne);
     lmmp_free(ctx->tp);
+}
+
+/**
+ * @brief 释放 mullo 缓存上下文
+ * @param ctx mullo 缓存上下文
+ */
+static inline void lmmp_mullo_cache_free_(fft_mullo_cache* ctx) {
+    lmmp_fft_cache_free_(&ctx->mul);
 }
 
 /**
@@ -149,5 +163,32 @@ void lmmp_mul_fft_cache_init_(mp_ptr dst, mp_size_t hn, mp_srcptr numa, mp_size_
  */
 void lmmp_mul_fft_cache_(mp_ptr dst, mp_srcptr numa, fft_cache* ctx);
 
+/**
+ * @brief 低位乘法（缓存版） [dst,n] = [numa,n] * [numb,n] mod B^n
+ *        第二个操作数将被缓存
+ * @param dst 输出结果缓冲区，长度至少为 n
+ * @param numa 第一个输入操作数，长度为 n
+ * @param numb 第二个输入操作数，长度为 n
+ * @param n 操作数的 limb 长度
+ * @param scratch 临时空间（2*n 个 limb，两操作数分离）
+ * @param ctx mullo 缓存上下文
+ * @warning n>???, sep(scratch,[numa|numb]), sep(dst,[numa|numb|scratch]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @note [numb,nb]将会被缓存，第二个乘数始终保持不变时，在后续计算中可以调用lmmp_mullo_fft_cache_()函数节省40%的计算时间
+ *       numb可以在lmmp_mul_fft_cache_()函数前被释放，不会影响后续计算
+ * @return 无返回值，结果存储在dst中
+ */
+void lmmp_mullo_fft_cache_init_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_ptr scratch,
+                                fft_mullo_cache* ctx);
+
+/**
+ * @brief 低位乘法（缓存版） [dst,n] = [numa,n] * 缓存numb mod B^n
+ * @param dst 输出结果缓冲区，长度至少为 n
+ * @param numa 第一个输入操作数，长度为 lmmp_mullo_fft_cache_init_() 中输入参数的 n
+ * @param scratch 临时空间（2*n 个 limb）
+ * @param ctx mullo 缓存上下文
+ * @warning sep(scratch,numa), sep(dst,[numa|scratch]), dst!=NULL, numa!=NULL, scratch!=NULL, ctx!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+void lmmp_mullo_fft_cache_(mp_ptr dst, mp_srcptr numa, mp_ptr scratch, fft_mullo_cache* ctx);
 
 #endif // __LMMP_MUL_CACHE_H__

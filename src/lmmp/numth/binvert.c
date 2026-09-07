@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -16,6 +16,7 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/impl/inlines.h"
+#include "../../../include/lmmp/impl/mul_cache.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
 
@@ -193,23 +194,61 @@ void lmmp_binvert_unbalanced_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_s
     lmmp_not_(a_binvert, a_binvert, na);
     a_binvert[0] += 1;
 
+    fft_mullo_cache mctx;
+    int mcflag = 0;
+    fft_gr_cache hctx;
+    int hcflag = 0;
     mp_size_t i = na;
     for (; i < n - na; i += na) {
-        lmmp_mullo_n_(dst + i, a_binvert, k, na, scratch);
-        /*
-        FIXME: 这里的循环中，第二个乘数numa，始终保持不变
-               在拥有可以惰性初始化的FFT算法的情况下，可以节省numa的正变换
-               在循环的情况下，这将会有可观的性能提升
-        */
-        lmmp_mul_n_(scratch, dst + i, numa, na);
-        // now [scratch,2*na] = a * p
-        if (lmmp_add_n_(scratch, scratch, k, na)) {
-            lmmp_inc(scratch + na);
+        if (na >= MULLO_DC_THRESHOLD) {
+            if (mcflag == 0) {
+                lmmp_mullo_fft_cache_init_(dst + i, k, a_binvert, na, scratch, &mctx);
+                mcflag = 1;
+            } else {
+                lmmp_mullo_fft_cache_(dst + i, k, scratch, &mctx);
+            }
+        } else {
+            lmmp_mullo_dc_(dst + i, k, a_binvert, scratch, na);
         }
-        lmmp_copy(k, scratch + na, na);
+        /*
+        更新 k：k' = (k + a*p) div B^na。由 p 的构造有 p*a ≡ -k (mod B^na)，
+        即 k + a*p 恰为 B^na 的倍数，商即为 k'。
+        R = a*p mod B^m-1，V = R + k mod B^m-1，
+        则 V ≡ k'*B^na (mod B^m-1)；将 k' 拆为低 fn=m-na 位与高位，
+        k'*B^na mod (B^m-1) 恰为两者在 m 位中的错位拼接，旋转载出即得 k'
+        */
+        if (na < MULHI_MERSENNE_THRESHOLD) {
+            lmmp_mul_n_(scratch, dst + i, numa, na);
+            // now [scratch,2*na] = a * p
+            if (lmmp_add_n_(scratch, scratch, k, na)) {
+                lmmp_inc(scratch + na);
+            }
+            lmmp_copy(k, scratch + na, na);
+        } else {
+            mp_size_t m = lmmp_fft_next_size_((na * 2 + 1) >> 1);
+            mp_size_t fn = m - na;
+            mp_size_t sn = na - fn;
+            mp_limb_t cy;
+            if (hcflag == 0) {
+                lmmp_mul_mersenne_cache_init_(scratch, m, dst + i, na, numa, na, &hctx);
+                hcflag = 1;
+            } else {
+                lmmp_mul_mersenne_cache_(scratch, dst + i, &hctx);
+            }
+            // V = (R + k) mod B^m-1
+            cy = lmmp_add_(scratch, scratch, m, k, na);
+            if (cy)
+                lmmp_inc(scratch);
+            lmmp_copy(k, scratch + na, fn);
+            lmmp_copy(k + fn, scratch, sn);
+        }
     }
 
     lmmp_mullo_n_(dst + i, a_binvert, k, n - i, scratch);
+    if (mcflag == 1)
+        lmmp_mullo_cache_free_(&mctx);
+    if (hcflag == 1)
+        lmmp_fft_gr_cache_free_(&hctx);
 #undef a_binvert
 #undef k
 #undef scratch

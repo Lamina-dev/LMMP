@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -582,14 +582,30 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx) {
     lmmp_fft_memstack_(amsr, 0);
 }
 
-void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
-    lmmp_param_assert(na > 0 && nb > 0);
-    lmmp_param_assert(na >= nb);
-    lmmp_param_assert(dst != NULL && numa != NULL && numb != NULL);
-    mp_size_t hn = lmmp_fft_next_size_((na + nb + 1) >> 1);
-    lmmp_assert(na + nb > hn);
-    mp_ptr tp = ALLOC_TYPE(hn + 1, mp_limb_t);
-
+/**
+ * @brief FFT 双域模乘计算：分别求梅森域与费马域残差（lmmp_mul_fft_crt_ 的前半）
+ * @param dst 输出：梅森域结果 [dst,hn] = P mod (B^hn-1)，P = [numa,na]*[numb,nb]
+ * @param tp 输出：费马域结果 [tp,hn+1] = P mod (B^hn+1)（库规范形 [0,B^hn]），
+ *            na > hn 时兼作 numa 的费马折叠工作区（需 hn+1 limb）
+ * @param hn 变换阶数（两域共用）
+ * @param numa 第一操作数（超长时按域折叠：amodm = a mod (B^hn-1) 原位写入 dst，
+ *             amodp = a mod (B^hn+1) 原位写入 tp，折叠取 [低hn)±[高位)）
+ * @param na numa 长度（任意 > 0；> hn 时触发折叠）
+ * @param numb 第二操作数（不折叠，要求 nb <= hn）
+ * @param nb numb 长度
+ * @warning nb<=na, nb<=hn, sep(dst,[numa|numb]), sep(tp,[numa|numb]), dst 与 tp 分离
+ * @note na > hn 时 dst 先接收梅森折叠值（nam 截为 hn），随后被梅森域积覆写；
+ *       tp 同理（nap 截为 hn+1）
+ */
+static void lmmp_mul_fft_mods_(
+    mp_ptr dst,
+    mp_ptr tp,
+    mp_size_t hn,
+    mp_srcptr numa,
+    mp_size_t na,
+    mp_srcptr numb,
+    mp_size_t nb
+) {
     mp_srcptr amodm = numa;
     mp_size_t nam = na;
     if (na > hn) {
@@ -618,24 +634,48 @@ void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_
         nap = hn + 1;
     }
     lmmp_mul_fermat_(tp, hn, amodp, nap, numb, nb);
+}
 
+/**
+ * @brief FFT 双域 CRT 重构尾部（lmmp_mul_fft_mods_ 的后半）：两域残差 → 精确积
+ * @param dst 输入输出：入口为梅森域残差 [dst,hn]（P mod B^hn-1，规范形
+ *            [0,B^hn-1)），出口为精确积 [dst,nab]
+ * @param tp 输入输出：入口为费马域残差 [tp,hn+1]（P mod B^hn+1，库规范形
+ *            [0,B^hn]），出口内容破坏
+ * @param hn 变换阶数（与 mods_ 一致）
+ * @param nab 积长度界（P < B^nab），hn < nab <= 2*hn
+ * @warning sep(dst,tp), nab>hn, nab<=2*hn
+ */
+static void lmmp_mul_fft_crt_(mp_ptr dst, mp_ptr tp, mp_size_t hn, mp_size_t nab) {
     mp_limb_t cy = lmmp_shr1add_nc_(dst, dst, tp, hn, tp[hn]);
     cy <<= LIMB_BITS - 1;
     dst[hn - 1] += cy;
     if (dst[hn - 1] < cy)
         lmmp_inc(dst);
 
-    if (na + nb == 2 * hn) {
+    if (nab == 2 * hn) {
         cy = tp[hn] + lmmp_sub_n_(dst + hn, dst, tp, hn);
         // cy==1 means [tp,hn+1]!=0, then [dst,hn]!=0
         // cy==2 is impossible since [tp,hn+1] is normalized.
         // so the following dec won't overflow.
         lmmp_dec_1(dst, cy);
     } else {
-        cy = lmmp_sub_n_(dst + hn, dst, tp, na + nb - hn);
-        cy = tp[hn] + lmmp_sub_nc_(tp + na + nb - hn, dst + na + nb - hn, tp + na + nb - hn, 2 * hn - (na + nb), cy);
-        cy = lmmp_sub_1_(dst, dst, na + nb, cy);
+        cy = lmmp_sub_n_(dst + hn, dst, tp, nab - hn);
+        cy = tp[hn] + lmmp_sub_nc_(tp + nab - hn, dst + nab - hn, tp + nab - hn, 2 * hn - nab, cy);
+        cy = lmmp_sub_1_(dst, dst, nab, cy);
     }
+}
+
+void lmmp_mul_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
+    lmmp_param_assert(na > 0 && nb > 0);
+    lmmp_param_assert(na >= nb);
+    lmmp_param_assert(dst != NULL && numa != NULL && numb != NULL);
+    mp_size_t hn = lmmp_fft_next_size_((na + nb + 1) >> 1);
+    lmmp_assert(na + nb > hn);
+    mp_ptr tp = ALLOC_TYPE(hn + 1, mp_limb_t);
+
+    lmmp_mul_fft_mods_(dst, tp, hn, numa, na, numb, nb);
+    lmmp_mul_fft_crt_(dst, tp, hn, na + nb);
     lmmp_free(tp);
 }
 
@@ -679,23 +719,7 @@ void lmmp_mul_fft_cache_init_(
     }
     lmmp_mul_fermat_cache_init_(ctx->tp, hn, amodp, nap, numb, nb, &ctx->fermat);
 
-    mp_limb_t cy = lmmp_shr1add_nc_(dst, dst, ctx->tp, hn, ctx->tp[hn]);
-    cy <<= LIMB_BITS - 1;
-    dst[hn - 1] += cy;
-    if (dst[hn - 1] < cy)
-        lmmp_inc(dst);
-
-    if (na + nb == 2 * hn) {
-        cy = ctx->tp[hn] + lmmp_sub_n_(dst + hn, dst, ctx->tp, hn);
-        // cy==1 means [tp,hn+1]!=0, then [dst,hn]!=0
-        // cy==2 is impossible since [tp,hn+1] is normalized.
-        // so the following dec won't overflow.
-        lmmp_dec_1(dst, cy);
-    } else {
-        cy = lmmp_sub_n_(dst + hn, dst, ctx->tp, na + nb - hn);
-        cy = ctx->tp[hn] + lmmp_sub_nc_(ctx->tp + na + nb - hn, dst + na + nb - hn, ctx->tp + na + nb - hn, 2 * hn - (na + nb), cy);
-        cy = lmmp_sub_1_(dst, dst, na + nb, cy);
-    }
+    lmmp_mul_fft_crt_(dst, ctx->tp, hn, na + nb);
 }
 
 void lmmp_mul_fft_cache_(mp_ptr dst, mp_srcptr numa, fft_cache* ctx) {
@@ -718,22 +742,7 @@ void lmmp_mul_fft_cache_(mp_ptr dst, mp_srcptr numa, fft_cache* ctx) {
     }
     lmmp_mul_fermat_cache_(ctx->tp, amodp, &ctx->fermat);
 
-    mp_limb_t cy = lmmp_shr1add_nc_(dst, dst, ctx->tp, ctx->hn, ctx->tp[ctx->hn]);
-    cy <<= LIMB_BITS - 1;
-    dst[ctx->hn - 1] += cy;
-    if (dst[ctx->hn - 1] < cy)
-        lmmp_inc(dst);
-
-    if (ctx->na + ctx->nb == 2 * ctx->hn) {
-        cy = ctx->tp[ctx->hn] + lmmp_sub_n_(dst + ctx->hn, dst, ctx->tp, ctx->hn);
-        lmmp_dec_1(dst, cy);
-    } else {
-        cy = lmmp_sub_n_(dst + ctx->hn, dst, ctx->tp, ctx->na + ctx->nb - ctx->hn);
-        cy = ctx->tp[ctx->hn] + lmmp_sub_nc_(ctx->tp + ctx->na + ctx->nb - ctx->hn, dst + ctx->na + ctx->nb - ctx->hn,
-                                             ctx->tp + ctx->na + ctx->nb - ctx->hn, 2 * ctx->hn - (ctx->na + ctx->nb),
-                                             cy);
-        cy = lmmp_sub_1_(dst, dst, ctx->na + ctx->nb, cy);
-    }
+    lmmp_mul_fft_crt_(dst, ctx->tp, ctx->hn, ctx->na + ctx->nb);
 }
 
 void lmmp_mul_fft_unbalance_(
