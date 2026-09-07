@@ -440,17 +440,17 @@ void tune_fill_bytes(mp_byte_t* p, mp_size_t n, uint64_t seed) {
 /* ============================== 打印 ============================== */
 
 void tune_print_measure(const char* tag, const tune_measure_t* m) {
-    printf("    %-12s %10.3f ns/call  (min %.3f, max %.3f, MAD %.3f, loops=%u, retries=%u)\n",
+    printf("    %-12s %11.1f ns/call  (min %.1f, max %.1f, MAD %.1f, loops=%u, retries=%u)\n",
            tag, m->median_ns, m->min_ns, m->max_ns, m->mad_ns,
            m->loops, m->retries);
 }
 
 void tune_print_points_1d(const char* low_name, const char* high_name,
                           const tune_point_t* points, size_t npoints) {
-    printf("    size        %-18s %-18s  faster\n", low_name, high_name);
+    printf("    size         %-16s   %-16s  faster\n", low_name, high_name);
     for (size_t i = 0; i < npoints; ++i) {
         const int low_wins = points[i].low_ns <= points[i].high_ns;
-        printf("    %-10llu %14.3f ns    %14.3f ns    %s\n",
+        printf("    %-10llu %11.1f ns    %11.1f ns    %s\n",
                (unsigned long long)points[i].size,
                points[i].low_ns, points[i].high_ns,
                low_wins ? low_name : high_name);
@@ -555,7 +555,7 @@ int tune_run_1d(const tune_1d_spec_t* spec) {
         points[i].high_ns = mhigh.median_ns;
         points[i].low_mad = mlow.mad_ns;
         points[i].high_mad = mhigh.mad_ns;
-        printf("    size=%-8llu %-14s %10.3f ns   %-14s %10.3f ns\n",
+        printf("    size=%-8llu %-14s %11.1f ns   %-14s %11.1f ns\n",
                (unsigned long long)size, spec->low_name, points[i].low_ns,
                spec->high_name, points[i].high_ns);
         fflush(stdout);

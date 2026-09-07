@@ -101,7 +101,7 @@ int tune_run_permutation_ushort(void) {
 
             tune_measure_pair(bench_npr_product, cp, bench_npr_factor, cf,
                               g_tune.samples, g_tune.target_ms, &mp, &mf);
-            printf("    n=%-8llu r=%-8llu product=%10.3f ns factor=%10.3f ns\n",
+            printf("    n=%-8llu r=%-8llu product=%12.1f ns factor=%12.1f ns\n",
                    (unsigned long long)n, (unsigned long long)r,
                    mp.median_ns, mf.median_ns);
             points[npoints].n = n;
