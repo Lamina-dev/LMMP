@@ -44,7 +44,7 @@ cmake --build build-tune --parallel 8
 # 列出全部阈值模块
 ./tune/lmmp/bin/lmmp_tune --list
 
-# 完整调优全部 29 个已接入阈值
+# 完整调优全部已接入的阈值
 ./tune/lmmp/bin/lmmp_tune
 
 # 只调若干阈值（id 或兼容别名均可，逗号分隔）
@@ -73,8 +73,7 @@ cmake --build build-tune --parallel 8
 | `--out <file>` | `bin/lmmp_tune_results.txt` | 结果文本路径，同时生成同名 `.h` |
 | `--write` | 关 | 写回 `mparam.h` 中的 `LMMP_DEFAULT_*` 并生成 `.tune-bak` 备份 |
 
-不再提供 `--quick`。旧程序的快速模式采样过少、网格过粗，是前后两次调优结果
-漂移的主要来源之一。如只想快速验证构建，可使用
+如只想快速验证构建，可使用
 `--only mul22 --samples 3 --min-ms 1`。
 
 ## 测量与搜索策略
