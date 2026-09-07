@@ -199,6 +199,7 @@ int tune_run_to_str_basepow(void);
 int tune_run_to_str_divide(void);
 int tune_run_from_str_basepow(void);
 int tune_run_from_str_divide(void);
+int tune_run_gcd_hgcd(void);
 int tune_run_pow_1_exp(void);
 int tune_run_pow_win2_exp(void);
 int tune_run_pow_win2_n(void);
