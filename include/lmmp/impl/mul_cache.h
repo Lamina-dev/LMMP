@@ -174,7 +174,7 @@ void lmmp_mul_fft_cache_(mp_ptr dst, mp_srcptr numa, fft_cache* ctx);
  * @param ctx mullo 缓存上下文
  * @warning n>???, sep(scratch,[numa|numb]), sep(dst,[numa|numb|scratch]), dst!=NULL, numa!=NULL, numb!=NULL
  * @note [numb,nb]将会被缓存，第二个乘数始终保持不变时，在后续计算中可以调用lmmp_mullo_fft_cache_()函数节省40%的计算时间
- *       numb可以在lmmp_mul_fft_cache_()函数前被释放，不会影响后续计算
+ *       numb可以在lmmp_mullo_fft_cache_()函数前被释放，不会影响后续计算
  * @return 无返回值，结果存储在dst中
  */
 void lmmp_mullo_fft_cache_init_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_ptr scratch,
