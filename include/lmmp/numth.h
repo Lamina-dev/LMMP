@@ -525,6 +525,34 @@ LMMP_API mp_size_t lmmp_pow_win2_(mp_ptr dst, mp_size_t rn, mp_srcptr base, mp_s
 LMMP_API mp_size_t lmmp_pow_(mp_ptr dst, mp_size_t rn, mp_srcptr base, mp_size_t n, ulong exp);
 
 /**
+ * @brief 计算 Fibonacci 数 F[n]（及 F[n-1]）所需的 limb 缓冲区长度
+ * @param n Fibonacci 数列的下标
+ * @return 缓冲区长度，比 F[n] 的实际长度多 2-4 个 limb
+ */
+LMMP_API mp_size_t lmmp_fibonacci_size_(ulong n);
+
+/**
+ * @brief 计算 Fibonacci 数 [dst,rn] = F[n]
+ * @param dst 结果指针
+ * @param rn dst 的 limb 缓冲区长度
+ * @param n Fibonacci 数列的下标
+ * @warning dst!=NULL, rn>=lmmp_fibonacci_size_(n)
+ * @return F[n] 的实际 limb 长度（n==0 时 返回 0）
+ */
+LMMP_API mp_size_t lmmp_fibonacci_(mp_ptr dst, mp_size_t rn, ulong n);
+
+/**
+ * @brief 计算 Fibonacci 数对：[dst,rn] = F[n]，[dst2,rn] = F[n-1]
+ * @param dst F[n] 结果指针
+ * @param dst2 F[n-1] 结果指针
+ * @param rn dst 与 dst2 各自的 limb 缓冲区长度
+ * @param n Fibonacci 数列的下标
+ * @warning dst!=NULL, dst2!=NULL, sep(dst,dst2), rn>=lmmp_fibonacci_size_(n)
+ * @return F[n] 的实际 limb 长度（n==0时，返回1）；F[n-1] 的实际长度为ret-(dst2[ret-1]==0)，至多比返回值少1
+ */
+LMMP_API mp_size_t lmmp_fibonacci2_(mp_ptr dst, mp_ptr dst2, mp_size_t rn, ulong n);
+
+/**
  * @brief 计算 nPr 排列数的 limb 缓冲区长度
  * @param n 排列数的总数
  * @param r 排列数的选择数

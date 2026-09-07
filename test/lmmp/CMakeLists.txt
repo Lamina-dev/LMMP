@@ -30,6 +30,7 @@ set(LMMP_TEST_SRCS
     src/test_numth_binvert.cpp
     src/test_numth_sqrt_cbrt.cpp
     src/test_numth_combin.cpp
+    src/test_numth_fib.cpp
     src/test_numth_prime.cpp
     src/test_rng_hash.cpp
 )
