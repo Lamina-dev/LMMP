@@ -104,6 +104,32 @@ inline Measurement measure(const std::function<void()>& op, uint64_t n, uint64_t
     return m;
 }
 
+inline Measurement measure_large(const std::function<void()>& op, uint64_t n, uint64_t k = 2) {
+    double elapsed = 0.0;
+    auto t0 = Clock::now();
+    for (uint64_t i = 0; i < k; ++i) op();
+    auto t1 = Clock::now();
+    elapsed = std::chrono::duration<double>(t1 - t0).count();
+
+    // 再测若干次，取最小值以降低调度抖动。
+    int samples = 3;
+    double best = elapsed * 1e9 / (double)k;  // 统一换算为 ns/op
+    for (int s = 0; s < samples; ++s) {
+        auto t0 = Clock::now();
+        for (uint64_t i = 0; i < k; ++i) op();
+        auto t1 = Clock::now();
+        double ns = std::chrono::duration<double, std::nano>(t1 - t0).count() / (double)k;
+        best = std::min(best, ns);
+    }
+
+    Measurement m;
+    m.n = n;
+    m.ns_per_op = best;
+    m.ops_per_sec = (best > 0.0) ? (1e9 / best) : 0.0;
+    m.iters = k;
+    return m;
+}
+
 inline void write(File& f, const Measurement& m) {
     fprintf(f.fp, "%llu,%f,%f,%llu\n", m.n, m.ns_per_op, m.ops_per_sec, m.iters);
 }
@@ -135,25 +161,26 @@ inline void list_all() {
  * @param width 进度条显示宽度（字符个数）
  * @param label 进度条前面的描述文字（例如 "Downloading"）
  */
-static inline void progress_bar(int current, int total, int width, const char *label) {
+static inline void progress_bar(unsigned long long current, unsigned long long total, unsigned long long width, const char *label) {
     if (current > total) current = total;
 
-    int percent = (current * 100) / total;
-    int filled = (current * width) / total;
+    double percent = (double)current / (double)total;
+    percent *=  100.0; 
+    unsigned long long filled = (current * width) / total;
 
     printf("\r%s: [", label);
-    for (int i = 0; i < filled; i++) {
+    for (unsigned long long i = 0; i < filled; i++) {
         printf("=");
     }
 
     // 如果未完成，显示一个 ">" 表示当前进度位置，剩余部分用空格补齐
     if (filled < width) {
         printf(">");
-        for (int i = 0; i < width - filled - 1; i++) {
+        for (unsigned long long i = 0; i < width - filled - 1; i++) {
             printf(" ");
         }
     }
-    printf("] %3d%%", percent);
+    printf("] %3d%%", (int)percent);
 
     if (current == total) {
         printf("\n");  // 完成后换行

@@ -278,10 +278,25 @@ MEASURE_CASE("numth/gcd", gcd_hgcd_large) {
     for (mp_size_t i = 10000; i <= n; i += 5000) {
         a[i - 1] |= 1;
         b[i - 1] |= 1; /* 契约：输入须归一化（顶 limb 非零） */
-        auto m = measure([&] { lmmp_gcd_hgcd_(d, a, i, b, i); }, i, 2);
+        auto m = measure_large([&] { lmmp_gcd_hgcd_(d, a, i, b, i); }, i, 2);
         write(f, m);
         progress_bar(i, n, 40, "    Measuring");
     }
     printf("    Done\n");
     lmmp_free(a); lmmp_free(b); lmmp_free(d);
+}
+
+MEASURE_CASE("numth/fib", fib_large) {
+    const ulong n = 50000000;
+    mp_size_t rn = lmmp_fibonacci_size_(n);
+    mp_ptr a = alloc_limbs(rn);
+    File f("fib_large");
+    for (ulong i = 100000; i <= n; i += 200000) {
+        rn = lmmp_fibonacci_size_(i);
+        auto m = measure_large([&] { lmmp_fibonacci_(a, rn, i); }, i, 2);
+        write(f, m);
+        progress_bar(i, n, 40, "    Measuring");
+    }
+    printf("    Done\n");
+    lmmp_free(a);
 }
