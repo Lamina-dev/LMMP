@@ -211,7 +211,7 @@ mp_size_t lmmp_fibonacci_(mp_ptr dst, mp_size_t rn, ulong n) {
 #endif
     if (n <= FIB_TABLE_LIMIT) {
         dst[0] = fib_table[n + 1]; /* F[n]，n==0 时为0 */
-        return 1;
+        return (n == 0) ? 0 : 1;
     }
 
     /* k = n/2，先算出 (F[k], F[k-1])，再一次乘法合并。

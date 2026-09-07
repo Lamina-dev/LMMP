@@ -537,7 +537,7 @@ LMMP_API mp_size_t lmmp_fibonacci_size_(ulong n);
  * @param rn dst 的 limb 缓冲区长度
  * @param n Fibonacci 数列的下标
  * @warning dst!=NULL, rn>=lmmp_fibonacci_size_(n)
- * @return F[n] 的实际 limb 长度（n==0 时 dst[0]==0）
+ * @return F[n] 的实际 limb 长度（n==0 时 返回 0）
  */
 LMMP_API mp_size_t lmmp_fibonacci_(mp_ptr dst, mp_size_t rn, ulong n);
 
@@ -548,8 +548,7 @@ LMMP_API mp_size_t lmmp_fibonacci_(mp_ptr dst, mp_size_t rn, ulong n);
  * @param rn dst 与 dst2 各自的 limb 缓冲区长度
  * @param n Fibonacci 数列的下标
  * @warning dst!=NULL, dst2!=NULL, sep(dst,dst2), rn>=lmmp_fibonacci_size_(n)
- * @return F[n] 的实际 limb 长度（>=1）；F[n-1] 的实际长度为
- *         ret-(dst2[ret-1]==0)，至多比返回值少1
+ * @return F[n] 的实际 limb 长度（n==0时，返回1）；F[n-1] 的实际长度为ret-(dst2[ret-1]==0)，至多比返回值少1
  */
 LMMP_API mp_size_t lmmp_fibonacci2_(mp_ptr dst, mp_ptr dst2, mp_size_t rn, ulong n);
 
