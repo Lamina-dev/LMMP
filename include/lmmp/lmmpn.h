@@ -1179,6 +1179,26 @@ LMMP_API mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t le
 LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, int base);
 
 /**
+ * @brief 十进制数字字节原地转字符 [dst,n]: [0,9] -> ['0','9']
+ * @param dst 输入数字字节数组，同时也是字符输出数组
+ * @param n 字节数组长度
+ * @warning n>=0, dst!=NULL, dst[i]∈[0,9]
+ * @note 原地操作，cal: dst[i] = '0' + dst[i]
+ */
+LMMP_API void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
+
+/**
+ * @brief 36进制数字字节原地转字符 [dst,n]: [0,35] -> ['0'-'9','a'-'z']或['0'-'9','A'-'Z']
+ * @param dst 输入数字字节数组，同时也是字符输出数组
+ * @param n 字节数组长度
+ * @param upper 大小写选择：true输出大写字母，false输出小写字母
+ * @warning n>=0, dst!=NULL, dst[i]∈[0,35]
+ * @note 原地操作，cal: dst[i] = '0' + dst[i] + (dst[i]>9)*adj,
+ *       其中 adj = 'a'-'0'-10 = 39 (小写) 或 'A'-'0'-10 = 7 (大写)
+ */
+LMMP_API void lmmp_b36_to_chars_(mp_byte_t* dst, mp_size_t n, bool upper);
+
+/**
  * @brief 提取高位指定位数，并返回低位bits位数
  * @param num 待提取的指针
  * @param n num的 limb 长度
