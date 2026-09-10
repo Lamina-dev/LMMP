@@ -47,3 +47,6 @@ EXPORTS
     lmmp_mulh_
     lmmp_mullh_
     lmmp_mulmod_ulong_
+
+    lmmp_dec_to_chars_
+    lmmp_b36_to_chars_

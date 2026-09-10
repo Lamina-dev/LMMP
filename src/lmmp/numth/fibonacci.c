@@ -216,7 +216,7 @@ mp_size_t lmmp_fibonacci_(mp_ptr dst, mp_size_t rn, ulong n) {
 
     /* k = n/2，先算出 (F[k], F[k-1])，再一次乘法合并。
        limbs_bound(n2)+2 同时覆盖核心循环（2*limbs(F[n2>>1])+1）与
-       合并操作数 xp/yp 的写入（size+2，见文件头注三）*/
+       合并操作数 xp/yp 的写入（size+2）*/
     ulong n2 = n >> 1;
     mp_size_t xalloc = fib_limbs_bound_(n2) + 2;
     TEMP_DECL;
