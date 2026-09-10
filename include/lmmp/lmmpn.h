@@ -1182,8 +1182,8 @@ LMMP_API mp_size_t lmmp_to_str_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
  * @brief 十进制数字字节原地转字符 [dst,n]: [0,9] -> ['0','9']
  * @param dst 输入数字字节数组，同时也是字符输出数组
  * @param n 字节数组长度
- * @warning n>=0, dst!=NULL, dst[i]∈[0,9]
- * @note 原地操作，cal: dst[i] = '0' + dst[i]
+ * @warning n>=0, dst!=NULL, 0<=dst[i]<=9
+ * @note 原地操作，数值数组转化成字符串
  */
 LMMP_API void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
 
@@ -1192,9 +1192,8 @@ LMMP_API void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
  * @param dst 输入数字字节数组，同时也是字符输出数组
  * @param n 字节数组长度
  * @param upper 大小写选择：true输出大写字母，false输出小写字母
- * @warning n>=0, dst!=NULL, dst[i]∈[0,35]
- * @note 原地操作，cal: dst[i] = '0' + dst[i] + (dst[i]>9)*adj,
- *       其中 adj = 'a'-'0'-10 = 39 (小写) 或 'A'-'0'-10 = 7 (大写)
+ * @warning n>=0, dst!=NULL, 0<=dst[i]<=35
+ * @note 原地操作，数值数组转化成字符串
  */
 LMMP_API void lmmp_b36_to_chars_(mp_byte_t* dst, mp_size_t n, bool upper);
 
