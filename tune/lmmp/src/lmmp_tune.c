@@ -56,6 +56,7 @@ int tune_run_factors_mul_n(void);
 int tune_run_permutation_ushort(void);
 int tune_run_permutation_uint(void);
 int tune_run_binomial_rn(void);
+int tune_run_binomial_div(void);
 int tune_run_elem_mul(void);
 int tune_run_mat22_mul(void);
 int tune_run_mat22_sqr(void);
@@ -86,6 +87,7 @@ static const tune_module_t g_modules[] = {
     {"permutation_ushort", "npr_ushort,PERMUTATION_USHORT", "PERMUTATION_USHORT_K/B_THRESHOLD", tune_run_permutation_ushort},
     {"permutation_uint", "npr_uint,PERMUTATION_UINT", "PERMUTATION_UINT_K/B_THRESHOLD", tune_run_permutation_uint},
     {"binomial_rn", "ncr,BINOMIAL_RN_BASECASE_THRESHOLD", "BINOMIAL_RN_BASECASE_THRESHOLD", tune_run_binomial_rn},
+    {"binomial_div", "ncr_div,BINOMIAL_DIV_K/B_THRESHOLD", "BINOMIAL_DIV_K/B_THRESHOLD", tune_run_binomial_div},
     {"elem_mul", "elem,ELEM_MUL_BASECASE_THRESHOLD", "ELEM_MUL_BASECASE_THRESHOLD", tune_run_elem_mul},
     {"mat22_mul", "MAT22_MUL_STRASSEN_THRESHOLD", "MAT22_MUL_STRASSEN_THRESHOLD", tune_run_mat22_mul},
     {"mat22_sqr", "MAT22_SQR_STRASSEN_THRESHOLD", "MAT22_SQR_STRASSEN_THRESHOLD", tune_run_mat22_sqr},

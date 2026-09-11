@@ -96,9 +96,10 @@ cmake --build build-tune --parallel 8
    `chosen/faster - 1` 求和，选择总 badness 最小的整数阈值。若最小值附近
    存在 1% 以内的平坦区间，优先保留靠近旧默认值的候选，避免测量噪声在等价
    区间里随机游走。
-6. **二维 nPr 阈值**：先对稠密 `(n,r)` 样本分别强制 product/factor 路径并
+6. **二维 nPr/nCr 阈值**：先对稠密 `(n,r)` 样本分别强制两条路径并
    交替测量，再在 K 逐整数、B 对数稠密网格上求最小 badness；同样有平坦区
-   间回靠旧值策略。
+   间回靠旧值策略。nPr 的分界线为 `n + B > r*K`（product/factor），
+   nCr 的分界线为 `K*nPr_n > B*fac_n`（div/factor，即斜率 `B/K`）。
 7. **递归内部阈值**：`TO_STR_DIVIDE_THRESHOLD`、`FROM_STR_DIVIDE_THRESHOLD`
    以及 `MUL_FFT_MODF_THRESHOLD` 无法化简为“按 size 直接二分的两条曲线”，
    改为固定外层参数后，在候选阈值域上逐点在线测量并做归一化 badness 选择；
@@ -109,14 +110,15 @@ cmake --build build-tune --parallel 8
 `--list` 输出全部模块。旧名称仍作为别名保留：`mul22`、`mul33`、`mul44`、
 `mullo`、`npr_ushort`、`npr_uint`、`ncr`、`pow1`、`elem`、`bninv`。
 
-覆盖范围为 `mparam.h` 中全部 29 个 `LMMP_TUNE` 运行时阈值：
+覆盖范围为 `mparam.h` 中全部 31 个 `LMMP_TUNE` 运行时阈值：
 
 - 乘法/低位乘法：`MUL_TOOM22/33/44`、`MUL_FFT`、`MULLO_BASECASE`、
   `MULLO_DC`、`MUL_FFT_MODF`、`MULHI_MERSENNE`
 - 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON_K`
 - 字符串转换：`TO_STR_DIVIDE/BASEPOW`、`FROM_STR_DIVIDE/BASEPOW`
 - 数论组合：`PERMUTATION_USHORT_K/B`、`PERMUTATION_UINT_K/B`、
-  `BINOMIAL_RN_BASECASE`、`ELEM_MUL_BASECASE`、`FACTORS_MUL_N`
+  `BINOMIAL_RN_BASECASE`、`BINOMIAL_DIV_K/B`、`ELEM_MUL_BASECASE`、
+  `FACTORS_MUL_N`
 - 幂：`POW_1_EXP`、`POW_WIN2_EXP`、`POW_WIN2_N`
 - 精确除法：`DIVEXACT_BASECASE`、`DIVEXACT_NN`
 - 2x2 矩阵：`MAT22_MUL_STRASSEN`、`MAT22_SQR_STRASSEN`

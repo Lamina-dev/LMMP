@@ -31,6 +31,8 @@ extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
 extern uint64_t lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_BINOMIAL_DIV_K_THRESHOLD;
+extern uint64_t lmmp_tune_BINOMIAL_DIV_B_THRESHOLD;
 extern uint64_t lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
 extern uint64_t lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;
