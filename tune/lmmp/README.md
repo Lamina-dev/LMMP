@@ -104,6 +104,15 @@ cmake --build build-tune --parallel 8
    以及 `MUL_FFT_MODF_THRESHOLD` 无法化简为“按 size 直接二分的两条曲线”，
    改为固定外层参数后，在候选阈值域上逐点在线测量并做归一化 badness 选择；
    `MUL_FFT_MODF` 先粗网格、再在最优附近加密。
+8. **FFT 表（`fft_table` 模块）**：`src/lmmp/lmmpn/fft_ssa.c` 的
+   `lmmp_fft_table_` 是 {阈值, k} 二维表而非标量阈值，采用专门的表调优流程：
+   先用与 `mul_fft.c` 一致的量化规则解析建模（系数长度 `lenw` 的台阶是性能
+   跳跃的根源）并剪枝候选 k；再在网格点安装“单桶强制表”逐 k 交替测量
+   `lmmp_mul_fft_`（每个 (n,k) 与默认表结果 memcmp 自校验）；随后逐点
+   argmin → 游程合并 → 边界对齐到合法位置（约束 `t[i+1]-1` 是
+   `2^(k_i-6)` 的倍数）→ 以“总相对耗时 + 跳跃惩罚”做边界局部搜索；
+   最后新旧表全网格交替测量，输出可直接粘贴回 `fft_ssa.c` 的 C 表。
+   结果不写回源文件（表位于 `fft_ssa.c` 而非 `mparam.h`），需人工应用。
 
 ## 当前接入的阈值
 
@@ -122,6 +131,7 @@ cmake --build build-tune --parallel 8
 - 幂：`POW_1_EXP`、`POW_WIN2_EXP`、`POW_WIN2_N`
 - 精确除法：`DIVEXACT_BASECASE`、`DIVEXACT_NN`
 - 2x2 矩阵：`MAT22_MUL_STRASSEN`、`MAT22_SQR_STRASSEN`
+- 表驱动：`fft_table`（`lmmp_fft_table_`，FFT 分裂层数 k 的规模查找表）
 
 ## 注意事项
 

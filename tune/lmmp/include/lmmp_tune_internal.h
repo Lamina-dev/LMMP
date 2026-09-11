@@ -228,6 +228,7 @@ int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_fft_table(void);
 
 /* 每个调优文件的统一入口；实现位于 src/tune_<name>.c。 */
 typedef struct {

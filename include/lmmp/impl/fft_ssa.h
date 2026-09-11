@@ -20,6 +20,29 @@
 
 #define FFT_MEMSTACK_DEPTH 16
 
+/* 调优模式下的 FFT 表访问接口（实现在 src/lmmp/lmmpn/fft_ssa.c） */
+#ifdef LMMP_TUNE
+/**
+ * @brief 安装候选 FFT 表（含哨兵行自动补齐）
+ * @param rows 平铺的 [阈值,k] 数组（不含哨兵行）
+ * @param count 行数（不含哨兵）
+ * @warning rows 须满足：阈值严格递增；k>=6；
+ *          table[i+1]-1 是 2^(k_i-6) 的整数倍（best_k_ 一致性约束），
+ *          违反将导致 FFT 计算结果错误
+ */
+void lmmp_fft_tune_install_(const mp_size_t* rows, mp_size_t count);
+
+/** @brief 恢复默认 FFT 表 */
+void lmmp_fft_tune_reset_(void);
+
+/**
+ * @brief 读取默认 FFT 表
+ * @param count 出参：默认表行数（不含哨兵），可为 NULL
+ * @return 平铺 [阈值,k] 数组指针
+ */
+const mp_size_t* lmmp_fft_tune_default_rows_(mp_size_t* count);
+#endif
+
 typedef struct {
     mp_ptr temp_coef;       // 用于数据交换的临时系数数组
     mp_size_t lenw;         // 系数的机器字（limb）长度

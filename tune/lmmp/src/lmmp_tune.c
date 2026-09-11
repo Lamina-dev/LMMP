@@ -64,6 +64,7 @@ int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
 int tune_run_gcd_hgcd(void);
+int tune_run_fft_table(void);
 
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
@@ -95,6 +96,7 @@ static const tune_module_t g_modules[] = {
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
+    {"fft_table", "fft,FFT_TABLE", "lmmp_fft_table_", tune_run_fft_table},
 };
 
 static void usage(void) {
