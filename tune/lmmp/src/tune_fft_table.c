@@ -275,10 +275,7 @@ int tune_run_fft_table(void) {
         c.b = (mp_ptr)lmmp_alloc((size_t)c.n * sizeof(mp_limb_t));
         c.dst = (mp_ptr)lmmp_alloc((size_t)(2 * c.n + 1) * sizeof(mp_limb_t));
         c.ref = (mp_ptr)lmmp_alloc((size_t)(2 * c.n + 1) * sizeof(mp_limb_t));
-        if (c.a == NULL || c.b == NULL || c.dst == NULL || c.ref == NULL) {
-            printf("  !! out of memory at n=%llu\n", (unsigned long long)c.n);
-            return -1;
-        }
+
         tune_fill_limbs(c.a, c.n, UINT64_C(0x9b05688c2b3e6c1f));
         tune_fill_limbs(c.b, c.n, UINT64_C(0x1f83d9abfb41bd6b));
         c.a[c.n - 1] |= LIMB_B_2;
@@ -623,7 +620,7 @@ int tune_run_fft_table(void) {
         c.b = (mp_ptr)lmmp_alloc((size_t)c.n * sizeof(mp_limb_t));
         c.dst = (mp_ptr)lmmp_alloc((size_t)(2 * c.n + 1) * sizeof(mp_limb_t));
         c.ref = (mp_ptr)lmmp_alloc((size_t)(2 * c.n + 1) * sizeof(mp_limb_t));
-        if (c.a == NULL || c.b == NULL || c.dst == NULL || c.ref == NULL) break;
+
         tune_fill_limbs(c.a, c.n, UINT64_C(0x9b05688c2b3e6c1f));
         tune_fill_limbs(c.b, c.n, UINT64_C(0x1f83d9abfb41bd6b));
         c.a[c.n - 1] |= LIMB_B_2;
@@ -709,7 +706,7 @@ int tune_run_fft_table(void) {
             mp_ptr a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
             mp_ptr d1 = (mp_ptr)lmmp_alloc((size_t)(2 * n + 1) * sizeof(mp_limb_t));
             mp_ptr d2 = (mp_ptr)lmmp_alloc((size_t)(2 * n + 1) * sizeof(mp_limb_t));
-            if (a == NULL || d1 == NULL || d2 == NULL) break;
+
             tune_fill_limbs(a, n, UINT64_C(0x243f6a8885a308d3));
             a[n - 1] |= LIMB_B_2;
             lmmp_fft_tune_install_(g_rows, g_nrows);

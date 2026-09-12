@@ -24,7 +24,7 @@
     _FFT_TABLE_ENTRY(n), _FFT_TABLE_ENTRY((n) + 1), _FFT_TABLE_ENTRY((n) + 2), _FFT_TABLE_ENTRY((n) + 3)
 
 // 表的最大行数（含哨兵行），仅调优模式安装候选表时使用
-#define FFT_TABLE_MAX_ROWS 64
+#define FFT_TABLE_MAX_ROWS 68
 
 // best_k_(next_size_(n)) = best_k_(n)
 // table[i+1][0]-1 必须是 2^(table[i][1]-LOG2_LIMB_BITS) 的整数倍
@@ -103,8 +103,8 @@ static void lmmp_fft_table_init_(void) {
  *          违反约束将导致计算结果错误
  */
 void lmmp_fft_tune_install_(const mp_size_t* rows, mp_size_t count) {
-    size_t i = 0;
-    for (; i < (size_t)count && i + 1 < (size_t)FFT_TABLE_MAX_ROWS; ++i) {
+    mp_size_t i = 0;
+    for (; i < count && i + 1 < FFT_TABLE_MAX_ROWS; ++i) {
         lmmp_fft_table_[i][0] = rows[2 * i];
         lmmp_fft_table_[i][1] = rows[2 * i + 1];
     }
@@ -113,12 +113,16 @@ void lmmp_fft_tune_install_(const mp_size_t* rows, mp_size_t count) {
     lmmp_fft_table_ready_ = 1;
 }
 
-/** @brief 恢复默认 FFT 表（仅调优模式） */
+/**
+ * @brief 恢复默认 FFT 表（仅调优模式）
+ */
 void lmmp_fft_tune_reset_(void) {
     lmmp_fft_table_init_();
 }
 
-/** @brief 默认表指针与行数（不含哨兵），供调优驱动读取（仅调优模式） */
+/**
+ * @brief 默认表指针与行数（不含哨兵），供调优驱动读取（仅调优模式）
+ */
 const mp_size_t* lmmp_fft_tune_default_rows_(mp_size_t* count) {
     if (count != NULL)
         *count = (mp_size_t)(sizeof(lmmp_fft_table_default_) / sizeof(lmmp_fft_table_default_[0])) - 1;
