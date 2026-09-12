@@ -1204,6 +1204,101 @@ LMMP_API void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
 LMMP_API void lmmp_b36_to_chars_(mp_byte_t* dst, mp_size_t n, bool upper);
 
 /**
+ * @brief 计算转换为十六进制字符串需要的缓冲区长度
+ * @param numa 输入指针，长度为na
+ * @param na 输入的 limb 长度
+ * @warning na>=0
+ * @note 将会忽略numa的前导零limb，
+ *       1. if (numa!=NULL) 返回精确的十六进制字符长度（零值返回0）
+ *       2. if (numa==NULL) 返回na个limb长度的数的最大可能字符长度（最坏情况）
+ * @return 十六进制字符数
+ */
+LMMP_API mp_size_t lmmp_to_hex_len_(mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief limb数组转十六进制字符串 [numa,na,B] to [dst,return value,16]
+ * @param dst 字符串输出指针
+ * @param numa 输入指针
+ * @param na 输入的 limb 长度
+ * @param upper 大小写选择：true输出大写字母，false输出小写字母
+ * @warning na>=0, dst!=NULL, numa!=NULL
+ * @note 低位digit（nibble）在数组前端；小端序平台下与字节串布局一致，
+ *       输出长度恰好为 lmmp_to_hex_len_(numa,na)
+ * @return 转换后的字符串长度（零值返回0）
+ */
+LMMP_API mp_size_t lmmp_to_hex_(char* dst, mp_srcptr numa, mp_size_t na, bool upper);
+
+/**
+ * @brief 计算十六进制字符串转limb数组所需的 limb 缓冲区长度
+ * @param src 输入字符串指针
+ * @param len 字符串长度
+ * @warning len>=0
+ * @note 将会忽略字符串末尾的'0'（值前导零），
+ *       1. if (src!=NULL) 返回精确的 limb 长度（零值返回0）
+ *       2. if (src==NULL) 返回len个字符的最大可能 limb 长度（最坏情况）
+ * @return 所需的 limb 缓冲区长度
+ */
+LMMP_API mp_size_t lmmp_from_hex_len_(const char* src, mp_size_t len);
+
+/**
+ * @brief 十六进制字符串转limb数组 [src,len,16] to [dst,return value,B]
+ * @param dst 结果输出指针
+ * @param src 字符串源指针
+ * @param len 字符串长度
+ * @warning len>=0, dst!=NULL, src!=NULL, src[i] in {'0'-'9','a'-'f','A'-'F'}
+ * @note 低位digit（nibble）在数组前端；将忽略末尾的'0'；将会忽略大小写，'a'等同于'A'
+ * @return 转换后的结果的 limb 长度（零值返回0）
+ */
+LMMP_API mp_size_t lmmp_from_hex_(mp_ptr dst, const char* src, mp_size_t len);
+
+/**
+ * @brief 计算转换为十进制字符串需要的缓冲区长度
+ * @param numa 输入指针，长度为na
+ * @param na 输入的 limb 长度
+ * @warning na>=0
+ * @note 将会忽略numa的前导零limb，
+ *       1. if (numa!=NULL) 返回的长度可能会多分配一个字节
+ *       2. if (numa==NULL) 返回na个limb长度的数的最大可能字符长度（最坏情况）
+ * @return 十进制字符数的上界
+ */
+LMMP_API mp_size_t lmmp_to_decimal_len_(mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief limb数组转十进制字符串 [numa,na,B] to [dst,return value,10]
+ * @param dst 字符串输出指针
+ * @param numa 输入指针
+ * @param na 输入的 limb 长度
+ * @warning na>=0, dst!=NULL, numa!=NULL
+ * @note 低位digit在数组前端，数值与字符转换一次遍历完成
+ * @return 转换后的字符串长度（零值返回0）
+ */
+LMMP_API mp_size_t lmmp_to_decimal_(char* dst, mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief 计算十进制字符串转limb数组所需的 limb 缓冲区长度
+ * @param src 输入字符串指针
+ * @param len 字符串长度
+ * @warning len>=0
+ * @note 将会忽略字符串末尾的'0'（值前导零），
+ *       1. if (src!=NULL) 零值返回0，其余情况返回的长度可能会多分配一个 limb 空间
+ *       2. if (src==NULL) 返回len个字符的最大可能 limb 长度（最坏情况）
+ * @return 所需的 limb 缓冲区长度上界
+ */
+LMMP_API mp_size_t lmmp_from_decimal_len_(const char* src, mp_size_t len);
+
+/**
+ * @brief 十进制字符串转limb数组 [src,len,10] to [dst,return value,B]
+ * @param dst 结果输出指针
+ * @param src 字符串源指针
+ * @param len 字符串长度
+ * @warning len>=0, dst!=NULL, src!=NULL, src[i] in {'0'-'9'}
+ * @note 低位digit在数组前端；将忽略末尾的'0'；
+ *       dst 需要 lmmp_from_decimal_len_(src,len) 的长度（转换过程中作为临时空间使用）
+ * @return 转换后的结果的 limb 长度（零值返回0）
+ */
+LMMP_API mp_size_t lmmp_from_decimal_(mp_ptr dst, const char* src, mp_size_t len);
+
+/**
  * @brief 提取高位指定位数，并返回低位bits位数
  * @param num 待提取的指针
  * @param n num的 limb 长度

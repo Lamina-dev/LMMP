@@ -13,7 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include "../../../include/lmmp/impl/base_table.h"
+#include "../../../include/lmmp/impl/str_conv.h"
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -32,19 +32,10 @@ mp_size_t lmmp_from_str_len_(const mp_byte_t* src, mp_size_t len, int base) {
     return lmmp_mulh_(len, lmmp_bases_table[base - 2].lg_base) + 1;
 }
 
-/**
- * @brief 将字符串转换为mp_limb_t数组
- * @param dst 输出数组
- * @param src 输入字符串
- * @param len 字符串长度
- * @param base 转换基数
- * @warning src[len-1]!=0, dst!=NULL, src!=NULL, len>0
- * @return 返回转换后的limb数量
- */
-static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base) {
+mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int base, mp_byte_t off) {
     lmmp_param_assert(dst != NULL && src != NULL);
     lmmp_param_assert(len > 0);
-    lmmp_param_assert(src[len - 1] != 0);
+    lmmp_param_assert(src[len - 1] != off);
     mp_size_t digitspl = lmmp_bases_table[base - 2].digits_in_limb;
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t limbs = 0, i = len;
@@ -52,15 +43,15 @@ static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_si
     while (i) {
         mp_limb_t curlimb;
         if (i >= digitspl) {
-            curlimb = src[--i];
+            curlimb = src[--i] - off;
             for (mp_size_t j = 1; j < digitspl; ++j) {
-                curlimb = curlimb * base + src[--i];
+                curlimb = curlimb * base + (src[--i] - off);
             }
         } else {
-            curlimb = src[--i];
+            curlimb = src[--i] - off;
             lbase = base;
             while (i) {
-                curlimb = curlimb * base + src[--i];
+                curlimb = curlimb * base + (src[--i] - off);
                 lbase *= base;
             }
         }
@@ -81,37 +72,25 @@ static mp_size_t lmmp_from_str_basecase_(mp_ptr dst, const mp_byte_t* src, mp_si
     return limbs;
 }
 
-/**
- * @brief 将字符串转换为mp_limb_t数组
- * @param dst 输出数组
- * @param src 输入字符串
- * @param len 字符串长度
- * @param pow 指数表
- * @param tp 临时数组
- * @warning src[len-1]!=0, sep(dst,tp), dst!=NULL, src!=NULL, tp!=NULL, len>0
- * @note 第一层调用时：nh>=2, [dst,2*N], [tp,limbs]
- *       后序递归时：N>=2, [dst,limbs+1], [tp,2*N-1]
- *       limbs为返回值，N = pow->np + pow->zeros
- * @return 返回转换后的limb数量
- */
-static mp_size_t lmmp_from_str_divide_(
+mp_size_t lmmp_from_str_divide_(
           mp_ptr       restrict dst,
     const mp_byte_t*            src,
           mp_size_t             len,
           mp_basepow_t*         pow,
-          mp_ptr       restrict  tp
+          mp_ptr       restrict  tp,
+          mp_byte_t             off
 ) {
     lmmp_param_assert(dst != NULL && src != NULL && tp != NULL);
     lmmp_param_assert(len > 0);
-    lmmp_param_assert(src[len - 1] != 0);
+    lmmp_param_assert(src[len - 1] != off);
     mp_size_t limbs;
 
     if (lmmp_from_str_len_(0, len, pow->base) < FROM_STR_DIVIDE_THRESHOLD) {
-        limbs = lmmp_from_str_basecase_(dst, src, len, pow->base);
+        limbs = lmmp_from_str_basecase_(dst, src, len, pow->base, off);
     } else {
         mp_size_t pdigits = pow->digits;
         if (len <= pdigits) {
-            limbs = lmmp_from_str_divide_(dst, src, len, pow - 1, tp);
+            limbs = lmmp_from_str_divide_(dst, src, len, pow - 1, tp, off);
         } else {
             mp_ptr p = pow->p;
             mp_size_t np = pow->np;
@@ -120,12 +99,12 @@ static mp_size_t lmmp_from_str_divide_(
             mp_size_t nl = 0, nh;
 
             mp_size_t llen = pdigits;
-            while (llen && src[llen - 1] == 0) --llen;
+            while (llen && src[llen - 1] == off) --llen;
             if (llen)
-                nl = lmmp_from_str_divide_(lp, src, llen, pow - 1, dst);
+                nl = lmmp_from_str_divide_(lp, src, llen, pow - 1, dst, off);
 
             mp_limb_t save0 = hp[0], save1 = hp[1];  // save 2 limbs
-            nh = lmmp_from_str_divide_(hp, src + pdigits, len - pdigits, pow - 1, dst);
+            nh = lmmp_from_str_divide_(hp, src + pdigits, len - pdigits, pow - 1, dst, off);
             if (nh >= np)
                 lmmp_mul_(dst + zeros, hp, nh, p, np);
             else
@@ -188,7 +167,7 @@ mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int ba
             ++limbs;
         }
     } else if (lmmp_from_str_len_(0, len, base) < FROM_STR_BASEPOW_THRESHOLD) {
-        limbs = lmmp_from_str_basecase_(dst, src, len, base);
+        limbs = lmmp_from_str_basecase_(dst, src, len, base, 0);
     } else {
         TEMP_DECL;
         mp_basepow_t powers[LIMB_BITS];
@@ -277,7 +256,7 @@ mp_size_t lmmp_from_str_(mp_ptr dst, const mp_byte_t* src, mp_size_t len, int ba
             powers[i].np = np;
         }
 
-        limbs = lmmp_from_str_divide_(tp, src, len, powers + cpow - 1, dst);
+        limbs = lmmp_from_str_divide_(tp, src, len, powers + cpow - 1, dst, 0);
         lmmp_copy(dst, tp, limbs);
 
         TEMP_FREE;

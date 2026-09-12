@@ -13,7 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include "../../../include/lmmp/impl/base_table.h"
+#include "../../../include/lmmp/impl/str_conv.h"
 
 const mp_base_t lmmp_bases_table[255] = {
 	{0x0000000000000001,0x0400000000000000,0xffffffffffffffff,64,2},
