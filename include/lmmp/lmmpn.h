@@ -17,9 +17,10 @@
 #define LMMP_LMMPN_H
 
 #include <stdbool.h>
+
 #include "lmmp.h"
 
-#define INLINE_ static inline
+#define LMMP_INLINE static inline
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +30,7 @@ extern "C" {
  * @brief 运行时判断端序
  * @return true 表示小端序，false 表示大端序
  */
-INLINE_ bool lmmp_endian(void) {
+LMMP_INLINE bool lmmp_endian(void) {
     int num = 1;
     return (*(char*)&num) != 0;
 }
@@ -540,7 +541,8 @@ LMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size
  * @param nb 第二个操作数的 limb 长度
  * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1),
  *          dst!=NULL, numa!=NULL, numb!=NULL
- * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数
+ * @note
+ * 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -805,8 +807,8 @@ LMMP_API void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
  *          dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LMMP_API mp_limb_t lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
-                                      mp_limb_t inv21);
+LMMP_API mp_limb_t
+lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
 
 /**
  * @brief 分治除法运算
@@ -821,8 +823,8 @@ LMMP_API mp_limb_t lmmp_div_basecase_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp
  *          dstq!=NULL, numa!=NULL, numb!=NULL
  * @note qh:[dstq,na-nb]=[numa,na] div [numb,nb], [numa,na-nb]=[numa,na] mod [numb,nb], return qh
  */
-LMMP_API mp_limb_t lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
-                                    mp_limb_t inv21);
+LMMP_API mp_limb_t
+lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_limb_t inv21);
 
 /**
  * @brief 计算预计算逆元的尺寸
@@ -831,7 +833,7 @@ LMMP_API mp_limb_t lmmp_div_divide_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_s
  * @return 计算需要预计算逆元尺寸ni（ni<=nb）
  * @note 用于已归一化除法([nq+nb]/[nb]=[nq])的逆元 ni 尺寸
  */
-INLINE_ mp_size_t lmmp_div_inv_size_(mp_size_t nq, mp_size_t nb) {
+LMMP_INLINE mp_size_t lmmp_div_inv_size_(mp_size_t nq, mp_size_t nb) {
     mp_size_t ni, b;
     if (nq > nb) {
         b = (nq - 1) / nb + 1;  // ceil(nq/nb), number of blocks
@@ -890,8 +892,8 @@ LMMP_API void lmmp_bninv_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_size_t n
  *          dstq!=NULL, numa!=NULL, numb!=NULL, invappr!=NULL
  * @note qh:[dstq,na-1]=[numa,na] div x, [numa,1]=[numa,na] mod x, return qh
  */
-LMMP_API mp_limb_t lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb,
-                                    mp_srcptr invappr, mp_size_t ni);
+LMMP_API mp_limb_t
+lmmp_div_mulinv_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb, mp_srcptr invappr, mp_size_t ni);
 
 /**
  * @brief 单精度数除法（除数为1个limb）
@@ -1010,7 +1012,7 @@ LMMP_API void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, 
  * @warning n>0, numa!=NULL, numb!=NULL
  * @note 从最高位开始逐位比较，直到找到不同位
  */
-INLINE_ int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
+LMMP_INLINE int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
     lmmp_param_assert(n > 0);
     lmmp_param_assert(numa != NULL);
     lmmp_param_assert(numb != NULL);
@@ -1033,7 +1035,7 @@ INLINE_ int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
  * @warning n>0, p!=NULL
  * @note 从最高位开始检查，只要有非零位则返回0
  */
-INLINE_ int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
+LMMP_INLINE int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
     do {
         if (p[--n] != 0)
             return 0;
@@ -1064,7 +1066,7 @@ INLINE_ int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
  * @return 进位标志（1表示有进位，0表示无进位）
  * @warning 0<nb<=na, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  */
-INLINE_ mp_limb_t lmmp_add_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
+LMMP_INLINE mp_limb_t lmmp_add_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
     LMMP_AORS_(lmmp_add_n_, ((dst[nb++] = _x_ + 1) == 0));
 }
 
@@ -1078,7 +1080,7 @@ INLINE_ mp_limb_t lmmp_add_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr 
  * @return 借位标志（1表示有借位，0表示无借位）
  * @warning 0<nb<=na, eqsep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  */
-INLINE_ mp_limb_t lmmp_sub_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
+LMMP_INLINE mp_limb_t lmmp_sub_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
     LMMP_AORS_(lmmp_sub_n_, ((dst[nb++] = _x_ - 1), _x_ == 0));
 }
 
@@ -1117,7 +1119,9 @@ INLINE_ mp_limb_t lmmp_sub_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr 
  * @return 进位标志（1表示有进位，0表示无进位）
  * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
-INLINE_ mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) { LMMP_AORS_1_(+, LMMP_ADDCB_); }
+LMMP_INLINE mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
+    LMMP_AORS_1_(+, LMMP_ADDCB_);
+}
 
 /**
  * @brief 减单精度数静态内联函数 [dst,na]=[numa,na]-x
@@ -1128,7 +1132,9 @@ INLINE_ mp_limb_t lmmp_add_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_
  * @return 借位标志（1表示有借位，0表示无借位）
  * @warning na>0, eqsep(dst,numa), dst!=NULL, numa!=NULL
  */
-INLINE_ mp_limb_t lmmp_sub_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) { LMMP_AORS_1_(-, LMMP_SUBCB_); }
+LMMP_INLINE mp_limb_t lmmp_sub_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
+    LMMP_AORS_1_(-, LMMP_SUBCB_);
+}
 
 /**
  * @brief 计算转换为字节数组，字节数组需要的缓冲区长度
@@ -1219,6 +1225,6 @@ LMMP_API mp_bitcnt_t lmmp_extract_bits_(mp_srcptr num, mp_size_t n, mp_limb_t* e
 #undef LMMP_AORS_1_
 
 
-#undef INLINE_
+#undef LMMP_INLINE
 
 #endif  // LMMP_LMMPN_H

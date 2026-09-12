@@ -163,6 +163,20 @@ tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t n
                                        uint64_t b_lo, uint64_t b_hi,
                                        uint64_t k_hint, uint64_t b_hint,
                                        size_t b_steps);
+
+/* nCr 的 div/factor 分界线为 K * nPr_n > B * fac_n（div 当 nPr_n/fac_n > B/K）。 */
+typedef struct {
+    uint64_t npr_n;     /* nPr 的limb数 */
+    uint64_t fac_n;     /* r! 的limb数 */
+    double div_ns;      /* 强制div路径的中位数耗时 */
+    double factor_ns;   /* 强制factor路径的中位数耗时 */
+} tune_ratio_point_t;
+
+tune_line_choice_t tune_choose_2d_ratio(const tune_ratio_point_t* points, size_t npoints,
+                                        uint64_t k_lo, uint64_t k_hi,
+                                        uint64_t b_lo, uint64_t b_hi,
+                                        uint64_t k_hint, uint64_t b_hint,
+                                        size_t b_steps);
 double tune_badness_at(const tune_point_t* points, size_t npoints,
                        uint64_t threshold, tune_pred_t pred);
 
@@ -207,12 +221,14 @@ int tune_run_factors_mul_n(void);
 int tune_run_permutation_ushort(void);
 int tune_run_permutation_uint(void);
 int tune_run_binomial_rn(void);
+int tune_run_binomial_div(void);
 int tune_run_elem_mul(void);
 int tune_run_mat22_mul(void);
 int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_fft_table(void);
 
 /* 每个调优文件的统一入口；实现位于 src/tune_<name>.c。 */
 typedef struct {

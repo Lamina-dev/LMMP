@@ -96,30 +96,42 @@ cmake --build build-tune --parallel 8
    `chosen/faster - 1` 求和，选择总 badness 最小的整数阈值。若最小值附近
    存在 1% 以内的平坦区间，优先保留靠近旧默认值的候选，避免测量噪声在等价
    区间里随机游走。
-6. **二维 nPr 阈值**：先对稠密 `(n,r)` 样本分别强制 product/factor 路径并
+6. **二维 nPr/nCr 阈值**：先对稠密 `(n,r)` 样本分别强制两条路径并
    交替测量，再在 K 逐整数、B 对数稠密网格上求最小 badness；同样有平坦区
-   间回靠旧值策略。
+   间回靠旧值策略。nPr 的分界线为 `n + B > r*K`（product/factor），
+   nCr 的分界线为 `K*nPr_n > B*fac_n`（div/factor，即斜率 `B/K`）。
 7. **递归内部阈值**：`TO_STR_DIVIDE_THRESHOLD`、`FROM_STR_DIVIDE_THRESHOLD`
    以及 `MUL_FFT_MODF_THRESHOLD` 无法化简为“按 size 直接二分的两条曲线”，
    改为固定外层参数后，在候选阈值域上逐点在线测量并做归一化 badness 选择；
    `MUL_FFT_MODF` 先粗网格、再在最优附近加密。
+8. **FFT 表（`fft_table` 模块）**：`src/lmmp/lmmpn/fft_ssa.c` 的
+   `lmmp_fft_table_` 是 {阈值, k} 二维表而非标量阈值，采用专门的表调优流程：
+   先用与 `mul_fft.c` 一致的量化规则解析建模（系数长度 `lenw` 的台阶是性能
+   跳跃的根源）并剪枝候选 k；再在网格点安装“单桶强制表”逐 k 交替测量
+   `lmmp_mul_fft_`（每个 (n,k) 与默认表结果 memcmp 自校验）；随后逐点
+   argmin → 游程合并 → 边界对齐到合法位置（约束 `t[i+1]-1` 是
+   `2^(k_i-6)` 的倍数）→ 以“总相对耗时 + 跳跃惩罚”做边界局部搜索；
+   最后新旧表全网格交替测量，输出可直接粘贴回 `fft_ssa.c` 的 C 表。
+   结果不写回源文件（表位于 `fft_ssa.c` 而非 `mparam.h`），需人工应用。
 
 ## 当前接入的阈值
 
 `--list` 输出全部模块。旧名称仍作为别名保留：`mul22`、`mul33`、`mul44`、
 `mullo`、`npr_ushort`、`npr_uint`、`ncr`、`pow1`、`elem`、`bninv`。
 
-覆盖范围为 `mparam.h` 中全部 29 个 `LMMP_TUNE` 运行时阈值：
+覆盖范围为 `mparam.h` 中全部 31 个 `LMMP_TUNE` 运行时阈值：
 
 - 乘法/低位乘法：`MUL_TOOM22/33/44`、`MUL_FFT`、`MULLO_BASECASE`、
   `MULLO_DC`、`MUL_FFT_MODF`、`MULHI_MERSENNE`
 - 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON_K`
 - 字符串转换：`TO_STR_DIVIDE/BASEPOW`、`FROM_STR_DIVIDE/BASEPOW`
 - 数论组合：`PERMUTATION_USHORT_K/B`、`PERMUTATION_UINT_K/B`、
-  `BINOMIAL_RN_BASECASE`、`ELEM_MUL_BASECASE`、`FACTORS_MUL_N`
+  `BINOMIAL_RN_BASECASE`、`BINOMIAL_DIV_K/B`、`ELEM_MUL_BASECASE`、
+  `FACTORS_MUL_N`
 - 幂：`POW_1_EXP`、`POW_WIN2_EXP`、`POW_WIN2_N`
 - 精确除法：`DIVEXACT_BASECASE`、`DIVEXACT_NN`
 - 2x2 矩阵：`MAT22_MUL_STRASSEN`、`MAT22_SQR_STRASSEN`
+- 表驱动：`fft_table`（`lmmp_fft_table_`，FFT 分裂层数 k 的规模查找表）
 
 ## 注意事项
 

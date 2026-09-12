@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -18,7 +18,7 @@
 
 /*
  本头文件提供的随机数发生器均为非密码学安全的伪随机数生成器，仅用于生成随机数序列。
- 输入种子类型为int时，意味着无需输入高熵的随机数，我们会通过一些额外的信息（生成序列的长度）
+ 输入种子类型为unsigned时，意味着无需输入高熵的随机数，我们会通过一些额外的信息（生成序列的长度）
  通过一些简单的算法来生成高熵的新种子（依然可以保证可重用和可复现性）。对于种子类型为
  其他类型，我们会直接使用输入的种子，我们仍然会在发生器中进行一些处理，以保证最低限度的随机性。
 
@@ -29,16 +29,7 @@
  PCG网站<https://www.pcg-random.org>中也有PCG和xoshiro256++及其他随机生成器的比较。
 
  PCG-XSL-RR-128/64 生成的随机数序列通常拥有比xoshiro256++更好的统计性能，当然两者的统计性能
- 在大部分场景下都足够的好。生成速度上，在64位平台且吞吐量较好的情况下，各个随机数发生器平均生成
- 单个limb的耗时大致如下：（在生成较短bit长度的随机数时，所有的发生器平均耗时都会提高）
- 
-    随机生成器          平均耗时（ns）
-     mt19937              3.9
-  PCG-XSL-RR-128/64       1.3
-   xoshiro256++           0.8
-    strong_rng            1.4/2.9
-
-    （备注：strong_rng第一个耗时未考虑随机状态初始化的时间，第二个耗时是在初始化状态后，生成单个limb的耗时）
+ 在大部分场景下都足够的好。在生成较短bit长度的随机数时，所有的发生器平均耗时都会因为初始化的开销而提高。
 
  LMMP 实现的强随机数生成器，通常用于多次大量生成较长的随机大整数序列，比如用于多次生成
  1000个limb长度的随机大整数。其随机状态为一个长度为 k 的limb数组，初始状态由种子决定，每个limb代表一个64bit状态，
@@ -64,7 +55,7 @@ extern "C" {
  *          如果全局种子已经初始化，则会更新全局种子，或更新发生器类型
  * @note 由于使用int类型作为种子，我们将会维护一个全局种子随机序列，丰富种子的随机性。
  */
-LMMP_API void lmmp_global_rng_init_(int seed, int seed_type);
+LMMP_API void lmmp_global_rng_init_(unsigned seed, unsigned seed_type);
 
 /**
  * @brief 生成随机大整数（0 - B^n-1 均匀分布）
@@ -76,7 +67,7 @@ LMMP_API void lmmp_global_rng_init_(int seed, int seed_type);
  * @return 随机数的 limb 长度（这是由于可能存在生成随机数为0的情况（虽然几乎不可能），
  *         所以返回值可能小于n，但不会大于n）
  */
-LMMP_API mp_size_t lmmp_seed_random_(mp_ptr dst, mp_size_t n, mp_limb_t seed, int seed_type);
+LMMP_API mp_size_t lmmp_seed_random_(mp_ptr dst, mp_size_t n, mp_limb_t seed, unsigned seed_type);
 
 /**
  * @brief 生成随机大整数（0 - B^n-1 均匀分布）
@@ -110,7 +101,7 @@ typedef struct lmmp_strong_rng_t lmmp_strong_rng_t;
  *       一个随机数的时间。
  * @return 强随机数生成器指针
  */
-LMMP_API lmmp_strong_rng_t* lmmp_strong_rng_init_(mp_size_t k, int seed);
+LMMP_API lmmp_strong_rng_t* lmmp_strong_rng_init_(mp_size_t k, unsigned seed);
 
 /**
  * @brief 将rng内部状态拓展至k维度

@@ -611,17 +611,60 @@ static double line_badness(const tune_line_point_t* points, size_t npoints,
     return badness;
 }
 
-tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t npoints,
-                                       uint64_t k_lo, uint64_t k_hi,
-                                       uint64_t b_lo, uint64_t b_hi,
-                                       uint64_t k_hint, uint64_t b_hint,
-                                       size_t b_steps) {
+/* ============================== nCr 二维斜率搜索 ============================== */
+
+static double ratio_point_badness(const tune_ratio_point_t* p, int use_factor) {
+    const double chosen = use_factor ? p->factor_ns : p->div_ns;
+    const double other = use_factor ? p->div_ns : p->factor_ns;
+    const double faster = chosen < other ? chosen : other;
+    if (faster <= 0.0 || chosen <= 0.0)
+        return 0.0;
+    return chosen / faster - 1.0;
+}
+
+static int ratio_uses_factor(const tune_ratio_point_t* p, uint64_t k, uint64_t b) {
+    return !(k * p->npr_n > b * p->fac_n);
+}
+
+static double ratio_badness(const tune_ratio_point_t* points, size_t npoints,
+                            uint64_t k, uint64_t b) {
+    double badness = 0.0;
+    for (size_t i = 0; i < npoints; ++i)
+        badness += ratio_point_badness(&points[i], ratio_uses_factor(&points[i], k, b));
+    return badness;
+}
+
+/* ============================== 二维 (K,B) 通用搜索核心 ============================== */
+
+/*
+ * K 逐整数、B 在 [b_lo,b_hi] 上对数稠密分布地扫描候选，以回调给出的总 badness
+ * 为目标取最小；若 hint 与最优相差在容差内则保留 hint，否则在与最优等价
+ * （badness 相差 <= 1%）的平台期中选择对数距离最接近 hint 的候选，
+ * 避免测量噪声在等价区间里随机游走。
+ */
+typedef double (*tune_2d_badness_fn)(void* user, uint64_t k, uint64_t b);
+
+static uint64_t choose_2d_grid_b(uint64_t b_lo, uint64_t b_hi,
+                                 double log_lo, double log_hi,
+                                 size_t j, size_t b_steps) {
+    if (b_lo == 0 && j == 0)
+        return 0;
+    const double lv = log_lo + (log_hi - log_lo) * (double)j / (double)b_steps;
+    uint64_t b = (uint64_t)(exp(lv) + 0.5);
+    if (b < b_lo) b = b_lo;
+    if (b > b_hi) b = b_hi;
+    return b;
+}
+
+static tune_line_choice_t choose_2d_search(tune_2d_badness_fn badness_fn, void* user,
+                                           uint64_t k_lo, uint64_t k_hi,
+                                           uint64_t b_lo, uint64_t b_hi,
+                                           uint64_t k_hint, uint64_t b_hint,
+                                           size_t b_steps) {
     tune_line_choice_t result;
     memset(&result, 0, sizeof(result));
     result.k = k_hint;
     result.b = b_hint;
-    if (npoints == 0 || k_hi < k_lo || b_hi < b_lo)
-        return result;
     if (b_steps < 8) b_steps = 8;
     if (b_steps > 65536) b_steps = 65536;
 
@@ -633,16 +676,8 @@ tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t n
 
     for (uint64_t k = k_lo; k <= k_hi; ++k) {
         for (size_t j = 0; j <= b_steps; ++j) {
-            uint64_t b;
-            if (b_lo == 0 && j == 0) {
-                b = 0;
-            } else {
-                const double lv = log_lo + (log_hi - log_lo) * (double)j / (double)b_steps;
-                b = (uint64_t)(exp(lv) + 0.5);
-                if (b < b_lo) b = b_lo;
-                if (b > b_hi) b = b_hi;
-            }
-            const double badness = line_badness(points, npoints, k, b);
+            const uint64_t b = choose_2d_grid_b(b_lo, b_hi, log_lo, log_hi, j, b_steps);
+            const double badness = badness_fn(user, k, b);
             if (badness < best) {
                 best = badness;
                 best_k = k;
@@ -653,7 +688,7 @@ tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t n
 
     /* 把 hint 显式加入候选，并最终在平台期优先选择更接近先验值的点。 */
     const double tol = 0.01 * (best > 1.0 ? best : 1.0) + 1e-12;
-    const double hint_badness = line_badness(points, npoints, k_hint, b_hint);
+    const double hint_badness = badness_fn(user, k_hint, b_hint);
     if (hint_badness <= best + tol) {
         best_k = k_hint;
         best_b = b_hint;
@@ -663,16 +698,8 @@ tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t n
         double best_dist = 1e300;
         for (uint64_t k = k_lo; k <= k_hi; ++k) {
             for (size_t j = 0; j <= b_steps; ++j) {
-                uint64_t b;
-                if (b_lo == 0 && j == 0) {
-                    b = 0;
-                } else {
-                    const double lv = log_lo + (log_hi - log_lo) * (double)j / (double)b_steps;
-                    b = (uint64_t)(exp(lv) + 0.5);
-                    if (b < b_lo) b = b_lo;
-                    if (b > b_hi) b = b_hi;
-                }
-                if (line_badness(points, npoints, k, b) > best + tol)
+                const uint64_t b = choose_2d_grid_b(b_lo, b_hi, log_lo, log_hi, j, b_steps);
+                if (badness_fn(user, k, b) > best + tol)
                     continue;
                 const double dk = log((double)k + 1.0) - log_kh;
                 const double db = log((double)b + 1.0) - log_bh;
@@ -691,6 +718,60 @@ tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t n
     result.badness = best;
     result.margin = 0.0;
     return result;
+}
+
+typedef struct {
+    const tune_line_point_t* points;
+    size_t npoints;
+} tune_line_ctx_t;
+
+typedef struct {
+    const tune_ratio_point_t* points;
+    size_t npoints;
+} tune_ratio_ctx_t;
+
+static double line_badness_cb(void* user, uint64_t k, uint64_t b) {
+    const tune_line_ctx_t* c = (const tune_line_ctx_t*)user;
+    return line_badness(c->points, c->npoints, k, b);
+}
+
+static double ratio_badness_cb(void* user, uint64_t k, uint64_t b) {
+    const tune_ratio_ctx_t* c = (const tune_ratio_ctx_t*)user;
+    return ratio_badness(c->points, c->npoints, k, b);
+}
+
+tune_line_choice_t tune_choose_2d_line(const tune_line_point_t* points, size_t npoints,
+                                       uint64_t k_lo, uint64_t k_hi,
+                                       uint64_t b_lo, uint64_t b_hi,
+                                       uint64_t k_hint, uint64_t b_hint,
+                                       size_t b_steps) {
+    if (npoints == 0 || k_hi < k_lo || b_hi < b_lo) {
+        tune_line_choice_t result;
+        memset(&result, 0, sizeof(result));
+        result.k = k_hint;
+        result.b = b_hint;
+        return result;
+    }
+    const tune_line_ctx_t ctx = {points, npoints};
+    return choose_2d_search(line_badness_cb, (void*)&ctx,
+                            k_lo, k_hi, b_lo, b_hi, k_hint, b_hint, b_steps);
+}
+
+tune_line_choice_t tune_choose_2d_ratio(const tune_ratio_point_t* points, size_t npoints,
+                                        uint64_t k_lo, uint64_t k_hi,
+                                        uint64_t b_lo, uint64_t b_hi,
+                                        uint64_t k_hint, uint64_t b_hint,
+                                        size_t b_steps) {
+    if (npoints == 0 || k_hi < k_lo || b_hi < b_lo) {
+        tune_line_choice_t result;
+        memset(&result, 0, sizeof(result));
+        result.k = k_hint;
+        result.b = b_hint;
+        return result;
+    }
+    const tune_ratio_ctx_t ctx = {points, npoints};
+    return choose_2d_search(ratio_badness_cb, (void*)&ctx,
+                            k_lo, k_hi, b_lo, b_hi, k_hint, b_hint, b_steps);
 }
 
 /* ============================== 结果记录 ============================== */

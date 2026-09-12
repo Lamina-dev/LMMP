@@ -56,6 +56,7 @@ int tune_run_factors_mul_n(void);
 int tune_run_permutation_ushort(void);
 int tune_run_permutation_uint(void);
 int tune_run_binomial_rn(void);
+int tune_run_binomial_div(void);
 int tune_run_elem_mul(void);
 int tune_run_mat22_mul(void);
 int tune_run_mat22_sqr(void);
@@ -63,6 +64,7 @@ int tune_run_sqrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
 int tune_run_gcd_hgcd(void);
+int tune_run_fft_table(void);
 
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
@@ -86,6 +88,7 @@ static const tune_module_t g_modules[] = {
     {"permutation_ushort", "npr_ushort,PERMUTATION_USHORT", "PERMUTATION_USHORT_K/B_THRESHOLD", tune_run_permutation_ushort},
     {"permutation_uint", "npr_uint,PERMUTATION_UINT", "PERMUTATION_UINT_K/B_THRESHOLD", tune_run_permutation_uint},
     {"binomial_rn", "ncr,BINOMIAL_RN_BASECASE_THRESHOLD", "BINOMIAL_RN_BASECASE_THRESHOLD", tune_run_binomial_rn},
+    {"binomial_div", "ncr_div,BINOMIAL_DIV_K/B_THRESHOLD", "BINOMIAL_DIV_K/B_THRESHOLD", tune_run_binomial_div},
     {"elem_mul", "elem,ELEM_MUL_BASECASE_THRESHOLD", "ELEM_MUL_BASECASE_THRESHOLD", tune_run_elem_mul},
     {"mat22_mul", "MAT22_MUL_STRASSEN_THRESHOLD", "MAT22_MUL_STRASSEN_THRESHOLD", tune_run_mat22_mul},
     {"mat22_sqr", "MAT22_SQR_STRASSEN_THRESHOLD", "MAT22_SQR_STRASSEN_THRESHOLD", tune_run_mat22_sqr},
@@ -93,6 +96,7 @@ static const tune_module_t g_modules[] = {
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
+    {"fft_table", "fft,FFT_TABLE", "lmmp_fft_table_", tune_run_fft_table},
 };
 
 static void usage(void) {

@@ -222,6 +222,22 @@
 #else
 #define BINOMIAL_RN_BASECASE_THRESHOLD LMMP_DEFAULT_BINOMIAL_RN_BASECASE_THRESHOLD
 #endif
+
+// 组合数计算中，div路径(累乘nPr后精确除以r!)与factor路径(质因数分解后累乘)的分界斜率阈值
+// 当 K * nPr_n > B * fac_n 时选择div路径，其中nPr_n为nPr的limb数，fac_n为r!的limb数
+// 即 nPr_n / fac_n > B / K 时走div路径
+#define LMMP_DEFAULT_BINOMIAL_DIV_K_THRESHOLD 50
+#ifdef LMMP_TUNE
+#define BINOMIAL_DIV_K_THRESHOLD lmmp_tune_BINOMIAL_DIV_K_THRESHOLD
+#else
+#define BINOMIAL_DIV_K_THRESHOLD LMMP_DEFAULT_BINOMIAL_DIV_K_THRESHOLD
+#endif
+#define LMMP_DEFAULT_BINOMIAL_DIV_B_THRESHOLD 91
+#ifdef LMMP_TUNE
+#define BINOMIAL_DIV_B_THRESHOLD lmmp_tune_BINOMIAL_DIV_B_THRESHOLD
+#else
+#define BINOMIAL_DIV_B_THRESHOLD LMMP_DEFAULT_BINOMIAL_DIV_B_THRESHOLD
+#endif
 // 元素累乘中，低于此长度的累乘将使用朴素算法
 #define LMMP_DEFAULT_ELEM_MUL_BASECASE_THRESHOLD 32
 #ifdef LMMP_TUNE
@@ -277,6 +293,8 @@ extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_B_THRESHOLD;
 extern uint64_t lmmp_tune_BINOMIAL_RN_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_BINOMIAL_DIV_K_THRESHOLD;
+extern uint64_t lmmp_tune_BINOMIAL_DIV_B_THRESHOLD;
 extern uint64_t lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
 extern uint64_t lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;

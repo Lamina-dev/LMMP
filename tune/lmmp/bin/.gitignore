@@ -4,5 +4,7 @@
 *.pdb
 lmmp_tune
 lmmp_tune.exe
-lmmp_tune_results.h
-lmmp_tune_results.txt
+*.h
+*.txt
+*.log
+*.csv

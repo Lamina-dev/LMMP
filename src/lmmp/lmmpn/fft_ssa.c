@@ -17,44 +17,52 @@
 #include "../../../include/lmmp/impl/mparam.h"
 
 
-/*
-FIXME: 也许我们需要调优此表
-*/
-
 // ((mp_size_t)3 << (2 * (n) - 5)) + 1 是预计算的阈值，n是对应的k值
+// 该阈值是 k 层递归安全展开的最小规模，表尾大尺寸段沿用此规则
 #define _FFT_TABLE_ENTRY(n) {((mp_size_t)3 << (2 * (n) - 5)) + 1, (n)}
 #define _FFT_TABLE_ENTRY4(n) \
     _FFT_TABLE_ENTRY(n), _FFT_TABLE_ENTRY((n) + 1), _FFT_TABLE_ENTRY((n) + 2), _FFT_TABLE_ENTRY((n) + 3)
 
+// 表的最大行数（含哨兵行），仅调优模式安装候选表时使用
+#define FFT_TABLE_MAX_ROWS 68
+
 // best_k_(next_size_(n)) = best_k_(n)
 // table[i+1][0]-1 必须是 2^(table[i][1]-LOG2_LIMB_BITS) 的整数倍
 // LOG2_LIMB_BITS：每个 limb 的比特数的2对数，为 log2(64) = 6
-static const mp_size_t lmmp_fft_table_[][2] = {
+static const mp_size_t lmmp_fft_table_default_[][2] = {
     {0, 6},
-    {1597, 7},
-    {1655, 6},
-    {1917, 7},
-    {3447, 8},
+    {1715, 7},
+    {1755, 6},
+    {1915, 7},
+    {2163, 6},
+    {2197, 7},
+    {2933, 8},
+    {3021, 7},
+    {3315, 8},
     {3565, 7},
-    {3831, 8},
-    {7661, 9},
+    {3699, 8},
+    {4073, 7},
+    {4211, 8},
+    {7145, 9},
     {8145, 8},
-    {8685, 9},
-    {14289, 10},
+    {8745, 9},
+    {14281, 10},
     {16289, 9},
-    {20433, 10},
+    {20441, 10},
     {24481, 9},
-    {26577, 10},
+    {26585, 10},
     {28593, 11},
     {32545, 10},
-    {57249, 11},
+    {32641, 9},
+    {34753, 10},
+    {53169, 11},
     {65313, 10},
-    {73633, 11},
-    {98081, 12},
+    {73601, 11},
+    {98113, 12},
     {130625, 11},
-    {196385, 12},
+    {196449, 12},
     {261697, 11},
-    {294689, 12},
+    {294625, 12},
     {392769, 13},
     {523265, 12},
     {654913, 11},
@@ -69,7 +77,66 @@ static const mp_size_t lmmp_fft_table_[][2] = {
     _FFT_TABLE_ENTRY4(25),
     {(mp_size_t)-1, 127}};
 
+#ifdef LMMP_TUNE
+/*
+   调优模式：best_k_ 查询运行时候选表（初始内容为默认表），
+   调优驱动通过 lmmp_fft_tune_install_ 安装候选表后测量，详见 tune/lmmp。
+*/
+static mp_size_t lmmp_fft_table_[FFT_TABLE_MAX_ROWS][2];
+static int lmmp_fft_table_ready_ = 0;
+
+static void lmmp_fft_table_init_(void) {
+    const size_t rows = sizeof(lmmp_fft_table_default_) / sizeof(lmmp_fft_table_default_[0]);
+    for (size_t i = 0; i < rows; ++i) {
+        lmmp_fft_table_[i][0] = lmmp_fft_table_default_[i][0];
+        lmmp_fft_table_[i][1] = lmmp_fft_table_default_[i][1];
+    }
+    lmmp_fft_table_ready_ = 1;
+}
+
+/**
+ * @brief 安装候选 FFT 表（仅调优模式）
+ * @param rows 平铺的 [阈值,k] 数组（不含哨兵行）
+ * @param count 行数（不含哨兵），count < FFT_TABLE_MAX_ROWS
+ * @warning rows 须满足阈值严格递增、k>=LOG2_LIMB_BITS，
+ *          且 table[i+1]-1 是 2^(k_i-LOG2_LIMB_BITS) 的整数倍（一致性约束），
+ *          违反约束将导致计算结果错误
+ */
+void lmmp_fft_tune_install_(const mp_size_t* rows, mp_size_t count) {
+    mp_size_t i = 0;
+    for (; i < count && i + 1 < FFT_TABLE_MAX_ROWS; ++i) {
+        lmmp_fft_table_[i][0] = rows[2 * i];
+        lmmp_fft_table_[i][1] = rows[2 * i + 1];
+    }
+    lmmp_fft_table_[i][0] = (mp_size_t)-1;
+    lmmp_fft_table_[i][1] = 127;
+    lmmp_fft_table_ready_ = 1;
+}
+
+/**
+ * @brief 恢复默认 FFT 表（仅调优模式）
+ */
+void lmmp_fft_tune_reset_(void) {
+    lmmp_fft_table_init_();
+}
+
+/**
+ * @brief 默认表指针与行数（不含哨兵），供调优驱动读取（仅调优模式）
+ */
+const mp_size_t* lmmp_fft_tune_default_rows_(mp_size_t* count) {
+    if (count != NULL)
+        *count = (mp_size_t)(sizeof(lmmp_fft_table_default_) / sizeof(lmmp_fft_table_default_[0])) - 1;
+    return &lmmp_fft_table_default_[0][0];
+}
+#else
+// 非调优模式：查询表即编译期常量默认表，零额外开销
+#define lmmp_fft_table_ lmmp_fft_table_default_
+#endif
+
 mp_size_t lmmp_fft_best_k_(mp_size_t n) {
+#ifdef LMMP_TUNE
+    if (!lmmp_fft_table_ready_) lmmp_fft_table_init_();
+#endif
     mp_size_t k = 0;
     while (n >= lmmp_fft_table_[k + 1][0]) ++k;
     return lmmp_fft_table_[k][1];
