@@ -62,17 +62,6 @@
 extern "C" {
 #endif
 
-/*
- * LMMP 调试宏由 CMake 构建选项注入（参见根 CMakeLists.txt）：
- *   LMMP_DEBUG_STACK_OVERFLOW_CHECK
- *   LMMP_DEBUG_ASSERT_CHECK
- *   LMMP_DEBUG_PARAM_ASSERT_CHECK
- *   LMMP_DEBUG_MEMORY_CHECK
- *   LMMP_MEMORY_MORE_ALLOC_TIMES
- *   LMMP_DEBUG_MEMORY_LEAK
- * 未通过构建系统定义时，下列 #if 均按 0 处理，库为默认无调试开销模式。
- */
-
 #if defined(LMMP_WINDOWS)
     // Windows: MinGW GCC / GNU-driver clang
     #if defined(LMMP_TUNE)
@@ -84,7 +73,7 @@ extern "C" {
         #define LMMP_API __declspec(dllimport)
     #endif
 #else
-// Linux/macOS: GCC / Clang
+    // Linux/macOS: GCC / Clang
     #define LMMP_API __attribute__((visibility("default")))
 #endif
 
@@ -347,6 +336,15 @@ LMMP_API void* lmmp_alloc(size_t size);
 
 #if LMMP_DEBUG_MEMORY_CHECK == 1
 LMMP_API void* lmmp_realloc(void* ptr, size_t size, const char* func, int line);
+/**
+ * @brief 内存重分配函数（调用lmmp_realloc_fn）
+ * @param ptr 已分配的内存指针
+ * @param size 新的内存大小（字节）
+ * @warning size>0
+ * @note 调用堆内存重新分配器，分配失败将触发 lmmp_abort
+ *       在LMMP_DEBUG_PARAM_ASSERT_CHECK宏为1时，重分配 0 字节将触发 lmmp_abort
+ * @return 成功返回指向新内存区域的指针（分配失败不会 return NULL，而是直接触发 lmmp_abort）
+ */
 #define lmmp_realloc(ptr, size) lmmp_realloc(ptr, size, __func__, __LINE__)
 #else
 /**
@@ -442,20 +440,20 @@ LMMP_API void lmmp_leak_tracker(const char* func, int line);
 // 断言宏：检查条件x是否成立，不成立则触发段错误（严格的错误检查）
 // RELEASE 版本也会检查
 // 不可使用有副作用的表达式
-#define lmmp_assert(x)                                                      \
-    do {                                                                    \
-        if (!(x)) {                                                         \
+#define lmmp_assert(x)                                                     \
+    do {                                                                   \
+        if (!(x)) {                                                        \
             lmmp_abort(LMMP_ERROR_ASSERT_FAILURE, #x, __func__, __LINE__); \
-        }                                                                   \
+        }                                                                  \
     } while (0)
 
 #if LMMP_DEBUG_ASSERT_CHECK == 1
 // 调试断言宏：检查条件x是否成立，不成立则触发段错误（调试版本）
-#define lmmp_debug_assert(x)                                                      \
-    do {                                                                          \
-        if (!(x)) {                                                               \
+#define lmmp_debug_assert(x)                                                     \
+    do {                                                                         \
+        if (!(x)) {                                                              \
             lmmp_abort(LMMP_ERROR_DEBUG_ASSERT_FAILURE, #x, __func__, __LINE__); \
-        }                                                                         \
+        }                                                                        \
     } while (0)
 #else
 // 调试断言宏：检查条件x是否成立，不成立则触发段错误（调试版本）
@@ -463,17 +461,35 @@ LMMP_API void lmmp_leak_tracker(const char* func, int line);
 #endif
 
 #if LMMP_DEBUG_PARAM_ASSERT_CHECK == 1
-#define lmmp_param_assert(x)                                                      \
-    do {                                                                          \
-        if (!(x)) {                                                               \
+#define lmmp_param_assert(x)                                                     \
+    do {                                                                         \
+        if (!(x)) {                                                              \
             lmmp_abort(LMMP_ERROR_PARAM_ASSERT_FAILURE, #x, __func__, __LINE__); \
-        }                                                                         \
+        }                                                                        \
     } while (0)
 #else
 #define lmmp_param_assert(x) LMMP_ASSUME(x)
 #endif
 
-LMMP_API void lmmp_fill(mp_ptr dst, mp_size_t begin, mp_size_t end, mp_limb_t val);
+/**
+ * @brief 填充[begin,end)内的数组，值为val
+ * @param begin 起始指针（含）
+ * @param end 终止指针（不含）
+ * @param val 填充值
+ * @warning begin!=NULL, end!=NULL
+ * @note 如果begin>=end，将不会进行操作
+ */
+LMMP_API void lmmp_fill(mp_ptr begin, mp_ptr end, mp_limb_t val);
+
+/**
+ * @brief 填充从dst开始的长度为len的数组，值为val
+ * @param dst 目标数组
+ * @param len 填充长度
+ * @param val 填充值
+ * @warning dst!=NULL
+ * @note 如果len==0，将不会进行操作
+ */
+LMMP_API void lmmp_fill_n(mp_ptr dst, mp_size_t len, mp_limb_t val);
 
 /**
  * @brief 全局初始化函数（线程局部的）
