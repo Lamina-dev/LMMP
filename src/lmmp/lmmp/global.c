@@ -13,11 +13,17 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include "../../../include/lmmp/impl/global.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/str_conv.h"
 
+
+typedef void (*lmmp_global_hook_fn)(void);
+
+typedef struct {
+    lmmp_global_hook_fn init;
+    lmmp_global_hook_fn deinit;
+} lmmp_global_entry_t;
 
 static void stack_init_default_(void) {
     lmmp_stack_init(LMMP_POOL_SIZE);
