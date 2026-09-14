@@ -226,6 +226,7 @@ TEST_CASE("numth/sqrt", sqrt_fractional_divide_newton) {
                     if (family == 1) {
                         expect = BigInt::shl_bits(from_limbs(t, nt), 64 * (size_t)nf);
                     }
+                    lmmp_free(t);
                 }
                 family = (family + 1) % 3;
             }
