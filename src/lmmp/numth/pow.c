@@ -13,14 +13,47 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
-#include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
 
+
+/**
+ * @brief 将x转换为不小于x的double（提取高53位）
+ * @param x 输入
+ * @return double值d，满足 d >= x 且 d/x <= 1 + 2^-52
+ * @note 仅当x超出53位有效数字时，舍弃低位并对高位进位。
+ *       pow的位数估计中，exp可达2^64，超出双精度有效数字，
+ *       提取高位既保留全部有效数字，又保证转换不会引入低估。
+ */
+static inline double ulong_upper_d(uint64_t x) {
+    int bits = lmmp_limb_bits_(x);
+    if (bits <= 53) {
+        return (double)x;  // 本身可精确表示
+    }
+    int sh = bits - 53;
+    uint64_t h = x >> sh;
+    h += (x & (((uint64_t)1 << sh) - 1)) != 0;  // 舍弃非0低位时进位
+    return ldexp((double)h, sh);
+}
+
+/**
+ * @brief 计算floor(r)+1并转为uint64
+ * @param r 位数估计值（非负）
+ * @return floor(r)+1，即以bit计的长度；超出uint64范围时钳制为MP_ULONG_MAX（此规模的缓冲区不可能分配成功）
+ * @note 位数 = floor(log2(x))+1。当估计值恰为整数（如底数是2的幂）时，
+ *       ceil会少计1bit，故统一使用floor+1
+ */
+static inline uint64_t floor1_u64(double r) {
+    if (r >= 0x1p63) {
+        return MP_ULONG_MAX;
+    }
+    return (uint64_t)floor(r) + 1;
+}
 
 mp_size_t lmmp_pow_1_size_(mp_limb_t base, ulong exp) {
     lmmp_param_assert(base >= 1);
@@ -29,52 +62,29 @@ mp_size_t lmmp_pow_1_size_(mp_limb_t base, ulong exp) {
         return 1;
     } else if (exp <= 2) {
         return 3;
-    } else if (exp <= MP_UINT_MAX) {
-        /*
-        base = b * 2^base_tz
-        */
-        slong base_tz = lmmp_limb_bits_(base);
-        uint32_t b;
-        if (base_tz < 32) {
-            b = base << (32 - base_tz);
-        } else {
-            b = base >> (base_tz - 32);
-        }
-        base_tz = base_tz - 32;
-        base_tz *= exp;
-        mp_size_t rn = xlog2n_ceil(exp, b);
-        rn += base_tz;
-        rn = (rn + LIMB_BITS - 1) / LIMB_BITS;
-        return rn + 2;
     } else {
         /*
-        base = b * 2^base_tz
+        base = mant * 2^E，E = bits(base)-1，mant ∈ [1,2]。
+        base^exp 的位数为 exp*log2(mant) + exp*E：
+        整数部分 exp*E 走整数运算；log2 仅作用于 [1,2] 区间
+        （ulp为2^-52，完整保留53位有效数字），exp 提取高53位并
+        向上舍入为double，保证转换不引入低估。
         */
-        slong base_tz = lmmp_limb_bits_(base);
-        uint32_t b;
-        if (base_tz < 32) {
-            b = base << (32 - base_tz);
+        int bits = lmmp_limb_bits_(base);
+        double mant;
+        if (bits <= 53) {
+            mant = ldexp((double)base, 1 - bits);
         } else {
-            b = base >> (base_tz - 32);
+            // 高53位无条件进位：base < h*2^(bits-53)
+            uint64_t h = (base >> (bits - 53)) + 1;
+            mant = ldexp((double)h, -52);  // in (1,2]
         }
-        base_tz = base_tz - 32;
-        base_tz *= exp;
-
-        mp_size_t rn;
-        /*
-        exp = exp' * 2^bits
-        exp*log2(base) = exp*log2(b*2^base_tz)
-                        = exp*log2(b) + exp*base_tz
-                        = exp'*log2(b)*2^bits + exp*base_tz
-        */
-        mp_bitcnt_t bits = lmmp_limb_bits_(exp);
-        bits -= 32;
-        exp >>= bits;
-        exp++;
-        rn = xlog2n_ceil(exp, b) << bits;
-        rn += base_tz;
-        rn = (rn + LIMB_BITS - 1) / LIMB_BITS;
-        return rn + 2;
+        mp_size_t rn = floor1_u64(ulong_upper_d(exp) * log2(mant));
+        if (rn == MP_ULONG_MAX) {
+            return rn;  // 钳制值，此规模的缓冲区不可能分配成功
+        }
+        rn += exp * (mp_bitcnt_t)(bits - 1);
+        return (rn + LIMB_BITS - 1) / LIMB_BITS + 2;
     }
 }
 
@@ -90,40 +100,28 @@ mp_size_t lmmp_pow_size_(mp_srcptr base, mp_size_t n, ulong exp) {
         return n * 2;
     } else {
         /*
-        base = b * 2^base_tz
+        直接提取base的最高53位为h（无条件进位，base < h*2^sh，
+        sh为被舍弃的低位位数），mant = h*2^-52 ∈ (1,2]，
+        E = bits(base)-1 = sh+52 为log2的整数部分。
+        base^exp 的位数为 exp*log2(mant) + exp*E：
+        整数部分 exp*E 走整数运算；log2 仅作用于 (1,2] 区间，
+        完整保留53位有效数字；exp 提取高53位并向上舍入为double。
         */
-        mp_bitcnt_t base_tz = lmmp_limb_bits_(base[n - 1]);
-        uint32_t b;
-        if (base_tz < 32) {
-            b = base[n - 1] << (32 - base_tz);
-            b |= (base[n - 2] >> (LIMB_BITS - 32 + base_tz));
-            base_tz = (n - 2) * LIMB_BITS + LIMB_BITS - 32 + base_tz;
-        } else if (base_tz == 32) {
-            b = base[n - 1];
-            base_tz = (n - 1) * LIMB_BITS;
+        int t = lmmp_limb_bits_(base[n - 1]);
+        uint64_t h;
+        if (t >= 53) {
+            h = (base[n - 1] >> (t - 53)) + 1;
         } else {
-            b = base[n - 1] >> (base_tz - 32);
-            base_tz = (n - 1) * LIMB_BITS + base_tz - 32;
+            // n >= 2 必然成立（单limb已在前面处理）
+            h = ((base[n - 1] << (53 - t)) | (base[n - 2] >> (LIMB_BITS - 53 + t))) + 1;
         }
+        mp_bitcnt_t e_int = (n - 1) * LIMB_BITS + t - 1;
 
-        mp_size_t rn;
-        if (exp <= MP_UINT_MAX) {
-            rn = exp * base_tz;
-            rn += xlog2n_ceil(exp, b);
-        } else {
-            /*
-            exp = exp' * 2^bits
-            exp*log2(base) = exp*log2(b*2^base_tz)
-                           = exp*log2(b) + exp*base_tz
-                           = exp'*log2(b)*2^bits + exp*base_tz
-            */
-            mp_bitcnt_t bits = lmmp_limb_bits_(exp);
-            rn = exp * base_tz;
-            bits -= 32;
-            exp >>= bits;
-            exp++;
-            rn += xlog2n_ceil(exp, b) << bits;
+        mp_size_t rn = floor1_u64(ulong_upper_d(exp) * log2(ldexp((double)h, -52)));
+        if (rn == MP_ULONG_MAX) {
+            return rn;  // 钳制值，此规模的缓冲区不可能分配成功
         }
+        rn += exp * e_int;
         rn = (rn + LIMB_BITS - 1) / LIMB_BITS;
         return rn + 2;
     }

@@ -13,9 +13,10 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
@@ -50,12 +51,15 @@ mp_size_t lmmp_nPr_size_(ulong n, ulong r, mp_bitcnt_t* restrict bits) {
     if (n < ODD_FACTORIAL_SIZE || r <= 2) {
         return 3;
     } else if (n <= MP_UINT_MAX) {
-        uint64_t l1, l2;
-        l1 = log2_fac_ceil(n);
+        // nPr = n!/(n-r)!，分子ceil、分母floor保证不低估
+        // log2(m!) = lgamma(m+1)/ln2
+        const double ln2 = 0.69314718055994531;
+        mp_size_t l1, l2;
+        l1 = (mp_size_t)ceil(lgamma((double)n + 1) / ln2);
         if (n - r < ODD_FACTORIAL_SIZE)
             l2 = 0;
         else
-            l2 = log2_fac_floor(n - r);
+            l2 = (mp_size_t)floor(lgamma((double)(n - r) + 1) / ln2);
         mp_size_t rn = l1 - l2;
         return (rn + LIMB_BITS - 1) / LIMB_BITS + 2; // more 2 limb
     } else {

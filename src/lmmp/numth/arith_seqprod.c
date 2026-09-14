@@ -5,13 +5,15 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
  *
  *  See <https://www.gnu.org/licenses/>.
  */
+
+#include <math.h>
 
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/mparam.h"
@@ -25,9 +27,16 @@ mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m) {
     lmmp_param_assert(x > 0);
     lmmp_param_assert(n > 0);
     lmmp_param_assert(m > 1);
-    // x(x+m)(x+2m)...(x+nm) <= (x+m*n/2)^(n+1)
-    ulong t = (x + ((ulong)m * n + 1) / 2);
-    mp_size_t rn1 = lmmp_pow_1_size_(t, n + 1);
+    /*
+    P = x(x+m)...(x+nm) = m^(n+1) * Γ(x/m+n+1)/Γ(x/m)
+    log2(P) = [(n+1)ln(m) + lgamma(x/m+n+1) - lgamma(x/m)] / ln2
+    由 x+n*m <= 2^32-1 的约束，lgamma参数不超过2^31，估计误差远小于1bit。
+    位数 = floor(log2(P))+1，故取floor+1。
+    */
+    const double ln2 = 0.69314718055994531;
+    double a = (double)x / (double)m;
+    double lp = ((double)(n + 1) * log((double)m) + lgamma(a + (double)(n + 1)) - lgamma(a)) / ln2;
+    mp_size_t rn1 = (((uint64_t)floor(lp) + 1) + LIMB_BITS - 1) / LIMB_BITS + 2;
     // 共有n+1个数，每个数的位数最多为uint，一个limb最多可以容纳两个uint乘积
     mp_size_t rn2 = (n + 1) / 2 + 1;
     return LMMP_MIN(rn1, rn2);

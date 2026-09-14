@@ -13,9 +13,10 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
@@ -25,24 +26,27 @@
 mp_size_t lmmp_nCr_size_(uint n, uint r, mp_bitcnt_t* restrict bits) {
     lmmp_param_assert(r <= n / 2);
     lmmp_param_assert(bits != NULL);
+    // nCr = n!/(r!*(n-r)!)，分子ceil、分母floor保证不低估
+    // log2(m!) = lgamma(m+1)/ln2
+    const double ln2 = 0.69314718055994531;
     mp_size_t rn;
     if (r < 4 || n < ODD_FACTORIAL_SIZE) {
         rn = 3;
     } else if (n == MP_UINT_MAX) {
         uint mean = n - r / 2 + 1;
-        uint64_t l1, l2;
+        mp_size_t l1, l2;
         l1 = lmmp_pow_1_size_(mean, r);
-        l2 = log2_fac_floor(r);
+        l2 = (mp_size_t)floor(lgamma((double)r + 1) / ln2);
         l2 /= LIMB_BITS;
         rn = l1 - l2;
     } else {
-        uint64_t l1, l2, l3;
-        l1 = log2_fac_ceil(n);
-        l2 = log2_fac_floor(r);
+        mp_size_t l1, l2, l3;
+        l1 = (mp_size_t)ceil(lgamma((double)n + 1) / ln2);
+        l2 = (mp_size_t)floor(lgamma((double)r + 1) / ln2);
         if (n - r < ODD_FACTORIAL_SIZE)
             l3 = 0;
         else
-            l3 = log2_fac_floor(n - r);
+            l3 = (mp_size_t)floor(lgamma((double)(n - r) + 1) / ln2);
         rn = l1 - l2 - l3;
         rn = (rn + LIMB_BITS - 1) / LIMB_BITS;
     }

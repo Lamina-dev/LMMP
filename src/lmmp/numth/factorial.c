@@ -13,9 +13,10 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -42,7 +43,9 @@ mp_size_t lmmp_factorial_size_(uint n, mp_bitcnt_t* restrict bits) {
     if (n < 20) {
         rn = 64;
     } else {
-        rn = log2_fac_ceil(n);
+        // n!的位数为ceil(log2(n!))，log2(n!) = lgamma(n+1)/ln2
+        const double ln2 = 0.69314718055994531;
+        rn = (mp_size_t)ceil(lgamma((double)n + 1) / ln2);
     }
     rn = (rn + LIMB_BITS - 1) / LIMB_BITS + 2;  // more two limbs
     *bits = n - lmmp_limb_popcnt_(n);
