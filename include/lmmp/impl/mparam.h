@@ -327,6 +327,8 @@ extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
 #define MP_UINT_MAX (0xffffffff)
 #define MP_ULONG_MAX (0xffffffffffffffffull)
 
+#define MP_SIZE_MAX ((mp_size_t)0xffffffffffffffffULL)
+
 #define MP_CHAR_BITS (8)
 #define MP_SHORT_BITS (16)
 #define MP_INT_BITS (32)
