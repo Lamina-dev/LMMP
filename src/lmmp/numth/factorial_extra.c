@@ -13,9 +13,11 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
+#include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -49,17 +51,19 @@ mp_size_t lmmp_2factorial_size_(uint n, mp_bitcnt_t* restrict bits) {
             *bits = 0;
         }
     } else {
+        // log2(m!) = lgamma(m+1)/ln2
+        const double ln2 = 0.69314718055994531;
         k = n / 2;
         if (n % 2 == 0) {
             // n=2k
             // n! = (2k)! = 2^k * (k!)
-            rn = k + log2_fac_ceil(k);
+            rn = k + (mp_size_t)ceil(lgamma((double)k + 1) / ln2);
             *bits = n - lmmp_limb_popcnt_(k);
         } else {
             // n=2k+1
             // n! = (2k+1)! = (2k+1)! / (2k)!! = (2k+1)! / (2^k * (k!))
-            rn = log2_fac_ceil(n);
-            rn -= k + log2_fac_floor(k);
+            rn = (mp_size_t)ceil(lgamma((double)n + 1) / ln2);
+            rn -= k + (mp_size_t)floor(lgamma((double)k + 1) / ln2);
             *bits = 0;
         }
     }

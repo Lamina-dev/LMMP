@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -13,9 +13,10 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include "../../../include/lmmp/impl/ele_mul.h"
 #include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/lglg.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
@@ -25,7 +26,9 @@ static inline mp_size_t fac_size_lower(uint n) {
     if (n < 20) {
         return 0;
     } else {
-        return log2_fac_floor(n);
+        // log2(n!) = lgamma(n+1)/ln2，下界取floor
+        const double ln2 = 0.69314718055994531;
+        return (mp_size_t)floor(lgamma((double)n + 1) / ln2);
     }
 }
 
@@ -33,7 +36,9 @@ static inline mp_size_t fac_size_bigger(uint n) {
     if (n < 20) {
         return 64;
     } else {
-        return log2_fac_ceil(n);
+        // log2(n!) = lgamma(n+1)/ln2，上界取ceil
+        const double ln2 = 0.69314718055994531;
+        return (mp_size_t)ceil(lgamma((double)n + 1) / ln2);
     }
 }
 
