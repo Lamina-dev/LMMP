@@ -33,7 +33,10 @@ set(LMMP_TEST_SRCS
     src/test_numth_fib.cpp
     src/test_numth_prime.cpp
     src/test_rng_hash.cpp
+    src/test_global.cpp
 )
+
+find_package(Threads REQUIRED)
 
 add_executable(LmmpTest ${LMMP_TEST_SRCS})
 
@@ -43,7 +46,7 @@ target_include_directories(LmmpTest
         ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(LmmpTest PRIVATE lmmp)
+target_link_libraries(LmmpTest PRIVATE lmmp Threads::Threads)
 
 lmmp_target_setup(LmmpTest)
 

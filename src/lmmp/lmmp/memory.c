@@ -13,9 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-#include "../../../include/lmmp/impl/str_conv.h"
 #include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -428,14 +426,4 @@ void lmmp_free(void* ptr) {
         heap_alloc_count--;
 #endif
 }
-#endif
-
-void lmmp_global_init(void) {
-    lmmp_stack_init(LMMP_POOL_SIZE);
-}
-
-void lmmp_global_deinit(void) {
-    lmmp_stack_deinit();
-    lmmp_prime_int_table_free_();
-    lmmp_dec_pow_table_free_();
-}
+#endif // LMMP_DEBUG_MEMORY_CHECK == 1
