@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -14,7 +14,6 @@
  */
 
 #include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -427,13 +426,4 @@ void lmmp_free(void* ptr) {
         heap_alloc_count--;
 #endif
 }
-#endif
-
-void lmmp_global_init(void) {
-    lmmp_stack_init(LMMP_POOL_SIZE);
-}
-
-void lmmp_global_deinit(void) {
-    lmmp_stack_deinit();
-    lmmp_prime_int_table_free_();
-}
+#endif // LMMP_DEBUG_MEMORY_CHECK == 1

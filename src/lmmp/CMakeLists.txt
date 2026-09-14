@@ -74,13 +74,12 @@ else()
     add_library(liblmmp SHARED ${LIBLMMP_SRCS})
     add_library(lmmp ALIAS liblmmp)
 
-    if(TARGET liblmmp AND TARGET_SYSTEM STREQUAL "LIN")
-        target_link_options(liblmmp PRIVATE -Wl,-Bsymbolic-functions)
-    endif()
-
     if(TARGET_SYSTEM STREQUAL "WIN")
         target_compile_definitions(liblmmp PRIVATE LIBLMMP_EXPORTS)
+        # Windows下无lib前缀
+        set_target_properties(liblmmp PROPERTIES PREFIX "")
     elseif(TARGET_SYSTEM STREQUAL "LIN")
+        target_link_options(liblmmp PRIVATE -Wl,-Bsymbolic-functions)
         target_link_libraries(liblmmp PRIVATE m)
     endif()
 
@@ -90,13 +89,6 @@ else()
         SOVERSION 1
         PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
     )
-
-    if(TARGET_SYSTEM STREQUAL "WIN")
-        # MinGW 下 CMAKE_SHARED_LIBRARY_PREFIX 默认为 "lib"，会使 DLL 文件名
-        # 变为 liblmmp.dll，但 lmmp_asm.def 中 LIBRARY 名称为 lmmp，导致导入库
-        # 记录的 DLL 名与磁盘文件名不一致，运行时出现 0xc0000135。
-        set_target_properties(liblmmp PROPERTIES PREFIX "")
-    endif()
 
     target_compile_definitions(liblmmp PRIVATE
         LMMP_VERSION_STR="${LIBLMMP_VERSION}"

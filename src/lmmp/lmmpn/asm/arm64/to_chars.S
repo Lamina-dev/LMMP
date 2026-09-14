@@ -17,7 +17,7 @@
 //   x0=dst, x1=n, w2=upper
 //   ret: none
 //   cal: dst[i] = '0' + dst[i] (+ adj*(dst[i]>9)),
-//           adj = 39(lowercase)/7(capitals),
+//           adj = 39(lower)/7(upper),
 //
 
 #include "lmmp_asm.h"
@@ -65,8 +65,8 @@ Ldec_done:
 .p2align 2
 
 ASM_GSYM(lmmp_b36_to_chars_):
-    mov     w3, #39                   // adj: lowercase 39
-    mov     w4, #7                    // adj: capitals 7
+    mov     w3, #39                   // adj: lower 39
+    mov     w4, #7                    // adj: upper 7
     cmp     w2, #0
     csel    w3, w3, w4, eq            // upper==0 -> 39 else 7
 

@@ -359,7 +359,7 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
         if (adj > 0) {
             // Alr[0] 仅可能为0，此时高估1
             lmmp_debug_assert(Alr[0] == 0);
-            lmmp_fill(dst, 0, lo, LIMB_MAX);
+            lmmp_fill_n(dst, lo, LIMB_MAX);
             if (calr == 0) return;
             /*
             x_k+1 = Ahr * B^lo + Alr

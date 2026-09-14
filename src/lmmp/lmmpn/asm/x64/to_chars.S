@@ -20,7 +20,7 @@
 //   Windows: dst=rcx, n=rdx, upper=r8b
 //   SysV:    dst=rdi, n=rsi, upper=dl
 //   cal: dst[i] = '0' + dst[i] (+ adj*(dst[i]>9)),
-//           adj = 39(lowercase)/7(capitals),
+//           adj = 39(lower)/7(upper),
 //
 
 #include "lmmp_asm.h"
