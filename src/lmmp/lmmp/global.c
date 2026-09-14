@@ -30,11 +30,11 @@ static void stack_deinit_default_(void) {
 
 static const lmmp_global_entry_t lmmp_global_entries[] = {
     // 栈式分配器+缓冲池：其余资源的分配基础，须最先初始化、最后释放
-    {"tmpmem", stack_init_default_, stack_deinit_default_},
+    {stack_init_default_, stack_deinit_default_},
     // 质数筛表：首次调用 lmmp_prime_int_table_init_ 时惰性构建，仅注册释放
-    {"prime_int_table", NULL, lmmp_prime_int_table_free_},
+    {NULL, lmmp_prime_int_table_free_},
     // 十进制幂表：首次调用 lmmp_dec_pow_table_ 时惰性构建，仅注册释放
-    {"dec_pow_table", NULL, lmmp_dec_pow_table_free_},
+    {NULL, lmmp_dec_pow_table_free_},
 };
 
 #define GLOBAL_ENTRIES_NUM (sizeof(lmmp_global_entries) / sizeof(lmmp_global_entries[0]))
