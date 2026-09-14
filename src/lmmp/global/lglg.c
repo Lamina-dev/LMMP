@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/lglg.h"
+
 
 const uint32_t log2_fix32_q9[512] = {
     0x00B87C20, 0x01709C47, 0x022860D0, 0x02DFCA17, 0x0396D875, 0x044D8C46, 0x0503E5E2, 0x05B9E5A1, 0x066F8BDE,

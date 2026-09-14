@@ -25,7 +25,6 @@ void lmmp_fill(mp_ptr begin, mp_ptr end, mp_limb_t val) {
 
 void lmmp_fill_n(mp_ptr dst, mp_size_t len, mp_limb_t val) {
     lmmp_param_assert(dst != NULL);
-    lmmp_param_assert(len > 0);
     for (mp_size_t i = 0; i < len; i++) {
         dst[i] = val;
     }

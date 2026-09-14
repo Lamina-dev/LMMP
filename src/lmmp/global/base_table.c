@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/str_conv.h"
+
 
 const mp_base_t lmmp_bases_table[255] = {
 	{0x0000000000000001,0x0400000000000000,0xffffffffffffffff,64,2},
