@@ -113,6 +113,33 @@ TEST_CASE("mul/dispatch", mul_dispatch_vs_school) {
     }
 }
 
+TEST_CASE("mul/hard_threshold_boundary", mul_hard_boundary_vs_school) {
+    /* 覆盖硬编码函数(hardcoded n=1..19)经 toom 递归的边界尺寸:
+       toom22 递归子规模 n/2 恰好落在 19/20 两侧 */
+    u64 seed = 0x0f1e2d3c4b5a6978ull;
+    const mp_size_t sizes[] = {
+        19, 20, 21, 22, 37, 38, 39, 40, 41, 42, 63, 64, 65, 66
+    };
+    for (mp_size_t n : sizes) {
+        for (int t = 0; t < 8; t++) {
+            mp_ptr a = alloc_limbs(n);
+            mp_ptr b = alloc_limbs(n);
+            mp_ptr dst = alloc_limbs(2 * n + 2);
+            random_limbs(a, n, seed);
+            random_limbs(b, n, seed);
+            BigInt ba(a, n), bb(b, n);
+            BigInt expect = BigInt::mul_school(ba, bb);
+            lmmp_mul_n_(dst, a, b, n);
+            check_mul_result(expect, dst, n, n);
+
+            BigInt es = BigInt::sqr_school(ba);
+            lmmp_sqr_(dst, a, n);
+            check_mul_result(es, dst, n, n);
+            lmmp_free(a); lmmp_free(b); lmmp_free(dst);
+        }
+    }
+}
+
 TEST_CASE("mul/unbalanced", mul_unbalanced_vs_school) {
     u64 seed = 0xfedcba9876543210ull;
     struct Case { mp_size_t na; mp_size_t nb; };

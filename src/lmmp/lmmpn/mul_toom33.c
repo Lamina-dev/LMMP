@@ -13,6 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/toom_interp.h"
 #include "../../../include/lmmp/lmmpn.h"
@@ -20,7 +21,7 @@
 
 #define lmmp_mul_n_(dst, numa, numb, n)                      \
     if ((n) < MUL_TOOM22_THRESHOLD)                          \
-        lmmp_mul_basecase_((dst), (numa), (n), (numb), (n)); \
+        lmmp_mul_hard_n_((dst), (numa), (numb), (n)); \
     else if ((n) < MUL_TOOM33_THRESHOLD)                     \
         lmmp_mul_toom22_((dst), (numa), (n), (numb), (n));   \
     else                                                     \
