@@ -26,10 +26,12 @@
               N>=9 numb 分块(<=6)多趟寄存器方案, RMW 终化列以 pc 寄存器
               (<=3) 跨行吸收列完成进位, 尾部线性 adc 链消化;
         arm64 mul: mul/umulh 展开 addmul_1, 每列进位即时以 adc 吸收进 pending;
-        sqr: 交叉乘行累加 -> 倍增 -> 对角折叠三段式。
-        调度策略见 mul_hard.c: mul 全面走硬编码(实测快于 basecase 8%~47%),
-        sqr 仅 n<=3 走硬编码(与库内 basecase 小规模分支同源),
-        其余回落 basecase。仅内部使用, 不对外导出。
+        sqr: x64 N<=3 库内 sqr_basecase.S 小规模分支特化, N>=4 交叉积列累加
+             (8 列寄存器窗口+adcx/adox 双链, 完成列溢写栈数组) -> 倍增 ->
+             对角折叠; arm64 交叉行累加 -> 倍增 -> 对角;
+        调度策略见 mul_hard.c: mul/sqr 均为 n<=19 全部走硬编码
+        (mul 实测快于 basecase 8%~47%, sqr 7%~31%), 其余回落 basecase。
+        仅内部使用, 不对外导出。
 */
 
 #define LMMP_MUL_HARD_MAX_N 19

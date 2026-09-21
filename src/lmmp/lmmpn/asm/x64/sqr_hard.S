@@ -20,7 +20,8 @@
 //
 //   平衡硬编码平方: [dst,2N] = [numa,N]^2。
 //   N <= 3 : 库内 sqr_basecase.S 小规模分支的特化
-//   N >= 4 : 交叉乘逐行累加 -> 整体倍增 -> 对角平方折叠
+//   N >= 4 : 交叉积列累加(FLINT 式, 8 列寄存器窗口 + adcx/adox 双链,
+//            完成列溢写栈数组) -> 整体倍增 -> 对角平方单链折叠
 //
 
 #include "lmmp_asm.h"
@@ -136,156 +137,95 @@ ASM_GSYM(lmmp_sqr_hard_3_):
 
 ASM_GSYM(lmmp_sqr_hard_4_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
 #endif
-    push    rbx
+    push    rbp
+    push    r12
     push    r13
-    push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+56], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+32], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     rax, [rsi+24]          // a3*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+40], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+48], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mov     r10d, 0
+    mov     r12d, 0
+    mov     r13d, 0
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r11, r15, [rsi+24]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 1: 乘数 a_1 ---
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+24]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 2: 乘数 a_2 ---
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+24]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adcx   r13, r11
+    // --- 倍增 ---
+    add    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    adc    r12, r12
+    adc    r13, r13
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, rbp
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r8
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, r9
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r10
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, r12
+    mov     [rdi+40], r15
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+56], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r13
+    mov     [rdi+48], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+56], r15
     pop     r15
-    pop     r14
     pop     r13
-    pop     rbx
+    pop     r12
+    pop     rbp
 #ifdef LMMP_WINDOWS
     pop     rsi
     pop     rdi
@@ -297,7 +237,7 @@ ASM_GSYM(lmmp_sqr_hard_4_):
 
 ASM_GSYM(lmmp_sqr_hard_5_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -305,203 +245,118 @@ ASM_GSYM(lmmp_sqr_hard_5_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+72], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+40], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+32]          // a4*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+48], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+56], r10
-    # --- 单行: a_3 ---
-    mov     r8, [rsi+24]            // u = a_3
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+56]
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     [rdi+64], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mov     r12d, 0
+    mov     r13d, 0
+    mov     r14d, 0
+    mov     ebx, 0
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r11, r15, [rsi+32]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 1: 乘数 a_1 ---
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+32]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 2: 乘数 a_2 ---
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+32]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 3: 乘数 a_3 ---
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+32]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adcx   rbx, r11
+    // --- 倍增 ---
+    add    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    adc    r12, r12
+    adc    r13, r13
+    adc    r14, r14
+    adc    rbx, rbx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, rbp
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r8
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, r9
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r10
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, r12
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, r13
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, r14
+    mov     [rdi+56], r15
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+72], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, rbx
+    mov     [rdi+64], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+72], r15
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -514,7 +369,7 @@ ASM_GSYM(lmmp_sqr_hard_5_):
 
 ASM_GSYM(lmmp_sqr_hard_6_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -522,262 +377,181 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+88], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+48], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+40]          // a5*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+56], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+64], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     rax, [rsi+40]          // a5*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+72], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+80], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 96               // M 交叉列数组, M[c]=[rsp+8c], c=1..10
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mov     r13d, 0
+    mov     r14d, 0
+    mov     ebx, 0
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r11, r15, [rsi+40]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+40]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+40]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+40]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+40]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adcx   r8, r11
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+88], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+88], r15
+    add     rsp, 96
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -790,7 +564,7 @@ ASM_GSYM(lmmp_sqr_hard_6_):
 
 ASM_GSYM(lmmp_sqr_hard_7_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -798,334 +572,221 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+104], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+56], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+48]          // a6*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+64], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+72], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+48]          // a6*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+80], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+88], r10
-    # --- 单行: a_5 ---
-    mov     r8, [rsi+40]            // u = a_5
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+88]
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     [rdi+96], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 112               // M 交叉列数组, M[c]=[rsp+8c], c=1..12
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mov     r14d, 0
+    mov     ebx, 0
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r11, r15, [rsi+48]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+48]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+48]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+48]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+48]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+48]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adcx   r10, r11
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+104], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+104], r15
+    add     rsp, 112
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -1138,7 +799,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
 
 ASM_GSYM(lmmp_sqr_hard_8_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -1146,409 +807,267 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+120], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+64], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+56]          // a7*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+72], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+80], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+56]          // a7*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+88], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+96], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     rax, [rsi+56]          // a7*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+104], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+112], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 128               // M 交叉列数组, M[c]=[rsp+8c], c=1..14
+    mov     QWORD PTR [rsp+72], 0    // M[9] 预清零
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mov     ebx, 0
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    r11, r15, [rsi+56]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adcx   rbx, r11
+    mov     r15, QWORD PTR [rsp+72]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+72], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8d, 0
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+56]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+56]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+56]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+56]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+56]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+56]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adcx   r13, r11
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+120], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+120], r15
+    add     rsp, 128
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -1561,7 +1080,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
 
 ASM_GSYM(lmmp_sqr_hard_9_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -1569,497 +1088,319 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+136], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+72], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+64]          // a8*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+80], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+88], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+64]          // a8*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+96], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+104], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+64]          // a8*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+112], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+120], r10
-    # --- 单行: a_7 ---
-    mov     r8, [rsi+56]            // u = a_7
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+120]
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     [rdi+128], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 144               // M 交叉列数组, M[c]=[rsp+8c], c=1..16
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    mov     QWORD PTR [rsp+88], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mulx    r11, r15, [rsi+64]
+    mov     rdx, QWORD PTR [rsp+72]
+    adox   rdx, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+72], rdx
+    mov     r15, QWORD PTR [rsp+80]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+80], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+88]
+    adox   r15, r11
+    adcx   r8, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+88], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10d, 0
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+64]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+64]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adcx   rbx, r11
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+136], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+136], r15
+    add     rsp, 144
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -2072,7 +1413,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
 
 ASM_GSYM(lmmp_sqr_hard_10_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -2080,588 +1421,377 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+152], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+80], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+72]          // a9*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+88], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+96], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+72]          // a9*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+104], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+112], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+72]          // a9*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+120], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+128], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     rax, [rsi+72]          // a9*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+136], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+144], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 160               // M 交叉列数组, M[c]=[rsp+8c], c=1..18
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    mov     QWORD PTR [rsp+104], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    mov     rdx, QWORD PTR [rsp+80]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+72], rax
+    mov     r11d, 0
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+80], rdx
+    mov     r15, QWORD PTR [rsp+88]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+88], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+72]
+    mov     rdx, QWORD PTR [rsp+88]
+    adox   rdx, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+96]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+88], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+96], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+104]
+    adox   r15, r11
+    adcx   r10, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+104], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13d, 0
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+72]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+72]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adcx   r8, r11
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+152], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+152], r15
+    add     rsp, 160
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -2674,7 +1804,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
 
 ASM_GSYM(lmmp_sqr_hard_11_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -2682,692 +1812,440 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+168], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+88], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+80]          // a10*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+96], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+104], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+80]          // a10*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+112], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+120], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+80]          // a10*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+128], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+136], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+80]          // a10*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+144], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+152], r10
-    # --- 单行: a_9 ---
-    mov     r8, [rsi+72]            // u = a_9
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+152]
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     [rdi+160], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 176               // M 交叉列数组, M[c]=[rsp+8c], c=1..20
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    mov     QWORD PTR [rsp+120], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+80], rcx
+    mov     r11d, 0
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     r15, QWORD PTR [rsp+96]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+96], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    mov     rdx, QWORD PTR [rsp+96]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+88], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+104]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+96], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+104], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+80]
+    mov     rdx, QWORD PTR [rsp+104]
+    adox   rdx, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+112]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+104], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+112], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+120]
+    adox   r15, r11
+    adcx   r13, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+120], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     ebx, 0
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+80]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+80]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adcx   r10, r11
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+168], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+168], r15
+    add     rsp, 176
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -3380,7 +2258,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
 
 ASM_GSYM(lmmp_sqr_hard_12_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -3388,799 +2266,508 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+184], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+96], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+88]          // a11*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+104], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+112], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+88]          // a11*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+120], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+128], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+88]          // a11*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+136], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+144], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+88]          // a11*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+152], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+160], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     rax, [rsi+88]          // a11*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+168], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+176], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 192               // M 交叉列数组, M[c]=[rsp+8c], c=1..22
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    mov     QWORD PTR [rsp+136], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+88], rax
+    mov     r11d, 0
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     r15, QWORD PTR [rsp+104]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+104], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+96], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+112]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+104], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+112], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    mov     rdx, QWORD PTR [rsp+112]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+104], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+120]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+112], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+120], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+88]
+    mov     rdx, QWORD PTR [rsp+120]
+    adox   rdx, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+128]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+120], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+128], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+136]
+    adox   r15, r11
+    adcx   rbx, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+136], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8d, 0
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+88]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+88]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adcx   r13, r11
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+184], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+184], r15
+    add     rsp, 192
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -4193,7 +2780,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
 
 ASM_GSYM(lmmp_sqr_hard_13_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -4201,919 +2788,581 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+200], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+104], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+96]          // a12*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+112], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+120], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+96]          // a12*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+128], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+136], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+96]          // a12*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+144], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+152], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+96]          // a12*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+160], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+168], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+96]          // a12*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+176], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+184], r10
-    # --- 单行: a_11 ---
-    mov     r8, [rsi+88]            // u = a_11
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+184]
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     [rdi+192], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 208               // M 交叉列数组, M[c]=[rsp+8c], c=1..24
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    mov     QWORD PTR [rsp+152], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+96], rcx
+    mov     r11d, 0
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     r15, QWORD PTR [rsp+112]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+112], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+104], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+120]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+112], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+120], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+112], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+128]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+120], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+128], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    mov     rdx, QWORD PTR [rsp+128]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+120], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+136]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+128], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+136], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+96]
+    mov     rdx, QWORD PTR [rsp+136]
+    adox   rdx, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+144]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+136], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+144], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+152]
+    adox   r15, r11
+    adcx   r8, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10d, 0
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+96]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+96]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adcx   rbx, r11
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+200], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+200], r15
+    add     rsp, 208
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -5126,7 +3375,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
 
 ASM_GSYM(lmmp_sqr_hard_14_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -5134,1042 +3383,659 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+216], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+112], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+120], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+128], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+136], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+144], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+152], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+160], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+168], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+176], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+184], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+192], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     rax, [rsi+104]          // a13*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+200], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+208], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 224               // M 交叉列数组, M[c]=[rsp+8c], c=1..26
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    mov     QWORD PTR [rsp+168], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+104], rax
+    mov     r11d, 0
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     r15, QWORD PTR [rsp+120]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+120], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+112], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+128]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+120], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+128], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+120], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+136]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+128], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+136], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+128], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+144]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+136], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+144], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    mov     rdx, QWORD PTR [rsp+144]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+136], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+152]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+144], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+104]
+    mov     rdx, QWORD PTR [rsp+152]
+    adox   rdx, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+160]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+152], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   r10, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13d, 0
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+104]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+104]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adcx   r8, r11
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+216], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+216], r15
+    add     rsp, 224
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -6182,7 +4048,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
 
 ASM_GSYM(lmmp_sqr_hard_15_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -6190,1178 +4056,742 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+232], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+112], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+120], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+128], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+136], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+144], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+152], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+160], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+168], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+176], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+184], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+192], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+200], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+112]          // a14*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+208], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+216], r10
-    # --- 单行: a_13 ---
-    mov     r8, [rsi+104]            // u = a_13
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+216]
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+216], r13
-    mov     [rdi+224], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    mov     rax, [rdi+224]
-    adc     rax, rax
-    mov     [rdi+224], rax
-    mov     rax, [rdi+232]
-    adc     rax, rax
-    mov     [rdi+232], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 240               // M 交叉列数组, M[c]=[rsp+8c], c=1..28
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    movdqu  [rsp+168], xmm0       // M[21..22] = 0
+    mov     QWORD PTR [rsp+184], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+112]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+112], rcx
+    mov     r11d, 0
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     r15, QWORD PTR [rsp+128]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+128], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+112]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+120], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+136]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+128], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+136], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+112]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+128], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+144]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+136], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+144], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+112]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+136], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+152]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+144], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+112]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+160]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+152], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+104]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+112]
+    mov     rdx, QWORD PTR [rsp+160]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+152], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+160], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+112]
+    mov     rdx, QWORD PTR [rsp+168]
+    adox   rdx, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+176]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+168], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+176], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13, QWORD PTR [rsp+176]
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+184]
+    adox   r15, r11
+    adcx   r13, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+184], r15
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14, QWORD PTR [rsp+184]
+    mov     ebx, 0
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+112]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 13: 乘数 a_13 ---
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8
-    mov     [rdi+216], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+112]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adcx   r10, r11
+    mov     QWORD PTR [rsp+216], r9
+    mov     QWORD PTR [rsp+224], r10
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     rdx, QWORD PTR [rsp+216]
+    mov     rbx, QWORD PTR [rsp+224]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    mov     QWORD PTR [rsp+216], rdx
+    mov     QWORD PTR [rsp+224], rbx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
+    mov     rdx, [rsi+104]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+216]
+    mov     [rdi+216], r15
     mov     rdx, [rsi+112]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a14^2
-    mov     r9, [rdi+224]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+224], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+232]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+232], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+224]
+    mov     [rdi+224], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+232], r15
+    add     rsp, 240
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -7374,7 +4804,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
 
 ASM_GSYM(lmmp_sqr_hard_16_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -7382,1317 +4812,830 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+248], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+112], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+120]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+120], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+128], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+136], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+144], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+152], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+160], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+168], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+176], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+184], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+192], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+200], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+208], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+216], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+224], r10
-    # --- 行对: a_13 与 a_14 ---
-    mov     r8, [rsi+104]            // u = a_13
-    mov     r9, [rsi+112]            // v = a_14
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+112]          // a14
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+216], r13
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+224], r13
-    mov     rax, [rsi+120]          // a15*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+232], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+240], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    mov     rax, [rdi+224]
-    adc     rax, rax
-    mov     [rdi+224], rax
-    mov     rax, [rdi+232]
-    adc     rax, rax
-    mov     [rdi+232], rax
-    mov     rax, [rdi+240]
-    adc     rax, rax
-    mov     [rdi+240], rax
-    mov     rax, [rdi+248]
-    adc     rax, rax
-    mov     [rdi+248], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 256               // M 交叉列数组, M[c]=[rsp+8c], c=1..30
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    movdqu  [rsp+168], xmm0       // M[21..22] = 0
+    movdqu  [rsp+184], xmm0       // M[23..24] = 0
+    mov     QWORD PTR [rsp+200], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+120]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+120], rax
+    mov     r11d, 0
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     r15, QWORD PTR [rsp+136]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+136], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+120]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+128], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+144]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+136], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+144], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+120]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+136], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+152]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+144], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+120]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+160]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+152], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+120]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+152], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+160], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+152]
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+104]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+120]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+160], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+176]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+168], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+176], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+112]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+120]
+    mov     rdx, QWORD PTR [rsp+176]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+168], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+184]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+176], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+184], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13, QWORD PTR [rsp+176]
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+120]
+    mov     rdx, QWORD PTR [rsp+184]
+    adox   rdx, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+192]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+184], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+192], r15
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14, QWORD PTR [rsp+184]
+    mov     rbx, QWORD PTR [rsp+192]
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+200]
+    adox   r15, r11
+    adcx   rbx, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+200], r15
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     rbp, QWORD PTR [rsp+200]
+    mov     r8d, 0
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 13: 乘数 a_13 ---
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8
-    mov     [rdi+216], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+112]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+120]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 14: 乘数 a_14 ---
+    mov     QWORD PTR [rsp+216], r9
+    mov     QWORD PTR [rsp+224], r10
     mov     rdx, [rsi+112]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a14^2
-    mov     r9, [rdi+224]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+224], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+232]
-    adcx    r9, r8
-    mov     [rdi+232], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+120]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adcx   r13, r11
+    mov     QWORD PTR [rsp+232], r12
+    mov     QWORD PTR [rsp+240], r13
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     rdx, QWORD PTR [rsp+216]
+    mov     rbx, QWORD PTR [rsp+224]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+232]
+    mov     r8, QWORD PTR [rsp+240]
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    mov     QWORD PTR [rsp+216], rdx
+    mov     QWORD PTR [rsp+224], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    mov     QWORD PTR [rsp+232], rbp
+    mov     QWORD PTR [rsp+240], r8
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
+    mov     rdx, [rsi+104]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+216]
+    mov     [rdi+216], r15
+    mov     rdx, [rsi+112]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+224]
+    mov     [rdi+224], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+232]
+    mov     [rdi+232], r15
     mov     rdx, [rsi+120]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a15^2
-    mov     r9, [rdi+240]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+240], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+248]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+248], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+240]
+    mov     [rdi+240], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+248], r15
+    add     rsp, 256
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -8705,7 +5648,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
 
 ASM_GSYM(lmmp_sqr_hard_17_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -8713,1469 +5656,923 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+264], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+112], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+120]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+120], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+128]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+128], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+136], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+144], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+152], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+160], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+168], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+176], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+184], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+192], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+200], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+208], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+216], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+216], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+224], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+232], r10
-    # --- 行对: a_13 与 a_14 ---
-    mov     r8, [rsi+104]            // u = a_13
-    mov     r9, [rsi+112]            // v = a_14
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+112]          // a14
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+216], r13
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+224], r13
-    mov     r13, [rdi+232]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+232], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+128]          // a16*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+240], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+248], r10
-    # --- 单行: a_15 ---
-    mov     r8, [rsi+120]            // u = a_15
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+248]
-    mov     rax, [rsi+128]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+248], r13
-    mov     [rdi+256], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    mov     rax, [rdi+224]
-    adc     rax, rax
-    mov     [rdi+224], rax
-    mov     rax, [rdi+232]
-    adc     rax, rax
-    mov     [rdi+232], rax
-    mov     rax, [rdi+240]
-    adc     rax, rax
-    mov     [rdi+240], rax
-    mov     rax, [rdi+248]
-    adc     rax, rax
-    mov     [rdi+248], rax
-    mov     rax, [rdi+256]
-    adc     rax, rax
-    mov     [rdi+256], rax
-    mov     rax, [rdi+264]
-    adc     rax, rax
-    mov     [rdi+264], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 272               // M 交叉列数组, M[c]=[rsp+8c], c=1..32
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    movdqu  [rsp+168], xmm0       // M[21..22] = 0
+    movdqu  [rsp+184], xmm0       // M[23..24] = 0
+    movdqu  [rsp+200], xmm0       // M[25..26] = 0
+    mov     QWORD PTR [rsp+216], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+128]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+128], rcx
+    mov     r11d, 0
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     r15, QWORD PTR [rsp+144]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+144], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+128]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+136], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+152]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+144], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+128]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+160]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+152], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+128]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+152], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+160], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+128]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+160], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+176]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+168], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+176], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+152]
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+104]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+128]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+168], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+184]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+176], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+184], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+168]
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+112]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+128]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+176], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+192]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+184], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+192], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13, QWORD PTR [rsp+176]
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+120]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+128]
+    mov     rdx, QWORD PTR [rsp+192]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+184], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+200]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+192], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+200], r15
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14, QWORD PTR [rsp+184]
+    mov     rbx, QWORD PTR [rsp+192]
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+128]
+    mov     rdx, QWORD PTR [rsp+200]
+    adox   rdx, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+208]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+200], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+208], r15
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     rbp, QWORD PTR [rsp+200]
+    mov     r8, QWORD PTR [rsp+208]
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+216]
+    adox   r15, r11
+    adcx   r8, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+216], r15
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    mov     r9, QWORD PTR [rsp+216]
+    mov     r10d, 0
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
+    mov     r12d, 0
+    mov     r13d, 0
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adox   r12, r11
+    adcx   r10, r11
+    adcx   r12, r11
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 13: 乘数 a_13 ---
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8
-    mov     [rdi+216], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+112]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 14: 乘数 a_14 ---
+    mov     QWORD PTR [rsp+216], r9
+    mov     QWORD PTR [rsp+224], r10
     mov     rdx, [rsi+112]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a14^2
-    mov     r9, [rdi+224]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+224], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+232]
-    adcx    r9, r8
-    mov     [rdi+232], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+120]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+128]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 15: 乘数 a_15 ---
+    mov     QWORD PTR [rsp+232], r12
+    mov     QWORD PTR [rsp+240], r13
     mov     rdx, [rsi+120]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a15^2
-    mov     r9, [rdi+240]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+240], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+248]
-    adcx    r9, r8
-    mov     [rdi+248], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+128]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adcx   rbx, r11
+    mov     QWORD PTR [rsp+248], r14
+    mov     QWORD PTR [rsp+256], rbx
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     rdx, QWORD PTR [rsp+216]
+    mov     rbx, QWORD PTR [rsp+224]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+232]
+    mov     r8, QWORD PTR [rsp+240]
+    mov     r9, QWORD PTR [rsp+248]
+    mov     r10, QWORD PTR [rsp+256]
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    mov     QWORD PTR [rsp+216], rdx
+    mov     QWORD PTR [rsp+224], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     QWORD PTR [rsp+232], rbp
+    mov     QWORD PTR [rsp+240], r8
+    mov     QWORD PTR [rsp+248], r9
+    mov     QWORD PTR [rsp+256], r10
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
+    mov     rdx, [rsi+104]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+216]
+    mov     [rdi+216], r15
+    mov     rdx, [rsi+112]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+224]
+    mov     [rdi+224], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+232]
+    mov     [rdi+232], r15
+    mov     rdx, [rsi+120]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+240]
+    mov     [rdi+240], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+248]
+    mov     [rdi+248], r15
     mov     rdx, [rsi+128]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a16^2
-    mov     r9, [rdi+256]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+256], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+264]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+264], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+256]
+    mov     [rdi+256], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+264], r15
+    add     rsp, 272
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -10188,7 +6585,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
 
 ASM_GSYM(lmmp_sqr_hard_18_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -10196,1624 +6593,1021 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+280], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+112], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+120]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+120], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+128]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+128], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+136]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+136], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+144], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+152], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+160], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+168], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+176], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+184], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+192], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+200], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+208], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+216], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+224], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+216], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+224], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+232], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+240], r10
-    # --- 行对: a_13 与 a_14 ---
-    mov     r8, [rsi+104]            // u = a_13
-    mov     r9, [rsi+112]            // v = a_14
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+112]          // a14
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+216], r13
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+224], r13
-    mov     r13, [rdi+232]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+232], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+240]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+240], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+248], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+256], r10
-    # --- 行对: a_15 与 a_16 ---
-    mov     r8, [rsi+120]            // u = a_15
-    mov     r9, [rsi+128]            // v = a_16
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+248]          // D 预载
-    mov     rax, [rsi+128]          // a16
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+248], r13
-    mov     r13, [rdi+256]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+256], r13
-    mov     rax, [rsi+136]          // a17*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+264], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+272], r10
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    mov     rax, [rdi+224]
-    adc     rax, rax
-    mov     [rdi+224], rax
-    mov     rax, [rdi+232]
-    adc     rax, rax
-    mov     [rdi+232], rax
-    mov     rax, [rdi+240]
-    adc     rax, rax
-    mov     [rdi+240], rax
-    mov     rax, [rdi+248]
-    adc     rax, rax
-    mov     [rdi+248], rax
-    mov     rax, [rdi+256]
-    adc     rax, rax
-    mov     [rdi+256], rax
-    mov     rax, [rdi+264]
-    adc     rax, rax
-    mov     [rdi+264], rax
-    mov     rax, [rdi+272]
-    adc     rax, rax
-    mov     [rdi+272], rax
-    mov     rax, [rdi+280]
-    adc     rax, rax
-    mov     [rdi+280], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 288               // M 交叉列数组, M[c]=[rsp+8c], c=1..34
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    movdqu  [rsp+168], xmm0       // M[21..22] = 0
+    movdqu  [rsp+184], xmm0       // M[23..24] = 0
+    movdqu  [rsp+200], xmm0       // M[25..26] = 0
+    movdqu  [rsp+216], xmm0       // M[27..28] = 0
+    mov     QWORD PTR [rsp+232], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+136]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+136], rax
+    mov     r11d, 0
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r15, QWORD PTR [rsp+152]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+152], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+136]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+160]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+152], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+136]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+152], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+160], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+136]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+160], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+176]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+168], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+176], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+136]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+168], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+184]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+176], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+184], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+152]
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+104]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+136]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+176], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+192]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+184], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+192], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+168]
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+112]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+176], rcx
+    mov     rcx, QWORD PTR [rsp+192]
+    mulx    r11, r15, [rsi+136]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+184], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+200]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+192], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+200], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13, QWORD PTR [rsp+176]
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+184]
+    mov     rcx, QWORD PTR [rsp+192]
+    mulx    r11, r15, [rsi+120]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+184], rax
+    mov     rax, QWORD PTR [rsp+200]
+    mulx    r11, r15, [rsi+136]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+192], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+208]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+200], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+208], r15
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14, QWORD PTR [rsp+184]
+    mov     rbx, QWORD PTR [rsp+192]
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+200]
+    mulx    r11, r15, [rsi+128]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+136]
+    mov     rdx, QWORD PTR [rsp+208]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+200], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+216]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+208], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+216], r15
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     rbp, QWORD PTR [rsp+200]
+    mov     r8, QWORD PTR [rsp+208]
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+136]
+    mov     rdx, QWORD PTR [rsp+216]
+    adox   rdx, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+224]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+216], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+224], r15
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    mov     r9, QWORD PTR [rsp+216]
+    mov     r10, QWORD PTR [rsp+224]
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+232]
+    adox   r15, r11
+    adcx   r10, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+232], r15
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
+    mov     r12, QWORD PTR [rsp+232]
+    mov     r13d, 0
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   r12, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    adox   r13, r11
+    adcx   r12, r11
+    adcx   r13, r11
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
+    mov     r14d, 0
+    mov     ebx, 0
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    adox   r14, r11
+    adcx   r13, r11
+    adcx   r14, r11
+    // --- 行 13: 乘数 a_13 ---
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8
-    mov     [rdi+216], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+112]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 14: 乘数 a_14 ---
+    mov     QWORD PTR [rsp+216], r9
+    mov     QWORD PTR [rsp+224], r10
     mov     rdx, [rsi+112]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a14^2
-    mov     r9, [rdi+224]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+224], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+232]
-    adcx    r9, r8
-    mov     [rdi+232], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+120]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 15: 乘数 a_15 ---
+    mov     QWORD PTR [rsp+232], r12
+    mov     QWORD PTR [rsp+240], r13
     mov     rdx, [rsi+120]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a15^2
-    mov     r9, [rdi+240]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+240], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+248]
-    adcx    r9, r8
-    mov     [rdi+248], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+128]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+136]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 16: 乘数 a_16 ---
+    mov     QWORD PTR [rsp+248], r14
+    mov     QWORD PTR [rsp+256], rbx
     mov     rdx, [rsi+128]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a16^2
-    mov     r9, [rdi+256]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+256], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+264]
-    adcx    r9, r8
-    mov     [rdi+264], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+136]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adcx   r8, r11
+    mov     QWORD PTR [rsp+264], rbp
+    mov     QWORD PTR [rsp+272], r8
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     rdx, QWORD PTR [rsp+216]
+    mov     rbx, QWORD PTR [rsp+224]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+232]
+    mov     r8, QWORD PTR [rsp+240]
+    mov     r9, QWORD PTR [rsp+248]
+    mov     r10, QWORD PTR [rsp+256]
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    mov     QWORD PTR [rsp+216], rdx
+    mov     QWORD PTR [rsp+224], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+264]
+    mov     rcx, QWORD PTR [rsp+272]
+    mov     QWORD PTR [rsp+232], rbp
+    mov     QWORD PTR [rsp+240], r8
+    mov     QWORD PTR [rsp+248], r9
+    mov     QWORD PTR [rsp+256], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    mov     QWORD PTR [rsp+264], rax
+    mov     QWORD PTR [rsp+272], rcx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
+    mov     rdx, [rsi+104]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+216]
+    mov     [rdi+216], r15
+    mov     rdx, [rsi+112]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+224]
+    mov     [rdi+224], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+232]
+    mov     [rdi+232], r15
+    mov     rdx, [rsi+120]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+240]
+    mov     [rdi+240], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+248]
+    mov     [rdi+248], r15
+    mov     rdx, [rsi+128]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+256]
+    mov     [rdi+256], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+264]
+    mov     [rdi+264], r15
     mov     rdx, [rsi+136]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a17^2
-    mov     r9, [rdi+272]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+272], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+280]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+280], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+272]
+    mov     [rdi+272], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+280], r15
+    add     rsp, 288
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -11826,7 +7620,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
 
 ASM_GSYM(lmmp_sqr_hard_19_):
 
-    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠
+    # 列窗口 WIN[c%8]=[rbx,rbp,r8,r9,r10,r12,r13,r14]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -11834,1792 +7628,1124 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     rsi, rdx                // numa
 #endif
     push    rbx
+    push    rbp
+    push    r12
     push    r13
     push    r14
     push    r15
-    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)
-    mov     QWORD PTR [rdi+296], 0    // dst[2n-1] = 0 (交叉不触及)
-    mov     r8, [rsi]                // a_0
-    xor     r14d, r14d              // c = 0
-    mov     rax, [rsi+8]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+8], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+16]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+16], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+24]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+24], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+32]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+32], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+40]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+40], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+48]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+48], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+56]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+56], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+64]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+64], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+72]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+72], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+80]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+80], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+88]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+88], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+96]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+96], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+104]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+104], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+112]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+112], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+120]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+120], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+128]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+128], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+136]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+136], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     rax, [rsi+144]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     [rdi+144], rax
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    mov     [rdi+152], r14           // 顶列直存
-    # --- 行对: a_1 与 a_2 ---
-    mov     r8, [rsi+8]            // u = a_1
-    mov     r9, [rsi+16]            // v = a_2
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+24]          // D 预载
-    mov     rax, [rsi+16]          // a2
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+24], r13
-    mov     r13, [rdi+32]          // D 预载
-    mov     rax, [rsi+24]          // a3*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+32], r13
-    mov     r13, [rdi+40]          // D 预载
-    mov     rax, [rsi+32]          // a4*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+24]          // a3*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+40], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+48]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+32]          // a4*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+48], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+56], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+64], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+160], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+168], r10
-    # --- 行对: a_3 与 a_4 ---
-    mov     r8, [rsi+24]            // u = a_3
-    mov     r9, [rsi+32]            // v = a_4
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+56]          // D 预载
-    mov     rax, [rsi+32]          // a4
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+56], r13
-    mov     r13, [rdi+64]          // D 预载
-    mov     rax, [rsi+40]          // a5*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+64], r13
-    mov     r13, [rdi+72]          // D 预载
-    mov     rax, [rsi+48]          // a6*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+40]          // a5*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+72], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+80]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+48]          // a6*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+80], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+88], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+96], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+176], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+184], r10
-    # --- 行对: a_5 与 a_6 ---
-    mov     r8, [rsi+40]            // u = a_5
-    mov     r9, [rsi+48]            // v = a_6
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+88]          // D 预载
-    mov     rax, [rsi+48]          // a6
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+88], r13
-    mov     r13, [rdi+96]          // D 预载
-    mov     rax, [rsi+56]          // a7*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+96], r13
-    mov     r13, [rdi+104]          // D 预载
-    mov     rax, [rsi+64]          // a8*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+56]          // a7*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+104], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+112]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+64]          // a8*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+112], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+120], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+128], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+192], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+200], r10
-    # --- 行对: a_7 与 a_8 ---
-    mov     r8, [rsi+56]            // u = a_7
-    mov     r9, [rsi+64]            // v = a_8
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+120]          // D 预载
-    mov     rax, [rsi+64]          // a8
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+120], r13
-    mov     r13, [rdi+128]          // D 预载
-    mov     rax, [rsi+72]          // a9*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+128], r13
-    mov     r13, [rdi+136]          // D 预载
-    mov     rax, [rsi+80]          // a10*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+72]          // a9*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+136], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+144]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+80]          // a10*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+144], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+152], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+160], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+208], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+216], r10
-    # --- 行对: a_9 与 a_10 ---
-    mov     r8, [rsi+72]            // u = a_9
-    mov     r9, [rsi+80]            // v = a_10
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+152]          // D 预载
-    mov     rax, [rsi+80]          // a10
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+152], r13
-    mov     r13, [rdi+160]          // D 预载
-    mov     rax, [rsi+88]          // a11*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+160], r13
-    mov     r13, [rdi+168]          // D 预载
-    mov     rax, [rsi+96]          // a12*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+88]          // a11*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+168], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+176]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+96]          // a12*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+176], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+184], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+192], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+216], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+224], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+232], r10
-    # --- 行对: a_11 与 a_12 ---
-    mov     r8, [rsi+88]            // u = a_11
-    mov     r9, [rsi+96]            // v = a_12
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+184]          // D 预载
-    mov     rax, [rsi+96]          // a12
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+184], r13
-    mov     r13, [rdi+192]          // D 预载
-    mov     rax, [rsi+104]          // a13*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+192], r13
-    mov     r13, [rdi+200]          // D 预载
-    mov     rax, [rsi+112]          // a14*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+104]          // a13*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+200], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+208]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+112]          // a14*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+208], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+216], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+224], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+232]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+232], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+240], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+248], r10
-    # --- 行对: a_13 与 a_14 ---
-    mov     r8, [rsi+104]            // u = a_13
-    mov     r9, [rsi+112]            // v = a_14
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+216]          // D 预载
-    mov     rax, [rsi+112]          // a14
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+216], r13
-    mov     r13, [rdi+224]          // D 预载
-    mov     rax, [rsi+120]          // a15*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+224], r13
-    mov     r13, [rdi+232]          // D 预载
-    mov     rax, [rsi+128]          // a16*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+120]          // a15*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+232], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+240]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+128]          // a16*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+240], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     r13, [rdi+248]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+248], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+256], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+264], r10
-    # --- 行对: a_15 与 a_16 ---
-    mov     r8, [rsi+120]            // u = a_15
-    mov     r9, [rsi+128]            // v = a_16
-    xor     r15d, r15d             // cv = 0
-    mov     r13, [rdi+248]          // D 预载
-    mov     rax, [rsi+128]          // a16
-    mul     r8
-    add     r13, rax               // D + lo_u
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0
-    mov     [rdi+248], r13
-    mov     r13, [rdi+256]          // D 预载
-    mov     rax, [rsi+136]          // a17*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma
-    mov     [rdi+256], r13
-    mov     r13, [rdi+264]          // D 预载
-    mov     rax, [rsi+144]          // a18*u
-    mul     r8
-    add     rax, r14               // lo_u + cu
-    mov     r14, rdx               // cu = hu
-    adc     r14, 0                 // += alpha
-    add     r13, rax               // D + lo_u'
-    adc     r14, 0                 // cu += gamma1
-    mov     rax, [rsi+136]          // a17*v
-    mul     r9
-    add     rax, r15               // lo_v + cv
-    mov     r15, rdx               // cv = hv
-    adc     r15, 0                 // += beta
-    add     r13, rax               // + lo_v'
-    mov     [rdi+264], r13
-    adc     r15, 0                 // cv += gamma2
-    mov     rax, [rsi+144]          // a18*v 顶部积
-    mul     r9
-    add     rax, r14               // + cu
-    mov     r10, rdx               // Y = hv
-    adc     r10, 0                 // Y += alpha
-    add     rax, r15               // + cv
-    mov     [rdi+272], rax
-    adc     r10, 0                 // Y += beta
-    mov     [rdi+280], r10
-    # --- 单行: a_17 ---
-    mov     r8, [rsi+136]            // u = a_17
-    xor     r14d, r14d             // c = 0
-    mov     r13, [rdi+280]
-    mov     rax, [rsi+144]
-    mul     r8
-    add     rax, r14               // lo + c
-    mov     r14, rdx               // c = hi
-    adc     r14, 0
-    add     r13, rax               // D + lo'
-    adc     r14, 0
-    mov     [rdi+280], r13
-    mov     [rdi+288], r14          // 顶列直存
-    # dst *= 2
-    mov     rax, [rdi+8]
-    add     rax, rax
-    mov     [rdi+8], rax
-    mov     rax, [rdi+16]
-    adc     rax, rax
-    mov     [rdi+16], rax
-    mov     rax, [rdi+24]
-    adc     rax, rax
-    mov     [rdi+24], rax
-    mov     rax, [rdi+32]
-    adc     rax, rax
-    mov     [rdi+32], rax
-    mov     rax, [rdi+40]
-    adc     rax, rax
-    mov     [rdi+40], rax
-    mov     rax, [rdi+48]
-    adc     rax, rax
-    mov     [rdi+48], rax
-    mov     rax, [rdi+56]
-    adc     rax, rax
-    mov     [rdi+56], rax
-    mov     rax, [rdi+64]
-    adc     rax, rax
-    mov     [rdi+64], rax
-    mov     rax, [rdi+72]
-    adc     rax, rax
-    mov     [rdi+72], rax
-    mov     rax, [rdi+80]
-    adc     rax, rax
-    mov     [rdi+80], rax
-    mov     rax, [rdi+88]
-    adc     rax, rax
-    mov     [rdi+88], rax
-    mov     rax, [rdi+96]
-    adc     rax, rax
-    mov     [rdi+96], rax
-    mov     rax, [rdi+104]
-    adc     rax, rax
-    mov     [rdi+104], rax
-    mov     rax, [rdi+112]
-    adc     rax, rax
-    mov     [rdi+112], rax
-    mov     rax, [rdi+120]
-    adc     rax, rax
-    mov     [rdi+120], rax
-    mov     rax, [rdi+128]
-    adc     rax, rax
-    mov     [rdi+128], rax
-    mov     rax, [rdi+136]
-    adc     rax, rax
-    mov     [rdi+136], rax
-    mov     rax, [rdi+144]
-    adc     rax, rax
-    mov     [rdi+144], rax
-    mov     rax, [rdi+152]
-    adc     rax, rax
-    mov     [rdi+152], rax
-    mov     rax, [rdi+160]
-    adc     rax, rax
-    mov     [rdi+160], rax
-    mov     rax, [rdi+168]
-    adc     rax, rax
-    mov     [rdi+168], rax
-    mov     rax, [rdi+176]
-    adc     rax, rax
-    mov     [rdi+176], rax
-    mov     rax, [rdi+184]
-    adc     rax, rax
-    mov     [rdi+184], rax
-    mov     rax, [rdi+192]
-    adc     rax, rax
-    mov     [rdi+192], rax
-    mov     rax, [rdi+200]
-    adc     rax, rax
-    mov     [rdi+200], rax
-    mov     rax, [rdi+208]
-    adc     rax, rax
-    mov     [rdi+208], rax
-    mov     rax, [rdi+216]
-    adc     rax, rax
-    mov     [rdi+216], rax
-    mov     rax, [rdi+224]
-    adc     rax, rax
-    mov     [rdi+224], rax
-    mov     rax, [rdi+232]
-    adc     rax, rax
-    mov     [rdi+232], rax
-    mov     rax, [rdi+240]
-    adc     rax, rax
-    mov     [rdi+240], rax
-    mov     rax, [rdi+248]
-    adc     rax, rax
-    mov     [rdi+248], rax
-    mov     rax, [rdi+256]
-    adc     rax, rax
-    mov     [rdi+256], rax
-    mov     rax, [rdi+264]
-    adc     rax, rax
-    mov     [rdi+264], rax
-    mov     rax, [rdi+272]
-    adc     rax, rax
-    mov     [rdi+272], rax
-    mov     rax, [rdi+280]
-    adc     rax, rax
-    mov     [rdi+280], rax
-    mov     rax, [rdi+288]
-    adc     rax, rax
-    mov     [rdi+288], rax
-    mov     rax, [rdi+296]
-    adc     rax, rax
-    mov     [rdi+296], rax
-    # 对角平方折叠
-    xor     ebx, ebx                // zero, 清 CF/OF
-    xor     r8d, r8d                // c = 0
+    sub     rsp, 304               // M 交叉列数组, M[c]=[rsp+8c], c=1..36
+    xorps   xmm0, xmm0
+    movdqu  [rsp+72], xmm0       // M[9..10] = 0
+    movdqu  [rsp+88], xmm0       // M[11..12] = 0
+    movdqu  [rsp+104], xmm0       // M[13..14] = 0
+    movdqu  [rsp+120], xmm0       // M[15..16] = 0
+    movdqu  [rsp+136], xmm0       // M[17..18] = 0
+    movdqu  [rsp+152], xmm0       // M[19..20] = 0
+    movdqu  [rsp+168], xmm0       // M[21..22] = 0
+    movdqu  [rsp+184], xmm0       // M[23..24] = 0
+    movdqu  [rsp+200], xmm0       // M[25..26] = 0
+    movdqu  [rsp+216], xmm0       // M[27..28] = 0
+    movdqu  [rsp+232], xmm0       // M[29..30] = 0
+    mov     QWORD PTR [rsp+248], 0
+    // --- 行 0: 乘数 a_0 ---
     mov     rdx, [rsi+0]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a0^2
-    mov     r9, [rdi+0]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+0], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+8]
-    adcx    r9, r8
-    mov     [rdi+8], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r8, rbp, [rsi+8]
+    xor     r11d, r11d
+    mulx    r9, rax, [rsi+16]
+    adcx   r8, rax
+    mulx    r10, rax, [rsi+24]
+    adcx   r9, rax
+    mulx    r12, rax, [rsi+32]
+    adcx   r10, rax
+    mulx    r13, rax, [rsi+40]
+    adcx   r12, rax
+    mulx    r14, rax, [rsi+48]
+    adcx   r13, rax
+    mulx    rbx, rax, [rsi+56]
+    adcx   r14, rax
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mulx    r11, r15, [rsi+64]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+72]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+72], rax
+    mov     rax, QWORD PTR [rsp+88]
+    mulx    r11, r15, [rsi+80]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+80], rcx
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+136]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+144]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+144], rcx
+    mov     r11d, 0
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     r15, QWORD PTR [rsp+160]
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+160], r15
+    // --- 行 1: 乘数 a_1 ---
+    mov     QWORD PTR [rsp+8], rbp
+    mov     QWORD PTR [rsp+16], r8
+    mov     rbp, QWORD PTR [rsp+72]
+    mov     r8, QWORD PTR [rsp+80]
     mov     rdx, [rsi+8]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a1^2
-    mov     r9, [rdi+16]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+16], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+24]
-    adcx    r9, r8
-    mov     [rdi+24], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+16]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+24]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+88]
+    mov     rcx, QWORD PTR [rsp+96]
+    mulx    r11, r15, [rsi+72]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+80]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+88], rax
+    mov     rax, QWORD PTR [rsp+104]
+    mulx    r11, r15, [rsi+88]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+96], rcx
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+136]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+144]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+152], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+168]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+160], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+168], r15
+    // --- 行 2: 乘数 a_2 ---
+    mov     QWORD PTR [rsp+24], r9
+    mov     QWORD PTR [rsp+32], r10
+    mov     r9, QWORD PTR [rsp+88]
+    mov     r10, QWORD PTR [rsp+96]
     mov     rdx, [rsi+16]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a2^2
-    mov     r9, [rdi+32]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+32], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+40]
-    adcx    r9, r8
-    mov     [rdi+40], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+24]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+32]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+104]
+    mov     rcx, QWORD PTR [rsp+112]
+    mulx    r11, r15, [rsi+80]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+88]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+104], rax
+    mov     rax, QWORD PTR [rsp+120]
+    mulx    r11, r15, [rsi+96]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+112], rcx
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+136]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+144]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+160], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+176]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+168], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+176], r15
+    // --- 行 3: 乘数 a_3 ---
+    mov     QWORD PTR [rsp+40], r12
+    mov     QWORD PTR [rsp+48], r13
+    mov     r12, QWORD PTR [rsp+104]
+    mov     r13, QWORD PTR [rsp+112]
     mov     rdx, [rsi+24]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a3^2
-    mov     r9, [rdi+48]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+48], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+56]
-    adcx    r9, r8
-    mov     [rdi+56], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+32]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+120]
+    mov     rcx, QWORD PTR [rsp+128]
+    mulx    r11, r15, [rsi+88]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+96]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+120], rax
+    mov     rax, QWORD PTR [rsp+136]
+    mulx    r11, r15, [rsi+104]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+128], rcx
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+136]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+144]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+168], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+184]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+176], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+184], r15
+    // --- 行 4: 乘数 a_4 ---
+    mov     QWORD PTR [rsp+56], r14
+    mov     QWORD PTR [rsp+64], rbx
+    mov     r14, QWORD PTR [rsp+120]
+    mov     rbx, QWORD PTR [rsp+128]
     mov     rdx, [rsi+32]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a4^2
-    mov     r9, [rdi+64]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+64], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+72]
-    adcx    r9, r8
-    mov     [rdi+72], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+40]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+48]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mulx    r11, r15, [rsi+96]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+104]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+136], rax
+    mov     rax, QWORD PTR [rsp+152]
+    mulx    r11, r15, [rsi+112]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+144], rcx
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+136]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+144]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+176], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+192]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+184], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+192], r15
+    // --- 行 5: 乘数 a_5 ---
+    mov     QWORD PTR [rsp+72], rbp
+    mov     QWORD PTR [rsp+80], r8
+    mov     rbp, QWORD PTR [rsp+136]
+    mov     r8, QWORD PTR [rsp+144]
     mov     rdx, [rsi+40]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a5^2
-    mov     r9, [rdi+80]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+80], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+88]
-    adcx    r9, r8
-    mov     [rdi+88], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+48]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+56]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+152]
+    mov     rcx, QWORD PTR [rsp+160]
+    mulx    r11, r15, [rsi+104]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+112]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+152], rax
+    mov     rax, QWORD PTR [rsp+168]
+    mulx    r11, r15, [rsi+120]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+160], rcx
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+136]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+176], rcx
+    mov     rcx, QWORD PTR [rsp+192]
+    mulx    r11, r15, [rsi+144]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+184], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+200]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+192], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+200], r15
+    // --- 行 6: 乘数 a_6 ---
+    mov     QWORD PTR [rsp+88], r9
+    mov     QWORD PTR [rsp+96], r10
+    mov     r9, QWORD PTR [rsp+152]
+    mov     r10, QWORD PTR [rsp+160]
     mov     rdx, [rsi+48]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a6^2
-    mov     r9, [rdi+96]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+96], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+104]
-    adcx    r9, r8
-    mov     [rdi+104], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+56]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+64]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r9, rax
+    adox   r10, rcx
+    mov     rax, QWORD PTR [rsp+168]
+    mov     rcx, QWORD PTR [rsp+176]
+    mulx    r11, r15, [rsi+112]
+    adcx   r10, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+120]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+168], rax
+    mov     rax, QWORD PTR [rsp+184]
+    mulx    r11, r15, [rsi+128]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+176], rcx
+    mov     rcx, QWORD PTR [rsp+192]
+    mulx    r11, r15, [rsi+136]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+184], rax
+    mov     rax, QWORD PTR [rsp+200]
+    mulx    r11, r15, [rsi+144]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+192], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+208]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+200], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+208], r15
+    // --- 行 7: 乘数 a_7 ---
+    mov     QWORD PTR [rsp+104], r12
+    mov     QWORD PTR [rsp+112], r13
+    mov     r12, QWORD PTR [rsp+168]
+    mov     r13, QWORD PTR [rsp+176]
     mov     rdx, [rsi+56]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a7^2
-    mov     r9, [rdi+112]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+112], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+120]
-    adcx    r9, r8
-    mov     [rdi+120], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+64]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r12, rax
+    adox   r13, rcx
+    mov     rax, QWORD PTR [rsp+184]
+    mov     rcx, QWORD PTR [rsp+192]
+    mulx    r11, r15, [rsi+120]
+    adcx   r13, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+128]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+184], rax
+    mov     rax, QWORD PTR [rsp+200]
+    mulx    r11, r15, [rsi+136]
+    adcx   rcx, r15
+    adox   rax, r11
+    mov     QWORD PTR [rsp+192], rcx
+    mov     rcx, QWORD PTR [rsp+208]
+    mulx    r11, r15, [rsi+144]
+    adox   rcx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+200], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+216]
+    adox   r15, r11
+    adcx   rcx, r11
+    mov     QWORD PTR [rsp+208], rcx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+216], r15
+    // --- 行 8: 乘数 a_8 ---
+    mov     QWORD PTR [rsp+120], r14
+    mov     QWORD PTR [rsp+128], rbx
+    mov     r14, QWORD PTR [rsp+184]
+    mov     rbx, QWORD PTR [rsp+192]
     mov     rdx, [rsi+64]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a8^2
-    mov     r9, [rdi+128]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+128], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+136]
-    adcx    r9, r8
-    mov     [rdi+136], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+72]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+80]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mulx    r11, r15, [rsi+128]
+    adcx   rbx, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+136]
+    adcx   rax, r15
+    adox   rcx, r11
+    mov     QWORD PTR [rsp+200], rax
+    mov     rax, QWORD PTR [rsp+216]
+    mulx    r11, r15, [rsi+144]
+    adox   rax, r11
+    adcx   rcx, r15
+    mov     QWORD PTR [rsp+208], rcx
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+224]
+    adox   r15, r11
+    adcx   rax, r11
+    mov     QWORD PTR [rsp+216], rax
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+224], r15
+    // --- 行 9: 乘数 a_9 ---
+    mov     QWORD PTR [rsp+136], rbp
+    mov     QWORD PTR [rsp+144], r8
+    mov     rbp, QWORD PTR [rsp+200]
+    mov     r8, QWORD PTR [rsp+208]
     mov     rdx, [rsi+72]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a9^2
-    mov     r9, [rdi+144]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+144], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+152]
-    adcx    r9, r8
-    mov     [rdi+152], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+80]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+88]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mov     rax, QWORD PTR [rsp+216]
+    mulx    r11, r15, [rsi+136]
+    adcx   r8, r15
+    adox   rax, r11
+    mulx    r11, r15, [rsi+144]
+    mov     rdx, QWORD PTR [rsp+224]
+    adox   rdx, r11
+    adcx   rax, r15
+    mov     QWORD PTR [rsp+216], rax
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+232]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+224], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+232], r15
+    // --- 行 10: 乘数 a_10 ---
+    mov     QWORD PTR [rsp+152], r9
+    mov     QWORD PTR [rsp+160], r10
+    mov     r9, QWORD PTR [rsp+216]
+    mov     r10, QWORD PTR [rsp+224]
     mov     rdx, [rsi+80]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a10^2
-    mov     r9, [rdi+160]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+160], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+168]
-    adcx    r9, r8
-    mov     [rdi+168], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+88]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+96]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    r11, r15, [rsi+144]
+    mov     rdx, QWORD PTR [rsp+232]
+    adox   rdx, r11
+    adcx   r10, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+240]
+    adox   r15, r11
+    adcx   rdx, r11
+    mov     QWORD PTR [rsp+232], rdx
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+240], r15
+    // --- 行 11: 乘数 a_11 ---
+    mov     QWORD PTR [rsp+168], r12
+    mov     QWORD PTR [rsp+176], r13
+    mov     r12, QWORD PTR [rsp+232]
+    mov     r13, QWORD PTR [rsp+240]
     mov     rdx, [rsi+88]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a11^2
-    mov     r9, [rdi+176]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+176], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+184]
-    adcx    r9, r8
-    mov     [rdi+184], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+96]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   r13, r11
+    adcx   r12, r15
+    mov     r11d, 0
+    mov     r15, QWORD PTR [rsp+248]
+    adox   r15, r11
+    adcx   r13, r11
+    adcx   r15, r11
+    mov     QWORD PTR [rsp+248], r15
+    // --- 行 12: 乘数 a_12 ---
+    mov     QWORD PTR [rsp+184], r14
+    mov     QWORD PTR [rsp+192], rbx
+    mov     r14, QWORD PTR [rsp+248]
+    mov     ebx, 0
     mov     rdx, [rsi+96]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a12^2
-    mov     r9, [rdi+192]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+192], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+200]
-    adcx    r9, r8
-    mov     [rdi+200], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+104]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    rcx, rax, [rsi+112]
+    adcx   r8, rax
+    adox   r9, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   r14, r11
+    adcx   r13, r15
+    mov     r11d, 0
+    adox   rbx, r11
+    adcx   r14, r11
+    adcx   rbx, r11
+    // --- 行 13: 乘数 a_13 ---
+    mov     QWORD PTR [rsp+200], rbp
+    mov     QWORD PTR [rsp+208], r8
+    mov     ebp, 0
+    mov     r8d, 0
     mov     rdx, [rsi+104]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a13^2
-    mov     r9, [rdi+208]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+208], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+216]
-    adcx    r9, r8
-    mov     [rdi+216], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+112]
+    adcx   r9, rax
+    adox   r10, rcx
+    mulx    rcx, rax, [rsi+120]
+    adcx   r10, rax
+    adox   r12, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   rbx, r11
+    adcx   r14, r15
+    mov     r11d, 0
+    adox   rbp, r11
+    adcx   rbx, r11
+    adcx   rbp, r11
+    // --- 行 14: 乘数 a_14 ---
+    mov     QWORD PTR [rsp+216], r9
+    mov     QWORD PTR [rsp+224], r10
+    mov     r9d, 0
+    mov     r10d, 0
     mov     rdx, [rsi+112]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a14^2
-    mov     r9, [rdi+224]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+224], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+232]
-    adcx    r9, r8
-    mov     [rdi+232], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+120]
+    adcx   r12, rax
+    adox   r13, rcx
+    mulx    rcx, rax, [rsi+128]
+    adcx   r13, rax
+    adox   r14, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   rbp, r11
+    adcx   rbx, r15
+    mov     r11d, 0
+    adox   r8, r11
+    adcx   rbp, r11
+    adcx   r8, r11
+    // --- 行 15: 乘数 a_15 ---
+    mov     QWORD PTR [rsp+232], r12
+    mov     QWORD PTR [rsp+240], r13
     mov     rdx, [rsi+120]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a15^2
-    mov     r9, [rdi+240]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+240], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+248]
-    adcx    r9, r8
-    mov     [rdi+248], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+128]
+    adcx   r14, rax
+    adox   rbx, rcx
+    mulx    rcx, rax, [rsi+136]
+    adcx   rbx, rax
+    adox   rbp, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   r8, r11
+    adcx   rbp, r15
+    mov     r11d, 0
+    adox   r9, r11
+    adcx   r8, r11
+    adcx   r9, r11
+    // --- 行 16: 乘数 a_16 ---
+    mov     QWORD PTR [rsp+248], r14
+    mov     QWORD PTR [rsp+256], rbx
     mov     rdx, [rsi+128]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a16^2
-    mov     r9, [rdi+256]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+256], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+264]
-    adcx    r9, r8
-    mov     [rdi+264], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    rcx, rax, [rsi+136]
+    adcx   rbp, rax
+    adox   r8, rcx
+    mulx    r11, r15, [rsi+144]
+    adox   r9, r11
+    adcx   r8, r15
+    mov     r11d, 0
+    adox   r10, r11
+    adcx   r9, r11
+    adcx   r10, r11
+    // --- 行 17: 乘数 a_17 ---
+    mov     QWORD PTR [rsp+264], rbp
+    mov     QWORD PTR [rsp+272], r8
     mov     rdx, [rsi+136]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a17^2
-    mov     r9, [rdi+272]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+272], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+280]
-    adcx    r9, r8
-    mov     [rdi+280], r9
-    mov     r8, rbx
-    adcx    r8, rbx               // c = CF
+    mulx    r11, r15, [rsi+144]
+    adox   r10, r11
+    adcx   r9, r15
+    mov     r11d, 0
+    adcx   r10, r11
+    mov     QWORD PTR [rsp+280], r9
+    mov     QWORD PTR [rsp+288], r10
+    // --- 倍增 ---
+    mov     rax, QWORD PTR [rsp+8]
+    mov     rcx, QWORD PTR [rsp+16]
+    mov     rdx, QWORD PTR [rsp+24]
+    mov     rbx, QWORD PTR [rsp+32]
+    add    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+40]
+    mov     r8, QWORD PTR [rsp+48]
+    mov     r9, QWORD PTR [rsp+56]
+    mov     r10, QWORD PTR [rsp+64]
+    mov     QWORD PTR [rsp+8], rax
+    mov     QWORD PTR [rsp+16], rcx
+    mov     QWORD PTR [rsp+24], rdx
+    mov     QWORD PTR [rsp+32], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+72]
+    mov     rcx, QWORD PTR [rsp+80]
+    mov     rdx, QWORD PTR [rsp+88]
+    mov     rbx, QWORD PTR [rsp+96]
+    mov     QWORD PTR [rsp+40], rbp
+    mov     QWORD PTR [rsp+48], r8
+    mov     QWORD PTR [rsp+56], r9
+    mov     QWORD PTR [rsp+64], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+104]
+    mov     r8, QWORD PTR [rsp+112]
+    mov     r9, QWORD PTR [rsp+120]
+    mov     r10, QWORD PTR [rsp+128]
+    mov     QWORD PTR [rsp+72], rax
+    mov     QWORD PTR [rsp+80], rcx
+    mov     QWORD PTR [rsp+88], rdx
+    mov     QWORD PTR [rsp+96], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+136]
+    mov     rcx, QWORD PTR [rsp+144]
+    mov     rdx, QWORD PTR [rsp+152]
+    mov     rbx, QWORD PTR [rsp+160]
+    mov     QWORD PTR [rsp+104], rbp
+    mov     QWORD PTR [rsp+112], r8
+    mov     QWORD PTR [rsp+120], r9
+    mov     QWORD PTR [rsp+128], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+168]
+    mov     r8, QWORD PTR [rsp+176]
+    mov     r9, QWORD PTR [rsp+184]
+    mov     r10, QWORD PTR [rsp+192]
+    mov     QWORD PTR [rsp+136], rax
+    mov     QWORD PTR [rsp+144], rcx
+    mov     QWORD PTR [rsp+152], rdx
+    mov     QWORD PTR [rsp+160], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+200]
+    mov     rcx, QWORD PTR [rsp+208]
+    mov     rdx, QWORD PTR [rsp+216]
+    mov     rbx, QWORD PTR [rsp+224]
+    mov     QWORD PTR [rsp+168], rbp
+    mov     QWORD PTR [rsp+176], r8
+    mov     QWORD PTR [rsp+184], r9
+    mov     QWORD PTR [rsp+192], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     rbp, QWORD PTR [rsp+232]
+    mov     r8, QWORD PTR [rsp+240]
+    mov     r9, QWORD PTR [rsp+248]
+    mov     r10, QWORD PTR [rsp+256]
+    mov     QWORD PTR [rsp+200], rax
+    mov     QWORD PTR [rsp+208], rcx
+    mov     QWORD PTR [rsp+216], rdx
+    mov     QWORD PTR [rsp+224], rbx
+    adc    rbp, rbp
+    adc    r8, r8
+    adc    r9, r9
+    adc    r10, r10
+    mov     rax, QWORD PTR [rsp+264]
+    mov     rcx, QWORD PTR [rsp+272]
+    mov     rdx, QWORD PTR [rsp+280]
+    mov     rbx, QWORD PTR [rsp+288]
+    mov     QWORD PTR [rsp+232], rbp
+    mov     QWORD PTR [rsp+240], r8
+    mov     QWORD PTR [rsp+248], r9
+    mov     QWORD PTR [rsp+256], r10
+    adc    rax, rax
+    adc    rcx, rcx
+    adc    rdx, rdx
+    adc    rbx, rbx
+    mov     QWORD PTR [rsp+264], rax
+    mov     QWORD PTR [rsp+272], rcx
+    mov     QWORD PTR [rsp+280], rdx
+    mov     QWORD PTR [rsp+288], rbx
+    setc    r11b
+    movzx   r11, r11b
+    // --- 对角折叠 ---
+    mov     rdx, [rsi+0]
+    mulx    rcx, rax, rdx
+    mov     [rdi+0], rax
+    mov     r15, rcx
+    add    r15, QWORD PTR [rsp+8]
+    mov     [rdi+8], r15
+    mov     rdx, [rsi+8]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+16]
+    mov     [rdi+16], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+24]
+    mov     [rdi+24], r15
+    mov     rdx, [rsi+16]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+32]
+    mov     [rdi+32], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+40]
+    mov     [rdi+40], r15
+    mov     rdx, [rsi+24]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+48]
+    mov     [rdi+48], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+56]
+    mov     [rdi+56], r15
+    mov     rdx, [rsi+32]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+64]
+    mov     [rdi+64], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+72]
+    mov     [rdi+72], r15
+    mov     rdx, [rsi+40]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+80]
+    mov     [rdi+80], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+88]
+    mov     [rdi+88], r15
+    mov     rdx, [rsi+48]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+96]
+    mov     [rdi+96], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+104]
+    mov     [rdi+104], r15
+    mov     rdx, [rsi+56]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+112]
+    mov     [rdi+112], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+120]
+    mov     [rdi+120], r15
+    mov     rdx, [rsi+64]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+128]
+    mov     [rdi+128], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+136]
+    mov     [rdi+136], r15
+    mov     rdx, [rsi+72]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+144]
+    mov     [rdi+144], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+152]
+    mov     [rdi+152], r15
+    mov     rdx, [rsi+80]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+160]
+    mov     [rdi+160], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+168]
+    mov     [rdi+168], r15
+    mov     rdx, [rsi+88]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+176]
+    mov     [rdi+176], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+184]
+    mov     [rdi+184], r15
+    mov     rdx, [rsi+96]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+192]
+    mov     [rdi+192], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+200]
+    mov     [rdi+200], r15
+    mov     rdx, [rsi+104]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+208]
+    mov     [rdi+208], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+216]
+    mov     [rdi+216], r15
+    mov     rdx, [rsi+112]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+224]
+    mov     [rdi+224], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+232]
+    mov     [rdi+232], r15
+    mov     rdx, [rsi+120]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+240]
+    mov     [rdi+240], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+248]
+    mov     [rdi+248], r15
+    mov     rdx, [rsi+128]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+256]
+    mov     [rdi+256], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+264]
+    mov     [rdi+264], r15
+    mov     rdx, [rsi+136]
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+272]
+    mov     [rdi+272], r15
+    mov     r15, rcx
+    adc    r15, QWORD PTR [rsp+280]
+    mov     [rdi+280], r15
     mov     rdx, [rsi+144]
-    mov     rax, rdx
-    mulx    r11, r10, rax          // a18^2
-    mov     r9, [rdi+288]
-    adox    r9, r8
-    adcx    r9, r10
-    mov     [rdi+288], r9
-    mov     r8, r11
-    adcx    r8, rbx
-    adox    r8, rbx
-    mov     r9, [rdi+296]
-    adcx    r9, r8                  // 最高列 (最终进位必为0)
-    mov     [rdi+296], r9
+    mulx    rcx, rax, rdx
+    mov     r15, rax
+    adc    r15, QWORD PTR [rsp+288]
+    mov     [rdi+288], r15
+    mov     r15, r11
+    adc    r15, rcx
+    mov     [rdi+296], r15
+    add     rsp, 304
     pop     r15
     pop     r14
     pop     r13
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi

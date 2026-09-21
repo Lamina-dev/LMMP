@@ -14,6 +14,7 @@
  */
 
 #include "lmmp/lmmpn.h"
+#include "lmmp/impl/mul_hard.h"
 #include "lmmp_test.hpp"
 #include "lmmp_test_utils.hpp"
 
@@ -135,6 +136,36 @@ TEST_CASE("mul/hard_threshold_boundary", mul_hard_boundary_vs_school) {
             BigInt es = BigInt::sqr_school(ba);
             lmmp_sqr_(dst, a, n);
             check_mul_result(es, dst, n, n);
+            lmmp_free(a); lmmp_free(b); lmmp_free(dst);
+        }
+    }
+}
+
+TEST_CASE("mul/hard_direct_all_sizes", mul_hard_direct_n1_to_n19) {
+    /* 硬编码路径全规模直测: n=1..19 经顶层 lmmp_mul_n_/lmmp_sqr_ (阈值下
+       必走硬编码调度) 对照学校乘法, 覆盖随机/全 1/全 0xFF/最高位等
+       触发进位链极端的输入模式 */
+    u64 seed = 0x0d1c2b3a49586775ull;
+    for (mp_size_t n = 1; n <= LMMP_MUL_HARD_MAX_N; n++) {
+        for (int pat = 0; pat < 6; pat++) {
+            mp_ptr a = alloc_limbs(n);
+            mp_ptr b = alloc_limbs(n);
+            mp_ptr dst = alloc_limbs(2 * n + 2);
+            for (mp_size_t i = 0; i < n; i++) {
+                switch (pat) {
+                    case 0: a[i] = b[i] = xorshift64(seed); break;
+                    case 1: a[i] = b[i] = ~(u64)0; break;
+                    case 2: a[i] = b[i] = 1; break;
+                    case 3: a[i] = b[i] = (u64)1 << 63; break;
+                    case 4: a[i] = b[i] = (~(u64)0) - (u64)(i & 1); break;
+                    default: a[i] = b[i] = xorshift64(seed) >> (i & 63); break;
+                }
+            }
+            BigInt ba(a, n), bb(b, n);
+            lmmp_mul_n_(dst, a, b, n);
+            check_mul_result(BigInt::mul_school(ba, bb), dst, n, n);
+            lmmp_sqr_(dst, a, n);
+            check_mul_result(BigInt::sqr_school(ba), dst, n, n);
             lmmp_free(a); lmmp_free(b); lmmp_free(dst);
         }
     }

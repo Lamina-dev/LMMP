@@ -16,11 +16,10 @@
 #include "../../../include/lmmp/impl/mul_hard.h"
 
 /* 硬编码函数调度: 按实测性能路由。
-   mul: n<=19 全部走硬编码 (分块寄存器方案, 实测全面快于 basecase);
-   sqr: n<=3 走硬编码(与库内 basecase 小规模分支同源), n>=4 库内 sqr_basecase
-        的 addmul_2 内核仍快于当前硬编码交叉行方案, 故回落;
+   mul: n<=19 全部走硬编码 (分块寄存器方案, 实测全面快于 basecase 8%~47%);
+   sqr: n<=19 全部走硬编码 (列累加方案, 实测全面快于 basecase 7%~31%);
    超出 LMMP_MUL_HARD_MAX_N 或调优阈值放大时回落 basecase。
-   消费方为 toom 递归宏(见 mul_toom22.c 等)。 */
+   消费方为 toom 递归宏(见 mul_toom22.c / sqr_toom2.c 等)。 */
 
 void lmmp_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
     switch (n) {
@@ -52,6 +51,22 @@ void lmmp_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n) {
         case 1: lmmp_sqr_hard_1_(dst, numa); break;
         case 2: lmmp_sqr_hard_2_(dst, numa); break;
         case 3: lmmp_sqr_hard_3_(dst, numa); break;
+        case 4: lmmp_sqr_hard_4_(dst, numa); break;
+        case 5: lmmp_sqr_hard_5_(dst, numa); break;
+        case 6: lmmp_sqr_hard_6_(dst, numa); break;
+        case 7: lmmp_sqr_hard_7_(dst, numa); break;
+        case 8: lmmp_sqr_hard_8_(dst, numa); break;
+        case 9: lmmp_sqr_hard_9_(dst, numa); break;
+        case 10: lmmp_sqr_hard_10_(dst, numa); break;
+        case 11: lmmp_sqr_hard_11_(dst, numa); break;
+        case 12: lmmp_sqr_hard_12_(dst, numa); break;
+        case 13: lmmp_sqr_hard_13_(dst, numa); break;
+        case 14: lmmp_sqr_hard_14_(dst, numa); break;
+        case 15: lmmp_sqr_hard_15_(dst, numa); break;
+        case 16: lmmp_sqr_hard_16_(dst, numa); break;
+        case 17: lmmp_sqr_hard_17_(dst, numa); break;
+        case 18: lmmp_sqr_hard_18_(dst, numa); break;
+        case 19: lmmp_sqr_hard_19_(dst, numa); break;
         default: lmmp_sqr_basecase_(dst, numa, n); break;
     }
 }

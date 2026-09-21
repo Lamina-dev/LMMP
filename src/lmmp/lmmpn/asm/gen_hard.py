@@ -11,9 +11,13 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
 算法结构:
   x64  mul, N<=8 : FLINT 式寄存器整行累加(mulx+adcx/adox 双进位链, 行间寄存器环轮转)
   x64  mul, N>=9 : 种子 mul_1 + 展开 addmul_2(双乘数交错列) + 尾部直存
-  x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉行累加->倍增->对角
+  x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉积列累加
+                   (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
   arm64 mul      : 寄存器整行累加(mul/umulh + adds/adcs 单进位链, 列 c 固定映射 ring[c%n])
   arm64 sqr      : 交叉行累加 -> 倍增 -> 对角 (单进位链)
+
+x64 sqr 的指令计划 (x64_sqr_plan) 与外部模拟脚本共用 (hard_work/sim_sqr_plan.py),
+发射与验证针对同一 op 序列, 修改调度前先过模拟。
 
 约定: intel 语法 mulx HI, LO, src (HI=第一目的操作数)。
 
@@ -375,138 +379,289 @@ def x64_sqr_n3():
     ret"""
 
 
-def x64_sqr_rows(n):
-    """n >= 4: 交叉乘(行0种子 + 配对行) -> 倍增 -> 对角.
+X64_WIN8 = ["rbx", "rbp", "r8", "r9", "r10", "r12", "r13", "r14"]  # 列窗口寄存器, 列 c -> WIN[c % 8]
+X64_SQ_T = ["rax", "rcx"]   # 越窗段双临时 (载入-累加-回写)
+X64_SQ_SH = "r11"           # 段/尾 mulx 高位目的; 兼零寄存器(使用后以 mov 恢复 0)
+X64_SQ_SL = "r15"           # 段/尾 mulx 低位目的 (折叠临时复用)
 
-    寄存器: rdi=dst rsi=numa r8=u r9=v rax/rdx=mul r13=D r14=cu r15=cv r10=Y
-    配对行 (a_i, a_{i+1}): 与 mul tier-2 同构的即时进位吸收模式。
+
+def x64_sqr_plan(n):
+    """n >= 4: 交叉积列累加指令计划 (op 元组序列, 渲染与模拟共用同一计划).
+
+    dst = 2*T + D,  T = sum_{i<j} a_i*a_j*B^(i+j) (交叉列 1..2n-2),  D = sum a_i^2*B^2i.
+    逐行扫描 i = 0..n-2, 积 a_i*a_j 的 lo/hi 分别累入列 i+j / i+j+1:
+      - 8 列寄存器窗口 [2i+1, 2i+8], 完成列溢写栈数组 M, 越窗积经双临时处理;
+      - adcx(CF)/adox(OF) 双进位链, 每条链的目的列严格递增, 积的进位由下一列
+        同链指令消费 (权重 B 正确); 行尾两个余进位收入顶列 i+n/i+n+1 并可证终止
+        (每行结束 CF=OF=0);
+      - 行 0 种子: mulx 直写新鲜列 (仅单链);
+      - 倍增 T *= 2 (寄存器链或 M 波动扫描), setc 收顶;
+      - 对角折叠: 单条 adc 链 R_k = T'_k + D_k, a_i^2 由 mulx 即时产生.
+    返回 (ops, prezero): prezero 为必须预清零的 M 列 (会在 RMW 前被读).
     """
+    W = 8
+    mtop = 2 * n - 2
+    full = mtop <= W          # n <= 5: 全寄存器, 无 M
+    ops = []
+    prezero = set()
+    minit = set()             # M 列已初始化(可安全 RMW/读取)
+
+    def R(c):
+        return ("r", X64_WIN8[c % W])
+
+    def rmw(c):
+        if c not in minit:
+            minit.add(c)
+            prezero.add(c)
+
+    def store_m(c, src):
+        ops.append(("mov", ("M", c), src))
+        minit.add(c)
+
+    # ================= 行扫描: 交叉积列累加 =================
+    for i in range(n - 1):
+        ops.append(("#", "--- 行 %d: 乘数 a_%d ---" % (i, i)))
+        # 窗口滑动: 退役完成列 (2i-1, 2i 在行 i-1 完成), 录入新列 (2i+7, 2i+8)
+        if (not full) and i >= 1:
+            for c in (2 * i - 1, 2 * i):
+                store_m(c, R(c))
+            for c in (2 * i + W - 1, 2 * i + W):
+                if c <= mtop:
+                    if c in minit:
+                        ops.append(("mov", R(c), ("M", c)))
+                    else:
+                        ops.append(("mov", R(c), ("imm", 0)))
+        ops.append(("mov", ("r", "rdx"), ("a", i)))
+        if i == 0:
+            # 行 0 种子: 未直写的窗口列清零
+            for c in range(min(n - 1, W) + 1, min(mtop, W) + 1):
+                ops.append(("mov", R(c), ("imm", 0)))
+            ops.append(("mulx", R(2), R(1), ("a", 1)))       # lo01->列1, hi01->列2 (直写)
+            ops.append(("xor0", ("r", X64_SQ_SH)))            # CF=OF=0
+            for j in range(2, min(n - 2, W - 1) + 1):         # hi 直写新鲜列 j+1
+                ops.append(("mulx", R(j + 1), ("r", "rax"), ("a", j)))
+                ops.append(("adcx", R(j), ("r", "rax")))      # 列j = hi(j-1) + lo(j)
+        else:
+            for j in range(i + 1, min(n - 2, i + W - 1) + 1):
+                ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("a", j)))
+                ops.append(("adcx", R(i + j), ("r", "rax")))
+                ops.append(("adox", R(i + j + 1), ("r", "rcx")))
+        # ---- 越窗段: 积 j = i+8..n-2, 双临时 (t0/t1) 逐列滚动 ----
+        seg = (not full) and (i + W <= n - 2)
+        tH = None
+        if seg:
+            base = 2 * i + W        # 首段积 lo 列 = 窗口边列
+            L = (n - 2) - (i + W) + 1
+            t = X64_SQ_T
+            ops.append(("mov", ("r", t[0]), ("M", base + 1)))
+            rmw(base + 1)
+            if L >= 2:
+                ops.append(("mov", ("r", t[1]), ("M", base + 2)))
+                rmw(base + 2)
+            for k in range(L):
+                j = i + W + k
+                ops.append(("mulx", ("r", X64_SQ_SH), ("r", X64_SQ_SL), ("a", j)))
+                tx = R(base + k) if k == 0 else ("r", t[(k - 1) % 2])
+                ops.append(("adcx", tx, ("r", X64_SQ_SL)))
+                ty = ("r", t[k % 2])
+                ops.append(("adox", ty, ("r", X64_SQ_SH)))
+                if k >= 1:
+                    store_m(base + k, tx)
+                    if base + k + 2 <= i + n:     # 供后续段积或尾部 c_hi 使用
+                        ops.append(("mov", tx, ("M", base + k + 2)))
+                        rmw(base + k + 2)
+        # ---- 尾积 j = n-1: hi 入新鲜顶列 i+n, lo 入列 i+n-1, 行尾余进位入顶列 ----
+        c_lo, c_hi, c_top = i + n - 1, i + n, i + n + 1
+        last = (i == n - 2)
+        ops.append(("mulx", ("r", X64_SQ_SH), ("r", X64_SQ_SL), ("a", n - 1)))
+        # 顶列 c_hi 先收 hi + OF 余进位 (来自积 n-2 的 adox)
+        if seg and L >= 2:
+            tH = ("r", t[(L - 2) % 2])            # 段末重载的 c_hi
+            ops.append(("adox", tH, ("r", X64_SQ_SH)))
+        elif full or c_hi <= 2 * i + W:
+            ops.append(("adox", R(c_hi), ("r", X64_SQ_SH)))
+        else:
+            ops.append(("mov", ("r", "rdx"), ("M", c_hi)))
+            rmw(c_hi)
+            ops.append(("adox", ("r", "rdx"), ("r", X64_SQ_SH)))
+            tH = ("r", "rdx")
+        # 列 c_lo 收 lo + CF 余进位 (来自积 n-2 的 adcx)
+        if seg:
+            tX = ("r", t[(L - 1) % 2])            # 段末 Y 临时持有 c_lo
+            ops.append(("adcx", tX, ("r", X64_SQ_SL)))
+            store_m(c_lo, tX)
+        else:
+            ops.append(("adcx", R(c_lo), ("r", X64_SQ_SL)))
+        ops.append(("mov", ("r", X64_SQ_SH), ("imm", 0)))     # 恢复零寄存器 (不触标志)
+        # 顶列 c_top 收 OF2 (行 0: 列 c_hi 初值 0, 可证无 OF2; 末行: 数学界无)
+        kind_top = None
+        if i >= 1 and not last:
+            if full or c_top <= 2 * i + W:
+                kind_top = R(c_top)
+                ops.append(("adox", kind_top, ("r", X64_SQ_SH)))
+            else:
+                ops.append(("mov", ("r", X64_SQ_SL), ("M", c_top)))
+                rmw(c_top)
+                ops.append(("adox", ("r", X64_SQ_SL), ("r", X64_SQ_SH)))
+                kind_top = ("r", X64_SQ_SL)
+        # 顶列 c_hi 收 CF (列 c_lo 加法的余进位)
+        if tH is not None:
+            ops.append(("adcx", tH, ("r", X64_SQ_SH)))
+            store_m(c_hi, tH)
+        else:
+            ops.append(("adcx", R(c_hi), ("r", X64_SQ_SH)))
+        # 顶列 c_top 收 CF2 (末行: T < B^(2n-1) 可证无)
+        if not last:
+            if kind_top is None:                  # 行 0: 补载入 c_top
+                if full or c_top <= 2 * i + W:
+                    kind_top = R(c_top)
+                else:
+                    ops.append(("mov", ("r", X64_SQ_SL), ("M", c_top)))
+                    rmw(c_top)
+                    kind_top = ("r", X64_SQ_SL)
+            ops.append(("adcx", kind_top, ("r", X64_SQ_SH)))
+            if kind_top == ("r", X64_SQ_SL):      # SL 临时持有的 mem 列需回写
+                store_m(c_top, kind_top)
+    if not full:
+        for c in (mtop - 1, mtop):                # 末两列退役
+            store_m(c, R(c))
+
+    # ================= 倍增 T *= 2 =================
+    ops.append(("#", "--- 倍增 ---"))
+    if full:
+        ops.append(("add", R(1), R(1)))
+        for c in range(2, mtop + 1):
+            ops.append(("adc", R(c), R(c)))
+        ops.append(("movzxc", ("r", X64_SQ_SH)))  # 倍增顶进位 (列 2n-1, 属 {0,1})
+    else:
+        TA = ["rax", "rcx", "rdx", "rbx"]
+        TB = ["rbp", "r8", "r9", "r10"]
+        cols = list(range(1, mtop + 1))
+        waves = [cols[k:k + 4] for k in range(0, len(cols), 4)]
+        cur = TA
+        for idx, c in enumerate(waves[0]):
+            ops.append(("mov", ("r", cur[idx]), ("M", c)))
+        for wi, wave in enumerate(waves):
+            for idx, c in enumerate(wave):
+                ops.append(("add" if (wi == 0 and idx == 0) else "adc",
+                            ("r", cur[idx]), ("r", cur[idx])))
+            if wi + 1 < len(waves):
+                nxt = TB if cur is TA else TA
+                for idx, c in enumerate(waves[wi + 1]):
+                    ops.append(("mov", ("r", nxt[idx]), ("M", c)))
+            for idx, c in enumerate(wave):
+                ops.append(("mov", ("M", c), ("r", cur[idx])))
+            cur = TB if cur is TA else TA
+        ops.append(("movzxc", ("r", X64_SQ_SH)))
+
+    # ================= 对角折叠: R = 2T + sum a_i^2 =================
+    ops.append(("#", "--- 对角折叠 ---"))
+    src = (lambda c: R(c)) if full else (lambda c: ("M", c))
+    T = ("r", X64_SQ_SL)
+    ops.append(("mov", ("r", "rdx"), ("a", 0)))
+    ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("r", "rdx")))   # a_0^2
+    ops.append(("mov", ("A", 0), ("r", "rax")))                        # R_0 = lo (交叉列0恒0)
+    ops.append(("mov", T, ("r", "rcx")))
+    ops.append(("add", T, src(1)))                                     # R_1 = T'_1 + hi_0
+    ops.append(("mov", ("A", 1), T))
+    for i2 in range(1, n):
+        ops.append(("mov", ("r", "rdx"), ("a", i2)))
+        ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("r", "rdx")))
+        ops.append(("mov", T, ("r", "rax")))                           # R_2i = lo(a_i^2) + ...
+        ops.append(("adc", T, src(2 * i2)))
+        ops.append(("mov", ("A", 2 * i2), T))
+        if i2 < n - 1:
+            ops.append(("mov", T, ("r", "rcx")))                       # R_2i+1 = hi(a_i^2) + ...
+            ops.append(("adc", T, src(2 * i2 + 1)))
+            ops.append(("mov", ("A", 2 * i2 + 1), T))
+        else:
+            ops.append(("mov", T, ("r", X64_SQ_SH)))                   # 倍增顶进位
+            ops.append(("adc", T, ("r", "rcx")))
+            ops.append(("mov", ("A", 2 * i2 + 1), T))
+    all_ops = [("mov", ("M", c), ("imm", 0)) for c in sorted(prezero)] + ops
+    return all_ops, sorted(prezero)
+
+
+def x64_sqr_ref(x):
+    k, v = x
+    if k == "r":
+        return v
+    if k == "M":
+        return "QWORD PTR [rsp+%d]" % (8 * v)
+    if k == "a":
+        return "[rsi+%d]" % (8 * v)
+    if k == "A":
+        return "[rdi+%d]" % (8 * v)
+    return "0"
+
+
+def x64_sqr_asm(n):
+    """渲染列累加计划为 .S 文本 (含序言/尾声/预清零合并)."""
+    ops, prezero = x64_sqr_plan(n)
+    used = set()
+    need_m = False
+    for op in ops:
+        if op[0] == "#":
+            continue
+        for x in op[1:]:
+            if isinstance(x, tuple):
+                if x[0] == "r":
+                    used.add(x[1])
+                elif x[0] == "M":
+                    need_m = True
+    msize = 0
+    if need_m:
+        msize = (8 * (2 * n - 1) + 15) & ~15     # M[c] 偏移最大 8*(2n-2), 需再 +8
+
     b = []
-    b.append("    # 交叉乘(行0种子+配对行) -> 倍增 -> 对角平方折叠")
-    b.append(x64_prologue({"rbx", "r13", "r14", "r15"}, 2))
-    b.append("    mov     QWORD PTR [rdi], 0        // dst[0] = 0 (交叉列0恒为0)")
-    b.append("    mov     QWORD PTR [rdi+%d], 0    // dst[2n-1] = 0 (交叉不触及)" % (8 * (2 * n - 1)))
-
-    # ---- 行 0 种子: dst[k] = a_k*a_0 (k=1..n-1), 顶列 n (纯写) ----
-    b.append("    mov     r8, [rsi]                // a_0")
-    b.append("    xor     r14d, r14d              // c = 0")
-    for k in range(1, n):
-        b.append("    mov     rax, [rsi+%d]" % (8 * k))
-        b.append("    mul     r8")
-        b.append("    add     rax, r14               // lo + c")
-        b.append("    mov     [rdi+%d], rax" % (8 * k))
-        b.append("    mov     r14, rdx               // c = hi")
-        b.append("    adc     r14, 0")
-    b.append("    mov     [rdi+%d], r14           // 顶列直存" % (8 * n))
-
-    # ---- 配对行 (u,v) = (a_i, a_{i+1}), i = 1,3,... ----
-    for i in range(1, n - 2, 2):
-        b.append("    # --- 行对: a_%d 与 a_%d ---" % (i, i + 1))
-        b.append("    mov     r8, [rsi+%d]            // u = a_%d" % (8 * i, i))
-        b.append("    mov     r9, [rsi+%d]            // v = a_%d" % (8 * (i + 1), i + 1))
-        b.append("    xor     r15d, r15d             // cv = 0")
-        # 首列 2i+1: 仅 u 项 (a_{i+1}*a_i)
-        c0 = 2 * i + 1
-        b.append("    mov     r13, [rdi+%d]          // D 预载" % (8 * c0))
-        b.append("    mov     rax, [rsi+%d]          // a%d" % (8 * (i + 1), i + 1))
-        b.append("    mul     r8")
-        b.append("    add     r13, rax               // D + lo_u")
-        b.append("    mov     r14, rdx               // cu = hu")
-        b.append("    adc     r14, 0")
-        b.append("    mov     [rdi+%d], r13" % (8 * c0))
-        # c = 2i+2: 仅 u 项 (v 行此列为对角, 不存在)
-        if 2 * i + 2 <= i + n - 1:
-            c1 = 2 * i + 2
-            b.append("    mov     r13, [rdi+%d]          // D 预载" % (8 * c1))
-            b.append("    mov     rax, [rsi+%d]          // a%d*u" % (8 * (c1 - i), c1 - i))
-            b.append("    mul     r8")
-            b.append("    add     rax, r14               // lo_u + cu")
-            b.append("    mov     r14, rdx               // cu = hu")
-            b.append("    adc     r14, 0                 // += alpha")
-            b.append("    add     r13, rax               // D + lo_u'")
-            b.append("    adc     r14, 0                 // cu += gamma")
-            b.append("    mov     [rdi+%d], r13" % (8 * c1))
-        # cols c = 2i+3 .. i+n-1: u 项 a_{c-i}, v 项 a_{c-i-1}
-        for c in range(2 * i + 3, i + n):
-            b.append("    mov     r13, [rdi+%d]          // D 预载" % (8 * c))
-            b.append("    mov     rax, [rsi+%d]          // a%d*u" % (8 * (c - i), c - i))
-            b.append("    mul     r8")
-            b.append("    add     rax, r14               // lo_u + cu")
-            b.append("    mov     r14, rdx               // cu = hu")
-            b.append("    adc     r14, 0                 // += alpha")
-            b.append("    add     r13, rax               // D + lo_u'")
-            b.append("    adc     r14, 0                 // cu += gamma1")
-            b.append("    mov     rax, [rsi+%d]          // a%d*v" % (8 * (c - i - 1), c - i - 1))
-            b.append("    mul     r9")
-            b.append("    add     rax, r15               // lo_v + cv")
-            b.append("    mov     r15, rdx               // cv = hv")
-            b.append("    adc     r15, 0                 // += beta")
-            b.append("    add     r13, rax               // + lo_v'")
-            b.append("    mov     [rdi+%d], r13" % (8 * c))
-            b.append("    adc     r15, 0                 // cv += gamma2")
-        # 尾部: col i+n: X = lo(a_{n-1}v)+cu+cv; col i+n+1: Y = hv+bits
-        b.append("    mov     rax, [rsi+%d]          // a%d*v 顶部积" % (8 * (n - 1), n - 1))
-        b.append("    mul     r9")
-        b.append("    add     rax, r14               // + cu")
-        b.append("    mov     r10, rdx               // Y = hv")
-        b.append("    adc     r10, 0                 // Y += alpha")
-        b.append("    add     rax, r15               // + cv")
-        b.append("    mov     [rdi+%d], rax" % (8 * (i + n)))
-        b.append("    adc     r10, 0                 // Y += beta")
-        b.append("    mov     [rdi+%d], r10" % (8 * (i + n + 1)))
-
-    # ---- 剩余单行 (n 奇数): 行 n-2 ----
-    if (n - 2) % 2 == 1:
-        i = n - 2
-        b.append("    # --- 单行: a_%d ---" % i)
-        b.append("    mov     r8, [rsi+%d]            // u = a_%d" % (8 * i, i))
-        b.append("    xor     r14d, r14d             // c = 0")
-        for k in range(i + 1, n):
-            c = i + k
-            b.append("    mov     r13, [rdi+%d]" % (8 * c))
-            b.append("    mov     rax, [rsi+%d]" % (8 * k))
-            b.append("    mul     r8")
-            b.append("    add     rax, r14               // lo + c")
-            b.append("    mov     r14, rdx               // c = hi")
-            b.append("    adc     r14, 0")
-            b.append("    add     r13, rax               // D + lo'")
-            b.append("    adc     r14, 0")
-            b.append("    mov     [rdi+%d], r13" % (8 * c))
-        b.append("    mov     [rdi+%d], r14          // 顶列直存" % (8 * (i + n)))
-
-    # ---- 倍增: dst = 2*dst ----
-    b.append("    # dst *= 2")
-    for col in range(1, 2 * n):
-        b.append("    mov     rax, [rdi+%d]" % (8 * col))
-        b.append("    add     rax, rax" if col == 1 else "    adc     rax, rax")
-        b.append("    mov     [rdi+%d], rax" % (8 * col))
-
-    # ---- 对角: 折叠 a_i^2 (mulx, 与旧版相同的已验证模式) ----
-    b.append("    # 对角平方折叠")
-    b.append("    xor     ebx, ebx                // zero, 清 CF/OF")
-    b.append("    xor     r8d, r8d                // c = 0")
-    for i in range(n):
-        b.append("    mov     rdx, [rsi+%d]" % (8 * i))
-        b.append("    mov     rax, rdx")
-        b.append("    mulx    r11, r10, rax          // a%d^2" % i)
-        b.append("    mov     r9, [rdi+%d]" % (8 * (2 * i)))
-        b.append("    adox    r9, r8")
-        b.append("    adcx    r9, r10")
-        b.append("    mov     [rdi+%d], r9" % (8 * (2 * i)))
-        b.append("    mov     r8, r11")
-        b.append("    adcx    r8, rbx")
-        b.append("    adox    r8, rbx")
-        if i < n - 1:
-            b.append("    mov     r9, [rdi+%d]" % (8 * (2 * i + 1)))
-            b.append("    adcx    r9, r8")
-            b.append("    mov     [rdi+%d], r9" % (8 * (2 * i + 1)))
-            b.append("    mov     r8, rbx")
-            b.append("    adcx    r8, rbx               // c = CF")
-    b.append("    mov     r9, [rdi+%d]" % (8 * (2 * n - 1)))
-    b.append("    adcx    r9, r8                  // 最高列 (最终进位必为0)")
-    b.append("    mov     [rdi+%d], r9" % (8 * (2 * n - 1)))
-
-    b.append(x64_epilogue({"rbx", "r13", "r14", "r15"}, 2))
+    b.append("    # 列窗口 WIN[c%%8]=[%s]  rdx=行乘数  rax/rcx=段临时  r11=零(段内借作mulx)"
+             % ",".join(X64_WIN8))
+    b.append(x64_prologue(used, 2))
+    if msize:
+        b.append("    sub     rsp, %d               // M 交叉列数组, M[c]=[rsp+8c], c=1..%d" % (msize, 2 * n - 2))
+    # 预清零 (计划开头连续的 M<-0 op, 合并为向量/标量存储)
+    pz = list(prezero)
+    if pz:
+        if len(pz) >= 3:
+            b.append("    xorps   xmm0, xmm0")
+            k = 0
+            while k + 1 < len(pz):
+                if pz[k] + 1 == pz[k + 1]:
+                    b.append("    movdqu  [rsp+%d], xmm0       // M[%d..%d] = 0" % (8 * pz[k], pz[k], pz[k] + 1))
+                    k += 2
+                else:
+                    b.append("    mov     QWORD PTR [rsp+%d], 0" % (8 * pz[k]))
+                    k += 1
+            if k < len(pz):
+                b.append("    mov     QWORD PTR [rsp+%d], 0" % (8 * pz[k]))
+        else:
+            for c in pz:
+                b.append("    mov     QWORD PTR [rsp+%d], 0    // M[%d] 预清零" % (8 * c, c))
+    # 主体 (跳过已渲染的预清零 op)
+    body_start = len(pz)
+    for op in ops[body_start:]:
+        t = op[0]
+        if t == "#":
+            b.append("    // " + op[1])
+        elif t == "mulx":
+            b.append("    mulx    %s, %s, %s" % (x64_sqr_ref(op[1]), x64_sqr_ref(op[2]), x64_sqr_ref(op[3])))
+        elif t in ("adcx", "adox", "add", "adc"):
+            b.append("    %-6s %s, %s" % (t, x64_sqr_ref(op[1]), x64_sqr_ref(op[2])))
+        elif t == "mov":
+            d, s = op[1], op[2]
+            if d[0] == "r" and s[0] == "imm":
+                b.append("    mov     %s, 0" % e32(d[1]))
+            else:
+                b.append("    mov     %s, %s" % (x64_sqr_ref(d), x64_sqr_ref(s)))
+        elif t == "xor0":
+            b.append("    xor     %s, %s" % (e32(op[1][1]), e32(op[1][1])))
+        elif t == "movzxc":
+            r = op[1][1]
+            b.append("    setc    %s" % r8name(r))
+            b.append("    movzx   %s, %s" % (r, r8name(r)))
+    if msize:
+        b.append("    add     rsp, %d" % msize)
+    b.append(x64_epilogue(used, 2))
     return "\n".join(b)
 
 
@@ -517,7 +672,8 @@ def gen_x64_sqr():
 //
 //   平衡硬编码平方: [dst,2N] = [numa,N]^2。
 //   N <= 3 : 库内 sqr_basecase.S 小规模分支的特化
-//   N >= 4 : 交叉乘逐行累加 -> 整体倍增 -> 对角平方折叠
+//   N >= 4 : 交叉积列累加(FLINT 式, 8 列寄存器窗口 + adcx/adox 双链,
+//            完成列溢写栈数组) -> 整体倍增 -> 对角平方单链折叠
 //
 
 #include "lmmp_asm.h"
@@ -546,7 +702,7 @@ def gen_x64_sqr():
         elif n == 3:
             parts.append(x64_sqr_n3())
         else:
-            parts.append(x64_sqr_rows(n))
+            parts.append(x64_sqr_asm(n))
         parts.append("")
     return "\n".join(parts)
 

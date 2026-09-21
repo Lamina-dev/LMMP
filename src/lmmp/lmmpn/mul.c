@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/mparam.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -123,7 +124,7 @@ void lmmp_mul_basecase_unbalanced_(
 
 void lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb, mp_size_t n) {
     if (n < MUL_TOOM22_THRESHOLD)
-        lmmp_mul_basecase_(dst, numa, n, numb, n);
+        lmmp_mul_hard_n_(dst, numa, numb, n);
     else if (n < MUL_TOOM33_THRESHOLD)
         lmmp_mul_toom22_(dst, numa, n, numb, n);
     else if (n < MUL_TOOM44_THRESHOLD)
@@ -136,7 +137,7 @@ void lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restric
 
 void lmmp_sqr_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
     if (na < MUL_TOOM22_THRESHOLD)
-        lmmp_sqr_basecase_(dst, numa, na);
+        lmmp_sqr_hard_n_(dst, numa, na);
     else if (na < MUL_TOOM33_THRESHOLD)
         lmmp_sqr_toom2_(dst, numa, na);
     else if (na < MUL_TOOM44_THRESHOLD)
