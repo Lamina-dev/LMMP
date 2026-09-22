@@ -48,15 +48,15 @@ ASM_GSYM(lmmp_mul_hard_2_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #16]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #16]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -69,11 +69,11 @@ ASM_GSYM(lmmp_mul_hard_2_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #24]           // 顶列直存
     ret
 
@@ -87,21 +87,21 @@ ASM_GSYM(lmmp_mul_hard_3_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #24]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #24]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -114,20 +114,20 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #32]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -141,20 +141,20 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #40]           // 顶列直存
     ret
 
@@ -168,27 +168,27 @@ ASM_GSYM(lmmp_mul_hard_4_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #32]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #32]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -201,29 +201,29 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #40]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -237,29 +237,29 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #48]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -273,29 +273,29 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #56]           // 顶列直存
     ret
 
@@ -309,33 +309,33 @@ ASM_GSYM(lmmp_mul_hard_5_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #40]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #40]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -348,38 +348,38 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #48]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -393,38 +393,38 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #56]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -438,38 +438,38 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #64]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -483,38 +483,38 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #72]           // 顶列直存
     ret
 
@@ -528,39 +528,39 @@ ASM_GSYM(lmmp_mul_hard_6_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #48]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #48]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -573,47 +573,47 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #56]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -627,47 +627,47 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #64]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -681,47 +681,47 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #72]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -735,47 +735,47 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #80]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -789,47 +789,47 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #88]           // 顶列直存
     ret
 
@@ -843,45 +843,45 @@ ASM_GSYM(lmmp_mul_hard_7_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #56]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #56]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -894,56 +894,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #64]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -957,56 +957,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #72]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -1020,56 +1020,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #80]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -1083,56 +1083,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #88]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -1146,56 +1146,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -1209,56 +1209,56 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ret
 
@@ -1272,51 +1272,51 @@ ASM_GSYM(lmmp_mul_hard_8_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #64]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #64]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -1329,65 +1329,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #72]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -1401,65 +1401,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #80]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -1473,65 +1473,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #88]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -1545,65 +1545,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -1617,65 +1617,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -1689,65 +1689,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -1761,65 +1761,65 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ret
 
@@ -1833,57 +1833,57 @@ ASM_GSYM(lmmp_mul_hard_9_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #72]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #72]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -1896,74 +1896,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #80]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -1977,74 +1977,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #88]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -2058,74 +2058,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -2139,74 +2139,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -2220,74 +2220,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -2301,74 +2301,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -2382,74 +2382,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -2463,74 +2463,74 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ret
 
@@ -2544,63 +2544,63 @@ ASM_GSYM(lmmp_mul_hard_10_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #80]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #80]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -2613,83 +2613,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #88]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -2703,83 +2703,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -2793,83 +2793,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -2883,83 +2883,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -2973,83 +2973,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -3063,83 +3063,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -3153,83 +3153,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -3243,83 +3243,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -3333,83 +3333,83 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ret
 
@@ -3423,69 +3423,69 @@ ASM_GSYM(lmmp_mul_hard_11_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #88]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #88]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -3498,92 +3498,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -3597,92 +3597,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -3696,92 +3696,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -3795,92 +3795,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -3894,92 +3894,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -3993,92 +3993,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -4092,92 +4092,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -4191,92 +4191,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -4290,92 +4290,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -4389,92 +4389,92 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ret
 
@@ -4488,75 +4488,75 @@ ASM_GSYM(lmmp_mul_hard_12_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #96]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #96]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -4569,101 +4569,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -4677,101 +4677,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -4785,101 +4785,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -4893,101 +4893,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -5001,101 +5001,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -5109,101 +5109,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -5217,101 +5217,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -5325,101 +5325,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -5433,101 +5433,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -5541,101 +5541,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -5649,101 +5649,101 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ret
 
@@ -5757,81 +5757,81 @@ ASM_GSYM(lmmp_mul_hard_13_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #104]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #104]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -5844,110 +5844,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -5961,110 +5961,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -6078,110 +6078,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -6195,110 +6195,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -6312,110 +6312,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -6429,110 +6429,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -6546,110 +6546,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -6663,110 +6663,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -6780,110 +6780,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -6897,110 +6897,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -7014,110 +7014,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -7131,110 +7131,110 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ret
 
@@ -7248,87 +7248,87 @@ ASM_GSYM(lmmp_mul_hard_14_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #112]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #112]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -7341,119 +7341,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -7467,119 +7467,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -7593,119 +7593,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -7719,119 +7719,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -7845,119 +7845,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -7971,119 +7971,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -8097,119 +8097,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -8223,119 +8223,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -8349,119 +8349,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -8475,119 +8475,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -8601,119 +8601,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -8727,119 +8727,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -8853,119 +8853,119 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ret
 
@@ -8979,93 +8979,93 @@ ASM_GSYM(lmmp_mul_hard_15_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #112]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #120]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #120]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -9078,128 +9078,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -9213,128 +9213,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -9348,128 +9348,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -9483,128 +9483,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -9618,128 +9618,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -9753,128 +9753,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -9888,128 +9888,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -10023,128 +10023,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -10158,128 +10158,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -10293,128 +10293,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -10428,128 +10428,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -10563,128 +10563,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -10698,128 +10698,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #224]           // 顶列直存
     ldr     x3, [x2, #112]            // b_14
     ldr     x7, [x1]
@@ -10833,128 +10833,128 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #232]           // 顶列直存
     ret
 
@@ -10968,99 +10968,99 @@ ASM_GSYM(lmmp_mul_hard_16_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #112]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #120]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #128]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #128]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -11073,137 +11073,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -11217,137 +11217,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -11361,137 +11361,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -11505,137 +11505,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -11649,137 +11649,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -11793,137 +11793,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -11937,137 +11937,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -12081,137 +12081,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -12225,137 +12225,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -12369,137 +12369,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -12513,137 +12513,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -12657,137 +12657,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #224]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -12801,137 +12801,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #232]           // 顶列直存
     ldr     x3, [x2, #112]            // b_14
     ldr     x7, [x1]
@@ -12945,137 +12945,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #240]           // 顶列直存
     ldr     x3, [x2, #120]            // b_15
     ldr     x7, [x1]
@@ -13089,137 +13089,137 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #248]           // 顶列直存
     ret
 
@@ -13233,105 +13233,105 @@ ASM_GSYM(lmmp_mul_hard_17_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #112]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #120]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #128]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #136]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #136]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -13344,146 +13344,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -13497,146 +13497,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -13650,146 +13650,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -13803,146 +13803,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -13956,146 +13956,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -14109,146 +14109,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -14262,146 +14262,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -14415,146 +14415,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -14568,146 +14568,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -14721,146 +14721,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -14874,146 +14874,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #224]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -15027,146 +15027,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #232]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -15180,146 +15180,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #240]           // 顶列直存
     ldr     x3, [x2, #112]            // b_14
     ldr     x7, [x1]
@@ -15333,146 +15333,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #248]           // 顶列直存
     ldr     x3, [x2, #120]            // b_15
     ldr     x7, [x1]
@@ -15486,146 +15486,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #256]           // 顶列直存
     ldr     x3, [x2, #128]            // b_16
     ldr     x7, [x1]
@@ -15639,146 +15639,146 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #264]           // 顶列直存
     ret
 
@@ -15792,111 +15792,111 @@ ASM_GSYM(lmmp_mul_hard_18_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #112]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #120]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #128]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #136]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #144]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #144]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -15909,155 +15909,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -16071,155 +16071,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -16233,155 +16233,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -16395,155 +16395,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -16557,155 +16557,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -16719,155 +16719,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -16881,155 +16881,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -17043,155 +17043,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -17205,155 +17205,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -17367,155 +17367,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #224]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -17529,155 +17529,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #232]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -17691,155 +17691,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #240]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -17853,155 +17853,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #248]           // 顶列直存
     ldr     x3, [x2, #112]            // b_14
     ldr     x7, [x1]
@@ -18015,155 +18015,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #256]           // 顶列直存
     ldr     x3, [x2, #120]            // b_15
     ldr     x7, [x1]
@@ -18177,155 +18177,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #264]           // 顶列直存
     ldr     x3, [x2, #128]            // b_16
     ldr     x7, [x1]
@@ -18339,155 +18339,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #272]           // 顶列直存
     ldr     x3, [x2, #136]            // b_17
     ldr     x7, [x1]
@@ -18501,155 +18501,155 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #272]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #272]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #280]           // 顶列直存
     ret
 
@@ -18663,117 +18663,117 @@ ASM_GSYM(lmmp_mul_hard_19_):
     ldr     x7, [x1]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    str     x4, [x0]                // dst[0] = lo
-    mov     x6, x5                  // c = hi
+    str     x4, [x0]
+    mov     x6, x5
     ldr     x7, [x1, #8]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #8]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #16]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #24]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #32]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #40]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #48]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #56]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #64]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #72]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #80]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #88]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #96]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #104]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #112]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #120]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #128]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #136]
-    adc     x6, x5, xzr            // c = hi + CF
+    adc     x6, x5, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
-    adds    x8, x4, x6             // lo + c
+    adds    x8, x4, x6
     str     x8, [x0, #144]
-    adc     x6, x5, xzr            // c = hi + CF
-    str     x6, [x0, #152]           // dst[n] = c
+    adc     x6, x5, xzr
+    str     x6, [x0, #152]           // 顶列直存
     ldr     x3, [x2, #8]            // b_1
     ldr     x7, [x1]
     mul     x4, x7, x3
@@ -18786,164 +18786,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #16]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #16]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #160]           // 顶列直存
     ldr     x3, [x2, #16]            // b_2
     ldr     x7, [x1]
@@ -18957,164 +18957,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #24]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #24]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #168]           // 顶列直存
     ldr     x3, [x2, #24]            // b_3
     ldr     x7, [x1]
@@ -19128,164 +19128,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #32]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #32]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #176]           // 顶列直存
     ldr     x3, [x2, #32]            // b_4
     ldr     x7, [x1]
@@ -19299,164 +19299,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #40]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #40]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #184]           // 顶列直存
     ldr     x3, [x2, #40]            // b_5
     ldr     x7, [x1]
@@ -19470,164 +19470,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #48]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #48]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #192]           // 顶列直存
     ldr     x3, [x2, #48]            // b_6
     ldr     x7, [x1]
@@ -19641,164 +19641,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #56]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #56]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #200]           // 顶列直存
     ldr     x3, [x2, #56]            // b_7
     ldr     x7, [x1]
@@ -19812,164 +19812,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #64]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #64]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #208]           // 顶列直存
     ldr     x3, [x2, #64]            // b_8
     ldr     x7, [x1]
@@ -19983,164 +19983,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #72]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #72]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #216]           // 顶列直存
     ldr     x3, [x2, #72]            // b_9
     ldr     x7, [x1]
@@ -20154,164 +20154,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #80]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #80]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #224]           // 顶列直存
     ldr     x3, [x2, #80]            // b_10
     ldr     x7, [x1]
@@ -20325,164 +20325,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #88]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #88]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #232]           // 顶列直存
     ldr     x3, [x2, #88]            // b_11
     ldr     x7, [x1]
@@ -20496,164 +20496,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #96]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #96]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #240]           // 顶列直存
     ldr     x3, [x2, #96]            // b_12
     ldr     x7, [x1]
@@ -20667,164 +20667,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #104]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #104]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #248]           // 顶列直存
     ldr     x3, [x2, #104]            // b_13
     ldr     x7, [x1]
@@ -20838,164 +20838,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #112]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #112]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #256]           // 顶列直存
     ldr     x3, [x2, #112]            // b_14
     ldr     x7, [x1]
@@ -21009,164 +21009,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #120]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #120]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #264]           // 顶列直存
     ldr     x3, [x2, #120]            // b_15
     ldr     x7, [x1]
@@ -21180,164 +21180,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #128]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #128]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #272]           // 顶列直存
     ldr     x3, [x2, #128]            // b_16
     ldr     x7, [x1]
@@ -21351,164 +21351,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #136]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #136]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #272]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #272]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #280]           // 顶列直存
     ldr     x3, [x2, #136]            // b_17
     ldr     x7, [x1]
@@ -21522,164 +21522,164 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #144]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #144]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #272]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #272]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #280]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #280]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #288]           // 顶列直存
     ldr     x3, [x2, #144]            // b_18
     ldr     x7, [x1]
@@ -21693,163 +21693,163 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #152]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #152]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #16]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #160]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #160]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #24]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #168]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #168]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #32]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #176]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #176]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #40]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #184]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #184]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #48]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #192]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #192]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #56]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #200]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #200]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #64]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #208]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #208]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #72]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #216]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #216]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #80]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #224]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #224]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #88]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #232]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #232]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #96]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #240]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #240]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #104]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #248]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #248]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #112]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #256]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #256]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #120]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #264]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #264]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #128]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #272]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #272]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #136]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #280]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #280]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     ldr     x7, [x1, #144]
     mul     x4, x7, x3
     umulh   x5, x7, x3
     ldr     x8, [x0, #288]
-    adds    x7, x4, x6             // t = lo + c
-    adc     x6, x5, xzr            // c = hi + γ1
-    adds    x8, x8, x7             // v = dst + t
+    adds    x7, x4, x6
+    adc     x6, x5, xzr
+    adds    x8, x8, x7
     str     x8, [x0, #288]
-    adc     x6, x6, xzr            // c += γ2
+    adc     x6, x6, xzr
     str     x6, [x0, #296]           // 顶列直存
     ret

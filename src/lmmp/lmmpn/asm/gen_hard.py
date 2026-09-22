@@ -136,56 +136,51 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
     rb = r8name(rreg)
 
     # ---- 行 0: m 序列 ----
-    b.append("    mov     rdx, [%s+%d]            // 行乘数 0" % (rows, 0))
-    b.append("    mulx    %s, %s, [%s+%d]       // hi0->%s lo0->%s"
-             % (ring[0], scr, inner, ioff, ring[0], scr))
+    b.append("    mov     rdx, [%s+%d]" % (rows, 0))
+    b.append("    mulx    %s, %s, [%s+%d]" % (ring[0], scr, inner, ioff))
     if rmw:
         b.append("    mov     rdx, [rdi+%d]" % (8 * off))
-        b.append("    add     rdx, %s               // dst + lo0" % scr)
+        b.append("    add     rdx, %s" % scr)
         b.append("    mov     [rdi+%d], rdx" % (8 * off))
         b.append("    setc    %s" % pcb)
-        b.append("    movzx   %s, %s              // pc = CF" % (pcreg, pcb))
-        b.append("    xor     %s, %s              // R = 0" % (e32(rreg), e32(rreg)))
-        b.append("    mov     rdx, [%s+%d]            // 重载行乘数" % (rows, 0))
+        b.append("    movzx   %s, %s" % (pcreg, pcb))
+        b.append("    xor     %s, %s" % (e32(rreg), e32(rreg)))
+        b.append("    mov     rdx, [%s+%d]" % (rows, 0))
     else:
-        b.append("    mov     [rdi+%d], %s           // dst[%d] = lo0" % (8 * off, scr, off))
+        b.append("    mov     [rdi+%d], %s" % (8 * off, scr))
     for k in range(1, n):
-        b.append("    mulx    %s, %s, [%s+%d]     // hi%d->%s lo%d->%s"
-                 % (ring[k], scr, inner, ioff + 8 * k, k, ring[k], k, scr))
-        b.append("    adcx    %s, %s                // col%d = hi%d + lo%d"
-                 % (ring[k - 1], scr, off + k, k - 1, k))
-    b.append("    adcx    %s, %s                  // col%d = hi%d + CF" % (ring[n - 1], zero, off + n, n - 1))
+        b.append("    mulx    %s, %s, [%s+%d]" % (ring[k], scr, inner, ioff + 8 * k))
+        b.append("    adcx    %s, %s" % (ring[k - 1], scr))
+    b.append("    adcx    %s, %s" % (ring[n - 1], zero))
 
-    # ---- 行 j = 1..nrows-1: am 序列 ----
+    # ---- 行 j = 1..nrows-1: am 序列 (CF 链收 hi, OF 链收 lo) ----
     for j in range(1, nrows):
         col = off + j
-        b.append("    mov     rdx, [%s+%d]            // 行乘数 %d" % (rows, 8 * j, j))
-        b.append("    mulx    %s, %s, [%s+%d]       // hi0->%s lo0->%s"
-                 % (ring[n], scr, inner, ioff, ring[n], scr))
-        b.append("    adcx    %s, %s                // col%d 完成, CF=cf1" % (ring[0], scr, col))
+        b.append("    mov     rdx, [%s+%d]" % (rows, 8 * j))
+        b.append("    mulx    %s, %s, [%s+%d]" % (ring[n], scr, inner, ioff))
+        b.append("    adcx    %s, %s" % (ring[0], scr))
         if rmw:
-            b.append("    setc    %s                  // R = cf1" % rb)
+            b.append("    setc    %s" % rb)
             b.append("    mov     rdx, [rdi+%d]" % (8 * col))
-            b.append("    add     rdx, %s              // += pc" % pcreg)
+            b.append("    add     rdx, %s" % pcreg)
             b.append("    setc    %s" % pcb)
-            b.append("    movzx   %s, %s              // pc = gamma_a" % (pcreg, pcb))
-            b.append("    add     rdx, %s              // += ring0" % ring[0])
+            b.append("    movzx   %s, %s" % (pcreg, pcb))
+            b.append("    add     rdx, %s" % ring[0])
             b.append("    mov     [rdi+%d], rdx" % (8 * col))
-            b.append("    adc     %s, 0                // pc += gamma_b" % pcreg)
-            b.append("    add     %s, %s               // pc += cf1" % (pcreg, rreg))
-            b.append("    xor     %s, %s              // R = 0" % (e32(rreg), e32(rreg)))
-            b.append("    mov     rdx, [%s+%d]            // 重载行乘数" % (rows, 8 * j))
+            b.append("    adc     %s, 0" % pcreg)
+            b.append("    add     %s, %s" % (pcreg, rreg))
+            b.append("    xor     %s, %s" % (e32(rreg), e32(rreg)))
+            b.append("    mov     rdx, [%s+%d]" % (rows, 8 * j))
         else:
-            b.append("    mov     [rdi+%d], %s           // dst[%d]" % (8 * col, ring[0], col))
+            b.append("    mov     [rdi+%d], %s" % (8 * col, ring[0]))
         hi_dest = ring[n]
         for k in range(1, n):
             hi_dest = scr if k % 2 == 1 else ring[n]
             hi_prev = ring[n] if k % 2 == 1 else scr
-            b.append("    mulx    %s, %s, [%s+%d]     // hi%d->%s lo%d->ring0"
-                     % (hi_dest, ring[0], inner, ioff + 8 * k, k, hi_dest, k))
-            b.append("    adcx    %s, %s               // CF 链: += hi%d" % (ring[k], hi_prev, k - 1))
-            b.append("    adox    %s, %s               // OF 链: += lo%d" % (ring[k], ring[0], k))
-        b.append("    adcx    %s, %s                 // 顶列 = hi%d + 进位" % (hi_dest, zero, n - 1))
+            b.append("    mulx    %s, %s, [%s+%d]" % (hi_dest, ring[0], inner, ioff + 8 * k))
+            b.append("    adcx    %s, %s" % (ring[k], hi_prev))
+            b.append("    adox    %s, %s" % (ring[k], ring[0]))
+        b.append("    adcx    %s, %s" % (hi_dest, zero))
         b.append("    adox    %s, %s" % (hi_dest, zero))
         if n % 2 == 1:
             ring = ring[1:] + ring[:1]
@@ -197,11 +192,11 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
     # ---- 尾部: 存 dst[off+nrows ..], rmw 时 pc 以线性链消化 ----
     if rmw:
         b.append("    mov     rdx, %s" % ring[0])
-        b.append("    add     rdx, %s                // += pc" % pcreg)
+        b.append("    add     rdx, %s" % pcreg)
         b.append("    mov     [rdi+%d], rdx" % (8 * (off + nrows)))
         for k in range(1, n):
             b.append("    mov     rdx, %s" % ring[k])
-            b.append("    adc     rdx, 0               // 链式消化进位")
+            b.append("    adc     rdx, 0")
             b.append("    mov     [rdi+%d], rdx" % (8 * (off + nrows + k)))
     else:
         for k in range(n):
@@ -396,7 +391,8 @@ def x64_sqr_plan(n):
         (每行结束 CF=OF=0);
       - 行 0 种子: mulx 直写新鲜列 (仅单链);
       - 倍增 T *= 2 (寄存器链或 M 波动扫描), setc 收顶;
-      - 对角折叠: 单条 adc 链 R_k = T'_k + D_k, a_i^2 由 mulx 即时产生.
+      - 对角折叠: 纯 adc 链 R_k = T'_k + D_k, a_i^2 由 mulx 即时产生.
+        (曾实测融合倍增方案: 省 M 往返但每 limb 双链串行 2 周期, 慢 ~2.5%, 弃)
     返回 (ops, prezero): prezero 为必须预清零的 M 列 (会在 RMW 前被读).
     """
     W = 8
@@ -527,6 +523,9 @@ def x64_sqr_plan(n):
             store_m(c, R(c))
 
     # ================= 倍增 T *= 2 =================
+    # 独立 add/adc 链 (1 周期/列) 与折叠的纯 adc 链互不依赖, 可被乱序引擎
+    # 重叠; 实测融合倍增(每 limb adcx+adox 串行 2 周期)反而慢 ~2.5%, 故
+    # 保留两段式, 代价仅倍增段每列一次 M 读写的往返。
     ops.append(("#", "--- 倍增 ---"))
     if full:
         ops.append(("add", R(1), R(1)))
@@ -555,6 +554,7 @@ def x64_sqr_plan(n):
         ops.append(("movzxc", ("r", X64_SQ_SH)))
 
     # ================= 对角折叠: R = 2T + sum a_i^2 =================
+    # 纯 adc 链 (1 周期/limb), 对角项由 mulx 即时产生, M 倍增值经寄存器加数
     ops.append(("#", "--- 对角折叠 ---"))
     src = (lambda c: R(c)) if full else (lambda c: ("M", c))
     T = ("r", X64_SQ_SL)
@@ -587,7 +587,7 @@ def x64_sqr_ref(x):
     if k == "r":
         return v
     if k == "M":
-        return "QWORD PTR [rsp+%d]" % (8 * v)
+        return "[rsp+%d]" % (8 * v)
     if k == "a":
         return "[rsi+%d]" % (8 * v)
     if k == "A":
@@ -646,10 +646,13 @@ def x64_sqr_asm(n):
         elif t == "mulx":
             b.append("    mulx    %s, %s, %s" % (x64_sqr_ref(op[1]), x64_sqr_ref(op[2]), x64_sqr_ref(op[3])))
         elif t in ("adcx", "adox", "add", "adc"):
-            b.append("    %-6s %s, %s" % (t, x64_sqr_ref(op[1]), x64_sqr_ref(op[2])))
+            b.append("    %-7s %s, %s" % (t, x64_sqr_ref(op[1]), x64_sqr_ref(op[2])))
         elif t == "mov":
             d, s = op[1], op[2]
-            if d[0] == "r" and s[0] == "imm":
+            if d[0] == "M" and s[0] == "imm":
+                b.append("    mov     QWORD PTR [rsp+%d], 0    // M[%d] 预清零"
+                         % (8 * d[1], d[1]))
+            elif d[0] == "r" and s[0] == "imm":
                 b.append("    mov     %s, 0" % e32(d[1]))
             else:
                 b.append("    mov     %s, %s" % (x64_sqr_ref(d), x64_sqr_ref(s)))
@@ -735,16 +738,16 @@ def arm64_mul(n):
     b.append("    ldr     %s, [x1]" % t)
     b.append("    mul     %s, %s, %s" % (pl, t, ta))
     b.append("    umulh   %s, %s, %s" % (h, t, ta))
-    b.append("    str     %s, [x0]                // dst[0] = lo" % pl)
-    b.append("    mov     %s, %s                  // c = hi" % (c, h))
+    b.append("    str     %s, [x0]" % pl)
+    b.append("    mov     %s, %s" % (c, h))
     for i in range(1, n):
         b.append("    ldr     %s, [x1, #%d]" % (t, 8 * i))
         b.append("    mul     %s, %s, %s" % (pl, t, ta))
         b.append("    umulh   %s, %s, %s" % (h, t, ta))
-        b.append("    adds    %s, %s, %s             // lo + c" % (v, pl, c))
+        b.append("    adds    %s, %s, %s" % (v, pl, c))
         b.append("    str     %s, [x0, #%d]" % (v, 8 * i))
-        b.append("    adc     %s, %s, xzr            // c = hi + CF" % (c, h))
-    b.append("    str     %s, [x0, #%d]           // dst[n] = c" % (c, 8 * n))
+        b.append("    adc     %s, %s, xzr" % (c, h))
+    b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * n))
 
     # ---- 行 j = 1..n-1: dst[j..j+n-1] += numa * b_j ----
     for j in range(1, n):
@@ -762,11 +765,11 @@ def arm64_mul(n):
             b.append("    mul     %s, %s, %s" % (pl, t, ta))
             b.append("    umulh   %s, %s, %s" % (h, t, ta))
             b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (j + i)))
-            b.append("    adds    %s, %s, %s             // t = lo + c" % (t, pl, c))
-            b.append("    adc     %s, %s, xzr            // c = hi + γ1" % (c, h))
-            b.append("    adds    %s, %s, %s             // v = dst + t" % (v, v, t))
+            b.append("    adds    %s, %s, %s" % (t, pl, c))
+            b.append("    adc     %s, %s, xzr" % (c, h))
+            b.append("    adds    %s, %s, %s" % (v, v, t))
             b.append("    str     %s, [x0, #%d]" % (v, 8 * (j + i)))
-            b.append("    adc     %s, %s, xzr            // c += γ2" % (c, c))
+            b.append("    adc     %s, %s, xzr" % (c, c))
         b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * (j + n)))
 
     b.append("    ret")
@@ -807,8 +810,8 @@ def arm64_sqr_rows(n):
     ta, pl, h, c, t, v = "x3", "x4", "x5", "x6", "x7", "x8"
     b = []
     b.append("    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角")
-    b.append("    str     xzr, [x0]                // dst[0] = 0")
-    b.append("    str     xzr, [x0, #%d]           // dst[2n-1] = 0" % (8 * (2 * n - 1)))
+    b.append("    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)")
+    b.append("    str     xzr, [x0, #%d]           // dst[2n-1] = 0 (交叉不触及)" % (8 * (2 * n - 1)))
 
     # ---- 行 0: dst[k] = a_k*a_0, k = 1..n-1, 顶列 n (纯写) ----
     b.append("    ldr     %s, [x1]                 // a_0" % ta)
@@ -819,11 +822,11 @@ def arm64_sqr_rows(n):
         if idx == 0:
             b.append("    mov     %s, %s" % (v, pl))
             b.append("    str     %s, [x0, #%d]" % (v, 8 * k))
-            b.append("    mov     %s, %s                  // c = hi" % (c, h))
+            b.append("    mov     %s, %s" % (c, h))
         else:
-            b.append("    adds    %s, %s, %s             // lo + c" % (v, pl, c))
+            b.append("    adds    %s, %s, %s" % (v, pl, c))
             b.append("    str     %s, [x0, #%d]" % (v, 8 * k))
-            b.append("    adc     %s, %s, xzr            // c = hi + CF" % (c, h))
+            b.append("    adc     %s, %s, xzr" % (c, h))
     if n >= 2:
         b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * n))
 
@@ -841,15 +844,15 @@ def arm64_sqr_rows(n):
                 b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
                 b.append("    adc     %s, %s, xzr" % (c, h))
             else:
-                b.append("    adds    %s, %s, %s             // t = lo + c" % (t, pl, c))
-                b.append("    adc     %s, %s, xzr            // c = hi + γ1" % (c, h))
-                b.append("    adds    %s, %s, %s             // v = dst + t" % (v, v, t))
+                b.append("    adds    %s, %s, %s" % (t, pl, c))
+                b.append("    adc     %s, %s, xzr" % (c, h))
+                b.append("    adds    %s, %s, %s" % (v, v, t))
                 b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
-                b.append("    adc     %s, %s, xzr            // c += γ2" % (c, c))
+                b.append("    adc     %s, %s, xzr" % (c, c))
         b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * (i + n)))
 
     # ---- 倍增: dst = 2*dst ----
-    b.append("    # dst *= 2")
+    b.append("    // dst *= 2")
     for col in range(1, 2 * n):
         b.append("    ldr     %s, [x0, #%d]" % (v, 8 * col))
         op = "adds" if col == 1 else "adcs"
@@ -857,7 +860,7 @@ def arm64_sqr_rows(n):
         b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
 
     # ---- 对角: 折叠 a_i^2 ----
-    b.append("    # 对角平方折叠")
+    b.append("    // 对角平方折叠")
     b.append("    ldr     %s, [x1]" % t)
     b.append("    mul     %s, %s, %s" % (pl, t, t))
     b.append("    umulh   %s, %s, %s" % (h, t, t))
@@ -866,7 +869,6 @@ def arm64_sqr_rows(n):
     b.append("    str     %s, [x0]" % v)
     b.append("    adc     %s, %s, xzr" % (c, h))
     if n >= 2:
-        # i=0 的奇数列 (col 1): dst[1] += c, 新 c = CF
         b.append("    ldr     %s, [x0, #8]" % v)
         b.append("    adds    %s, %s, %s" % (v, v, c))
         b.append("    str     %s, [x0, #8]" % v)
@@ -876,11 +878,11 @@ def arm64_sqr_rows(n):
         b.append("    mul     %s, %s, %s" % (pl, t, t))
         b.append("    umulh   %s, %s, %s" % (h, t, t))
         b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (2 * i)))
-        b.append("    adds    %s, %s, %s             // t = c + lo" % (t, c, pl))
-        b.append("    adc     %s, %s, xzr            // c = hi + γ1" % (c, h))
-        b.append("    adds    %s, %s, %s             // v = dst + t" % (v, v, t))
+        b.append("    adds    %s, %s, %s" % (t, c, pl))
+        b.append("    adc     %s, %s, xzr" % (c, h))
+        b.append("    adds    %s, %s, %s" % (v, v, t))
         b.append("    str     %s, [x0, #%d]" % (v, 8 * (2 * i)))
-        b.append("    adc     %s, %s, xzr            // c += γ2" % (c, c))
+        b.append("    adc     %s, %s, xzr" % (c, c))
         if i < n - 1:
             b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (2 * i + 1)))
             b.append("    adds    %s, %s, %s" % (v, v, c))
