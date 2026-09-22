@@ -53,7 +53,7 @@ ASM_GSYM(lmmp_mul_hard_1_):
 ASM_GSYM(lmmp_mul_hard_2_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9] scr=r10 zero=r11
+    # ring=[rax,r8,r9] scr=r10 zero=r11 spare=r12
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -99,7 +99,7 @@ ASM_GSYM(lmmp_mul_hard_2_):
 ASM_GSYM(lmmp_mul_hard_3_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10] scr=r11 zero=r12
+    # ring=[rax,r8,r9,r10] scr=r11 zero=r12 spare=r13
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -116,9 +116,9 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mulx    rax, r11, [rsi+0]
     mov     [rdi+0], r11
     mulx    r8, r11, [rsi+8]
+    mulx    r9, r13, [rsi+16]
     adcx    rax, r11
-    mulx    r9, r11, [rsi+16]
-    adcx    r8, r11
+    adcx    r8, r13
     adcx    r9, r12
     mov     rdx, [rcx+8]
     mulx    r10, r11, [rsi+0]
@@ -126,10 +126,10 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mov     [rdi+8], rax
     mulx    r11, rax, [rsi+8]
     adcx    r8, r10
+    mulx    r10, r13, [rsi+16]
     adox    r8, rax
-    mulx    r10, rax, [rsi+16]
     adcx    r9, r11
-    adox    r9, rax
+    adox    r9, r13
     adcx    r10, r12
     adox    r10, r12
     mov     rdx, [rcx+16]
@@ -138,10 +138,10 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mov     [rdi+16], r8
     mulx    r11, r8, [rsi+8]
     adcx    r9, rax
+    mulx    rax, r13, [rsi+16]
     adox    r9, r8
-    mulx    rax, r8, [rsi+16]
     adcx    r10, r11
-    adox    r10, r8
+    adox    r10, r13
     adcx    rax, r12
     adox    rax, r12
     mov     [rdi+24], r9
@@ -163,7 +163,7 @@ ASM_GSYM(lmmp_mul_hard_3_):
 ASM_GSYM(lmmp_mul_hard_4_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10,r11] scr=r12 zero=r13
+    # ring=[rax,r8,r9,r10,r11] scr=r12 zero=r13 spare=r14
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -180,9 +180,9 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mulx    rax, r12, [rsi+0]
     mov     [rdi+0], r12
     mulx    r8, r12, [rsi+8]
+    mulx    r9, r14, [rsi+16]
     adcx    rax, r12
-    mulx    r9, r12, [rsi+16]
-    adcx    r8, r12
+    adcx    r8, r14
     mulx    r10, r12, [rsi+24]
     adcx    r9, r12
     adcx    r10, r13
@@ -192,10 +192,10 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mov     [rdi+8], rax
     mulx    r12, rax, [rsi+8]
     adcx    r8, r11
+    mulx    r11, r14, [rsi+16]
     adox    r8, rax
-    mulx    r11, rax, [rsi+16]
     adcx    r9, r12
-    adox    r9, rax
+    adox    r9, r14
     mulx    r12, rax, [rsi+24]
     adcx    r10, r11
     adox    r10, rax
@@ -207,10 +207,10 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mov     [rdi+16], r8
     mulx    r11, r8, [rsi+8]
     adcx    r9, rax
+    mulx    rax, r14, [rsi+16]
     adox    r9, r8
-    mulx    rax, r8, [rsi+16]
     adcx    r10, r11
-    adox    r10, r8
+    adox    r10, r14
     mulx    r11, r8, [rsi+24]
     adcx    r12, rax
     adox    r12, r8
@@ -222,10 +222,10 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mov     [rdi+24], r9
     mulx    rax, r9, [rsi+8]
     adcx    r10, r8
+    mulx    r8, r14, [rsi+16]
     adox    r10, r9
-    mulx    r8, r9, [rsi+16]
     adcx    r12, rax
-    adox    r12, r9
+    adox    r12, r14
     mulx    rax, r9, [rsi+24]
     adcx    r11, r8
     adox    r11, r9
@@ -251,7 +251,7 @@ ASM_GSYM(lmmp_mul_hard_4_):
 ASM_GSYM(lmmp_mul_hard_5_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10,r11,r12] scr=r13 zero=r14
+    # ring=[rax,r8,r9,r10,r11,r12] scr=r13 zero=r14 spare=r15
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -268,13 +268,13 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mulx    rax, r13, [rsi+0]
     mov     [rdi+0], r13
     mulx    r8, r13, [rsi+8]
+    mulx    r9, r15, [rsi+16]
     adcx    rax, r13
-    mulx    r9, r13, [rsi+16]
-    adcx    r8, r13
+    adcx    r8, r15
     mulx    r10, r13, [rsi+24]
+    mulx    r11, r15, [rsi+32]
     adcx    r9, r13
-    mulx    r11, r13, [rsi+32]
-    adcx    r10, r13
+    adcx    r10, r15
     adcx    r11, r14
     mov     rdx, [rcx+8]
     mulx    r12, r13, [rsi+0]
@@ -282,16 +282,16 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mov     [rdi+8], rax
     mulx    r13, rax, [rsi+8]
     adcx    r8, r12
+    mulx    r12, r15, [rsi+16]
     adox    r8, rax
-    mulx    r12, rax, [rsi+16]
     adcx    r9, r13
-    adox    r9, rax
+    adox    r9, r15
     mulx    r13, rax, [rsi+24]
     adcx    r10, r12
+    mulx    r12, r15, [rsi+32]
     adox    r10, rax
-    mulx    r12, rax, [rsi+32]
     adcx    r11, r13
-    adox    r11, rax
+    adox    r11, r15
     adcx    r12, r14
     adox    r12, r14
     mov     rdx, [rcx+16]
@@ -300,16 +300,16 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mov     [rdi+16], r8
     mulx    r13, r8, [rsi+8]
     adcx    r9, rax
+    mulx    rax, r15, [rsi+16]
     adox    r9, r8
-    mulx    rax, r8, [rsi+16]
     adcx    r10, r13
-    adox    r10, r8
+    adox    r10, r15
     mulx    r13, r8, [rsi+24]
     adcx    r11, rax
+    mulx    rax, r15, [rsi+32]
     adox    r11, r8
-    mulx    rax, r8, [rsi+32]
     adcx    r12, r13
-    adox    r12, r8
+    adox    r12, r15
     adcx    rax, r14
     adox    rax, r14
     mov     rdx, [rcx+24]
@@ -318,16 +318,16 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mov     [rdi+24], r9
     mulx    r13, r9, [rsi+8]
     adcx    r10, r8
+    mulx    r8, r15, [rsi+16]
     adox    r10, r9
-    mulx    r8, r9, [rsi+16]
     adcx    r11, r13
-    adox    r11, r9
+    adox    r11, r15
     mulx    r13, r9, [rsi+24]
     adcx    r12, r8
+    mulx    r8, r15, [rsi+32]
     adox    r12, r9
-    mulx    r8, r9, [rsi+32]
     adcx    rax, r13
-    adox    rax, r9
+    adox    rax, r15
     adcx    r8, r14
     adox    r8, r14
     mov     rdx, [rcx+32]
@@ -336,16 +336,16 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mov     [rdi+32], r10
     mulx    r13, r10, [rsi+8]
     adcx    r11, r9
+    mulx    r9, r15, [rsi+16]
     adox    r11, r10
-    mulx    r9, r10, [rsi+16]
     adcx    r12, r13
-    adox    r12, r10
+    adox    r12, r15
     mulx    r13, r10, [rsi+24]
     adcx    rax, r9
+    mulx    r9, r15, [rsi+32]
     adox    rax, r10
-    mulx    r9, r10, [rsi+32]
     adcx    r8, r13
-    adox    r8, r10
+    adox    r8, r15
     adcx    r9, r14
     adox    r9, r14
     mov     [rdi+40], r11
@@ -369,7 +369,7 @@ ASM_GSYM(lmmp_mul_hard_5_):
 ASM_GSYM(lmmp_mul_hard_6_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10,r11,r12,r13] scr=r14 zero=r15
+    # ring=[rax,r8,r9,r10,r11,r12,r13] scr=r14 zero=r15 spare=rbx
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -377,6 +377,7 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
 #endif
+    push    rbx
     push    r12
     push    r13
     push    r14
@@ -386,13 +387,13 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mulx    rax, r14, [rsi+0]
     mov     [rdi+0], r14
     mulx    r8, r14, [rsi+8]
+    mulx    r9, rbx, [rsi+16]
     adcx    rax, r14
-    mulx    r9, r14, [rsi+16]
-    adcx    r8, r14
+    adcx    r8, rbx
     mulx    r10, r14, [rsi+24]
+    mulx    r11, rbx, [rsi+32]
     adcx    r9, r14
-    mulx    r11, r14, [rsi+32]
-    adcx    r10, r14
+    adcx    r10, rbx
     mulx    r12, r14, [rsi+40]
     adcx    r11, r14
     adcx    r12, r15
@@ -402,16 +403,16 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     [rdi+8], rax
     mulx    r14, rax, [rsi+8]
     adcx    r8, r13
+    mulx    r13, rbx, [rsi+16]
     adox    r8, rax
-    mulx    r13, rax, [rsi+16]
     adcx    r9, r14
-    adox    r9, rax
+    adox    r9, rbx
     mulx    r14, rax, [rsi+24]
     adcx    r10, r13
+    mulx    r13, rbx, [rsi+32]
     adox    r10, rax
-    mulx    r13, rax, [rsi+32]
     adcx    r11, r14
-    adox    r11, rax
+    adox    r11, rbx
     mulx    r14, rax, [rsi+40]
     adcx    r12, r13
     adox    r12, rax
@@ -423,16 +424,16 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     [rdi+16], r8
     mulx    r13, r8, [rsi+8]
     adcx    r9, rax
+    mulx    rax, rbx, [rsi+16]
     adox    r9, r8
-    mulx    rax, r8, [rsi+16]
     adcx    r10, r13
-    adox    r10, r8
+    adox    r10, rbx
     mulx    r13, r8, [rsi+24]
     adcx    r11, rax
+    mulx    rax, rbx, [rsi+32]
     adox    r11, r8
-    mulx    rax, r8, [rsi+32]
     adcx    r12, r13
-    adox    r12, r8
+    adox    r12, rbx
     mulx    r13, r8, [rsi+40]
     adcx    r14, rax
     adox    r14, r8
@@ -444,16 +445,16 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     [rdi+24], r9
     mulx    rax, r9, [rsi+8]
     adcx    r10, r8
+    mulx    r8, rbx, [rsi+16]
     adox    r10, r9
-    mulx    r8, r9, [rsi+16]
     adcx    r11, rax
-    adox    r11, r9
+    adox    r11, rbx
     mulx    rax, r9, [rsi+24]
     adcx    r12, r8
+    mulx    r8, rbx, [rsi+32]
     adox    r12, r9
-    mulx    r8, r9, [rsi+32]
     adcx    r14, rax
-    adox    r14, r9
+    adox    r14, rbx
     mulx    rax, r9, [rsi+40]
     adcx    r13, r8
     adox    r13, r9
@@ -465,16 +466,16 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     [rdi+32], r10
     mulx    r8, r10, [rsi+8]
     adcx    r11, r9
+    mulx    r9, rbx, [rsi+16]
     adox    r11, r10
-    mulx    r9, r10, [rsi+16]
     adcx    r12, r8
-    adox    r12, r10
+    adox    r12, rbx
     mulx    r8, r10, [rsi+24]
     adcx    r14, r9
+    mulx    r9, rbx, [rsi+32]
     adox    r14, r10
-    mulx    r9, r10, [rsi+32]
     adcx    r13, r8
-    adox    r13, r10
+    adox    r13, rbx
     mulx    r8, r10, [rsi+40]
     adcx    rax, r9
     adox    rax, r10
@@ -486,16 +487,16 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     [rdi+40], r11
     mulx    r9, r11, [rsi+8]
     adcx    r12, r10
+    mulx    r10, rbx, [rsi+16]
     adox    r12, r11
-    mulx    r10, r11, [rsi+16]
     adcx    r14, r9
-    adox    r14, r11
+    adox    r14, rbx
     mulx    r9, r11, [rsi+24]
     adcx    r13, r10
+    mulx    r10, rbx, [rsi+32]
     adox    r13, r11
-    mulx    r10, r11, [rsi+32]
     adcx    rax, r9
-    adox    rax, r11
+    adox    rax, rbx
     mulx    r9, r11, [rsi+40]
     adcx    r8, r10
     adox    r8, r11
@@ -511,6 +512,7 @@ ASM_GSYM(lmmp_mul_hard_6_):
     pop     r14
     pop     r13
     pop     r12
+    pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
     pop     rdi
@@ -523,7 +525,7 @@ ASM_GSYM(lmmp_mul_hard_6_):
 ASM_GSYM(lmmp_mul_hard_7_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10,r11,r12,r13,r14] scr=r15 zero=rbx
+    # ring=[rax,r8,r9,r10,r11,r12,r13,r14] scr=r15 zero=rbx spare=rbp
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi
@@ -532,6 +534,7 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     rcx, r8                 // numb
 #endif
     push    rbx
+    push    rbp
     push    r12
     push    r13
     push    r14
@@ -541,17 +544,17 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mulx    rax, r15, [rsi+0]
     mov     [rdi+0], r15
     mulx    r8, r15, [rsi+8]
+    mulx    r9, rbp, [rsi+16]
     adcx    rax, r15
-    mulx    r9, r15, [rsi+16]
-    adcx    r8, r15
+    adcx    r8, rbp
     mulx    r10, r15, [rsi+24]
+    mulx    r11, rbp, [rsi+32]
     adcx    r9, r15
-    mulx    r11, r15, [rsi+32]
-    adcx    r10, r15
+    adcx    r10, rbp
     mulx    r12, r15, [rsi+40]
+    mulx    r13, rbp, [rsi+48]
     adcx    r11, r15
-    mulx    r13, r15, [rsi+48]
-    adcx    r12, r15
+    adcx    r12, rbp
     adcx    r13, rbx
     mov     rdx, [rcx+8]
     mulx    r14, r15, [rsi+0]
@@ -559,22 +562,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+8], rax
     mulx    r15, rax, [rsi+8]
     adcx    r8, r14
+    mulx    r14, rbp, [rsi+16]
     adox    r8, rax
-    mulx    r14, rax, [rsi+16]
     adcx    r9, r15
-    adox    r9, rax
+    adox    r9, rbp
     mulx    r15, rax, [rsi+24]
     adcx    r10, r14
+    mulx    r14, rbp, [rsi+32]
     adox    r10, rax
-    mulx    r14, rax, [rsi+32]
     adcx    r11, r15
-    adox    r11, rax
+    adox    r11, rbp
     mulx    r15, rax, [rsi+40]
     adcx    r12, r14
+    mulx    r14, rbp, [rsi+48]
     adox    r12, rax
-    mulx    r14, rax, [rsi+48]
     adcx    r13, r15
-    adox    r13, rax
+    adox    r13, rbp
     adcx    r14, rbx
     adox    r14, rbx
     mov     rdx, [rcx+16]
@@ -583,22 +586,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+16], r8
     mulx    r15, r8, [rsi+8]
     adcx    r9, rax
+    mulx    rax, rbp, [rsi+16]
     adox    r9, r8
-    mulx    rax, r8, [rsi+16]
     adcx    r10, r15
-    adox    r10, r8
+    adox    r10, rbp
     mulx    r15, r8, [rsi+24]
     adcx    r11, rax
+    mulx    rax, rbp, [rsi+32]
     adox    r11, r8
-    mulx    rax, r8, [rsi+32]
     adcx    r12, r15
-    adox    r12, r8
+    adox    r12, rbp
     mulx    r15, r8, [rsi+40]
     adcx    r13, rax
+    mulx    rax, rbp, [rsi+48]
     adox    r13, r8
-    mulx    rax, r8, [rsi+48]
     adcx    r14, r15
-    adox    r14, r8
+    adox    r14, rbp
     adcx    rax, rbx
     adox    rax, rbx
     mov     rdx, [rcx+24]
@@ -607,22 +610,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+24], r9
     mulx    r15, r9, [rsi+8]
     adcx    r10, r8
+    mulx    r8, rbp, [rsi+16]
     adox    r10, r9
-    mulx    r8, r9, [rsi+16]
     adcx    r11, r15
-    adox    r11, r9
+    adox    r11, rbp
     mulx    r15, r9, [rsi+24]
     adcx    r12, r8
+    mulx    r8, rbp, [rsi+32]
     adox    r12, r9
-    mulx    r8, r9, [rsi+32]
     adcx    r13, r15
-    adox    r13, r9
+    adox    r13, rbp
     mulx    r15, r9, [rsi+40]
     adcx    r14, r8
+    mulx    r8, rbp, [rsi+48]
     adox    r14, r9
-    mulx    r8, r9, [rsi+48]
     adcx    rax, r15
-    adox    rax, r9
+    adox    rax, rbp
     adcx    r8, rbx
     adox    r8, rbx
     mov     rdx, [rcx+32]
@@ -631,22 +634,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+32], r10
     mulx    r15, r10, [rsi+8]
     adcx    r11, r9
+    mulx    r9, rbp, [rsi+16]
     adox    r11, r10
-    mulx    r9, r10, [rsi+16]
     adcx    r12, r15
-    adox    r12, r10
+    adox    r12, rbp
     mulx    r15, r10, [rsi+24]
     adcx    r13, r9
+    mulx    r9, rbp, [rsi+32]
     adox    r13, r10
-    mulx    r9, r10, [rsi+32]
     adcx    r14, r15
-    adox    r14, r10
+    adox    r14, rbp
     mulx    r15, r10, [rsi+40]
     adcx    rax, r9
+    mulx    r9, rbp, [rsi+48]
     adox    rax, r10
-    mulx    r9, r10, [rsi+48]
     adcx    r8, r15
-    adox    r8, r10
+    adox    r8, rbp
     adcx    r9, rbx
     adox    r9, rbx
     mov     rdx, [rcx+40]
@@ -655,22 +658,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+40], r11
     mulx    r15, r11, [rsi+8]
     adcx    r12, r10
+    mulx    r10, rbp, [rsi+16]
     adox    r12, r11
-    mulx    r10, r11, [rsi+16]
     adcx    r13, r15
-    adox    r13, r11
+    adox    r13, rbp
     mulx    r15, r11, [rsi+24]
     adcx    r14, r10
+    mulx    r10, rbp, [rsi+32]
     adox    r14, r11
-    mulx    r10, r11, [rsi+32]
     adcx    rax, r15
-    adox    rax, r11
+    adox    rax, rbp
     mulx    r15, r11, [rsi+40]
     adcx    r8, r10
+    mulx    r10, rbp, [rsi+48]
     adox    r8, r11
-    mulx    r10, r11, [rsi+48]
     adcx    r9, r15
-    adox    r9, r11
+    adox    r9, rbp
     adcx    r10, rbx
     adox    r10, rbx
     mov     rdx, [rcx+48]
@@ -679,22 +682,22 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     [rdi+48], r12
     mulx    r15, r12, [rsi+8]
     adcx    r13, r11
+    mulx    r11, rbp, [rsi+16]
     adox    r13, r12
-    mulx    r11, r12, [rsi+16]
     adcx    r14, r15
-    adox    r14, r12
+    adox    r14, rbp
     mulx    r15, r12, [rsi+24]
     adcx    rax, r11
+    mulx    r11, rbp, [rsi+32]
     adox    rax, r12
-    mulx    r11, r12, [rsi+32]
     adcx    r8, r15
-    adox    r8, r12
+    adox    r8, rbp
     mulx    r15, r12, [rsi+40]
     adcx    r9, r11
+    mulx    r11, rbp, [rsi+48]
     adox    r9, r12
-    mulx    r11, r12, [rsi+48]
     adcx    r10, r15
-    adox    r10, r12
+    adox    r10, rbp
     adcx    r11, rbx
     adox    r11, rbx
     mov     [rdi+56], r13
@@ -708,6 +711,7 @@ ASM_GSYM(lmmp_mul_hard_7_):
     pop     r14
     pop     r13
     pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rsi
@@ -721,7 +725,7 @@ ASM_GSYM(lmmp_mul_hard_7_):
 ASM_GSYM(lmmp_mul_hard_8_):
 
     # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数
-    # ring=[rax,r8,r9,r10,r11,r12,r13,r14,r15] scr=rbx zero=rbp
+    # ring=[rax,r8,r9,r10,r11,r12,r13,r14,r15] scr=rbx zero=rbp spare=-
 #ifdef LMMP_WINDOWS
     push    rdi
     push    rsi

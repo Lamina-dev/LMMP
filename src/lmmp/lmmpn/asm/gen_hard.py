@@ -121,13 +121,14 @@ def x64_mul_n1():
     return "\n".join(b)
 
 
-def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw):
+def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw, spare=None):
     """发射一个寄存器方案 pass (整行累加).
 
     inner_b: True -> inner=numb(rcx), rows=numa(rsi); False -> inner=numa, rows=numb.
     ring/scr 为可变列表(行间轮转), 返回 (ring, scr).
+    spare: 第二 lo 传送带寄存器 (mulx 成对批排用), None 则逐积单排。
     rmw (pass>=1): 终化列读加写; pc(pcreg)<=3 跨行累积列完成进位,
-    rreg 捕获 cf1, pass 尾部以线性 adc 链消化 pc. (已通过 2 万次模拟验证)
+    rreg 捕获 cf1, pass 尾部以线性 adc 链消化。 (已通过 2 万次模拟验证)
     """
     inner, ioff = ("rcx", 8 * off) if inner_b else ("rsi", 0)
     rows = "rsi" if inner_b else "rcx"
@@ -135,7 +136,7 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
     pcb = r8name(pcreg)
     rb = r8name(rreg)
 
-    # ---- 行 0: m 序列 ----
+    # ---- 行 0: m 序列 (mulx 成对批排: 乘端口连供, 单 CF 链消费) ----
     b.append("    mov     rdx, [%s+%d]" % (rows, 0))
     b.append("    mulx    %s, %s, [%s+%d]" % (ring[0], scr, inner, ioff))
     if rmw:
@@ -144,19 +145,34 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
         b.append("    mov     [rdi+%d], rdx" % (8 * off))
         b.append("    setc    %s" % pcb)
         b.append("    movzx   %s, %s" % (pcreg, pcb))
+        # 清残留 CF (add rdx,lo0 的进位已收进 pc, 不清除会被本行 k 循环
+        # 首个 adcx 重复消费); 兼清 r15 (作行内 lo 传送带)
         b.append("    xor     %s, %s" % (e32(rreg), e32(rreg)))
         b.append("    mov     rdx, [%s+%d]" % (rows, 0))
     else:
         b.append("    mov     [rdi+%d], %s" % (8 * off, scr))
-    for k in range(1, n):
-        b.append("    mulx    %s, %s, [%s+%d]" % (ring[k], scr, inner, ioff + 8 * k))
-        b.append("    adcx    %s, %s" % (ring[k - 1], scr))
+    k = 1
+    while k <= n - 1:
+        if spare is not None and k + 1 <= n - 1:
+            b.append("    mulx    %s, %s, [%s+%d]" % (ring[k], scr, inner, ioff + 8 * k))
+            b.append("    mulx    %s, %s, [%s+%d]" % (ring[k + 1], spare, inner, ioff + 8 * (k + 1)))
+            b.append("    adcx    %s, %s" % (ring[k - 1], scr))
+            b.append("    adcx    %s, %s" % (ring[k], spare))
+            k += 2
+        else:
+            b.append("    mulx    %s, %s, [%s+%d]" % (ring[k], scr, inner, ioff + 8 * k))
+            b.append("    adcx    %s, %s" % (ring[k - 1], scr))
+            k += 1
     b.append("    adcx    %s, %s" % (ring[n - 1], zero))
 
-    # ---- 行 j = 1..nrows-1: am 序列 (CF 链收 hi, OF 链收 lo) ----
+    # ---- 行 j = 1..nrows-1: am 序列 (CF 链收 hi, OF 链收 lo; mulx 成对批排) ----
     for j in range(1, nrows):
         col = off + j
         b.append("    mov     rdx, [%s+%d]" % (rows, 8 * j))
+        if spare == rreg:
+            # rreg 行内借作第二 lo 传送带, 行首清零 (setc 仅写低字节,
+            # 上 56 位残留会污染 add pcreg, rreg; mov 不触标志)
+            b.append("    mov     %s, 0" % e32(rreg))
         b.append("    mulx    %s, %s, [%s+%d]" % (ring[n], scr, inner, ioff))
         b.append("    adcx    %s, %s" % (ring[0], scr))
         if rmw:
@@ -169,17 +185,35 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
             b.append("    mov     [rdi+%d], rdx" % (8 * col))
             b.append("    adc     %s, 0" % pcreg)
             b.append("    add     %s, %s" % (pcreg, rreg))
+            # 清 CF/OF: 普通 add 会统一两条进位链的依赖, 若不清, 本行
+            # k 循环的 adcx/adox 双链退化为合并串行 (实测慢 ~25%)
             b.append("    xor     %s, %s" % (e32(rreg), e32(rreg)))
             b.append("    mov     rdx, [%s+%d]" % (rows, 8 * j))
         else:
             b.append("    mov     [rdi+%d], %s" % (8 * col, ring[0]))
-        hi_dest = ring[n]
-        for k in range(1, n):
-            hi_dest = scr if k % 2 == 1 else ring[n]
-            hi_prev = ring[n] if k % 2 == 1 else scr
-            b.append("    mulx    %s, %s, [%s+%d]" % (hi_dest, ring[0], inner, ioff + 8 * k))
-            b.append("    adcx    %s, %s" % (ring[k], hi_prev))
-            b.append("    adox    %s, %s" % (ring[k], ring[0]))
+        # k 成对 (k 奇): hi 滞后一个积才被 CF 链消费, 故第二个 mulx 的 hi
+        # 目的须待 pending hi 被消费后释放 ("先消费后复用" 交错式)
+        k = 1
+        while k <= n - 1:
+            if spare is not None and k + 1 <= n - 1:
+                h1 = scr if k % 2 == 1 else ring[n]
+                h1p = ring[n] if k % 2 == 1 else scr
+                h2 = h1p                          # 消费 h1p 后复用其寄存器
+                b.append("    mulx    %s, %s, [%s+%d]" % (h1, ring[0], inner, ioff + 8 * k))
+                b.append("    adcx    %s, %s" % (ring[k], h1p))
+                b.append("    mulx    %s, %s, [%s+%d]" % (h2, spare, inner, ioff + 8 * (k + 1)))
+                b.append("    adox    %s, %s" % (ring[k], ring[0]))
+                b.append("    adcx    %s, %s" % (ring[k + 1], h1))
+                b.append("    adox    %s, %s" % (ring[k + 1], spare))
+                k += 2
+            else:
+                hi_dest = scr if k % 2 == 1 else ring[n]
+                hi_prev = ring[n] if k % 2 == 1 else scr
+                b.append("    mulx    %s, %s, [%s+%d]" % (hi_dest, ring[0], inner, ioff + 8 * k))
+                b.append("    adcx    %s, %s" % (ring[k], hi_prev))
+                b.append("    adox    %s, %s" % (ring[k], ring[0]))
+                k += 1
+        hi_dest = scr if (n - 1) % 2 == 1 else ring[n]
         b.append("    adcx    %s, %s" % (hi_dest, zero))
         b.append("    adox    %s, %s" % (hi_dest, zero))
         if n % 2 == 1:
@@ -205,23 +239,32 @@ def x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, nrows, s, off, inner_b, rmw
 
 
 def x64_mul_tier1(n):
-    """2 <= n <= 8: 单趟 FLINT 寄存器整行累加."""
+    """2 <= n <= 8: 单趟 FLINT 寄存器整行累加 (mulx 成对批排; n=8 寄存器
+    已满 15 个, 无第二 lo 传送带, 退化为逐积单排)."""
     ring = X64_RING_POOL[: n + 1]
     rest = X64_RING_POOL[n + 1:]
-    if len(rest) >= 2:
+    spare = None
+    if len(rest) >= 3:
+        scr, zero, spare = rest[0], rest[1], rest[2]
+    elif len(rest) == 2:
         scr, zero = rest[0], rest[1]
+        spare = "rbx"
     elif len(rest) == 1:
         scr, zero = rest[0], "rbx"
+        spare = "rbp"
     else:
         scr, zero = "rbx", "rbp"
     used = set(X64_RING_POOL) | {scr, zero}
+    if spare is not None:
+        used.add(spare)
 
     b = []
     b.append("    # 内部: rdi=dst rsi=numa rcx=numb rdx=行乘数")
-    b.append("    # ring=[%s] scr=%s zero=%s" % (",".join(ring), scr, zero))
+    b.append("    # ring=[%s] scr=%s zero=%s spare=%s"
+             % (",".join(ring), scr, zero, spare if spare else "-"))
     b.append(x64_prologue(used, 3))
     b.append("    xor     %s, %s                  // 清 CF/OF" % (e32(zero), e32(zero)))
-    ring, scr = x64_mul_regpass(b, ring, scr, zero, zero, zero, n, n, 0, False, False)
+    ring, scr = x64_mul_regpass(b, ring, scr, zero, zero, zero, n, n, 0, False, False, spare)
     b.append(x64_epilogue(used, 3))
     return "\n".join(b)
 
@@ -229,7 +272,9 @@ def x64_mul_tier1(n):
 def x64_mul_tier2(n):
     """n >= 9: numb 分块, 每块一趟寄存器方案 (乘法总量恰为 n^2).
     pass 0 纯写; pass >= 1 终化列 RMW, 列完成进位累积进 pc 寄存器 (<=3),
-    pass 尾部以线性 adc 链消化."""
+    pass 尾部以线性 adc 链消化. am 序列保持逐积单排: 无空闲第二 lo 传送
+    带, 借 rreg 需行首清零且 mulx 对中须夹入消费指令 (hi 滞后一积才被
+    CF 链消费), 实测交错式配对反慢 7%~25%, 弃."""
     ring = X64_RING_POOL[:7]  # 7 个, 最大块 6 用满
     scr, rreg = X64_RING_POOL[7], X64_RING_POOL[8]
     zero, pcreg = "rbx", "rbp"
@@ -250,7 +295,7 @@ def x64_mul_tier2(n):
         off += s
     for p, (off, s) in enumerate(offs):
         b.append("    # === pass %d: numb[%d..%d) x numa, 环宽 %d ===" % (p, off, off + s, s))
-        ring, scr = x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, n, s, off, True, p > 0)
+        ring, scr = x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, n, s, off, True, p > 0, None)
     b.append(x64_epilogue(used, 3))
     return "\n".join(b)
 
