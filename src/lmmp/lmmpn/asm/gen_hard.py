@@ -434,14 +434,35 @@ def x64_sqr_plan(n):
                 ops.append(("mov", R(c), ("imm", 0)))
             ops.append(("mulx", R(2), R(1), ("a", 1)))       # lo01->列1, hi01->列2 (直写)
             ops.append(("xor0", ("r", X64_SQ_SH)))            # CF=OF=0
-            for j in range(2, min(n - 2, W - 1) + 1):         # hi 直写新鲜列 j+1
-                ops.append(("mulx", R(j + 1), ("r", "rax"), ("a", j)))
-                ops.append(("adcx", R(j), ("r", "rax")))      # 列j = hi(j-1) + lo(j)
+            j = 2
+            while j <= min(n - 2, W - 1):                    # hi 直写新鲜列 j+1, mulx 成对批排
+                if j + 1 <= min(n - 2, W - 1):
+                    ops.append(("mulx", R(j + 1), ("r", "rax"), ("a", j)))
+                    ops.append(("mulx", R(j + 2), ("r", "r15"), ("a", j + 1)))
+                    ops.append(("adcx", R(j), ("r", "rax")))
+                    ops.append(("adcx", R(j + 1), ("r", "r15")))
+                    j += 2
+                else:
+                    ops.append(("mulx", R(j + 1), ("r", "rax"), ("a", j)))
+                    ops.append(("adcx", R(j), ("r", "rax")))
+                    j += 1
         else:
-            for j in range(i + 1, min(n - 2, i + W - 1) + 1):
-                ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("a", j)))
-                ops.append(("adcx", R(i + j), ("r", "rax")))
-                ops.append(("adox", R(i + j + 1), ("r", "rcx")))
+            j = i + 1
+            hi = min(n - 2, i + W - 1)
+            while j <= hi:                                    # mulx 成对批排 (仿 FLINT am 结构)
+                if j + 1 <= hi:
+                    ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("a", j)))
+                    ops.append(("mulx", ("r", X64_SQ_SH), ("r", X64_SQ_SL), ("a", j + 1)))
+                    ops.append(("adcx", R(i + j), ("r", "rax")))
+                    ops.append(("adox", R(i + j + 1), ("r", "rcx")))
+                    ops.append(("adcx", R(i + j + 1), ("r", X64_SQ_SL)))
+                    ops.append(("adox", R(i + j + 2), ("r", X64_SQ_SH)))
+                    j += 2
+                else:
+                    ops.append(("mulx", ("r", "rcx"), ("r", "rax"), ("a", j)))
+                    ops.append(("adcx", R(i + j), ("r", "rax")))
+                    ops.append(("adox", R(i + j + 1), ("r", "rcx")))
+                    j += 1
         # ---- 越窗段: 积 j = i+8..n-2, 双临时 (t0/t1) 逐列滚动 ----
         seg = (not full) and (i + W <= n - 2)
         tH = None
@@ -525,7 +546,7 @@ def x64_sqr_plan(n):
     # ================= 倍增 T *= 2 =================
     # 独立 add/adc 链 (1 周期/列) 与折叠的纯 adc 链互不依赖, 可被乱序引擎
     # 重叠; 实测融合倍增(每 limb adcx+adox 串行 2 周期)反而慢 ~2.5%, 故
-    # 保留两段式, 代价仅倍增段每列一次 M 读写的往返。
+    # 保留两段式。
     ops.append(("#", "--- 倍增 ---"))
     if full:
         ops.append(("add", R(1), R(1)))
@@ -533,25 +554,57 @@ def x64_sqr_plan(n):
             ops.append(("adc", R(c), R(c)))
         ops.append(("movzxc", ("r", X64_SQ_SH)))  # 倍增顶进位 (列 2n-1, 属 {0,1})
     else:
-        TA = ["rax", "rcx", "rdx", "rbx"]
-        TB = ["rbp", "r8", "r9", "r10"]
-        cols = list(range(1, mtop + 1))
-        waves = [cols[k:k + 4] for k in range(0, len(cols), 4)]
-        cur = TA
-        for idx, c in enumerate(waves[0]):
-            ops.append(("mov", ("r", cur[idx]), ("M", c)))
-        for wi, wave in enumerate(waves):
-            for idx, c in enumerate(wave):
-                ops.append(("add" if (wi == 0 and idx == 0) else "adc",
-                            ("r", cur[idx]), ("r", cur[idx])))
-            if wi + 1 < len(waves):
-                nxt = TB if cur is TA else TA
-                for idx, c in enumerate(waves[wi + 1]):
-                    ops.append(("mov", ("r", nxt[idx]), ("M", c)))
-            for idx, c in enumerate(wave):
-                ops.append(("mov", ("M", c), ("r", cur[idx])))
-            cur = TB if cur is TA else TA
-        ops.append(("movzxc", ("r", X64_SQ_SH)))
+        if mtop >= 22:
+            # AVX2 位移-或就地倍增 (仿 FLINT): 每组 4 列 ymm, 重叠读低邻列
+            # 取 msb (vpsrlq $63 于 [c-1..c+2]) 与 vpsllq $1 于 [c..c+3]
+            # 相或, 进位经位移在向量内传播, 消除标量 add/adc 串行链与寄存
+            # 器往返; 组间自顶向下 (每组只读自身列与更低列的原始值, 低组尚
+            # 未写); 最低 mtop%4 列 (<=2, mtop 恒偶) 标量收尾, 其 msb 由上方
+            # 向量组的重叠读在覆写前捕获; 顶列 msb 预先标量取出。
+            # 仅大 n 启用: 向量路径首列就绪有 ~10 周期固定延迟 (载入->移位
+            # ->或->存->折叠读转发), mtop<22 时串行链短省不抵损 (实测
+            # n=6..11 慢 2%~36%, n=12..19 快 4%~10.5%)。
+            ops.append(("mov", ("r", X64_SQ_SH), ("M", mtop)))
+            ops.append(("shr", ("r", X64_SQ_SH), 63))
+            rem = mtop % 4
+            if rem == 0 and 0 not in prezero:
+                # 最低组自列 1 起, 重叠读触列 0 (恒 0), 需预清零 M[0]
+                prezero.add(0)
+                minit.add(0)
+            c = mtop - 3
+            while c >= 1 + rem:
+                ops.append(("vdbl4", c))
+                c -= 4
+            if rem:
+                ops.append(("mov", ("r", "rax"), ("M", 1)))
+                ops.append(("add", ("r", "rax"), ("r", "rax")))
+                ops.append(("mov", ("M", 1), ("r", "rax")))
+                if rem == 2:
+                    ops.append(("mov", ("r", "rax"), ("M", 2)))
+                    ops.append(("adc", ("r", "rax"), ("r", "rax")))
+                    ops.append(("mov", ("M", 2), ("r", "rax")))
+            ops.append(("vzeroupper",))
+        else:
+            # 标量波扫描: 4 寄存器乒乓, 预取下一波, add/adc 链 1 周期/列
+            TA = ["rax", "rcx", "rdx", "rbx"]
+            TB = ["rbp", "r8", "r9", "r10"]
+            cols = list(range(1, mtop + 1))
+            waves = [cols[k:k + 4] for k in range(0, len(cols), 4)]
+            cur = TA
+            for idx, cc in enumerate(waves[0]):
+                ops.append(("mov", ("r", cur[idx]), ("M", cc)))
+            for wi, wave in enumerate(waves):
+                for idx, cc in enumerate(wave):
+                    ops.append(("add" if (wi == 0 and idx == 0) else "adc",
+                                ("r", cur[idx]), ("r", cur[idx])))
+                if wi + 1 < len(waves):
+                    nxt = TB if cur is TA else TA
+                    for idx, cc in enumerate(waves[wi + 1]):
+                        ops.append(("mov", ("r", nxt[idx]), ("M", cc)))
+                for idx, cc in enumerate(wave):
+                    ops.append(("mov", ("M", cc), ("r", cur[idx])))
+                cur = TB if cur is TA else TA
+            ops.append(("movzxc", ("r", X64_SQ_SH)))
 
     # ================= 对角折叠: R = 2T + sum a_i^2 =================
     # 纯 adc 链 (1 周期/limb), 对角项由 mulx 即时产生, M 倍增值经寄存器加数
@@ -662,6 +715,18 @@ def x64_sqr_asm(n):
             r = op[1][1]
             b.append("    setc    %s" % r8name(r))
             b.append("    movzx   %s, %s" % (r, r8name(r)))
+        elif t == "shr":
+            b.append("    shr     %s, 63" % op[1][1])
+        elif t == "vdbl4":
+            c = op[1]
+            b.append("    vmovdqu ymm0, [rsp+%d]" % (8 * c))
+            b.append("    vmovdqu ymm1, [rsp+%d]" % (8 * (c - 1)))
+            b.append("    vpsllq  ymm0, ymm0, 1")
+            b.append("    vpsrlq  ymm1, ymm1, 63")
+            b.append("    vpor    ymm0, ymm0, ymm1")
+            b.append("    vmovdqu [rsp+%d], ymm0" % (8 * c))
+        elif t == "vzeroupper":
+            b.append("    vzeroupper")
     if msize:
         b.append("    add     rsp, %d" % msize)
     b.append(x64_epilogue(used, 2))
