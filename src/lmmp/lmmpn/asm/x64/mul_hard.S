@@ -60,6 +60,8 @@ ASM_GSYM(lmmp_mul_hard_2_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    r12
     push    r13
@@ -106,6 +108,8 @@ ASM_GSYM(lmmp_mul_hard_3_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    r12
     push    r13
@@ -170,6 +174,8 @@ ASM_GSYM(lmmp_mul_hard_4_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    r12
     push    r13
@@ -258,6 +264,8 @@ ASM_GSYM(lmmp_mul_hard_5_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    r12
     push    r13
@@ -376,6 +384,8 @@ ASM_GSYM(lmmp_mul_hard_6_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    r12
@@ -532,6 +542,8 @@ ASM_GSYM(lmmp_mul_hard_7_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -732,6 +744,8 @@ ASM_GSYM(lmmp_mul_hard_8_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -979,6 +993,8 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -1402,6 +1418,8 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -1900,6 +1918,8 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -2477,6 +2497,8 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -3141,6 +3163,8 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -4065,6 +4089,8 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -5101,6 +5127,8 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -6255,6 +6283,8 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -7531,6 +7561,8 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -8937,6 +8969,8 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp
@@ -10479,6 +10513,8 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mov     rdi, rcx                // dst
     mov     rsi, rdx                // numa
     mov     rcx, r8                 // numb
+#else
+    mov     rcx, rdx                // numb
 #endif
     push    rbx
     push    rbp

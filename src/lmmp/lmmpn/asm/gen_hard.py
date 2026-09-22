@@ -3,21 +3,13 @@
 """
 gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
 
-仿照 FLINT 的 x64/arm64 硬编码汇编思路, 生成平衡规模的
-    lmmp_mul_hard_N_  (N = 1..19)   [dst,2N] = [numa,N] * [numb,N]
-    lmmp_sqr_hard_N_  (N = 1..19)   [dst,2N] = [numa,N]^2
-的 .S 源文件(纯指令展开, 不依赖汇编器宏, 保证 GAS/LLVM 兼容)。
-
 算法结构:
-  x64  mul, N<=8 : FLINT 式寄存器整行累加(mulx+adcx/adox 双进位链, 行间寄存器环轮转)
+  x64  mul, N<=8 : 寄存器整行累加(mulx+adcx/adox 双进位链, 行间寄存器环轮转)
   x64  mul, N>=9 : 种子 mul_1 + 展开 addmul_2(双乘数交错列) + 尾部直存
   x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉积列累加
                    (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
   arm64 mul      : 寄存器整行累加(mul/umulh + adds/adcs 单进位链, 列 c 固定映射 ring[c%n])
   arm64 sqr      : 交叉行累加 -> 倍增 -> 对角 (单进位链)
-
-x64 sqr 的指令计划 (x64_sqr_plan) 与外部模拟脚本共用 (hard_work/sim_sqr_plan.py),
-发射与验证针对同一 op 序列, 修改调度前先过模拟。
 
 约定: intel 语法 mulx HI, LO, src (HI=第一目的操作数)。
 
@@ -71,7 +63,11 @@ X64_RING_POOL = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"]
 
 
 def x64_prologue(used, remap_args):
-    """生成函数序言. used: 需保存的被调用者寄存器集合."""
+    """生成函数序言. used: 需保存的被调用者寄存器集合.
+    remap_args: 2 -> (dst,numa) 两参(sqr); 3 -> (dst,numa,numb) 三参(mul).
+    内部约定 rdi=dst rsi=numa [rcx=numb]: Win 下 rdi/rsi 为被调用者保存,
+    压栈后自 (rcx,rdx[,r8]) 重映射; SysV 前两参天然在位, 三参时 numb
+    仍需自 rdx 移入 rcx."""
     out = []
     if remap_args:
         out.append("#ifdef LMMP_WINDOWS")
@@ -81,6 +77,8 @@ def x64_prologue(used, remap_args):
         out.append("    mov     rsi, rdx                // numa")
         if remap_args == 3:
             out.append("    mov     rcx, r8                 // numb")
+            out.append("#else")
+            out.append("    mov     rcx, rdx                // numb")
         out.append("#endif")
     for r in CALLEE_X64:
         if r in used:
