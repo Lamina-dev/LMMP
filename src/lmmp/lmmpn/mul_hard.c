@@ -15,11 +15,6 @@
 
 #include "../../../include/lmmp/impl/mul_hard.h"
 
-/* 硬编码函数调度: 按实测性能路由。
-   mul: n<=19 全部走硬编码 (分块寄存器方案, 实测全面快于 basecase 8%~47%);
-   sqr: n<=19 全部走硬编码 (列累加方案, 实测全面快于 basecase 7%~31%);
-   超出 LMMP_MUL_HARD_MAX_N 或调优阈值放大时回落 basecase。
-   消费方为 toom 递归宏(见 mul_toom22.c / sqr_toom2.c 等)。 */
 
 void lmmp_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
     switch (n) {

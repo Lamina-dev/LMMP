@@ -18,26 +18,8 @@
 
 #include "../lmmpn.h"
 
-/*
-        硬编码平衡乘法/平方内部接口 (仿 FLINT flint_mpn_mul_N_N / sqr_N)
-
-        为 n = 1..19 的每种规模提供编译期定长的展开实现:
-        x64  mul: N<=8 FLINT 式 mulx+adcx/adox 寄存器整行累加;
-              N>=9 numb 分块(<=6)多趟寄存器方案, RMW 终化列以 pc 寄存器
-              (<=3) 跨行吸收列完成进位, 尾部线性 adc 链消化;
-        arm64 mul: mul/umulh 展开 addmul_1, 每列进位即时以 adc 吸收进 pending;
-        sqr: x64 N<=3 库内 sqr_basecase.S 小规模分支特化, N>=4 交叉积列累加
-             (8 列寄存器窗口+adcx/adox 双链, 完成列溢写栈数组) -> 倍增 ->
-             对角折叠; arm64 交叉行累加 -> 倍增 -> 对角;
-        调度策略见 mul_hard.c: mul/sqr 均为 n<=19 全部走硬编码
-        (mul 实测快于 basecase 8%~47%, sqr 7%~31%), 其余回落 basecase。
-        仅内部使用, 不对外导出。
-*/
 
 #define LMMP_MUL_HARD_MAX_N 19
-
-/* 生成 38 个定长函数声明: lmmp_mul_hard_1_ .. lmmp_mul_hard_19_,
-                            lmmp_sqr_hard_1_ .. lmmp_sqr_hard_19_ */
 
 #define LMMP_DECL_MUL_HARD(n) \
     void lmmp_mul_hard_##n##_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb);

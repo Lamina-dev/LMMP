@@ -13,19 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 通用 C 硬编码平衡乘法/平方 (无汇编模式的回退实现)。
-
-   n 为宏传入的编译期常量。clang -O3 的自动展开在大函数上会放弃:
-   mul 自 n>=7 起仅展开内层 i 循环 (保留外层行循环), sqr 自 n>=17 起
-   内外循环全部保留 (索引寻址)。故以 LMMP_UNROLL 强制:
-     - sqr: 全部循环完全展开 (实测 n=9..19 无回归);
-     - mul: 仅内层 i 循环展开, 外层行循环保留 -- 全展开会把函数拉成
-       2000+ 指令的直线代码, 实测 n=12..15/19 反而慢 33%~52% (寄存器
-       溢出与取指压力), 保留行循环 + 行内直线的结构与汇编同构。
-   展开后所有偏移化为立即数, 与汇编版本同为"硬编码"语义。平方采用与
-   汇编相同的三段式: 交叉乘(每对(i,j),i<j 恰一次) -> 整体倍增 ->
-   对角平方折叠, 乘法量减半。 */
-
 #include "../../../../include/lmmp/impl/mul_hard.h"
 
 /* 常量行程循环的完全展开提示: clang 用 #pragma unroll (行程数已知时
@@ -39,79 +26,78 @@
 #define LMMP_UNROLL
 #endif
 
-#define DEF_MUL_HARD(n_)                                                            \
-    void lmmp_mul_hard_##n_##_(mp_ptr restrict dst, mp_srcptr restrict numa,         \
-                                mp_srcptr restrict numb) {                           \
-        mp_limb_t cl = 0;                                                            \
-        mp_size_t i, j;                                                              \
-        LMMP_UNROLL                                                                  \
-        for (i = 0; i < n_; i++) {                                                   \
-            __uint128_t t = (__uint128_t)numa[i] * numb[0] + cl;                     \
-            dst[i] = (mp_limb_t)t;                                                   \
-            cl = (mp_limb_t)(t >> 64);                                               \
-        }                                                                            \
-        dst[n_] = cl;                                                                \
-        for (j = 1; j < n_; j++) {                                                   \
-            cl = 0;                                                                  \
-            LMMP_UNROLL                                                              \
-            for (i = 0; i < n_; i++) {                                               \
-                __uint128_t t = (__uint128_t)numa[i] * numb[j] + dst[i + j] + cl;    \
-                dst[i + j] = (mp_limb_t)t;                                           \
-                cl = (mp_limb_t)(t >> 64);                                           \
-            }                                                                        \
-            dst[n_ + j] = cl;                                                        \
-        }                                                                            \
+#define DEF_MUL_HARD(n_)                                                                                \
+    void lmmp_mul_hard_##n_##_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb) { \
+        mp_limb_t cl = 0;                                                                               \
+        mp_size_t i, j;                                                                                 \
+        LMMP_UNROLL                                                                                     \
+        for (i = 0; i < n_; i++) {                                                                      \
+            __uint128_t t = (__uint128_t)numa[i] * numb[0] + cl;                                        \
+            dst[i] = (mp_limb_t)t;                                                                      \
+            cl = (mp_limb_t)(t >> 64);                                                                  \
+        }                                                                                               \
+        dst[n_] = cl;                                                                                   \
+        for (j = 1; j < n_; j++) {                                                                      \
+            cl = 0;                                                                                     \
+            LMMP_UNROLL                                                                                 \
+            for (i = 0; i < n_; i++) {                                                                  \
+                __uint128_t t = (__uint128_t)numa[i] * numb[j] + dst[i + j] + cl;                       \
+                dst[i + j] = (mp_limb_t)t;                                                              \
+                cl = (mp_limb_t)(t >> 64);                                                              \
+            }                                                                                           \
+            dst[n_ + j] = cl;                                                                           \
+        }                                                                                               \
     }
 
-#define DEF_SQR_HARD(n_)                                                             \
-    void lmmp_sqr_hard_##n_##_(mp_ptr restrict dst, mp_srcptr restrict numa) {       \
-        mp_limb_t cl, x;                                                             \
-        mp_size_t i, j;                                                              \
-        /* 交叉列 0 恒为 0, 顶列 2n-1 交叉不触及 */                                   \
-        dst[0] = 0;                                                                  \
-        /* 行 0: dst[1..n] = a[1..n)*a_0 (交叉, 纯写) */                              \
-        x = numa[0];                                                                 \
-        cl = 0;                                                                      \
-        LMMP_UNROLL                                                                  \
-        for (i = 1; i < n_; i++) {                                                   \
-            __uint128_t t = (__uint128_t)numa[i] * x + cl;                           \
-            dst[i] = (mp_limb_t)t;                                                   \
-            cl = (mp_limb_t)(t >> 64);                                               \
-        }                                                                            \
-        dst[n_] = cl;                                                                \
-        /* 行 i: dst[i+1..i+n] += a[i+1..n)*a_i */                                   \
-        LMMP_UNROLL                                                                  \
-        for (j = 1; j + 1 < n_; j++) {                                               \
-            x = numa[j];                                                             \
-            cl = 0;                                                                  \
-            LMMP_UNROLL                                                              \
-            for (i = j + 1; i < n_; i++) {                                           \
-                __uint128_t t = (__uint128_t)numa[i] * x + dst[i + j] + cl;          \
-                dst[i + j] = (mp_limb_t)t;                                           \
-                cl = (mp_limb_t)(t >> 64);                                           \
-            }                                                                        \
-            dst[n_ + j] = cl;                                                        \
-        }                                                                            \
-        /* 倍增: dst[1..2n-2] = 2*dst, 顶列 2n-1 = 进位(交叉恒0) */                   \
-        cl = 0;                                                                      \
-        LMMP_UNROLL                                                                  \
-        for (i = 1; i + 1 < 2 * n_; i++) {                                           \
-            __uint128_t t = (__uint128_t)dst[i] * 2 + cl;                            \
-            dst[i] = (mp_limb_t)t;                                                   \
-            cl = (mp_limb_t)(t >> 64);                                               \
-        }                                                                            \
-        dst[2 * n_ - 1] = cl;                                                        \
-        /* 对角: dst[2i] += a_i^2, 进位经奇列 2i+1 传播 */                            \
-        cl = 0;                                                                      \
-        LMMP_UNROLL                                                                  \
-        for (i = 0; i < n_; i++) {                                                   \
-            __uint128_t t = (__uint128_t)numa[i] * numa[i] + dst[2 * i] + cl;        \
-            dst[2 * i] = (mp_limb_t)t;                                               \
-            cl = (mp_limb_t)(t >> 64);                                               \
-            t = (__uint128_t)dst[2 * i + 1] + cl;                                    \
-            dst[2 * i + 1] = (mp_limb_t)t;                                           \
-            cl = (mp_limb_t)(t >> 64);                                               \
-        }                                                                            \
+#define DEF_SQR_HARD(n_)                                                       \
+    void lmmp_sqr_hard_##n_##_(mp_ptr restrict dst, mp_srcptr restrict numa) { \
+        mp_limb_t cl, x;                                                       \
+        mp_size_t i, j;                                                        \
+        /* 交叉列 0 恒为 0, 顶列 2n-1 交叉不触及 */                              \
+        dst[0] = 0;                                                            \
+        /* 行 0: dst[1..n] = a[1..n)*a_0 (交叉, 纯写) */                        \
+        x = numa[0];                                                           \
+        cl = 0;                                                                \
+        LMMP_UNROLL                                                            \
+        for (i = 1; i < n_; i++) {                                             \
+            __uint128_t t = (__uint128_t)numa[i] * x + cl;                     \
+            dst[i] = (mp_limb_t)t;                                             \
+            cl = (mp_limb_t)(t >> 64);                                         \
+        }                                                                      \
+        dst[n_] = cl;                                                          \
+        /* 行 i: dst[i+1..i+n] += a[i+1..n)*a_i */                             \
+        LMMP_UNROLL                                                            \
+        for (j = 1; j + 1 < n_; j++) {                                         \
+            x = numa[j];                                                       \
+            cl = 0;                                                            \
+            LMMP_UNROLL                                                        \
+            for (i = j + 1; i < n_; i++) {                                     \
+                __uint128_t t = (__uint128_t)numa[i] * x + dst[i + j] + cl;    \
+                dst[i + j] = (mp_limb_t)t;                                     \
+                cl = (mp_limb_t)(t >> 64);                                     \
+            }                                                                  \
+            dst[n_ + j] = cl;                                                  \
+        }                                                                      \
+        /* 倍增: dst[1..2n-2] = 2*dst, 顶列 2n-1 = 进位(交叉恒0) */              \
+        cl = 0;                                                                \
+        LMMP_UNROLL                                                            \
+        for (i = 1; i + 1 < 2 * n_; i++) {                                     \
+            __uint128_t t = (__uint128_t)dst[i] * 2 + cl;                      \
+            dst[i] = (mp_limb_t)t;                                             \
+            cl = (mp_limb_t)(t >> 64);                                         \
+        }                                                                      \
+        dst[2 * n_ - 1] = cl;                                                  \
+        /* 对角: dst[2i] += a_i^2, 进位经奇列 2i+1 传播 */                       \
+        cl = 0;                                                                \
+        LMMP_UNROLL                                                            \
+        for (i = 0; i < n_; i++) {                                             \
+            __uint128_t t = (__uint128_t)numa[i] * numa[i] + dst[2 * i] + cl;  \
+            dst[2 * i] = (mp_limb_t)t;                                         \
+            cl = (mp_limb_t)(t >> 64);                                         \
+            t = (__uint128_t)dst[2 * i + 1] + cl;                              \
+            dst[2 * i + 1] = (mp_limb_t)t;                                     \
+            cl = (mp_limb_t)(t >> 64);                                         \
+        }                                                                      \
     }
 
 DEF_MUL_HARD(1)
