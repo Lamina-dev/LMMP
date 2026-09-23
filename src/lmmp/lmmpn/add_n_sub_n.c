@@ -16,35 +16,15 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/lmmpn.h"
 
+/*
+    汇编不可用时的朴素参考实现（eqsep 重叠安全：每肢双加载先于双存储）。
+    汇编构建使用 asm/{x64,arm64}/add_n_sub_n.S：
+      x64   为 adcx/adox 双进位链（差链经补码加法 d = a + ~b + k）；
+      arm64 为每肢交错、进位寄存器化的简单版本。
+*/
+#ifndef LMMP_ASM
 
 mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
-#ifdef LMMP_ASM
-    mp_limb_t acyo = 0, scyo = 0;
-    mp_size_t off, this_n;
-
-    if (dsta != numa && dsta != numb) {
-        for (off = 0; off < n; off += PART_SIZE) {
-            this_n = LMMP_MIN(n - off, PART_SIZE);
-            acyo = lmmp_add_nc_(dsta + off, numa + off, numb + off, this_n, acyo);
-            scyo = lmmp_sub_nc_(dstb + off, numa + off, numb + off, this_n, scyo);
-        }
-    } else if (dstb != numa && dstb != numb) {
-        for (off = 0; off < n; off += PART_SIZE) {
-            this_n = LMMP_MIN(n - off, PART_SIZE);
-            scyo = lmmp_sub_nc_(dstb + off, numa + off, numb + off, this_n, scyo);
-            acyo = lmmp_add_nc_(dsta + off, numa + off, numb + off, this_n, acyo);
-        }
-    } else {
-        mp_limb_t tp[PART_SIZE];
-        for (off = 0; off < n; off += PART_SIZE) {
-            this_n = LMMP_MIN(n - off, PART_SIZE);
-            acyo = lmmp_add_nc_(tp, numa + off, numb + off, this_n, acyo);
-            scyo = lmmp_sub_nc_(dstb + off, numa + off, numb + off, this_n, scyo);
-            lmmp_copy(dsta + off, tp, this_n);
-        }
-    }
-    return 2 * acyo + scyo;
-#else
     mp_size_t i;
     mp_limb_t acyo, scyo;
 
@@ -64,5 +44,6 @@ mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr 
         dstb[i] = a - b;
     }
     return 2 * acyo + scyo;
-#endif
 }
+
+#endif /* !LMMP_ASM */
