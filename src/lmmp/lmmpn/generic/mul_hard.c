@@ -53,9 +53,7 @@
     void lmmp_sqr_hard_##n_##_(mp_ptr restrict dst, mp_srcptr restrict numa) { \
         mp_limb_t cl, x;                                                       \
         mp_size_t i, j;                                                        \
-        /* 交叉列 0 恒为 0, 顶列 2n-1 交叉不触及 */                              \
         dst[0] = 0;                                                            \
-        /* 行 0: dst[1..n] = a[1..n)*a_0 (交叉, 纯写) */                        \
         x = numa[0];                                                           \
         cl = 0;                                                                \
         LMMP_UNROLL                                                            \
@@ -65,7 +63,7 @@
             cl = (mp_limb_t)(t >> 64);                                         \
         }                                                                      \
         dst[n_] = cl;                                                          \
-        /* 行 i: dst[i+1..i+n] += a[i+1..n)*a_i */                             \
+        /* i: dst[i+1..i+n] += a[i+1..n)*a_i */                                \
         LMMP_UNROLL                                                            \
         for (j = 1; j + 1 < n_; j++) {                                         \
             x = numa[j];                                                       \
@@ -78,7 +76,7 @@
             }                                                                  \
             dst[n_ + j] = cl;                                                  \
         }                                                                      \
-        /* 倍增: dst[1..2n-2] = 2*dst, 顶列 2n-1 = 进位(交叉恒0) */              \
+        /*  dst[1..2n-2] = 2*dst, 2n-1 = carry(0) */                           \
         cl = 0;                                                                \
         LMMP_UNROLL                                                            \
         for (i = 1; i + 1 < 2 * n_; i++) {                                     \
@@ -87,7 +85,6 @@
             cl = (mp_limb_t)(t >> 64);                                         \
         }                                                                      \
         dst[2 * n_ - 1] = cl;                                                  \
-        /* 对角: dst[2i] += a_i^2, 进位经奇列 2i+1 传播 */                       \
         cl = 0;                                                                \
         LMMP_UNROLL                                                            \
         for (i = 0; i < n_; i++) {                                             \

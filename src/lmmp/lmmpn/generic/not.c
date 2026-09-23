@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -16,15 +16,9 @@
 #include "../../../../include/lmmp/lmmpn.h"
 
 
-void lmmp_not_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    if (dst == numa) {
-        for (mp_size_t i = 0; i < na; i++) {
-            dst[i] = ~dst[i];
-        }
-    } else {
-        for (mp_size_t i = 0; i < na; i++) {
-            dst[i] = ~numa[i];
-        }
+void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
+    for (mp_size_t i = 0; i < na; i++) {
+        dst[i] = ~numa[i];
     }
 }
 

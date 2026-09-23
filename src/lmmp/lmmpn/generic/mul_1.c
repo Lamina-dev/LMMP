@@ -23,19 +23,19 @@ mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
 
     for (; i + 4 <= na; i += 4) {
         __uint128_t a0 = (__uint128_t)numa[i + 0] * x + cl;
-        __uint128_t a1 = (__uint128_t)numa[i + 1] * x + (uint64_t)(a0 >> 64);
-        __uint128_t a2 = (__uint128_t)numa[i + 2] * x + (uint64_t)(a1 >> 64);
-        __uint128_t a3 = (__uint128_t)numa[i + 3] * x + (uint64_t)(a2 >> 64);
-        dst[i + 0] = (uint64_t)a0;
-        dst[i + 1] = (uint64_t)a1;
-        dst[i + 2] = (uint64_t)a2;
-        dst[i + 3] = (uint64_t)a3;
-        cl = (uint64_t)(a3 >> 64);
+        __uint128_t a1 = (__uint128_t)numa[i + 1] * x + (mp_limb_t)(a0 >> 64);
+        __uint128_t a2 = (__uint128_t)numa[i + 2] * x + (mp_limb_t)(a1 >> 64);
+        __uint128_t a3 = (__uint128_t)numa[i + 3] * x + (mp_limb_t)(a2 >> 64);
+        dst[i + 0] = (mp_limb_t)a0;
+        dst[i + 1] = (mp_limb_t)a1;
+        dst[i + 2] = (mp_limb_t)a2;
+        dst[i + 3] = (mp_limb_t)a3;
+        cl = (mp_limb_t)(a3 >> 64);
     }
     for (; i < na; i++) {
         __uint128_t a = (__uint128_t)numa[i] * x + cl;
-        dst[i] = (uint64_t)a;
-        cl = (uint64_t)(a >> 64);
+        dst[i] = (mp_limb_t)a;
+        cl = (mp_limb_t)(a >> 64);
     }
     return cl;
 }
@@ -46,19 +46,19 @@ mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) 
 
     for (; i + 4 <= n; i += 4) {
         __uint128_t a0 = (__uint128_t)numb[i + 0] * b + numa[i + 0] + cl;
-        __uint128_t a1 = (__uint128_t)numb[i + 1] * b + numa[i + 1] + (uint64_t)(a0 >> 64);
-        __uint128_t a2 = (__uint128_t)numb[i + 2] * b + numa[i + 2] + (uint64_t)(a1 >> 64);
-        __uint128_t a3 = (__uint128_t)numb[i + 3] * b + numa[i + 3] + (uint64_t)(a2 >> 64);
-        numa[i + 0] = (uint64_t)a0;
-        numa[i + 1] = (uint64_t)a1;
-        numa[i + 2] = (uint64_t)a2;
-        numa[i + 3] = (uint64_t)a3;
-        cl = (uint64_t)(a3 >> 64);
+        __uint128_t a1 = (__uint128_t)numb[i + 1] * b + numa[i + 1] + (mp_limb_t)(a0 >> 64);
+        __uint128_t a2 = (__uint128_t)numb[i + 2] * b + numa[i + 2] + (mp_limb_t)(a1 >> 64);
+        __uint128_t a3 = (__uint128_t)numb[i + 3] * b + numa[i + 3] + (mp_limb_t)(a2 >> 64);
+        numa[i + 0] = (mp_limb_t)a0;
+        numa[i + 1] = (mp_limb_t)a1;
+        numa[i + 2] = (mp_limb_t)a2;
+        numa[i + 3] = (mp_limb_t)a3;
+        cl = (mp_limb_t)(a3 >> 64);
     }
     for (; i < n; i++) {
         __uint128_t a = (__uint128_t)numb[i] * b + numa[i] + cl;
-        numa[i] = (uint64_t)a;
-        cl = (uint64_t)(a >> 64);
+        numa[i] = (mp_limb_t)a;
+        cl = (mp_limb_t)(a >> 64);
     }
     return cl;
 }
@@ -70,19 +70,19 @@ mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) 
 
     for (; i + 4 <= n; i += 4) {
         __uint128_t a0 = (__uint128_t)numa[i + 0] - (__uint128_t)numb[i + 0] * b - cl;
-        __uint128_t a1 = (__uint128_t)numa[i + 1] - (__uint128_t)numb[i + 1] * b - (uint64_t)(-(uint64_t)(a0 >> 64));
-        __uint128_t a2 = (__uint128_t)numa[i + 2] - (__uint128_t)numb[i + 2] * b - (uint64_t)(-(uint64_t)(a1 >> 64));
-        __uint128_t a3 = (__uint128_t)numa[i + 3] - (__uint128_t)numb[i + 3] * b - (uint64_t)(-(uint64_t)(a2 >> 64));
-        numa[i + 0] = (uint64_t)a0;
-        numa[i + 1] = (uint64_t)a1;
-        numa[i + 2] = (uint64_t)a2;
-        numa[i + 3] = (uint64_t)a3;
-        cl = (uint64_t)(-(uint64_t)(a3 >> 64));
+        __uint128_t a1 = (__uint128_t)numa[i + 1] - (__uint128_t)numb[i + 1] * b - (mp_limb_t)(-(mp_limb_t)(a0 >> 64));
+        __uint128_t a2 = (__uint128_t)numa[i + 2] - (__uint128_t)numb[i + 2] * b - (mp_limb_t)(-(mp_limb_t)(a1 >> 64));
+        __uint128_t a3 = (__uint128_t)numa[i + 3] - (__uint128_t)numb[i + 3] * b - (mp_limb_t)(-(mp_limb_t)(a2 >> 64));
+        numa[i + 0] = (mp_limb_t)a0;
+        numa[i + 1] = (mp_limb_t)a1;
+        numa[i + 2] = (mp_limb_t)a2;
+        numa[i + 3] = (mp_limb_t)a3;
+        cl = (mp_limb_t)(-(mp_limb_t)(a3 >> 64));
     }
     for (; i < n; i++) {
         __uint128_t a = (__uint128_t)numa[i] - (__uint128_t)numb[i] * b - cl;
-        numa[i] = (uint64_t)a;
-        cl = (uint64_t)(-(uint64_t)(a >> 64));
+        numa[i] = (mp_limb_t)a;
+        cl = (mp_limb_t)(-(mp_limb_t)(a >> 64));
     }
     return cl;
 }
