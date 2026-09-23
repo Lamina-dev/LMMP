@@ -228,15 +228,15 @@ static void lmmp_cbrt6_fast_(mp_ptr restrict dst, mp_ptr restrict numa, mp_ptr r
     numa[4] = lmmp_mul_1_(numa + 2, numa + 2, 2, 3);
     lmmp_inc_1(numa + 2, r);
 
-    mp_limb_t rsav[7], w[7], u2[4], u3[5], x3sq[7];
-    lmmp_zero(rsav + 5, 2);
+    mp_limb_t rsav[6], w[6], u2[4], u3[5], x3sq[6];
+    lmmp_zero(rsav + 5, 1);
     lmmp_copy(rsav, numa, 5);
-    lmmp_zero(x3sq, 7);
+    lmmp_zero(x3sq, 2);
+    x3sq[5] = 0;
     lmmp_mullh_((dst + 1)[0], (dst + 1)[0], u2); // u2 = Ahr^2
     x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);   // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
     for (;;) {
-        // [w,6] = W(u) = 3*Ahr*u^2*B + u^3
-        lmmp_zero(w, 7);
+        w[0] = 0;
         lmmp_sqr_hard_2_(u2, tp + 5);                   // u^2
         w[4] = lmmp_mul_1_(w + 1, u2, 3, (dst + 1)[0]); // Ahr*u^2 占 [1,5)
         w[5] = lmmp_mul_1_(w + 1, w + 1, 4, 3);         // 3*Ahr*u^2*B
@@ -521,39 +521,3 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
 #undef scratch
 }
 
-#if 0
-/*
-
-    B^(3*ns) // [numa,3*ns]^(2/3)
-
-    A     = Ah * B^(3*lo) + Al
-
-    Ahr   = B^(nf+3*hi) / Ah^(2/3)
-    x_k   = Ahr * B^lo
-
-    x_k+1 = x_k + x_k/3 - A^2 * x_k^4 / 3 / B^(9*na+3*nf)
-
-*/
-
-#define INVCBRT_MIN 0xa000000000000000ull
-
-void lmmp_invcbrt_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
-    lmmp_param_assert(na > 0);
-    lmmp_param_assert(numa != NULL && dst != NULL);
-    lmmp_param_assert(numa[3 * na - 1] >= INVCBRT_MIN);
-
-    mp_size_t ns = na + nf;
-    if (ns == 1) {
-        mp_limb_t a_sqr[6], a_sqrcbrt[2], tp[9];
-        lmmp_sqr_basecase_(a_sqr, numa, 3);
-        lmmp_cbrt_divide_(a_sqrcbrt, a_sqr, 2, tp, 0);
-        lmmp_zero(tp, 3);
-        tp[3] = 1;
-
-        lmmp_div_2_s_(dst, tp, 4, a_sqrcbrt);
-    } else {
-
-    }
-}
-
-#endif

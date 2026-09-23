@@ -119,6 +119,87 @@ TEST_CASE("numth/sqrt", sqrt_ulong_sqrt_1_sqrt_2) {
     }
 }
 
+TEST_CASE("numth/sqrt", sqrt_3_sqrt_4) {
+    u64 seed = 0x5f2b9a1c7e4d6083ull;
+    const mp_limb_t tops[] = {LIMB_B_4, LIMB_B_4 + 1, LIMB_MAX, LIMB_MAX - 1, 0x6000000000000000ull, 0};
+
+    for (int an : {3, 4}) {
+        for (int iter = 0; iter < 2000; ++iter) {
+            mp_limb_t a[5] = {0, 0, 0, 0, 0};
+            if (iter % 3 == 0) {
+                // 完全平方邻域：t^2 / t^2±1
+                BigInt t;
+                t.d.resize(2);
+                for (size_t i = 0; i < 2; ++i) t.d[i] = xorshift64(seed);
+                if (an == 3) t.d[1] &= 0xffffffffull;  // t < 2^96，t^2 为 3 limb
+                t.trim();
+                if (t.is_zero()) t = BigInt(1);
+                BigInt sq = BigInt::sqr_school(t);
+                if (iter % 9 == 1) sq = BigInt::add_small(sq, 1);
+                if (iter % 9 == 2) sq = BigInt::sub_small(sq, 1);
+                if ((mp_size_t)sq.d.size() != (mp_size_t)an) continue;
+                to_limbs(sq, a, an);
+            } else {
+                for (int i = 0; i < an; ++i) a[i] = xorshift64(seed);
+                mp_limb_t top = tops[iter % 6];
+                if (top) a[an - 1] = top;  // 精确边界顶 limb
+            }
+            if (a[an - 1] < LIMB_B_4) a[an - 1] = LIMB_B_4 | (a[an - 1] >> 2);
+
+            BigInt ba(a, an);
+            mp_limb_t s[2], s2[2], r[3], rc[3];
+            mp_limb_t ac[5];
+            memcpy(ac, a, 5 * 8);
+
+            if (an == 4)
+                lmmp_sqrt_4_(s, r, ac);
+            else
+                lmmp_sqrt_3_(s, r, ac);
+            BigInt bs(s, 2), br(r, 3);
+            TEST_CHECK_MSG(BigInt::add_abs(BigInt::sqr_school(bs), br) == ba, "sqrt_34 sqrtrem relation");
+            TEST_CHECK_MSG(br <= BigInt::add_small(BigInt::shl_bits(bs, 1), 1), "sqrt_34 remainder bound");
+            TEST_CHECK_MSG(BigInt::sqr_school(bs) <= ba && BigInt::sqr_school(BigInt::add_small(bs, 1)) > ba,
+                           "sqrt_34 floor property");
+
+            // 不计算余数版本与余数写回输入（eqsep）
+            memcpy(ac, a, 5 * 8);
+            if (an == 4)
+                lmmp_sqrt_4_(s2, NULL, ac);
+            else
+                lmmp_sqrt_3_(s2, NULL, ac);
+            TEST_CHECK_MSG(s[0] == s2[0] && s[1] == s2[1], "sqrt_34 no-rem root match");
+            memcpy(ac, a, 5 * 8);
+            if (an == 4)
+                lmmp_sqrt_4_(s2, rc, ac);
+            else
+                lmmp_sqrt_3_(s2, rc, ac);
+            TEST_CHECK_MSG(s[0] == s2[0] && s[1] == s2[1] && r[0] == rc[0] && r[1] == rc[1] && r[2] == rc[2],
+                           "sqrt_34 aliased rem match");
+        }
+    }
+
+    // 边界：最小/最大被开方数
+    {
+        mp_limb_t s[2], r[3];
+        mp_limb_t b4min[4] = {0, 0, 0, LIMB_B_4};
+        mp_limb_t b4max[4] = {LIMB_MAX, LIMB_MAX, LIMB_MAX, LIMB_MAX};
+        mp_limb_t b3min[4] = {0, 0, LIMB_B_4, 0};
+        mp_limb_t b3max[4] = {LIMB_MAX, LIMB_MAX, LIMB_MAX, 0};
+        lmmp_sqrt_4_(s, r, b4min);
+        BigInt bs(s, 2);
+        TEST_CHECK_MSG(BigInt::add_abs(BigInt::sqr_school(bs), BigInt(r, 3)) == BigInt(b4min, 4), "sqrt_4 b4min");
+        lmmp_sqrt_4_(s, r, b4max);
+        bs = BigInt(s, 2);
+        TEST_CHECK_MSG(BigInt::add_abs(BigInt::sqr_school(bs), BigInt(r, 3)) == BigInt(b4max, 4), "sqrt_4 b4max");
+        lmmp_sqrt_3_(s, r, b3min);
+        bs = BigInt(s, 2);
+        TEST_CHECK_MSG(BigInt::add_abs(BigInt::sqr_school(bs), BigInt(r, 3)) == BigInt(b3min, 3), "sqrt_3 b3min");
+        lmmp_sqrt_3_(s, r, b3max);
+        bs = BigInt(s, 2);
+        TEST_CHECK_MSG(BigInt::add_abs(BigInt::sqr_school(bs), BigInt(r, 3)) == BigInt(b3max, 3), "sqrt_3 b3max");
+    }
+}
+
 TEST_CASE("numth/sqrt", sqrt_divide_and_sqrt) {
     u64 seed = 0x2718281828459045ull;
     for (mp_size_t ns : {1, 2, 5, 10, 20, 40}) {

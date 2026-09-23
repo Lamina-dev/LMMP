@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -860,6 +860,26 @@ LMMP_API mp_limb_t lmmp_sqrt_1_(mp_ptr dstr, mp_limb_t x);
  * @return floor(sqrt([numa,2]))
  */
 LMMP_API mp_limb_t lmmp_sqrt_2_(mp_ptr dstr, mp_srcptr numa);
+
+/**
+ * @brief 计算算术平方根 floor(sqrt([numa,3]))
+ * @param dsts 结果指针（2个limb）
+ * @param dstr 余数指针（3个limb，最高位补零），传 NULL 表示不计算余数
+ * @param numa 被开方数指针
+ * @warning numa[2]>=B/4, dsts!=NULL, numa!=NULL, eqsep(dsts,numa), eqsep(dstr,numa)
+ * @note [dstr,3] = [numa,3] - [dsts,2]^2 <= 2*[dsts,2]
+ */
+LMMP_API void lmmp_sqrt_3_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa);
+
+/**
+ * @brief 计算算术平方根 floor(sqrt([numa,4]))
+ * @param dsts 结果指针（2个limb）
+ * @param dstr 余数指针（3个limb），传 NULL 表示不计算余数
+ * @param numa 被开方数指针
+ * @warning numa[3]>=B/4, dsts!=NULL, numa!=NULL, eqsep(dsts,numa), eqsep(dstr,numa)
+ * @note [dstr,3] = [numa,4] - [dsts,2]^2 <= 2*[dsts,2]
+ */
+LMMP_API void lmmp_sqrt_4_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa);
 
 /**
  * @brief 计算算术平方根 floor(sqrt([numa,2*ns]))

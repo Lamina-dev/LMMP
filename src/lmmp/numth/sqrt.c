@@ -58,6 +58,8 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
     lmmp_param_assert(numa[2 * ns - 1] >= LIMB_B_4);
     if (ns == 1) {
         dst[0] = lmmp_sqrt_2_(numa, numa);
+    } else if (ns == 2) {
+        lmmp_sqrt_4_(dst, calr ? numa : NULL, numa);
     } else {
         mp_size_t lo = ns / 2, hi = ns - lo;
 #define Ahr  (dst + lo)         // [dst+lo,          hi]
