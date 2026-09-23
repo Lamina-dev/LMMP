@@ -19,12 +19,12 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#define lmmp_sqr_(dst, numa, n)                 \
-    if ((n) < MUL_TOOM22_THRESHOLD)             \
+#define lmmp_sqr_(dst, numa, n)               \
+    if ((n) < SQR_TOOM22_THRESHOLD)           \
         lmmp_sqr_hard_n_((dst), (numa), (n)); \
-    else if ((n) < MUL_TOOM33_THRESHOLD)        \
-        lmmp_sqr_toom2_((dst), (numa), (n));    \
-    else                                        \
+    else if ((n) < SQR_TOOM33_THRESHOLD)      \
+        lmmp_sqr_toom2_((dst), (numa), (n));  \
+    else                                      \
         lmmp_sqr_toom3_((dst), (numa), (n))
 
 /*

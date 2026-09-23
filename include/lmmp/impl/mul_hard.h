@@ -66,6 +66,13 @@ LMMP_DECL_SQR_HARD(18)
 LMMP_DECL_SQR_HARD(19)
 
 /**
+ * @brief 硬编码平衡乘法跳转表, [i] 即 lmmp_mul_hard_i_, 下标 0 为 NULL
+ * @note 供按短乘数长度固化调用的场景(如不平衡乘法分块累加)使用,
+ *        避免循环内反复经过 lmmp_mul_hard_n_ 的 switch 分发
+ */
+extern void (*const lmmp_mul_hard_fns_[LMMP_MUL_HARD_MAX_N + 1])(mp_ptr dst, mp_srcptr numa, mp_srcptr numb);
+
+/**
  * @brief 硬编码平衡乘法调度器 [dst,2n] = [numa,n] * [numb,n]
  * @param dst 结果输出指针
  * @param numa 第一个乘数

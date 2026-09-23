@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -17,6 +17,7 @@
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/log2_exp2.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/numth.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -118,7 +119,7 @@ static inline mp_limb_t lmmp_shr64_(mp_srcptr p, mp_size_t n, uint64_t s) {
  * @note [t+6,4]=[r,2]^2
  */
 static inline void lmmp_cube_6_(mp_ptr restrict t, mp_srcptr restrict r) {
-    lmmp_sqr_basecase_(t + 6, r, 2);
+    lmmp_sqr_hard_2_(t + 6, r);
     lmmp_mul_basecase_(t, t + 6, 4, r, 2);
 }
 
@@ -231,16 +232,16 @@ static void lmmp_cbrt6_fast_(mp_ptr restrict dst, mp_ptr restrict numa, mp_ptr r
     lmmp_zero(rsav + 5, 2);
     lmmp_copy(rsav, numa, 5);
     lmmp_zero(x3sq, 7);
-    lmmp_sqr_basecase_(u2, dst + 1, 1);         // u2 = Ahr^2
-    x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);  // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
+    lmmp_mullh_((dst + 1)[0], (dst + 1)[0], u2); // u2 = Ahr^2
+    x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);   // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
     for (;;) {
         // [w,6] = W(u) = 3*Ahr*u^2*B + u^3
         lmmp_zero(w, 7);
-        lmmp_sqr_basecase_(u2, tp + 5, 2);             // u^2
-        lmmp_mul_basecase_(w + 1, u2, 3, dst + 1, 1);  // Ahr*u^2 占 [1,5)
-        w[5] = lmmp_mul_1_(w + 1, w + 1, 4, 3);        // 3*Ahr*u^2*B
-        lmmp_mul_basecase_(u3, u2, 3, tp + 5, 2);      // u^3
-        w[5] += lmmp_add_n_(w, w, u3, 5);              // W < 4*B^5，w[5] <= 4 不溢出
+        lmmp_sqr_hard_2_(u2, tp + 5);                   // u^2
+        w[4] = lmmp_mul_1_(w + 1, u2, 3, (dst + 1)[0]); // Ahr*u^2 占 [1,5)
+        w[5] = lmmp_mul_1_(w + 1, w + 1, 4, 3);         // 3*Ahr*u^2*B
+        lmmp_mul_basecase_(u3, u2, 3, tp + 5, 2);       // u^3
+        w[5] += lmmp_add_n_(w, w, u3, 5);               // W < 4*B^5，w[5] <= 4 不溢出
         if (lmmp_sub_(numa, rsav, 6, w, 6) == 0)
             break;
         lmmp_dec(tp + 5);
@@ -431,7 +432,7 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
                     lmmp_copy(dst, Alr, lo);
                     return;
                 }
-                lmmp_sqr_basecase_(Alr2, Alr + lo - 2, 2);              // [Alr2,4] = H^2
+                lmmp_sqr_hard_2_(Alr2, Alr + lo - 2);                   // [Alr2,4] = H^2
                 lmmp_mul_basecase_(scratch, Alr2, 4, Ahr + hi - 2, 2);  // [scratch,6] = X*H^2
                 mp_limb_t qh2 = lmmp_mul_1_(scratch, scratch, 6, 3);    // [qh:scratch,6] = 3*X*H^2
                 mp_limb_t qm = scratch[5], ql = scratch[4];

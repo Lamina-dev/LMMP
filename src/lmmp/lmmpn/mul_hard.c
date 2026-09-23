@@ -16,6 +16,29 @@
 #include "../../../include/lmmp/impl/mul_hard.h"
 
 
+void (*const lmmp_mul_hard_fns_[LMMP_MUL_HARD_MAX_N + 1])(mp_ptr, mp_srcptr, mp_srcptr) = {
+    NULL,
+    lmmp_mul_hard_1_,
+    lmmp_mul_hard_2_,
+    lmmp_mul_hard_3_,
+    lmmp_mul_hard_4_,
+    lmmp_mul_hard_5_,
+    lmmp_mul_hard_6_,
+    lmmp_mul_hard_7_,
+    lmmp_mul_hard_8_,
+    lmmp_mul_hard_9_,
+    lmmp_mul_hard_10_,
+    lmmp_mul_hard_11_,
+    lmmp_mul_hard_12_,
+    lmmp_mul_hard_13_,
+    lmmp_mul_hard_14_,
+    lmmp_mul_hard_15_,
+    lmmp_mul_hard_16_,
+    lmmp_mul_hard_17_,
+    lmmp_mul_hard_18_,
+    lmmp_mul_hard_19_,
+};
+
 void lmmp_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
     switch (n) {
         case 1: lmmp_mul_hard_1_(dst, numa, numb); break;

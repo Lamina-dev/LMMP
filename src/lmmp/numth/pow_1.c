@@ -15,6 +15,7 @@
 
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/mparam.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
@@ -363,7 +364,7 @@ mp_size_t lmmp_u32_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     mp_size_t b5n = b5[2] != 0 ? 3 : 2;
 
     mp_limb_t b6[4];
-    lmmp_sqr_basecase_(b6, b3, b3n);
+    lmmp_sqr_hard_2_(b6, b3);
     mp_size_t b6n = 2 * b3n;
     while (b6[b6n - 1] == 0) --b6n;
 
@@ -439,7 +440,7 @@ mp_size_t lmmp_u64_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     mp_size_t b3n = b3[2] != 0 ? 3 : 2;
 
     mp_limb_t b4[4];
-    lmmp_sqr_basecase_(b4, b2, b2n);
+    lmmp_sqr_hard_2_(b4, b2);
     mp_size_t b4n = b4[3] != 0 ? 4 : 3;
 
     mp_limb_t b5[5];
@@ -448,7 +449,7 @@ mp_size_t lmmp_u64_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     b5n -= (b5[b5n - 1] == 0) ? 1 : 0;
 
     mp_limb_t b6[6];
-    lmmp_sqr_basecase_(b6, b3, b3n);
+    lmmp_sqr_hard_n_(b6, b3, b3n);
     mp_size_t b6n = 2 * b3n;
     b6n -= (b6[b6n - 1] == 0) ? 1 : 0;
 

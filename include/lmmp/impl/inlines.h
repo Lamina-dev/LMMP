@@ -22,6 +22,7 @@
 
 #include "../lmmpn.h"
 #include "mparam.h"
+#include "mul_hard.h"
 
 static inline int __lmmp_limb_bits_(mp_limb_t x) {
     int k = 0;
@@ -119,7 +120,7 @@ static inline mp_limb_t __lmmp_mulh_(mp_limb_t a, mp_limb_t b) {
 
 static inline void __lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb, mp_size_t n) {
     if (n < MUL_TOOM22_THRESHOLD)
-        lmmp_mul_basecase_(dst, numa, n, numb, n);
+        lmmp_mul_hard_n_(dst, numa, numb, n);
     else if (n < MUL_TOOM33_THRESHOLD)
         lmmp_mul_toom22_(dst, numa, n, numb, n);
     else if (n < MUL_TOOM44_THRESHOLD)
@@ -131,13 +132,13 @@ static inline void __lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, m
 }
 
 static inline void __lmmp_sqr_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    if (na < MUL_TOOM22_THRESHOLD)
-        lmmp_sqr_basecase_(dst, numa, na);
-    else if (na < MUL_TOOM33_THRESHOLD)
+    if (na < SQR_TOOM22_THRESHOLD)
+        lmmp_sqr_hard_n_(dst, numa, na);
+    else if (na < SQR_TOOM33_THRESHOLD)
         lmmp_sqr_toom2_(dst, numa, na);
-    else if (na < MUL_TOOM44_THRESHOLD)
+    else if (na < SQR_TOOM44_THRESHOLD)
         lmmp_sqr_toom3_(dst, numa, na);
-    else if (na < MUL_FFT_THRESHOLD)
+    else if (na < SQR_FFT_THRESHOLD)
         lmmp_sqr_toom4_(dst, numa, na);
     else
         lmmp_sqr_fft_(dst, numa, na);

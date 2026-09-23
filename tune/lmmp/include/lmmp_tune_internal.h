@@ -200,9 +200,14 @@ int tune_write_mparam(const char* path, const char* backup_path);
 
 /* 每个调优文件的统一入口；实现位于 src/tune_<name>.c。 */
 int tune_run_mul_toom22(void);
+int tune_run_sqr_toom22(void);
 int tune_run_mul_toom33(void);
+int tune_run_sqr_toom33(void);
 int tune_run_mul_toom44(void);
+int tune_run_sqr_toom44(void);
 int tune_run_mul_fft(void);
+int tune_run_sqr_fft(void);
+int tune_run_mul_unbalanced_hard(void);
 int tune_run_mullo_basecase(void);
 int tune_run_mullo_dc(void);
 int tune_run_div_divide(void);

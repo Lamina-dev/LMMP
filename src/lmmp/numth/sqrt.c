@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/mparam.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/lmmpn.h"
@@ -133,7 +134,7 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
                     lmmp_copy(dst, Alr, lo);
                     return;
                 }
-                lmmp_sqr_basecase_(Alr2, Alr + lo - 2, 2);  // [Alr2,4] = H^2
+                lmmp_sqr_hard_2_(Alr2, Alr + lo - 2);       // [Alr2,4] = H^2
                 mp_limb_t h2h = Alr2[3], h2l = Alr2[2];     // H^2 的最高两 limb
                 mp_limb_t rh = R[2 * lo - 1], rl = R[2 * lo - 2];
                 mp_limb_t wl = h2l + 4;                     // [wh,wl] = [H^2]+4

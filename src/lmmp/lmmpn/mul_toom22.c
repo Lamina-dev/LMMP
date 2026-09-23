@@ -19,10 +19,10 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#define lmmp_mul_n_(dst, numa, numb, n)                      \
-    if ((n) < MUL_TOOM22_THRESHOLD)                          \
+#define lmmp_mul_n_(dst, numa, numb, n)               \
+    if ((n) < MUL_TOOM22_THRESHOLD)                   \
         lmmp_mul_hard_n_((dst), (numa), (numb), (n)); \
-    else                                                     \
+    else                                              \
         lmmp_mul_toom22_((dst), (numa), (n), (numb), (n))
 
 /*

@@ -60,25 +60,66 @@
 #define MUL_TOOM22_THRESHOLD LMMP_DEFAULT_MUL_TOOM22_THRESHOLD
 #endif
 // Toom-33乘法阈值：超过此规模使用Toom-33乘法
-#define LMMP_DEFAULT_MUL_TOOM33_THRESHOLD 65
+#define LMMP_DEFAULT_MUL_TOOM33_THRESHOLD 115
 #ifdef LMMP_TUNE
 #define MUL_TOOM33_THRESHOLD lmmp_tune_MUL_TOOM33_THRESHOLD
 #else
 #define MUL_TOOM33_THRESHOLD LMMP_DEFAULT_MUL_TOOM33_THRESHOLD
 #endif
 // Toom-44乘法阈值：超过此规模使用Toom-44乘法
-#define LMMP_DEFAULT_MUL_TOOM44_THRESHOLD 481
+#define LMMP_DEFAULT_MUL_TOOM44_THRESHOLD 307
 #ifdef LMMP_TUNE
 #define MUL_TOOM44_THRESHOLD lmmp_tune_MUL_TOOM44_THRESHOLD
 #else
 #define MUL_TOOM44_THRESHOLD LMMP_DEFAULT_MUL_TOOM44_THRESHOLD
 #endif
+
+// 平方 Toom 阈值：平方与乘法在各 toom 层的交叉点不完全一致，分立调优。
+// SQR_TOOM22 上限受硬编码平方 LMMP_MUL_HARD_MAX_N 钉死(与乘法同构)
+#define LMMP_DEFAULT_SQR_TOOM22_THRESHOLD 20
+#ifdef LMMP_TUNE
+#define SQR_TOOM22_THRESHOLD lmmp_tune_SQR_TOOM22_THRESHOLD
+#else
+#define SQR_TOOM22_THRESHOLD LMMP_DEFAULT_SQR_TOOM22_THRESHOLD
+#endif
+#define LMMP_DEFAULT_SQR_TOOM33_THRESHOLD 268
+#ifdef LMMP_TUNE
+#define SQR_TOOM33_THRESHOLD lmmp_tune_SQR_TOOM33_THRESHOLD
+#else
+#define SQR_TOOM33_THRESHOLD LMMP_DEFAULT_SQR_TOOM33_THRESHOLD
+#endif
+#define LMMP_DEFAULT_SQR_TOOM44_THRESHOLD 381
+#ifdef LMMP_TUNE
+#define SQR_TOOM44_THRESHOLD lmmp_tune_SQR_TOOM44_THRESHOLD
+#else
+#define SQR_TOOM44_THRESHOLD LMMP_DEFAULT_SQR_TOOM44_THRESHOLD
+#endif
 // FFT乘法阈值：超过此规模使用快速傅里叶变换(FFT)乘法
-#define LMMP_DEFAULT_MUL_FFT_THRESHOLD 1716
+#define LMMP_DEFAULT_MUL_FFT_THRESHOLD 1981
 #ifdef LMMP_TUNE
 #define MUL_FFT_THRESHOLD lmmp_tune_MUL_FFT_THRESHOLD
 #else
 #define MUL_FFT_THRESHOLD LMMP_DEFAULT_MUL_FFT_THRESHOLD
+#endif
+
+// FFT平方阈值：超过此规模使用FFT平方。平方与乘法的 toom4/FFT 交叉点
+// 并不一致（平方交叉点显著更早），故与 MUL_FFT_THRESHOLD 分立调优
+#define LMMP_DEFAULT_SQR_FFT_THRESHOLD 1635
+#ifdef LMMP_TUNE
+#define SQR_FFT_THRESHOLD lmmp_tune_SQR_FFT_THRESHOLD
+#else
+#define SQR_FFT_THRESHOLD LMMP_DEFAULT_SQR_FFT_THRESHOLD
+#endif
+
+// 不平衡乘法硬编码分块阈值：na > PART_SIZE 且较短乘数长度在
+// [此值, LMMP_MUL_HARD_MAX_N] 时，mul_basecase_unbalanced 以短乘数长度分块
+// 并调用硬编码平衡乘累加；其余情形(短乘数过细分块或 na 较小单次直达更优)
+// 走原 mul_basecase 逐列或 PART_SIZE 分块路径
+#define LMMP_DEFAULT_MUL_UNBALANCED_HARD_THRESHOLD 7
+#ifdef LMMP_TUNE
+#define MUL_UNBALANCED_HARD_THRESHOLD lmmp_tune_MUL_UNBALANCED_HARD_THRESHOLD
+#else
+#define MUL_UNBALANCED_HARD_THRESHOLD LMMP_DEFAULT_MUL_UNBALANCED_HARD_THRESHOLD
 #endif
 
 // 低位乘法阈值：低于此规模使用朴素乘法
@@ -282,8 +323,13 @@
 /* 可调阈值运行时绑定（由 tune/lmmp/src/lmmp_tune_params.c 定义）。 */
 extern uint64_t lmmp_tune_MUL_TOOM22_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_TOOM33_THRESHOLD;
+extern uint64_t lmmp_tune_SQR_TOOM22_THRESHOLD;
+extern uint64_t lmmp_tune_SQR_TOOM33_THRESHOLD;
+extern uint64_t lmmp_tune_SQR_TOOM44_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_TOOM44_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
+extern uint64_t lmmp_tune_SQR_FFT_THRESHOLD;
+extern uint64_t lmmp_tune_MUL_UNBALANCED_HARD_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
