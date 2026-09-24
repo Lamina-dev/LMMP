@@ -447,6 +447,65 @@ void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         dsts[0] = srt;
         if (dstr)
             dstr[0] = high - srt * srt;
+    } else if (nl <= 4) {
+        mp_limb_t tmp[4], rr[3], s, t, b;
+        mp_ptr src = (mp_ptr)numa;
+
+        if (nf) {
+            lmmp_zero(tmp, 2 * nf);
+            if (nsh)
+                lmmp_shl_(tmp + 2 * nf, numa, na, 2 * nsh);
+            else
+                lmmp_copy(tmp + 2 * nf, numa, na);
+            src = tmp;
+        } else if (nsh) {
+            lmmp_shl_(tmp, numa, na, 2 * nsh);
+            src = tmp;
+        }
+
+        if (nl == 2) {
+            s = lmmp_sqrt_2_(rr, src);
+            if (dstr && nsh) {
+                // rr[0..1] += 2*t*s - t^2
+                t = s & (((mp_limb_t)1 << nsh) - 1);
+                rr[1] += lmmp_addmul_1_(rr, &s, 1, 2 * t);
+                b = lmmp_submul_1_(rr, &t, 1, t);
+                lmmp_sub_1_(rr + 1, rr + 1, 1, b);
+            }
+            dsts[0] = s >> nsh;
+            dsts[1] = 0;
+            if (dstr)
+                lmmp_shr_(dstr, rr, 2, 2 * nsh);
+        } else if (nl == 3) {
+            lmmp_sqrt_3_(dsts, dstr ? rr : NULL, src);
+            if (dstr && nsh) {
+                // rr[0..2] += 2*t*[dsts,2] - t^2
+                t = dsts[0] & (((mp_limb_t)1 << nsh) - 1);
+                rr[2] += lmmp_addmul_1_(rr, dsts, 2, 2 * t);
+                b = lmmp_submul_1_(rr, &t, 1, t);
+                lmmp_sub_1_(rr + 1, rr + 1, 2, b);
+            }
+            if (nsh)
+                lmmp_shr_(dsts, dsts, 2, nsh);
+            if (dstr) {
+                lmmp_shr_(rr, rr, 3, 2 * nsh);
+                lmmp_copy(dstr, rr, 2);
+            }
+        } else {
+            lmmp_sqrt_4_(dsts, dstr ? rr : NULL, src);
+            if (dstr && nsh) {
+                // rr[0..2] += 2*t*[dsts,2] - t^2
+                t = dsts[0] & (((mp_limb_t)1 << nsh) - 1);
+                rr[2] += lmmp_addmul_1_(rr, dsts, 2, 2 * t);
+                b = lmmp_submul_1_(rr, &t, 1, t);
+                lmmp_sub_1_(rr + 1, rr + 1, 2, b);
+            }
+            dsts[2] = 0;
+            if (nsh)
+                lmmp_shr_(dsts, dsts, 2, nsh);
+            if (dstr)
+                lmmp_shr_(dstr, rr, 3, 2 * nsh);
+        }
     } else if (!dstr && nf >= SQRT_INVNEWTON_K_THRESHOLD * na) {
         lmmp_sqrt_newton_(dsts, numa, na, nf);
     } else {

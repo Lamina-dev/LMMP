@@ -229,9 +229,10 @@ static void lmmp_cbrt6_fast_(mp_ptr restrict dst, mp_ptr restrict numa, mp_ptr r
     lmmp_inc_1(numa + 2, r);
 
     mp_limb_t rsav[6], w[6], u2[4], u3[5], x3sq[6];
-    lmmp_zero(rsav + 5, 1);
+    rsav[5] = 0;
     lmmp_copy(rsav, numa, 5);
-    lmmp_zero(x3sq, 2);
+    x3sq[0] = 0;
+    x3sq[1] = 0;
     x3sq[5] = 0;
     lmmp_mullh_((dst + 1)[0], (dst + 1)[0], u2); // u2 = Ahr^2
     x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);   // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
@@ -317,16 +318,14 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
     lmmp_param_assert(ns > 0);
     lmmp_param_assert(numa != NULL && dst != NULL && tp != NULL);
     lmmp_param_assert(numa[3 * ns - 1] >= CBRT_DIVIDE_MIN);
-    if (ns == 2) {
-        lmmp_cbrt6_fast_(dst, numa, tp);
-        return;
-    }
     if (ns == 1) {
         dst[0] = lmmp_cbrt_3_(numa[0], numa[1], numa[2]);
         if (calr) {
             lmmp_cube_3_(tp, dst[0]);
             lmmp_sub_n_(numa, numa, tp, 3);
         }
+    } else if (ns == 2) {
+        lmmp_cbrt6_fast_(dst, numa, tp);
     } else {
         mp_size_t lo = (ns - 1) / 2, hi = ns - lo;
 #define Ahr     (dst + lo)             // [dst+lo,              hi]

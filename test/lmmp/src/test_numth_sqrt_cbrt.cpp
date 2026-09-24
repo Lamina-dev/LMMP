@@ -246,6 +246,113 @@ TEST_CASE("numth/sqrt", sqrt_divide_and_sqrt) {
 }
 
 /*
+    覆盖 lmmp_sqrt_ 的小尺寸直通路径（nl = na+2nf ∈ [2,4]，直接调用
+    sqrt_2_/sqrt_3_/sqrt_4_）：nf=0 需结果为精确 floor；nf>0 且 dstr!=NULL
+    为精确 sqrtrem；nf>0 且 dstr=NULL 允许 floor 或 floor+1（[floor|round]）。
+    多族顶 limb（含 clz=0/3/31/62、完全平方数及其 -1 邻域）覆盖移位/直通分支。
+*/
+TEST_CASE("numth/sqrt", sqrt_small_direct) {
+    u64 seed = 0x5eed0cca7ea21b3full;
+
+    for (mp_size_t na : {2, 3, 4}) {
+        for (int fam = 0; fam < 7; fam++) {
+            mp_ptr numa = alloc_limbs(na);
+            random_limbs(numa, na, seed, false);
+            switch (fam) {
+                case 1: numa[na - 1] |= (u64)1 << 63; break;   // clz = 0
+                case 2: numa[na - 1] = (u64)1 << 32; break;    // clz = 31
+                case 3: numa[na - 1] = (u64)1 << 2; break;     // clz = 62
+                case 4: numa[na - 1] = (u64)1 << 61; break;    // clz = 3
+                case 5:
+                    if ((na & 1) == 0) {  // 偶 na：完全平方数 t^2
+                        mp_ptr t = alloc_limbs(na / 2);
+                        random_limbs(t, na / 2, seed);
+                        BigInt sq = BigInt::sqr_school(BigInt(t, na / 2));
+                        std::memset(numa, 0, na * 8);
+                        std::memcpy(numa, sq.d.data(), na * 8 < sq.d.size() * 8 ? na * 8 : sq.d.size() * 8);
+                        lmmp_free(t);
+                    } else {  // 奇 na：t^2*B，构造高位边界邻域
+                        mp_ptr t = alloc_limbs((na + 1) / 2);
+                        random_limbs(t, (na + 1) / 2, seed);
+                        BigInt sq = BigInt::sqr_school(BigInt(t, (na + 1) / 2));
+                        sq = BigInt::shl_bits(sq, 64);
+                        std::memset(numa, 0, na * 8);
+                        std::memcpy(numa, sq.d.data(), na * 8 < sq.d.size() * 8 ? na * 8 : sq.d.size() * 8);
+                        lmmp_free(t);
+                    }
+                    break;
+                case 6:
+                    if ((na & 1) == 0) {  // t^2 - 1
+                        mp_ptr t = alloc_limbs(na / 2);
+                        random_limbs(t, na / 2, seed);
+                        BigInt sq = BigInt::sqr_school(BigInt(t, na / 2));
+                        sq = BigInt::sub_abs(sq, BigInt(1));
+                        std::memset(numa, 0, na * 8);
+                        std::memcpy(numa, sq.d.data(), na * 8 < sq.d.size() * 8 ? na * 8 : sq.d.size() * 8);
+                        lmmp_free(t);
+                    }
+                    break;
+                default: break;  // fam 0：纯随机顶 limb
+            }
+            if (numa[na - 1] == 0) numa[na - 1] = 1;
+
+            mp_size_t alloc_len = na / 2 + 1 + 2;
+            mp_ptr dst = alloc_limbs(alloc_len);
+            mp_ptr rem = alloc_limbs(alloc_len);
+            BigInt bn(numa, na);
+
+            lmmp_sqrt_(dst, rem, numa, na, 0);
+            BigInt bs(dst, na / 2 + 1), br(rem, na / 2 + 1);
+            BigInt s2 = BigInt::sqr_school(bs);
+            TEST_CHECK_MSG(BigInt::add_abs(s2, br) == bn, "small sqrtrem relation");
+            TEST_CHECK_MSG(s2 <= bn && BigInt::sqr_school(BigInt::add_small(bs, 1)) > bn, "small floor property");
+
+            lmmp_sqrt_(dst, NULL, numa, na, 0);
+            BigInt bs0(dst, na / 2 + 1);
+            TEST_CHECK_MSG(BigInt::sqr_school(bs0) <= bn && BigInt::sqr_school(BigInt::add_small(bs0, 1)) > bn,
+                           "small floor (dstr NULL)");
+
+            lmmp_free(numa); lmmp_free(dst); lmmp_free(rem);
+        }
+    }
+
+    // nf=1：nl = na+2 ∈ {3,4}
+    for (mp_size_t na : {1, 2}) {
+        for (int fam = 0; fam < 5; fam++) {
+            mp_ptr numa = alloc_limbs(na);
+            random_limbs(numa, na, seed, false);
+            if (fam == 1) numa[na - 1] |= (u64)1 << 63;
+            if (fam == 2) numa[na - 1] = (u64)1 << 32;
+            if (fam == 3) numa[na - 1] = (u64)1 << 2;
+            if (fam == 4 && na == 1) {  // 1 limb 完全平方数
+                u64 t = isqrt_u64((u64)3 << 62);
+                numa[0] = t * t;
+            }
+            if (numa[na - 1] == 0) numa[na - 1] = 1;
+
+            const mp_size_t nf = 1, ns = nf + na / 2 + 1;
+            mp_ptr dst = alloc_limbs(ns + 2);
+            mp_ptr rem = alloc_limbs(ns + 2);
+            BigInt bn = BigInt::shl_bits(BigInt(numa, na), 128);  // A * B^2
+
+            lmmp_sqrt_(dst, rem, numa, na, nf);
+            BigInt bs(dst, ns), br(rem, ns);
+            BigInt s2 = BigInt::sqr_school(bs);
+            TEST_CHECK_MSG(BigInt::add_abs(s2, br) == bn, "small nf sqrtrem relation");
+            TEST_CHECK_MSG(s2 <= bn && BigInt::sqr_school(BigInt::add_small(bs, 1)) > bn, "small nf floor property");
+
+            lmmp_sqrt_(dst, NULL, numa, na, nf);
+            BigInt bs0(dst, ns);
+            BigInt ref = ref_isqrt(bn);
+            TEST_CHECK_MSG(BigInt::cmp(bs0, ref) >= 0 && BigInt::cmp(bs0, BigInt::add_small(ref, 1)) <= 0,
+                           "small nf [floor|round]");
+
+            lmmp_free(numa); lmmp_free(dst); lmmp_free(rem);
+        }
+    }
+}
+
+/*
     覆盖 lmmp_sqrt_ 的 dstr=NULL 分数开方两条路径（选择机制随阈值变化，
     故同时直接调用内部函数强制两条路径）：
       divide 路径（calr=0）结果必须是精确 floor；
