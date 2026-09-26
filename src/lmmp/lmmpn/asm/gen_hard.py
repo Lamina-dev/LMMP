@@ -8,8 +8,11 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
   x64  mul, N>=9 : 种子 mul_1 + 展开 addmul_2(双乘数交错列) + 尾部直存
   x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉积列累加
                    (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
-  arm64 mul      : 寄存器整行累加(mul/umulh + adds/adcs 单进位链, 列 c 固定映射 ring[c%n])
-  arm64 sqr      : 交叉行累加 -> 倍增 -> 对角 (单进位链)
+  arm64 mul      : 种子 mul_1 + 展开 addmul_1, 双链批结构
+                   (链1: s_k=lo_k+hi_{k-1}+C; 链2: dst+=s; carry 走 x15)
+  arm64 sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 2a 乘数单趟
+                   (m_i = 2a_i + ov_{i-1}, ov 由 bit63 现场生成; 对角即时
+                   折叠, 无整体倍增/对角 pass)
 
 约定: intel 语法 mulx HI, LO, src (HI=第一目的操作数)。
 
@@ -821,6 +824,18 @@ def gen_x64_sqr():
 # =============================================================================
 # arm64 乘法
 # =============================================================================
+#
+# 双链批结构 (与库内 addmul_1.S 同构, 全展开 + 常量偏移):
+#   链 1(部分积):  s_k = lo_k + hi_{k-1} + C, 一条 adcs 链跨整行,
+#                  乘法对穿插链节点发射 (乘端口连续供数);
+#   链 2(回写):    dst[col+k] += s_k, ldp 预读 + adds 就地折叠,
+#                  adc 将链 2 溢出并入 carry.
+# 批间 carry 经寄存器 x15 传递 (两链溢出同权, 数学合法).
+# 寄存器分派:
+#   x0=dst x1=numa x2=numb x3=v(行乘数) x4..x7=a 加载对(兼 hi)
+#   x8..x11=lo/s 链节点  x12..x14=hi  x15=carry(兼第4积hi)  x16,x17=dst 读对
+# 每积约 6 条指令, 关键链深 2 (旧即时吸收结构为 9 条/深 4).
+
 
 def arm64_mul_n1():
     return """\
@@ -832,53 +847,124 @@ def arm64_mul_n1():
     ret"""
 
 
+def arm64_row_batches(b, k0, m, col0, seed, cin0=None):
+    """发射 m 个积 (a[k0..k0+m) * x3) 的批序列, 首列 col0。
+    seed=True 种子直存 (无 dst 读); False 为 RMW 行。批间 carry 在 x15。
+    cin0: 首批首节点 carry 加数 (默认 seed 用 xzr / RMW 用 x15)。"""
+    if cin0 is None:
+        cin0 = "xzr" if seed else "x15"
+    k, c = k0, col0
+    while m >= 4:
+        cin = cin0 if k == k0 else "x15"
+        b.append("    ldp     x4, x5, [x1, #%d]" % (8 * k))
+        b.append("    mul     x8, x4, x3")
+        b.append("    umulh   x12, x4, x3")
+        b.append("    ldp     x6, x7, [x1, #%d]" % (8 * (k + 2)))
+        b.append("    mul     x9, x5, x3")
+        b.append("    umulh   x13, x5, x3")
+        b.append("    adds    x8, x8, %s" % cin)
+        b.append("    mul     x10, x6, x3")
+        b.append("    umulh   x14, x6, x3")
+        b.append("    adcs    x9, x9, x12")
+        b.append("    mul     x11, x7, x3")
+        b.append("    umulh   x15, x7, x3")
+        b.append("    adcs    x10, x10, x13")
+        b.append("    adcs    x11, x11, x14")
+        b.append("    adc     x15, x15, xzr")
+        if seed:
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+            b.append("    stp     x10, x11, [x0, #%d]" % (8 * (c + 2)))
+        else:
+            b.append("    ldp     x16, x17, [x0, #%d]" % (8 * c))
+            b.append("    ldp     x12, x13, [x0, #%d]" % (8 * (c + 2)))
+            b.append("    adds    x8, x16, x8")
+            b.append("    adcs    x9, x17, x9")
+            b.append("    adcs    x10, x12, x10")
+            b.append("    adcs    x11, x13, x11")
+            b.append("    adc     x15, x15, xzr")
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+            b.append("    stp     x10, x11, [x0, #%d]" % (8 * (c + 2)))
+        k += 4
+        c += 4
+        m -= 4
+    if m == 3:
+        cin = cin0 if k == k0 else "x15"
+        b.append("    ldp     x4, x5, [x1, #%d]" % (8 * k))
+        b.append("    mul     x8, x4, x3")
+        b.append("    umulh   x12, x4, x3")
+        b.append("    ldr     x6, [x1, #%d]" % (8 * (k + 2)))
+        b.append("    mul     x9, x5, x3")
+        b.append("    umulh   x13, x5, x3")
+        b.append("    adds    x8, x8, %s" % cin)
+        b.append("    mul     x10, x6, x3")
+        b.append("    umulh   x14, x6, x3")
+        b.append("    adcs    x9, x9, x12")
+        b.append("    adcs    x10, x10, x13")
+        b.append("    adc     x15, x14, xzr")
+        if seed:
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+            b.append("    str     x10, [x0, #%d]" % (8 * (c + 2)))
+        else:
+            b.append("    ldp     x16, x17, [x0, #%d]" % (8 * c))
+            b.append("    ldr     x12, [x0, #%d]" % (8 * (c + 2)))
+            b.append("    adds    x8, x16, x8")
+            b.append("    adcs    x9, x17, x9")
+            b.append("    adcs    x10, x12, x10")
+            b.append("    adc     x15, x15, xzr")
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+            b.append("    str     x10, [x0, #%d]" % (8 * (c + 2)))
+    elif m == 2:
+        cin = cin0 if k == k0 else "x15"
+        b.append("    ldp     x4, x5, [x1, #%d]" % (8 * k))
+        b.append("    mul     x8, x4, x3")
+        b.append("    umulh   x12, x4, x3")
+        b.append("    mul     x9, x5, x3")
+        b.append("    umulh   x13, x5, x3")
+        b.append("    adds    x8, x8, %s" % cin)
+        b.append("    adcs    x9, x9, x12")
+        b.append("    adc     x15, x13, xzr")
+        if seed:
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+        else:
+            b.append("    ldp     x16, x17, [x0, #%d]" % (8 * c))
+            b.append("    adds    x8, x16, x8")
+            b.append("    adcs    x9, x17, x9")
+            b.append("    adc     x15, x15, xzr")
+            b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+    elif m == 1:
+        cin = cin0 if k == k0 else "x15"
+        b.append("    ldr     x4, [x1, #%d]" % (8 * k))
+        b.append("    mul     x8, x4, x3")
+        b.append("    umulh   x12, x4, x3")
+        b.append("    adds    x8, x8, %s" % cin)
+        b.append("    adc     x15, x12, xzr")
+        if seed:
+            b.append("    str     x8, [x0, #%d]" % (8 * c))
+        else:
+            b.append("    ldr     x16, [x0, #%d]" % (8 * c))
+            b.append("    adds    x8, x16, x8")
+            b.append("    adc     x15, x15, xzr")
+            b.append("    str     x8, [x0, #%d]" % (8 * c))
+
+
 def arm64_mul(n):
-    """内存喂入方案(与 x64 tier-2 同构): 种子 mul_1 + (n-1) 个展开 addmul_1.
-    每列进位即时吸收: adds t,pl,c (γ1) -> adc c,h,xzr (c=hi+γ1)
-                     -> adds v,v,t (γ2) -> str -> adc c,c,xzr (c+=γ2).
-    全 caller-saved 寄存器, 无压栈."""
-    ta, pl, h, c, t, v = "x3", "x4", "x5", "x6", "x7", "x8"
+    """种子 mul_1(直存) + (n-1) 行展开 addmul_1(双链 RMW), 顶列直存。
+    行 j 写列 [j, j+n-1] RMW + 顶列 j+n 直存 (此前行未触及, 安全)。
+    全 caller-saved 寄存器, 无压栈。"""
     b = []
-    b.append("    // x0=dst x1=numa x2=numb; 种子 mul_1 + 展开 addmul_1")
+    b.append("    // x0=dst x1=numa x2=numb x3=v x15=carry; 种子 mul_1 + 展开 addmul_1")
 
-    # ---- 种子: dst[0..n] = numa * b_0 ----
-    b.append("    ldr     %s, [x2]                 // b_0" % ta)
-    b.append("    ldr     %s, [x1]" % t)
-    b.append("    mul     %s, %s, %s" % (pl, t, ta))
-    b.append("    umulh   %s, %s, %s" % (h, t, ta))
-    b.append("    str     %s, [x0]" % pl)
-    b.append("    mov     %s, %s" % (c, h))
-    for i in range(1, n):
-        b.append("    ldr     %s, [x1, #%d]" % (t, 8 * i))
-        b.append("    mul     %s, %s, %s" % (pl, t, ta))
-        b.append("    umulh   %s, %s, %s" % (h, t, ta))
-        b.append("    adds    %s, %s, %s" % (v, pl, c))
-        b.append("    str     %s, [x0, #%d]" % (v, 8 * i))
-        b.append("    adc     %s, %s, xzr" % (c, h))
-    b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * n))
+    # ---- 种子行 j=0: dst[0..n] = numa * b_0 ----
+    b.append("    ldr     x3, [x2]                 // b_0")
+    arm64_row_batches(b, 0, n, 0, True)
+    b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * n))
 
-    # ---- 行 j = 1..n-1: dst[j..j+n-1] += numa * b_j ----
+    # ---- 行 j = 1..n-1: dst[j..j+n-1] += numa * b_j, 顶列直存 ----
     for j in range(1, n):
-        b.append("    ldr     %s, [x2, #%d]            // b_%d" % (ta, 8 * j, j))
-        # 首列: v = dst[j] + lo (c 初值 0)
-        b.append("    ldr     %s, [x1]" % t)
-        b.append("    mul     %s, %s, %s" % (pl, t, ta))
-        b.append("    umulh   %s, %s, %s" % (h, t, ta))
-        b.append("    ldr     %s, [x0, #%d]" % (v, 8 * j))
-        b.append("    adds    %s, %s, %s" % (v, v, pl))
-        b.append("    str     %s, [x0, #%d]" % (v, 8 * j))
-        b.append("    adc     %s, %s, xzr" % (c, h))
-        for i in range(1, n):
-            b.append("    ldr     %s, [x1, #%d]" % (t, 8 * i))
-            b.append("    mul     %s, %s, %s" % (pl, t, ta))
-            b.append("    umulh   %s, %s, %s" % (h, t, ta))
-            b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (j + i)))
-            b.append("    adds    %s, %s, %s" % (t, pl, c))
-            b.append("    adc     %s, %s, xzr" % (c, h))
-            b.append("    adds    %s, %s, %s" % (v, v, t))
-            b.append("    str     %s, [x0, #%d]" % (v, 8 * (j + i)))
-            b.append("    adc     %s, %s, xzr" % (c, c))
-        b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * (j + n)))
+        b.append("    ldr     x3, [x2, #%d]            // b_%d" % (8 * j, j))
+        b.append("    mov     x15, xzr               // carry = 0")
+        arm64_row_batches(b, 0, n, j, False)
+        b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * (j + n)))
 
     b.append("    ret")
     return "\n".join(b)
@@ -890,7 +976,9 @@ def gen_arm64_mul():
 // void lmmp_mul_hard_N_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb);
 //
 //   平衡硬编码乘法: [dst,2N] = [numa,N] * [numb,N]。
-//   寄存器整行累加: 列 c 固定映射 ring[c%N], 每行存一列并回收为顶列。
+//   种子 mul_1 + 展开 addmul_1, 双链结构:
+//     链1: s_k = lo_k + hi_{k-1} + C (adcs 链跨整行)
+//     链2: dst += s, 溢出并入 carry -> 顶列直存
 //
 
 #include "lmmp_asm.h"
@@ -911,94 +999,174 @@ def gen_arm64_mul():
 # =============================================================================
 # arm64 平方
 # =============================================================================
+#
+# 三段式 (交叉行结构与 mul 同构):
+#   段1 交叉行: dst = T = sum_{i<k} a_i*a_k*B^{i+k}
+#        行 0 种子直存(积 a_0*a_k, k=1..n-1, 列 [1,n-1] + 顶列 n);
+#        行 i=1..n-2 双链 RMW(积 a_i*a_k, k=i+1..n-1, 列 [2i+1, i+n-1] + 顶列 i+n);
+#   段2 倍增: dst = 2T, 列 1..2n-1 的连续 adcs 长链 (ldp/stp 不触 CF 可穿插),
+#        列 0 直存 0, 末 CF=0 由 2T < B^{2n} 保证;
+#   段3 对角: dst += D = sum a_i^2, lo_i/hi_i 分离入列 2i/2i+1,
+#        链节点单加数 (adds/adcs xd, xd, xzr), 批 2 积 4 limb + RMW 双链。
+# 乘法总数 n(n+1)/2。
 
-def arm64_sqr_rows(n):
-    """交叉乘行累加 -> 倍增 -> 对角 (行/对角与 mul 同构的即时进位吸收模式).
-    行内 hi 前驱天然包含在 pending c 中: 每列 = dst + lo + c 三项."""
-    ta, pl, h, c, t, v = "x3", "x4", "x5", "x6", "x7", "x8"
+
+def arm64_sqr_n1():
+    return """\
+    ldr     x3, [x1]
+    mul     x4, x3, x3
+    umulh   x5, x3, x3
+    stp     x4, x5, [x0]
+    ret"""
+
+
+def arm64_sqr_n2():
+    # 摘自库内 sqr_basecase.S 的 Lsqr_2o3 分支 (na==2)
+    return """\
+    ldr     x3, [x1]                 // a_0
+    ldr     x6, [x1,#8]              // a_1
+    mul     x4, x3, x3               // lo(a0^2)
+    umulh   x5, x3, x3               // hi(a0^2)
+    mul     x7, x6, x6               // lo(a1^2)
+    umulh   x8, x6, x6               // hi(a1^2)
+    mul     x9, x3, x6               // lo(a0a1)
+    umulh   x10, x3, x6              // hi(a0a1)
+    adds    x5, x5, x9               // += cross terms
+    adcs    x7, x7, x10
+    adc     x8, x8, xzr
+    adds    x5, x5, x9               // again: x2
+    adcs    x7, x7, x10
+    adc     x8, x8, xzr
+    stp     x4, x5, [x0]
+    stp     x7, x8, [x0,#16]
+    ret"""
+
+
+def arm64_sqr_n3():
+    # 摘自库内 sqr_basecase.S 的 na==3 路径 (Lsqr_2o3 前半 + Lsqr_3)
+    return """\
+    ldr     x3, [x1]                 // a_0
+    ldr     x6, [x1,#8]              // a_1
+    mul     x4, x3, x3               // lo(a0^2)
+    umulh   x5, x3, x3               // hi(a0^2)
+    mul     x7, x6, x6               // lo(a1^2)
+    umulh   x8, x6, x6               // hi(a1^2)
+    mul     x9, x3, x6               // lo(a0a1)
+    umulh   x10, x3, x6              // hi(a0a1)
+    ldr     x11, [x1,#16]            // a_2
+    mul     x12, x11, x11            // lo(a2^2)
+    umulh   x13, x11, x11            // hi(a2^2)
+    mul     x14, x3, x11             // lo(a0a2)
+    umulh   x15, x3, x11             // hi(a0a2)
+    mul     x16, x6, x11             // lo(a1a2)
+    umulh   x17, x6, x11             // hi(a1a2)
+    adds    x5, x5, x9               // cross x2
+    adcs    x7, x7, x10
+    adcs    x8, x8, x15
+    adcs    x12, x12, x17
+    adc     x13, x13, xzr
+    adds    x5, x5, x9
+    adcs    x7, x7, x10
+    adcs    x8, x8, x15
+    adcs    x12, x12, x17
+    adc     x13, x13, xzr
+    adds    x7, x7, x14              // += a0a2, a1a2
+    adcs    x8, x8, x16
+    adcs    x12, x12, xzr
+    adc     x13, x13, xzr
+    adds    x7, x7, x14
+    adcs    x8, x8, x16
+    adcs    x12, x12, xzr
+    adc     x13, x13, xzr
+    stp     x4, x5, [x0]
+    stp     x7, x8, [x0,#16]
+    stp     x12, x13, [x0,#32]
+    ret"""
+
+
+def arm64_sqr_rows_2a(n):
+    """小 n 专用: 2a 乘数单趟结构 (与库内 sqr_basecase.S outer 同构)。
+    行 i 乘数 m_i = 2a_i + ov_{i-1} (adds/adc 现场生成; 积自动补偿 ov 高位项,
+    逐积零开销)。溢出等值恒等式 [2a_i+ov_{i-1} >= B] = [a_i >= B/2]
+    (B 偶数, 2a_i 不可能等于 B-1) 保证 ov 恒可由 a_i 的 bit63 现场生成
+    (and x, a_i, a_{i-1}, asr 63), 无需常驻掩码寄存器。
+    对角 a_i^2 即时折叠: lo 经行头部机关入列 2i, hi 经 x15 融入行链首。
+    强化 (n4v2 的通用化):
+      1) 批残留直用: 上一行批 m_prev <= 4 (单批) 时, 批后 x4 = a_i,
+         x9 = dst[2i] (首批 s1) 仍持值, 机关免 ldr 与存储转发;
+      2) 掩码源恒 ldr x7 (批后恒空闲);
+      3) 行 n-2 与尾融合: 行 n-2 不写顶列, 其 1 积链尾 carry 直接作
+         尾列 2n-2 源, 列 [2n-2, 2n-1] 两段链直存 (每段 <=2 源,
+         中间进位走寄存器, 避免多源列单 CF 链的进位回流)。"""
     b = []
-    b.append("    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角")
-    b.append("    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)")
-    b.append("    str     xzr, [x0, #%d]           // dst[2n-1] = 0 (交叉不触及)" % (8 * (2 * n - 1)))
+    b.append("    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)")
 
-    # ---- 行 0: dst[k] = a_k*a_0, k = 1..n-1, 顶列 n (纯写) ----
-    b.append("    ldr     %s, [x1]                 // a_0" % ta)
-    for idx, k in enumerate(range(1, n)):
-        b.append("    ldr     %s, [x1, #%d]" % (t, 8 * k))
-        b.append("    mul     %s, %s, %s" % (pl, t, ta))
-        b.append("    umulh   %s, %s, %s" % (h, t, ta))
-        if idx == 0:
-            b.append("    mov     %s, %s" % (v, pl))
-            b.append("    str     %s, [x0, #%d]" % (v, 8 * k))
-            b.append("    mov     %s, %s" % (c, h))
-        else:
-            b.append("    adds    %s, %s, %s" % (v, pl, c))
-            b.append("    str     %s, [x0, #%d]" % (v, 8 * k))
-            b.append("    adc     %s, %s, xzr" % (c, h))
-    if n >= 2:
-        b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * n))
+    # ---- 行 0 (种子, m_0 = 2a_0): D_0 折叠 + 直存列 [1, n-1] + 顶列 n ----
+    b.append("    ldr     x4, [x1]                 // a_0")
+    b.append("    mul     x9, x4, x4               // lo(a_0^2)")
+    b.append("    umulh   x17, x4, x4              // hi(a_0^2) (种子行 x17 空闲)")
+    b.append("    str     x9, [x0]                 // 列 0 = lo(a_0^2)")
+    b.append("    adds    x3, x4, x4               // m_0 = 2a_0")
+    arm64_row_batches(b, 1, n - 1, 1, True, "x17")
+    b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * n))
 
-    # ---- 行 i = 1..n-2: dst[i+k] += a_k*a_i ----
-    for i in range(1, n - 1):
-        b.append("    ldr     %s, [x1, #%d]            // a_%d" % (ta, 8 * i, i))
-        for idx, k in enumerate(range(i + 1, n)):
-            col = i + k
-            b.append("    ldr     %s, [x1, #%d]" % (t, 8 * k))
-            b.append("    mul     %s, %s, %s" % (pl, t, ta))
-            b.append("    umulh   %s, %s, %s" % (h, t, ta))
-            b.append("    ldr     %s, [x0, #%d]" % (v, 8 * col))
-            if idx == 0:
-                b.append("    adds    %s, %s, %s" % (v, v, pl))
-                b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
-                b.append("    adc     %s, %s, xzr" % (c, h))
-            else:
-                b.append("    adds    %s, %s, %s" % (t, pl, c))
-                b.append("    adc     %s, %s, xzr" % (c, h))
-                b.append("    adds    %s, %s, %s" % (v, v, t))
-                b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
-                b.append("    adc     %s, %s, xzr" % (c, c))
-        b.append("    str     %s, [x0, #%d]           // 顶列直存" % (c, 8 * (i + n)))
+    # ---- 行 i = 1..n-3: 机关 + RMW 批 + 顶列 ----
+    for i in range(1, n - 2):
+        mp = n - i                      # 上一行积数 (批残留判定)
+        b.append("    ldr     x7, [x1, #%d]             // a_%d (掩码源)" % (8 * (i - 1), i - 1))
+        if mp > 4:                       # 双批: 残留被尾批覆写, 需加载
+            b.append("    ldr     x4, [x1, #%d]             // a_%d" % (8 * i, i))
+            b.append("    ldr     x16, [x0, #%d]            // dst[%d]" % (8 * 2 * i, 2 * i))
+            src0 = "x16"
+        else:                            # 单批: x4 = a_i, x9 = dst[2i] 残留直用
+            src0 = "x9"
+        # 累加器恒 x16 (x9 随即被 mul 覆写为 lo(D_i), 仅作首条源)
+        b.append("    and     x17, x4, x7, asr 63      // ov_{%d} ? a_%d : 0" % (i - 1, i))
+        b.append("    adds    x16, %s, x17             // 列 %d = 值 + 修正, C1" % (src0, 2 * i))
+        b.append("    mul     x9, x4, x4               // lo(a_%d^2)" % i)
+        b.append("    umulh   x12, x4, x4              // hi(a_%d^2)" % i)
+        b.append("    adc     x12, x12, xzr            // hi' = hi + C1")
+        b.append("    adds    x16, x16, x9             // += lo, C2")
+        b.append("    str     x16, [x0, #%d]" % (8 * 2 * i))
+        b.append("    adc     x15, x12, xzr            // 行种子 carry = hi' + C2")
+        b.append("    adds    xzr, x7, x7              // C = ov_{%d}" % (i - 1))
+        b.append("    adc     x3, x4, x4               // m_%d = 2a_%d + ov_{%d}" % (i, i, i - 1))
+        arm64_row_batches(b, i + 1, n - 1 - i, 2 * i + 1, False)
+        b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * (i + n)))
 
-    # ---- 倍增: dst = 2*dst ----
-    b.append("    // dst *= 2")
-    for col in range(1, 2 * n):
-        b.append("    ldr     %s, [x0, #%d]" % (v, 8 * col))
-        op = "adds" if col == 1 else "adcs"
-        b.append("    %s     %s, %s, %s" % (op, v, v, v))
-        b.append("    str     %s, [x0, #%d]" % (v, 8 * col))
+    # ---- 行 n-2 + 尾融合: 机关(m_prev=2 直用) + 1 积 RMW + 两段链直存 ----
+    i = n - 2
+    b.append("    ldr     x7, [x1, #%d]             // a_%d (掩码源)" % (8 * (i - 1), i - 1))
+    b.append("    and     x17, x4, x7, asr 63      // ov_{%d} ? a_%d : 0" % (i - 1, i))
+    b.append("    adds    x16, x9, x17             // 列 %d = 残留值 + 修正, C1" % (2 * i))
+    b.append("    mul     x9, x4, x4               // lo(a_%d^2)" % i)
+    b.append("    umulh   x12, x4, x4")
+    b.append("    adc     x12, x12, xzr")
+    b.append("    adds    x16, x16, x9")
+    b.append("    str     x16, [x0, #%d]" % (8 * 2 * i))
+    b.append("    adc     x15, x12, xzr            // 行种子 carry")
+    b.append("    adds    xzr, x7, x7              // C = ov_{%d}" % (i - 1))
+    b.append("    adc     x3, x4, x4               // m_%d" % i)
+    b.append("    mov     x6, x4                   // a_%d 备份 (尾掩码)" % i)
+    b.append("    ldr     x4, [x1, #%d]            // a_%d" % (8 * (n - 1), n - 1))
+    b.append("    mul     x8, x4, x3               // lo(a_%d*m_%d)" % (n - 1, i))
+    b.append("    umulh   x12, x4, x3")
+    b.append("    adds    x8, x8, x15              // s = lo + 种子")
+    b.append("    adc     x15, x12, xzr            // carry = hi + C")
+    b.append("    ldr     x16, [x0, #%d]           // dst[%d] (行 %d 顶列)" % (8 * (2 * n - 3), 2 * n - 3, n - 3))
+    b.append("    adds    x8, x16, x8              // 列 %d = dst + s" % (2 * n - 3))
+    b.append("    adc     x15, x15, xzr")
+    b.append("    str     x8, [x0, #%d]" % (8 * (2 * n - 3)))
+    b.append("    and     x17, x4, x6, asr 63      // ov_%d ? a_%d : 0" % (i, n - 1))
+    b.append("    mul     x9, x4, x4               // D_%d" % (n - 1))
+    b.append("    umulh   x12, x4, x4")
+    b.append("    adds    x16, x15, x17            // 列 %d = carry + 修正, C1" % (2 * n - 2))
+    b.append("    adc     x12, x12, xzr            // hi' = hi + C1")
+    b.append("    adds    x16, x16, x9             // += lo, C2")
+    b.append("    str     x16, [x0, #%d]" % (8 * (2 * n - 2)))
+    b.append("    adc     x14, x12, xzr            // 列 %d = hi' + C2" % (2 * n - 1))
+    b.append("    str     x14, [x0, #%d]" % (8 * (2 * n - 1)))
 
-    # ---- 对角: 折叠 a_i^2 ----
-    b.append("    // 对角平方折叠")
-    b.append("    ldr     %s, [x1]" % t)
-    b.append("    mul     %s, %s, %s" % (pl, t, t))
-    b.append("    umulh   %s, %s, %s" % (h, t, t))
-    b.append("    ldr     %s, [x0]" % v)
-    b.append("    adds    %s, %s, %s" % (v, v, pl))
-    b.append("    str     %s, [x0]" % v)
-    b.append("    adc     %s, %s, xzr" % (c, h))
-    if n >= 2:
-        b.append("    ldr     %s, [x0, #8]" % v)
-        b.append("    adds    %s, %s, %s" % (v, v, c))
-        b.append("    str     %s, [x0, #8]" % v)
-        b.append("    adc     %s, xzr, xzr          // c = CF" % c)
-    for i in range(1, n):
-        b.append("    ldr     %s, [x1, #%d]" % (t, 8 * i))
-        b.append("    mul     %s, %s, %s" % (pl, t, t))
-        b.append("    umulh   %s, %s, %s" % (h, t, t))
-        b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (2 * i)))
-        b.append("    adds    %s, %s, %s" % (t, c, pl))
-        b.append("    adc     %s, %s, xzr" % (c, h))
-        b.append("    adds    %s, %s, %s" % (v, v, t))
-        b.append("    str     %s, [x0, #%d]" % (v, 8 * (2 * i)))
-        b.append("    adc     %s, %s, xzr" % (c, c))
-        if i < n - 1:
-            b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (2 * i + 1)))
-            b.append("    adds    %s, %s, %s" % (v, v, c))
-            b.append("    str     %s, [x0, #%d]" % (v, 8 * (2 * i + 1)))
-            b.append("    adc     %s, xzr, xzr          // c = CF" % c)
-    b.append("    ldr     %s, [x0, #%d]" % (v, 8 * (2 * n - 1)))
-    b.append("    adds    %s, %s, %s" % (v, v, c))
-    b.append("    str     %s, [x0, #%d]" % (v, 8 * (2 * n - 1)))
     b.append("    ret")
     return "\n".join(b)
 
@@ -1009,7 +1177,8 @@ def gen_arm64_sqr():
 // void lmmp_sqr_hard_N_(mp_ptr dst, mp_srcptr numa);
 //
 //   平衡硬编码平方: [dst,2N] = [numa,N]^2。
-//   交叉乘逐行累加 -> 整体倍增 -> 对角平方折叠 (单进位链)。
+//   N <= 3 : 库内 sqr_basecase.S 小规模分支的特化
+//   N >= 4 : 交叉乘行累加(双链) -> 倍增(连续 adcs 长链) -> 对角折叠(单加数链)。
 //
 
 #include "lmmp_asm.h"
@@ -1019,7 +1188,14 @@ def gen_arm64_sqr():
     for n in range(1, MAXN + 1):
         parts.append(".globl ASM_GSYM(lmmp_sqr_hard_%d_)\n.p2align 4\n" % n)
         parts.append("ASM_GSYM(lmmp_sqr_hard_%d_):\n" % n)
-        parts.append(arm64_sqr_rows(n))
+        if n == 1:
+            parts.append(arm64_sqr_n1())
+        elif n == 2:
+            parts.append(arm64_sqr_n2())
+        elif n == 3:
+            parts.append(arm64_sqr_n3())
+        else:
+            parts.append(arm64_sqr_rows_2a(n))
         parts.append("")
     return "\n".join(parts)
 
@@ -1028,6 +1204,16 @@ def gen_arm64_sqr():
 # 主流程
 # =============================================================================
 
+def arm64_strip_inline_comments(text):
+    """剥离 arm64 输出中指令行的尾部 // 注释 (独立成行的段落注释保留)。"""
+    out = []
+    for line in text.split("\n"):
+        if "//" in line and not line.lstrip().startswith("//"):
+            line = line[:line.index("//")].rstrip()
+        out.append(line)
+    return "\n".join(out)
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, "x64", "mul_hard.S"), "w", newline="\n") as f:
@@ -1035,9 +1221,9 @@ def main():
     with open(os.path.join(here, "x64", "sqr_hard.S"), "w", newline="\n") as f:
         f.write(gen_x64_sqr())
     with open(os.path.join(here, "arm64", "mul_hard.S"), "w", newline="\n") as f:
-        f.write(gen_arm64_mul())
+        f.write(arm64_strip_inline_comments(gen_arm64_mul()))
     with open(os.path.join(here, "arm64", "sqr_hard.S"), "w", newline="\n") as f:
-        f.write(gen_arm64_sqr())
+        f.write(arm64_strip_inline_comments(gen_arm64_sqr()))
     print("generated: x64/mul_hard.S x64/sqr_hard.S arm64/mul_hard.S arm64/sqr_hard.S")
 
 

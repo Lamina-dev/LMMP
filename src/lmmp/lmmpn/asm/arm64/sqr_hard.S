@@ -19,7 +19,8 @@
 // void lmmp_sqr_hard_N_(mp_ptr dst, mp_srcptr numa);
 //
 //   平衡硬编码平方: [dst,2N] = [numa,N]^2。
-//   交叉乘逐行累加 -> 整体倍增 -> 对角平方折叠 (单进位链)。
+//   N <= 3 : 库内 sqr_basecase.S 小规模分支的特化
+//   N >= 4 : 交叉乘行累加(双链) -> 倍增(连续 adcs 长链) -> 对角折叠(单加数链)。
 //
 
 #include "lmmp_asm.h"
@@ -31,25 +32,10 @@
 
 ASM_GSYM(lmmp_sqr_hard_1_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #8]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
+    ldr     x3, [x1]
+    mul     x4, x3, x3
+    umulh   x5, x3, x3
+    stp     x4, x5, [x0]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_2_)
@@ -57,51 +43,22 @@ ASM_GSYM(lmmp_sqr_hard_1_):
 
 ASM_GSYM(lmmp_sqr_hard_2_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #24]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
-    str     x6, [x0, #16]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
+    ldr     x3, [x1]
+    ldr     x6, [x1,#8]
+    mul     x4, x3, x3
+    umulh   x5, x3, x3
+    mul     x7, x6, x6
+    umulh   x8, x6, x6
+    mul     x9, x3, x6
+    umulh   x10, x3, x6
+    adds    x5, x5, x9
+    adcs    x7, x7, x10
+    adc     x8, x8, xzr
+    adds    x5, x5, x9
+    adcs    x7, x7, x10
+    adc     x8, x8, xzr
+    stp     x4, x5, [x0]
+    stp     x7, x8, [x0,#16]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_3_)
@@ -109,85 +66,42 @@ ASM_GSYM(lmmp_sqr_hard_2_):
 
 ASM_GSYM(lmmp_sqr_hard_3_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #40]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
-    str     x6, [x0, #24]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    str     x6, [x0, #32]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
+    ldr     x3, [x1]
+    ldr     x6, [x1,#8]
+    mul     x4, x3, x3
+    umulh   x5, x3, x3
+    mul     x7, x6, x6
+    umulh   x8, x6, x6
+    mul     x9, x3, x6
+    umulh   x10, x3, x6
+    ldr     x11, [x1,#16]
+    mul     x12, x11, x11
+    umulh   x13, x11, x11
+    mul     x14, x3, x11
+    umulh   x15, x3, x11
+    mul     x16, x6, x11
+    umulh   x17, x6, x11
+    adds    x5, x5, x9
+    adcs    x7, x7, x10
+    adcs    x8, x8, x15
+    adcs    x12, x12, x17
+    adc     x13, x13, xzr
+    adds    x5, x5, x9
+    adcs    x7, x7, x10
+    adcs    x8, x8, x15
+    adcs    x12, x12, x17
+    adc     x13, x13, xzr
+    adds    x7, x7, x14
+    adcs    x8, x8, x16
+    adcs    x12, x12, xzr
+    adc     x13, x13, xzr
+    adds    x7, x7, x14
+    adcs    x8, x8, x16
+    adcs    x12, x12, xzr
+    adc     x13, x13, xzr
+    stp     x4, x5, [x0]
+    stp     x7, x8, [x0,#16]
+    stp     x12, x13, [x0,#32]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_4_)
@@ -195,128 +109,82 @@ ASM_GSYM(lmmp_sqr_hard_3_):
 
 ASM_GSYM(lmmp_sqr_hard_4_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #56]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    stp     x8, x9, [x0, #8]
+    str     x10, [x0, #24]
+    str     x15, [x0, #32]
+    ldr     x7, [x1, #0]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #24]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    str     x15, [x0, #40]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    str     x6, [x0, #32]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    str     x6, [x0, #40]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #40]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    str     x6, [x0, #48]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x14, x12, xzr
+    str     x14, [x0, #56]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_5_)
@@ -324,180 +192,117 @@ ASM_GSYM(lmmp_sqr_hard_4_):
 
 ASM_GSYM(lmmp_sqr_hard_5_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #72]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    str     x15, [x0, #40]
+    ldr     x7, [x1, #0]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #24]
+    ldr     x12, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    str     x10, [x0, #40]
+    str     x15, [x0, #48]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    str     x15, [x0, #56]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    str     x6, [x0, #40]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    str     x6, [x0, #48]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    str     x6, [x0, #56]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #56]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    str     x6, [x0, #64]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x14, x12, xzr
+    str     x14, [x0, #72]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_6_)
@@ -505,241 +310,161 @@ ASM_GSYM(lmmp_sqr_hard_5_):
 
 ASM_GSYM(lmmp_sqr_hard_6_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #88]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldr     x4, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    str     x8, [x0, #40]
+    str     x15, [x0, #48]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    str     x15, [x0, #56]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #40]
+    ldr     x12, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    str     x10, [x0, #56]
+    str     x15, [x0, #64]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    str     x15, [x0, #72]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    str     x6, [x0, #48]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    str     x6, [x0, #56]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    str     x6, [x0, #64]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    str     x6, [x0, #72]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #72]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    str     x6, [x0, #80]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x14, x12, xzr
+    str     x14, [x0, #88]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_7_)
@@ -747,311 +472,211 @@ ASM_GSYM(lmmp_sqr_hard_6_):
 
 ASM_GSYM(lmmp_sqr_hard_7_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #104]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    stp     x8, x9, [x0, #40]
+    str     x15, [x0, #56]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldr     x4, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #56]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #56]
+    str     x15, [x0, #64]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    str     x15, [x0, #72]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #56]
+    ldr     x12, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    str     x10, [x0, #72]
+    str     x15, [x0, #80]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    str     x15, [x0, #88]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    str     x6, [x0, #56]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    str     x6, [x0, #64]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    str     x6, [x0, #72]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    str     x6, [x0, #80]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    str     x6, [x0, #88]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #88]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x14, x12, xzr
+    str     x14, [x0, #104]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_8_)
@@ -1059,390 +684,267 @@ ASM_GSYM(lmmp_sqr_hard_7_):
 
 ASM_GSYM(lmmp_sqr_hard_8_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #120]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    stp     x8, x9, [x0, #40]
+    str     x10, [x0, #56]
+    str     x15, [x0, #64]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    str     x15, [x0, #72]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldr     x4, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #72]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #72]
+    str     x15, [x0, #80]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    str     x15, [x0, #88]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #72]
+    ldr     x12, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    str     x10, [x0, #88]
+    str     x15, [x0, #96]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x15, [x0, #104]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    str     x6, [x0, #64]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    str     x6, [x0, #72]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    str     x6, [x0, #80]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    str     x6, [x0, #88]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #104]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x14, x12, xzr
+    str     x14, [x0, #120]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_9_)
@@ -1450,478 +952,328 @@ ASM_GSYM(lmmp_sqr_hard_8_):
 
 ASM_GSYM(lmmp_sqr_hard_9_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #136]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    str     x15, [x0, #72]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #56]
+    ldr     x12, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    str     x10, [x0, #72]
+    str     x15, [x0, #80]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    str     x15, [x0, #88]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    str     x6, [x0, #72]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    str     x6, [x0, #80]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    str     x6, [x0, #88]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldr     x4, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #88]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
+    str     x15, [x0, #96]
+    ldr     x7, [x1, #24]
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    str     x15, [x0, #104]
+    ldr     x7, [x1, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #88]
+    ldr     x12, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x10, [x0, #104]
+    str     x15, [x0, #112]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x15, [x0, #120]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #120]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x14, x12, xzr
+    str     x14, [x0, #136]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_10_)
@@ -1929,575 +1281,396 @@ ASM_GSYM(lmmp_sqr_hard_9_):
 
 ASM_GSYM(lmmp_sqr_hard_10_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #152]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldr     x4, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    str     x8, [x0, #72]
+    str     x15, [x0, #80]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    str     x15, [x0, #88]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #72]
+    ldr     x12, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    str     x10, [x0, #88]
+    str     x15, [x0, #96]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x15, [x0, #104]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    str     x6, [x0, #80]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    str     x6, [x0, #88]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldr     x4, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #104]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
+    str     x15, [x0, #112]
+    ldr     x7, [x1, #32]
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    str     x15, [x0, #120]
+    ldr     x7, [x1, #40]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #104]
+    ldr     x12, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x10, [x0, #120]
+    str     x15, [x0, #128]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #136]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x14, x12, xzr
+    str     x14, [x0, #152]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_11_)
@@ -2505,681 +1678,470 @@ ASM_GSYM(lmmp_sqr_hard_10_):
 
 ASM_GSYM(lmmp_sqr_hard_11_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #168]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    stp     x8, x9, [x0, #72]
+    str     x15, [x0, #88]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldr     x4, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #88]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #88]
+    str     x15, [x0, #96]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    str     x15, [x0, #104]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #88]
+    ldr     x12, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x10, [x0, #104]
+    str     x15, [x0, #112]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x15, [x0, #120]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    str     x6, [x0, #88]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldr     x4, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #120]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
+    str     x15, [x0, #128]
+    ldr     x7, [x1, #40]
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    str     x15, [x0, #136]
+    ldr     x7, [x1, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #120]
+    ldr     x12, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x10, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #152]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x14, x12, xzr
+    str     x14, [x0, #168]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_12_)
@@ -3187,796 +2149,550 @@ ASM_GSYM(lmmp_sqr_hard_11_):
 
 ASM_GSYM(lmmp_sqr_hard_12_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #184]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    stp     x8, x9, [x0, #72]
+    str     x10, [x0, #88]
+    str     x15, [x0, #96]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x15, [x0, #104]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldr     x4, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #104]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #104]
+    str     x15, [x0, #112]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    str     x15, [x0, #120]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #104]
+    ldr     x12, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x10, [x0, #120]
+    str     x15, [x0, #128]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    str     x6, [x0, #96]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldr     x4, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #136]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
+    str     x15, [x0, #144]
+    ldr     x7, [x1, #48]
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    str     x15, [x0, #152]
+    ldr     x7, [x1, #56]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #136]
+    ldr     x12, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x10, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #168]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x14, x12, xzr
+    str     x14, [x0, #184]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_13_)
@@ -3984,920 +2700,635 @@ ASM_GSYM(lmmp_sqr_hard_12_):
 
 ASM_GSYM(lmmp_sqr_hard_13_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #200]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    str     x15, [x0, #104]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #88]
+    ldr     x12, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    str     x10, [x0, #104]
+    str     x15, [x0, #112]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x15, [x0, #120]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldr     x4, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #120]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #120]
+    str     x15, [x0, #128]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #120]
+    ldr     x12, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x10, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    str     x6, [x0, #104]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldr     x4, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #152]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
+    str     x15, [x0, #160]
+    ldr     x7, [x1, #56]
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    str     x15, [x0, #168]
+    ldr     x7, [x1, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #152]
+    ldr     x12, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x10, [x0, #168]
+    str     x15, [x0, #176]
     ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x15, [x0, #184]
     ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #184]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x14, x12, xzr
+    str     x14, [x0, #200]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_14_)
@@ -4905,1053 +3336,727 @@ ASM_GSYM(lmmp_sqr_hard_13_):
 
 ASM_GSYM(lmmp_sqr_hard_14_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #216]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldr     x4, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    str     x8, [x0, #104]
+    str     x15, [x0, #112]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    str     x15, [x0, #120]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #104]
+    ldr     x12, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    str     x10, [x0, #120]
+    str     x15, [x0, #128]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldr     x4, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #136]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #136]
+    ldr     x12, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x10, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    str     x6, [x0, #112]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldr     x4, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #168]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
+    str     x15, [x0, #176]
+    ldr     x7, [x1, #64]
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    str     x15, [x0, #184]
+    ldr     x7, [x1, #72]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #168]
+    ldr     x12, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x10, [x0, #184]
+    str     x15, [x0, #192]
     ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x15, [x0, #200]
     ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #200]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #200]
-    adc     x6, x5, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x14, x12, xzr
+    str     x14, [x0, #216]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_15_)
@@ -5959,1195 +4064,825 @@ ASM_GSYM(lmmp_sqr_hard_14_):
 
 ASM_GSYM(lmmp_sqr_hard_15_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #232]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    stp     x8, x9, [x0, #104]
+    str     x15, [x0, #120]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldr     x4, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #120]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #120]
+    str     x15, [x0, #128]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #120]
+    ldr     x12, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x10, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #112]
-    adc     x6, x5, xzr
-    str     x6, [x0, #120]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldr     x4, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #152]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
+    str     x15, [x0, #160]
+    ldr     x7, [x1, #40]
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    str     x15, [x0, #168]
+    ldr     x7, [x1, #48]
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #152]
+    ldr     x12, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x10, [x0, #168]
+    str     x15, [x0, #176]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x15, [x0, #184]
     ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldr     x4, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #184]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
+    str     x15, [x0, #192]
+    ldr     x7, [x1, #72]
+    ldr     x4, [x1, #80]
+    ldr     x16, [x0, #160]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    str     x15, [x0, #200]
+    ldr     x7, [x1, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #184]
+    ldr     x12, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x10, [x0, #200]
+    str     x15, [x0, #208]
     ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    str     x15, [x0, #216]
     ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
-    str     x8, [x0, #200]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    str     x6, [x0, #216]           // 顶列直存
-    ldr     x3, [x1, #104]            // a_13
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #216]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #216]
-    adc     x6, x5, xzr
-    str     x6, [x0, #224]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    ldr     x8, [x0, #224]
-    adcs     x8, x8, x8
-    str     x8, [x0, #224]
-    ldr     x8, [x0, #232]
-    adcs     x8, x8, x8
-    str     x8, [x0, #232]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #224]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x6
-    str     x8, [x0, #232]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #224]
+    adc     x14, x12, xzr
+    str     x14, [x0, #232]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_16_)
@@ -7155,1346 +4890,929 @@ ASM_GSYM(lmmp_sqr_hard_15_):
 
 ASM_GSYM(lmmp_sqr_hard_16_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #248]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    stp     x8, x9, [x0, #104]
+    str     x10, [x0, #120]
+    str     x15, [x0, #128]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x15, [x0, #136]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldr     x4, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #136]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #136]
+    ldr     x12, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x10, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #112]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    str     x6, [x0, #128]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldr     x4, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #168]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
+    str     x15, [x0, #176]
+    ldr     x7, [x1, #48]
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    str     x15, [x0, #184]
+    ldr     x7, [x1, #56]
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #168]
+    ldr     x12, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x10, [x0, #184]
+    str     x15, [x0, #192]
     ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x15, [x0, #200]
     ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #80]
+    ldr     x16, [x0, #160]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldr     x4, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #200]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
+    str     x15, [x0, #208]
+    ldr     x7, [x1, #80]
+    ldr     x4, [x1, #88]
+    ldr     x16, [x0, #176]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    str     x15, [x0, #216]
+    ldr     x7, [x1, #88]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #200]
+    ldr     x12, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    str     x10, [x0, #216]
+    str     x15, [x0, #224]
     ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    str     x15, [x0, #232]
     ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    str     x6, [x0, #216]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
-    str     x8, [x0, #200]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    str     x6, [x0, #224]           // 顶列直存
-    ldr     x3, [x1, #104]            // a_13
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x4
-    str     x8, [x0, #216]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    str     x6, [x0, #232]           // 顶列直存
-    ldr     x3, [x1, #112]            // a_14
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #224]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #232]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #232]
-    adc     x6, x5, xzr
-    str     x6, [x0, #240]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    ldr     x8, [x0, #224]
-    adcs     x8, x8, x8
-    str     x8, [x0, #224]
-    ldr     x8, [x0, #232]
-    adcs     x8, x8, x8
-    str     x8, [x0, #232]
-    ldr     x8, [x0, #240]
-    adcs     x8, x8, x8
-    str     x8, [x0, #240]
-    ldr     x8, [x0, #248]
-    adcs     x8, x8, x8
-    str     x8, [x0, #248]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #224]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x6
-    str     x8, [x0, #232]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #240]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x6
-    str     x8, [x0, #248]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #240]
+    adc     x14, x12, xzr
+    str     x14, [x0, #248]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_17_)
@@ -8502,1506 +5820,1038 @@ ASM_GSYM(lmmp_sqr_hard_16_):
 
 ASM_GSYM(lmmp_sqr_hard_17_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #264]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    str     x15, [x0, #136]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #120]
+    ldr     x12, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    str     x10, [x0, #136]
+    str     x15, [x0, #144]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldr     x4, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #152]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #152]
+    ldr     x12, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x10, [x0, #168]
+    str     x15, [x0, #176]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x15, [x0, #184]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #112]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #128]
-    adc     x6, x5, xzr
-    str     x6, [x0, #136]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldr     x4, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #184]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
+    str     x15, [x0, #192]
+    ldr     x7, [x1, #56]
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    str     x15, [x0, #200]
+    ldr     x7, [x1, #64]
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #184]
+    ldr     x12, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x10, [x0, #200]
+    str     x15, [x0, #208]
     ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #80]
+    ldr     x16, [x0, #160]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    str     x15, [x0, #216]
     ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    str     x6, [x0, #216]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #88]
+    ldr     x16, [x0, #176]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    ldr     x4, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #216]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    str     x6, [x0, #224]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
+    str     x15, [x0, #224]
+    ldr     x7, [x1, #88]
+    ldr     x4, [x1, #96]
+    ldr     x16, [x0, #192]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #200]
+    ldp     x12, x13, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    stp     x10, x11, [x0, #216]
+    str     x15, [x0, #232]
+    ldr     x7, [x1, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #216]
+    ldr     x12, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    str     x10, [x0, #232]
+    str     x15, [x0, #240]
     ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
-    str     x8, [x0, #200]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #224]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #232]
+    str     x15, [x0, #248]
     ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    str     x6, [x0, #232]           // 顶列直存
-    ldr     x3, [x1, #104]            // a_13
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x4
-    str     x8, [x0, #216]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    str     x6, [x0, #240]           // 顶列直存
-    ldr     x3, [x1, #112]            // a_14
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x4
-    str     x8, [x0, #232]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    str     x6, [x0, #248]           // 顶列直存
-    ldr     x3, [x1, #120]            // a_15
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #240]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #248]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #248]
-    adc     x6, x5, xzr
-    str     x6, [x0, #256]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    ldr     x8, [x0, #224]
-    adcs     x8, x8, x8
-    str     x8, [x0, #224]
-    ldr     x8, [x0, #232]
-    adcs     x8, x8, x8
-    str     x8, [x0, #232]
-    ldr     x8, [x0, #240]
-    adcs     x8, x8, x8
-    str     x8, [x0, #240]
-    ldr     x8, [x0, #248]
-    adcs     x8, x8, x8
-    str     x8, [x0, #248]
-    ldr     x8, [x0, #256]
-    adcs     x8, x8, x8
-    str     x8, [x0, #256]
-    ldr     x8, [x0, #264]
-    adcs     x8, x8, x8
-    str     x8, [x0, #264]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #224]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x6
-    str     x8, [x0, #232]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #240]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x6
-    str     x8, [x0, #248]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #256]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #264]
-    adds    x8, x8, x6
-    str     x8, [x0, #264]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #256]
+    adc     x14, x12, xzr
+    str     x14, [x0, #264]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_18_)
@@ -10009,1675 +6859,1154 @@ ASM_GSYM(lmmp_sqr_hard_17_):
 
 ASM_GSYM(lmmp_sqr_hard_18_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #280]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldr     x4, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    str     x8, [x0, #136]
+    str     x15, [x0, #144]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    str     x15, [x0, #152]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #136]
+    ldr     x12, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    str     x10, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldr     x4, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #168]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #168]
+    str     x15, [x0, #176]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    str     x15, [x0, #184]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #168]
+    ldr     x12, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x10, [x0, #184]
+    str     x15, [x0, #192]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x15, [x0, #200]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #112]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #128]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    str     x6, [x0, #144]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldr     x4, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #200]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
+    str     x15, [x0, #208]
+    ldr     x7, [x1, #64]
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    str     x15, [x0, #216]
+    ldr     x7, [x1, #72]
+    ldr     x4, [x1, #80]
+    ldr     x16, [x0, #160]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #200]
+    ldr     x12, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    str     x10, [x0, #216]
+    str     x15, [x0, #224]
     ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #88]
+    ldr     x16, [x0, #176]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    str     x15, [x0, #232]
     ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    str     x6, [x0, #216]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    str     x6, [x0, #224]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    str     x6, [x0, #232]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
-    str     x8, [x0, #200]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #96]
+    ldr     x16, [x0, #192]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #200]
+    ldp     x12, x13, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    stp     x10, x11, [x0, #216]
+    ldr     x4, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #232]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    str     x6, [x0, #240]           // 顶列直存
-    ldr     x3, [x1, #104]            // a_13
+    str     x15, [x0, #240]
+    ldr     x7, [x1, #96]
+    ldr     x4, [x1, #104]
+    ldr     x16, [x0, #208]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #216]
+    ldp     x12, x13, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    stp     x10, x11, [x0, #232]
+    str     x15, [x0, #248]
+    ldr     x7, [x1, #104]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #224]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #232]
+    ldr     x12, [x0, #248]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #232]
+    str     x10, [x0, #248]
+    str     x15, [x0, #256]
     ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x4
-    str     x8, [x0, #216]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #240]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #248]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #248]
+    str     x15, [x0, #264]
     ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    str     x6, [x0, #248]           // 顶列直存
-    ldr     x3, [x1, #112]            // a_14
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x4
-    str     x8, [x0, #232]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #248]
-    adc     x6, x6, xzr
-    str     x6, [x0, #256]           // 顶列直存
-    ldr     x3, [x1, #120]            // a_15
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x4
-    str     x8, [x0, #248]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #256]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    str     x6, [x0, #264]           // 顶列直存
-    ldr     x3, [x1, #128]            // a_16
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #264]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #256]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #264]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #264]
-    adc     x6, x5, xzr
-    str     x6, [x0, #272]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    ldr     x8, [x0, #224]
-    adcs     x8, x8, x8
-    str     x8, [x0, #224]
-    ldr     x8, [x0, #232]
-    adcs     x8, x8, x8
-    str     x8, [x0, #232]
-    ldr     x8, [x0, #240]
-    adcs     x8, x8, x8
-    str     x8, [x0, #240]
-    ldr     x8, [x0, #248]
-    adcs     x8, x8, x8
-    str     x8, [x0, #248]
-    ldr     x8, [x0, #256]
-    adcs     x8, x8, x8
-    str     x8, [x0, #256]
-    ldr     x8, [x0, #264]
-    adcs     x8, x8, x8
-    str     x8, [x0, #264]
-    ldr     x8, [x0, #272]
-    adcs     x8, x8, x8
-    str     x8, [x0, #272]
-    ldr     x8, [x0, #280]
-    adcs     x8, x8, x8
-    str     x8, [x0, #280]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #224]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x6
-    str     x8, [x0, #232]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #240]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x6
-    str     x8, [x0, #248]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #256]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #264]
-    adds    x8, x8, x6
-    str     x8, [x0, #264]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #272]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #272]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #280]
-    adds    x8, x8, x6
-    str     x8, [x0, #280]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #272]
+    adc     x14, x12, xzr
+    str     x14, [x0, #280]
     ret
 
 .globl ASM_GSYM(lmmp_sqr_hard_19_)
@@ -11685,1851 +8014,1274 @@ ASM_GSYM(lmmp_sqr_hard_18_):
 
 ASM_GSYM(lmmp_sqr_hard_19_):
 
-    // x0=dst x1=numa; 交叉乘行累加 -> 倍增 -> 对角
-    str     xzr, [x0]                // dst[0] = 0 (交叉列0恒0)
-    str     xzr, [x0, #296]           // dst[2n-1] = 0 (交叉不触及)
-    ldr     x3, [x1]                 // a_0
+    // x0=dst x1=numa x3=m(2a+ov) x15=carry; 2a 乘数单趟 (强化)
+    ldr     x4, [x1]
+    mul     x9, x4, x4
+    umulh   x17, x4, x4
+    str     x9, [x0]
+    adds    x3, x4, x4
+    ldp     x4, x5, [x1, #8]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #24]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x17
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #8]
+    stp     x10, x11, [x0, #24]
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    stp     x8, x9, [x0, #136]
+    str     x15, [x0, #152]
+    ldr     x7, [x1, #0]
+    ldr     x4, [x1, #8]
+    ldr     x16, [x0, #16]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #16]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #16]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #32]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #24]
+    ldp     x12, x13, [x0, #40]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #24]
+    stp     x10, x11, [x0, #40]
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldr     x4, [x1, #144]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #152]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #152]
+    str     x15, [x0, #160]
     ldr     x7, [x1, #8]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    mov     x8, x4
-    str     x8, [x0, #8]
-    mov     x6, x5
+    ldr     x4, [x1, #16]
+    ldr     x16, [x0, #32]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #32]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #24]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #40]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #40]
+    ldp     x12, x13, [x0, #56]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #40]
+    stp     x10, x11, [x0, #56]
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    str     x15, [x0, #168]
     ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #16]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #24]
+    ldr     x16, [x0, #48]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #48]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #32]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #48]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #56]
+    ldp     x12, x13, [x0, #72]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #56]
+    stp     x10, x11, [x0, #72]
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #144]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #152]
+    ldr     x12, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    str     x10, [x0, #168]
+    str     x15, [x0, #176]
     ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #32]
+    ldr     x16, [x0, #64]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #64]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #40]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #56]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #72]
+    ldp     x12, x13, [x0, #88]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #72]
+    stp     x10, x11, [x0, #88]
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    str     x15, [x0, #184]
     ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #32]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #40]
+    ldr     x16, [x0, #80]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #80]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #48]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #64]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #88]
+    ldp     x12, x13, [x0, #104]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #88]
+    stp     x10, x11, [x0, #104]
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldr     x4, [x1, #144]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #184]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
+    str     x8, [x0, #184]
+    str     x15, [x0, #192]
     ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #48]
+    ldr     x16, [x0, #96]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #96]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #56]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #72]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #104]
+    ldp     x12, x13, [x0, #120]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #104]
+    stp     x10, x11, [x0, #120]
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    str     x15, [x0, #200]
     ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #48]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #56]
+    ldr     x16, [x0, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #112]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #64]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #80]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #120]
+    ldp     x12, x13, [x0, #136]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #120]
+    stp     x10, x11, [x0, #136]
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #144]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #184]
+    ldr     x12, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    str     x10, [x0, #200]
+    str     x15, [x0, #208]
     ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #64]
+    ldr     x16, [x0, #128]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #128]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #72]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #88]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #136]
+    ldp     x12, x13, [x0, #152]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #136]
+    stp     x10, x11, [x0, #152]
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldp     x4, x5, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    str     x15, [x0, #216]
     ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #64]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #80]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #96]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #112]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #128]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    adds    x8, x4, x6
-    str     x8, [x0, #144]
-    adc     x6, x5, xzr
-    str     x6, [x0, #152]           // 顶列直存
-    ldr     x3, [x1, #8]            // a_1
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x4
-    str     x8, [x0, #24]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #32]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #40]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    str     x6, [x0, #160]           // 顶列直存
-    ldr     x3, [x1, #16]            // a_2
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x4
-    str     x8, [x0, #40]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #48]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #56]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    str     x6, [x0, #168]           // 顶列直存
-    ldr     x3, [x1, #24]            // a_3
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x4
-    str     x8, [x0, #56]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #64]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #72]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    str     x6, [x0, #176]           // 顶列直存
-    ldr     x3, [x1, #32]            // a_4
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x4
-    str     x8, [x0, #72]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #80]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #88]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    str     x6, [x0, #184]           // 顶列直存
-    ldr     x3, [x1, #40]            // a_5
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x4
-    str     x8, [x0, #88]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #96]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #104]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    str     x6, [x0, #192]           // 顶列直存
-    ldr     x3, [x1, #48]            // a_6
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x4
-    str     x8, [x0, #104]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #112]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #120]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    str     x6, [x0, #200]           // 顶列直存
-    ldr     x3, [x1, #56]            // a_7
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x4
-    str     x8, [x0, #120]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #128]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #136]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    str     x6, [x0, #208]           // 顶列直存
-    ldr     x3, [x1, #64]            // a_8
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x4
-    str     x8, [x0, #136]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #144]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #152]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    str     x6, [x0, #216]           // 顶列直存
-    ldr     x3, [x1, #72]            // a_9
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x4
-    str     x8, [x0, #152]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #160]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #168]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #72]
+    ldr     x16, [x0, #144]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #144]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #80]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #96]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #152]
+    ldp     x12, x13, [x0, #168]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #152]
+    stp     x10, x11, [x0, #168]
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    ldr     x4, [x1, #144]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #216]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    str     x6, [x0, #224]           // 顶列直存
-    ldr     x3, [x1, #80]            // a_10
+    str     x15, [x0, #224]
+    ldr     x7, [x1, #72]
+    ldr     x4, [x1, #80]
+    ldr     x16, [x0, #160]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #160]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #88]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #104]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #168]
+    ldp     x12, x13, [x0, #184]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #168]
+    stp     x10, x11, [x0, #184]
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #200]
+    ldp     x12, x13, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    stp     x10, x11, [x0, #216]
+    str     x15, [x0, #232]
+    ldr     x7, [x1, #80]
+    ldr     x4, [x1, #88]
+    ldr     x16, [x0, #176]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #176]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #96]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #112]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #184]
+    ldp     x12, x13, [x0, #200]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #184]
+    stp     x10, x11, [x0, #200]
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #144]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #216]
+    ldr     x12, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    str     x10, [x0, #232]
+    str     x15, [x0, #240]
     ldr     x7, [x1, #88]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x4
-    str     x8, [x0, #168]
-    adc     x6, x5, xzr
+    ldr     x4, [x1, #96]
+    ldr     x16, [x0, #192]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #192]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #104]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #120]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #200]
+    ldp     x12, x13, [x0, #216]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #200]
+    stp     x10, x11, [x0, #216]
+    ldp     x4, x5, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #232]
+    str     x15, [x0, #248]
     ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #176]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #184]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    str     x6, [x0, #232]           // 顶列直存
-    ldr     x3, [x1, #88]            // a_11
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x4
-    str     x8, [x0, #184]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #192]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #200]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    str     x6, [x0, #240]           // 顶列直存
-    ldr     x3, [x1, #96]            // a_12
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x4
-    str     x8, [x0, #200]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #208]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #216]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    str     x6, [x0, #248]           // 顶列直存
-    ldr     x3, [x1, #104]            // a_13
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x4
-    str     x8, [x0, #216]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #224]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #232]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
+    ldr     x4, [x1, #104]
+    ldr     x16, [x0, #208]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #208]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #112]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #128]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #216]
+    ldp     x12, x13, [x0, #232]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #216]
+    stp     x10, x11, [x0, #232]
+    ldr     x4, [x1, #144]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #248]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #248]
-    adc     x6, x6, xzr
-    str     x6, [x0, #256]           // 顶列直存
-    ldr     x3, [x1, #112]            // a_14
+    str     x15, [x0, #256]
+    ldr     x7, [x1, #104]
+    ldr     x4, [x1, #112]
+    ldr     x16, [x0, #224]
+    and     x17, x4, x7, asr 63
+    adds    x16, x16, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #224]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #120]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldp     x6, x7, [x1, #136]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    mul     x11, x7, x3
+    umulh   x15, x7, x3
+    adcs    x10, x10, x13
+    adcs    x11, x11, x14
+    adc     x15, x15, xzr
+    ldp     x16, x17, [x0, #232]
+    ldp     x12, x13, [x0, #248]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adcs    x11, x13, x11
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #232]
+    stp     x10, x11, [x0, #248]
+    str     x15, [x0, #264]
+    ldr     x7, [x1, #112]
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #240]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #128]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    ldr     x6, [x1, #144]
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    mul     x10, x6, x3
+    umulh   x14, x6, x3
+    adcs    x9, x9, x12
+    adcs    x10, x10, x13
+    adc     x15, x14, xzr
+    ldp     x16, x17, [x0, #248]
+    ldr     x12, [x0, #264]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adcs    x10, x12, x10
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #248]
+    str     x10, [x0, #264]
+    str     x15, [x0, #272]
     ldr     x7, [x1, #120]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x4
-    str     x8, [x0, #232]
-    adc     x6, x5, xzr
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #256]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    ldp     x4, x5, [x1, #136]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    mul     x9, x5, x3
+    umulh   x13, x5, x3
+    adds    x8, x8, x15
+    adcs    x9, x9, x12
+    adc     x15, x13, xzr
+    ldp     x16, x17, [x0, #264]
+    adds    x8, x16, x8
+    adcs    x9, x17, x9
+    adc     x15, x15, xzr
+    stp     x8, x9, [x0, #264]
+    str     x15, [x0, #280]
     ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #240]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #248]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #256]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    str     x6, [x0, #264]           // 顶列直存
-    ldr     x3, [x1, #120]            // a_15
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x4
-    str     x8, [x0, #248]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #256]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #264]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #264]
-    adc     x6, x6, xzr
-    str     x6, [x0, #272]           // 顶列直存
-    ldr     x3, [x1, #128]            // a_16
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #264]
-    adds    x8, x8, x4
-    str     x8, [x0, #264]
-    adc     x6, x5, xzr
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #272]
-    adds    x7, x4, x6
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #272]
-    adc     x6, x6, xzr
-    str     x6, [x0, #280]           // 顶列直存
-    ldr     x3, [x1, #136]            // a_17
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x3
-    umulh   x5, x7, x3
-    ldr     x8, [x0, #280]
-    adds    x8, x8, x4
+    and     x17, x4, x7, asr 63
+    adds    x16, x9, x17
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #272]
+    adc     x15, x12, xzr
+    adds    xzr, x7, x7
+    adc     x3, x4, x4
+    mov     x6, x4
+    ldr     x4, [x1, #144]
+    mul     x8, x4, x3
+    umulh   x12, x4, x3
+    adds    x8, x8, x15
+    adc     x15, x12, xzr
+    ldr     x16, [x0, #280]
+    adds    x8, x16, x8
+    adc     x15, x15, xzr
     str     x8, [x0, #280]
-    adc     x6, x5, xzr
-    str     x6, [x0, #288]           // 顶列直存
-    // dst *= 2
-    ldr     x8, [x0, #8]
-    adds     x8, x8, x8
-    str     x8, [x0, #8]
-    ldr     x8, [x0, #16]
-    adcs     x8, x8, x8
-    str     x8, [x0, #16]
-    ldr     x8, [x0, #24]
-    adcs     x8, x8, x8
-    str     x8, [x0, #24]
-    ldr     x8, [x0, #32]
-    adcs     x8, x8, x8
-    str     x8, [x0, #32]
-    ldr     x8, [x0, #40]
-    adcs     x8, x8, x8
-    str     x8, [x0, #40]
-    ldr     x8, [x0, #48]
-    adcs     x8, x8, x8
-    str     x8, [x0, #48]
-    ldr     x8, [x0, #56]
-    adcs     x8, x8, x8
-    str     x8, [x0, #56]
-    ldr     x8, [x0, #64]
-    adcs     x8, x8, x8
-    str     x8, [x0, #64]
-    ldr     x8, [x0, #72]
-    adcs     x8, x8, x8
-    str     x8, [x0, #72]
-    ldr     x8, [x0, #80]
-    adcs     x8, x8, x8
-    str     x8, [x0, #80]
-    ldr     x8, [x0, #88]
-    adcs     x8, x8, x8
-    str     x8, [x0, #88]
-    ldr     x8, [x0, #96]
-    adcs     x8, x8, x8
-    str     x8, [x0, #96]
-    ldr     x8, [x0, #104]
-    adcs     x8, x8, x8
-    str     x8, [x0, #104]
-    ldr     x8, [x0, #112]
-    adcs     x8, x8, x8
-    str     x8, [x0, #112]
-    ldr     x8, [x0, #120]
-    adcs     x8, x8, x8
-    str     x8, [x0, #120]
-    ldr     x8, [x0, #128]
-    adcs     x8, x8, x8
-    str     x8, [x0, #128]
-    ldr     x8, [x0, #136]
-    adcs     x8, x8, x8
-    str     x8, [x0, #136]
-    ldr     x8, [x0, #144]
-    adcs     x8, x8, x8
-    str     x8, [x0, #144]
-    ldr     x8, [x0, #152]
-    adcs     x8, x8, x8
-    str     x8, [x0, #152]
-    ldr     x8, [x0, #160]
-    adcs     x8, x8, x8
-    str     x8, [x0, #160]
-    ldr     x8, [x0, #168]
-    adcs     x8, x8, x8
-    str     x8, [x0, #168]
-    ldr     x8, [x0, #176]
-    adcs     x8, x8, x8
-    str     x8, [x0, #176]
-    ldr     x8, [x0, #184]
-    adcs     x8, x8, x8
-    str     x8, [x0, #184]
-    ldr     x8, [x0, #192]
-    adcs     x8, x8, x8
-    str     x8, [x0, #192]
-    ldr     x8, [x0, #200]
-    adcs     x8, x8, x8
-    str     x8, [x0, #200]
-    ldr     x8, [x0, #208]
-    adcs     x8, x8, x8
-    str     x8, [x0, #208]
-    ldr     x8, [x0, #216]
-    adcs     x8, x8, x8
-    str     x8, [x0, #216]
-    ldr     x8, [x0, #224]
-    adcs     x8, x8, x8
-    str     x8, [x0, #224]
-    ldr     x8, [x0, #232]
-    adcs     x8, x8, x8
-    str     x8, [x0, #232]
-    ldr     x8, [x0, #240]
-    adcs     x8, x8, x8
-    str     x8, [x0, #240]
-    ldr     x8, [x0, #248]
-    adcs     x8, x8, x8
-    str     x8, [x0, #248]
-    ldr     x8, [x0, #256]
-    adcs     x8, x8, x8
-    str     x8, [x0, #256]
-    ldr     x8, [x0, #264]
-    adcs     x8, x8, x8
-    str     x8, [x0, #264]
-    ldr     x8, [x0, #272]
-    adcs     x8, x8, x8
-    str     x8, [x0, #272]
-    ldr     x8, [x0, #280]
-    adcs     x8, x8, x8
-    str     x8, [x0, #280]
-    ldr     x8, [x0, #288]
-    adcs     x8, x8, x8
-    str     x8, [x0, #288]
-    ldr     x8, [x0, #296]
-    adcs     x8, x8, x8
-    str     x8, [x0, #296]
-    // 对角平方折叠
-    ldr     x7, [x1]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0]
-    adds    x8, x8, x4
-    str     x8, [x0]
-    adc     x6, x5, xzr
-    ldr     x8, [x0, #8]
-    adds    x8, x8, x6
-    str     x8, [x0, #8]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #8]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #16]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #16]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #24]
-    adds    x8, x8, x6
-    str     x8, [x0, #24]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #16]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #32]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #32]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #40]
-    adds    x8, x8, x6
-    str     x8, [x0, #40]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #24]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #48]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #48]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #56]
-    adds    x8, x8, x6
-    str     x8, [x0, #56]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #32]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #64]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #64]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #72]
-    adds    x8, x8, x6
-    str     x8, [x0, #72]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #40]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #80]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #80]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #88]
-    adds    x8, x8, x6
-    str     x8, [x0, #88]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #48]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #96]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #96]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #104]
-    adds    x8, x8, x6
-    str     x8, [x0, #104]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #56]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #112]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #112]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #120]
-    adds    x8, x8, x6
-    str     x8, [x0, #120]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #64]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #128]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #128]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #136]
-    adds    x8, x8, x6
-    str     x8, [x0, #136]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #72]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #144]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #144]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #152]
-    adds    x8, x8, x6
-    str     x8, [x0, #152]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #80]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #160]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #160]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #168]
-    adds    x8, x8, x6
-    str     x8, [x0, #168]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #88]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #176]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #176]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #184]
-    adds    x8, x8, x6
-    str     x8, [x0, #184]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #96]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #192]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #192]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #200]
-    adds    x8, x8, x6
-    str     x8, [x0, #200]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #104]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #208]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #208]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #216]
-    adds    x8, x8, x6
-    str     x8, [x0, #216]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #112]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #224]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #224]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #232]
-    adds    x8, x8, x6
-    str     x8, [x0, #232]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #120]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #240]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #240]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #248]
-    adds    x8, x8, x6
-    str     x8, [x0, #248]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #128]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #256]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #256]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #264]
-    adds    x8, x8, x6
-    str     x8, [x0, #264]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #136]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #272]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #272]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #280]
-    adds    x8, x8, x6
-    str     x8, [x0, #280]
-    adc     x6, xzr, xzr          // c = CF
-    ldr     x7, [x1, #144]
-    mul     x4, x7, x7
-    umulh   x5, x7, x7
-    ldr     x8, [x0, #288]
-    adds    x7, x6, x4
-    adc     x6, x5, xzr
-    adds    x8, x8, x7
-    str     x8, [x0, #288]
-    adc     x6, x6, xzr
-    ldr     x8, [x0, #296]
-    adds    x8, x8, x6
-    str     x8, [x0, #296]
+    and     x17, x4, x6, asr 63
+    mul     x9, x4, x4
+    umulh   x12, x4, x4
+    adds    x16, x15, x17
+    adc     x12, x12, xzr
+    adds    x16, x16, x9
+    str     x16, [x0, #288]
+    adc     x14, x12, xzr
+    str     x14, [x0, #296]
     ret
