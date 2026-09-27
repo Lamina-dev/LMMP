@@ -73,11 +73,11 @@ int tune_run_fft_table(void);
 
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
-    {"sqr_toom22", "sq22,SQR_TOOM22_THRESHOLD", "SQR_TOOM22_THRESHOLD", tune_run_sqr_toom22},
+    {"sqr_toom22", "sqr22,SQR_TOOM22_THRESHOLD", "SQR_TOOM22_THRESHOLD", tune_run_sqr_toom22},
     {"mul_toom33", "mul33,MUL_TOOM33_THRESHOLD", "MUL_TOOM33_THRESHOLD", tune_run_mul_toom33},
-    {"sqr_toom33", "sq33,SQR_TOOM33_THRESHOLD", "SQR_TOOM33_THRESHOLD", tune_run_sqr_toom33},
+    {"sqr_toom33", "sqr33,SQR_TOOM33_THRESHOLD", "SQR_TOOM33_THRESHOLD", tune_run_sqr_toom33},
     {"mul_toom44", "mul44,MUL_TOOM44_THRESHOLD", "MUL_TOOM44_THRESHOLD", tune_run_mul_toom44},
-    {"sqr_toom44", "sq44,SQR_TOOM44_THRESHOLD", "SQR_TOOM44_THRESHOLD", tune_run_sqr_toom44},
+    {"sqr_toom44", "sqr44,SQR_TOOM44_THRESHOLD", "SQR_TOOM44_THRESHOLD", tune_run_sqr_toom44},
     {"mul_fft", "MUL_FFT_THRESHOLD", "MUL_FFT_THRESHOLD", tune_run_mul_fft},
     {"sqr_fft", "SQR_FFT_THRESHOLD", "SQR_FFT_THRESHOLD", tune_run_sqr_fft},
     {"mul_unbalanced_hard", "mul_hard_unb,MUL_UNBALANCED_HARD_THRESHOLD", "MUL_UNBALANCED_HARD_THRESHOLD", tune_run_mul_unbalanced_hard},

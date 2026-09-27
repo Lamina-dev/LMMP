@@ -68,7 +68,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     if (use_high)
-        set_threshold(256); /* 强制 FFT (样本点均 >= 256) */
+        set_threshold(size); /* 强制 FFT (样本点均 >= 256) */
     else
         set_threshold(size + 1);
 }
@@ -79,7 +79,7 @@ int tune_run_sqr_fft(void) {
     spec.macro_name = "SQR_FFT_THRESHOLD";
     spec.low_name = "sqr_toom4";
     spec.high_name = "sqr_fft";
-    spec.lo = lmmp_tune_MUL_TOOM44_THRESHOLD > 64 ? lmmp_tune_MUL_TOOM44_THRESHOLD : 256;
+    spec.lo = lmmp_tune_SQR_TOOM44_THRESHOLD > 64 ? lmmp_tune_SQR_TOOM44_THRESHOLD : 256;
     spec.sample_lo = spec.lo;
     spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;
