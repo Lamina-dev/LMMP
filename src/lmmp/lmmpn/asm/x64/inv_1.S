@@ -62,8 +62,7 @@ ASM_GSYM(lmmp_inv_1_):
     mov     rax, rdi
 #endif
     shr     rax, 55
-    lea     rcx, [rip + lmmp_inv_1_table_]
-    sub     rcx, 512
+    lea     rcx, [rip + ASM_GSYM(lmmp_inv_1_table_) - 512]
     movzx   rcx, WORD PTR [rcx + rax*2]
     // rcx = v0 = round(0x80000/(1/2+(x>>55)))
 

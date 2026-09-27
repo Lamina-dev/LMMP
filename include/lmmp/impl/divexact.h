@@ -18,6 +18,11 @@
 
 #include "../lmmpn.h"
 
+/*
+FIXME: 汇编化这些函数
+*/
+
+
 #define MODLIMB_INVERSE_3 ((mp_limb_t)0xAAAAAAAAAAAAAAAB)
 
 /**

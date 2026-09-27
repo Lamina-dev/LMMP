@@ -18,7 +18,7 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8
 //   SysV:    dst=rdi, numa=rsi, na=rdx
-//   cal: dst[i] = ~numa[i], 4 limbs per vpxor
+//   cal: dst[i] = ~numa[i], 8 limbs per 2x vpxor
 
 #include "lmmp_asm.h"
 
@@ -28,23 +28,36 @@
 
 .globl ASM_GSYM(lmmp_not_)
 ASM_GSYM(lmmp_not_):
-    vpcmpeqd ymm0, ymm0, ymm0        // ymm0 = ~0
-    mov     r10, rx2                 // r10 = na
+    vpcmpeqd ymm0, ymm0, ymm0       // ymm0 = ~0
+    mov     r10, rx2                // r10 = na
     mov     r9, r10
-    shr     r9, 2                    // r9 = na >> 2
-    and     r10d, 3                  // r10 = na & 3
+    shr     r9, 3                   // r9 = na >> 3
+    and     r10d, 7                 // r10 = na & 7
     test    r9, r9
-    jz      .Ltail                    // n < 4, tail only
+    jz      .Lmid                   // n < 8, tail only
 
 .p2align 4
-.Lloop:                             // main loop, 4 limbs
+.Lloop:                             // main loop, 8 limbs
     vmovdqu ymm1, [rx1]
+    vmovdqu ymm2, [rx1+32]
     vpxor   ymm1, ymm1, ymm0        // dst = numa ^ ~0
+    vpxor   ymm2, ymm2, ymm0
+    vmovdqu [rx0], ymm1
+    vmovdqu [rx0+32], ymm2
+    add     rx0, 64
+    add     rx1, 64
+    dec     r9
+    jnz     .Lloop
+
+.Lmid:                              // odd 4-limb group
+    test    r10, 4
+    jz      .Ltail
+    vmovdqu ymm1, [rx1]
+    vpxor   ymm1, ymm1, ymm0
     vmovdqu [rx0], ymm1
     add     rx0, 32
     add     rx1, 32
-    dec     r9
-    jnz     .Lloop
+    and     r10d, 3                 // r10 = na & 3
 
 .Ltail:
     test    r10, r10

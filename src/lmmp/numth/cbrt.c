@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -17,6 +17,7 @@
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/log2_exp2.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/numth.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -118,7 +119,7 @@ static inline mp_limb_t lmmp_shr64_(mp_srcptr p, mp_size_t n, uint64_t s) {
  * @note [t+6,4]=[r,2]^2
  */
 static inline void lmmp_cube_6_(mp_ptr restrict t, mp_srcptr restrict r) {
-    lmmp_sqr_basecase_(t + 6, r, 2);
+    lmmp_sqr_hard_2_(t + 6, r);
     lmmp_mul_basecase_(t, t + 6, 4, r, 2);
 }
 
@@ -227,20 +228,21 @@ static void lmmp_cbrt6_fast_(mp_ptr restrict dst, mp_ptr restrict numa, mp_ptr r
     numa[4] = lmmp_mul_1_(numa + 2, numa + 2, 2, 3);
     lmmp_inc_1(numa + 2, r);
 
-    mp_limb_t rsav[7], w[7], u2[4], u3[5], x3sq[7];
-    lmmp_zero(rsav + 5, 2);
+    mp_limb_t rsav[6], w[6], u2[4], u3[5], x3sq[6];
+    rsav[5] = 0;
     lmmp_copy(rsav, numa, 5);
-    lmmp_zero(x3sq, 7);
-    lmmp_sqr_basecase_(u2, dst + 1, 1);         // u2 = Ahr^2
-    x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);  // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
+    x3sq[0] = 0;
+    x3sq[1] = 0;
+    x3sq[5] = 0;
+    lmmp_mullh_((dst + 1)[0], (dst + 1)[0], u2); // u2 = Ahr^2
+    x3sq[4] = lmmp_mul_1_(x3sq + 2, u2, 2, 3);   // 3*x^2 = 3*Ahr^2*B^2 占 [2,5)
     for (;;) {
-        // [w,6] = W(u) = 3*Ahr*u^2*B + u^3
-        lmmp_zero(w, 7);
-        lmmp_sqr_basecase_(u2, tp + 5, 2);             // u^2
-        lmmp_mul_basecase_(w + 1, u2, 3, dst + 1, 1);  // Ahr*u^2 占 [1,5)
-        w[5] = lmmp_mul_1_(w + 1, w + 1, 4, 3);        // 3*Ahr*u^2*B
-        lmmp_mul_basecase_(u3, u2, 3, tp + 5, 2);      // u^3
-        w[5] += lmmp_add_n_(w, w, u3, 5);              // W < 4*B^5，w[5] <= 4 不溢出
+        w[0] = 0;
+        lmmp_sqr_hard_2_(u2, tp + 5);                   // u^2
+        w[4] = lmmp_mul_1_(w + 1, u2, 3, (dst + 1)[0]); // Ahr*u^2 占 [1,5)
+        w[5] = lmmp_mul_1_(w + 1, w + 1, 4, 3);         // 3*Ahr*u^2*B
+        lmmp_mul_basecase_(u3, u2, 3, tp + 5, 2);       // u^3
+        w[5] += lmmp_add_n_(w, w, u3, 5);               // W < 4*B^5，w[5] <= 4 不溢出
         if (lmmp_sub_(numa, rsav, 6, w, 6) == 0)
             break;
         lmmp_dec(tp + 5);
@@ -316,16 +318,14 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
     lmmp_param_assert(ns > 0);
     lmmp_param_assert(numa != NULL && dst != NULL && tp != NULL);
     lmmp_param_assert(numa[3 * ns - 1] >= CBRT_DIVIDE_MIN);
-    if (ns == 2) {
-        lmmp_cbrt6_fast_(dst, numa, tp);
-        return;
-    }
     if (ns == 1) {
         dst[0] = lmmp_cbrt_3_(numa[0], numa[1], numa[2]);
         if (calr) {
             lmmp_cube_3_(tp, dst[0]);
             lmmp_sub_n_(numa, numa, tp, 3);
         }
+    } else if (ns == 2) {
+        lmmp_cbrt6_fast_(dst, numa, tp);
     } else {
         mp_size_t lo = (ns - 1) / 2, hi = ns - lo;
 #define Ahr     (dst + lo)             // [dst+lo,              hi]
@@ -431,7 +431,7 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
                     lmmp_copy(dst, Alr, lo);
                     return;
                 }
-                lmmp_sqr_basecase_(Alr2, Alr + lo - 2, 2);              // [Alr2,4] = H^2
+                lmmp_sqr_hard_2_(Alr2, Alr + lo - 2);                   // [Alr2,4] = H^2
                 lmmp_mul_basecase_(scratch, Alr2, 4, Ahr + hi - 2, 2);  // [scratch,6] = X*H^2
                 mp_limb_t qh2 = lmmp_mul_1_(scratch, scratch, 6, 3);    // [qh:scratch,6] = 3*X*H^2
                 mp_limb_t qm = scratch[5], ql = scratch[4];
@@ -520,39 +520,3 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
 #undef scratch
 }
 
-#if 0
-/*
-
-    B^(3*ns) // [numa,3*ns]^(2/3)
-
-    A     = Ah * B^(3*lo) + Al
-
-    Ahr   = B^(nf+3*hi) / Ah^(2/3)
-    x_k   = Ahr * B^lo
-
-    x_k+1 = x_k + x_k/3 - A^2 * x_k^4 / 3 / B^(9*na+3*nf)
-
-*/
-
-#define INVCBRT_MIN 0xa000000000000000ull
-
-void lmmp_invcbrt_newton_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
-    lmmp_param_assert(na > 0);
-    lmmp_param_assert(numa != NULL && dst != NULL);
-    lmmp_param_assert(numa[3 * na - 1] >= INVCBRT_MIN);
-
-    mp_size_t ns = na + nf;
-    if (ns == 1) {
-        mp_limb_t a_sqr[6], a_sqrcbrt[2], tp[9];
-        lmmp_sqr_basecase_(a_sqr, numa, 3);
-        lmmp_cbrt_divide_(a_sqrcbrt, a_sqr, 2, tp, 0);
-        lmmp_zero(tp, 3);
-        tp[3] = 1;
-
-        lmmp_div_2_s_(dst, tp, 4, a_sqrcbrt);
-    } else {
-
-    }
-}
-
-#endif

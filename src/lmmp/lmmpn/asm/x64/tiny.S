@@ -38,40 +38,33 @@
 // ======================================
 // lmmp_limb_bits_
 // ======================================
-// ret rax = bit length of x, 0 if x == 0
+// ret rax = 64 - lzcnt(x)
 .p2align 4
 .globl ASM_GSYM(lmmp_limb_bits_)
 ASM_GSYM(lmmp_limb_bits_):
-    mov     rax, -1
-    bsr     rx0, rx0
-    cmovnz  rax, rx0
-    inc     rax
+    lzcnt   rax, rx0
+    neg     rax
+    add     rax, 64
     ret
 
 // ======================================
 // lmmp_leading_zeros_
 // ======================================
-// ret rax = clz(x), 64 if x == 0
+// ret rax = lzcnt(x), 64 if x == 0
 .p2align 4
 .globl ASM_GSYM(lmmp_leading_zeros_)
 ASM_GSYM(lmmp_leading_zeros_):
-    mov     rax, -1
-    bsr     rx0, rx0
-    cmovnz  rax, rx0
-    not     rax
-    add     rax, 64
+    lzcnt   rax, rx0
     ret
 
 // ======================================
 // lmmp_tailing_zeros_
 // ======================================
-// ret rax = ctz(x), 64 if x == 0
+// ret rax = tzcnt(x), 64 if x == 0
 .p2align 4
 .globl ASM_GSYM(lmmp_tailing_zeros_)
 ASM_GSYM(lmmp_tailing_zeros_):
-    mov     rax, 64
-    bsf     rx0, rx0
-    cmovnz  rax, rx0
+    tzcnt   rax, rx0
     ret
 
 // ======================================
@@ -92,9 +85,12 @@ ASM_GSYM(lmmp_limb_popcnt_):
 .p2align 4
 .globl ASM_GSYM(lmmp_mulh_)
 ASM_GSYM(lmmp_mulh_):
-    mov     rax, rx1
-    mul     rx0
-    mov     rax, rdx
+#ifdef LMMP_WINDOWS
+    mulx    rax, r11, rcx         // b 已在 rdx (mulx 隐式乘数)
+#else
+    mov     rdx, rsi              // b -> rdx
+    mulx    rax, r11, rdi
+#endif
     ret
 
 // ======================================
@@ -104,11 +100,17 @@ ASM_GSYM(lmmp_mulh_):
 .p2align 4
 .globl ASM_GSYM(lmmp_mullh_)
 ASM_GSYM(lmmp_mullh_):
-    mov     r9, rx2                 // save dst, mul clobbers rdx
-    mov     rax, rx0
-    mul     rx1
-    mov     [r9], rax
-    mov     [r9+8], rdx
+#ifdef LMMP_WINDOWS
+    mulx    r9, rax, rcx          // b 已在 rdx, dst=r8 不被 mulx 碰
+    mov     [r8], rax
+    mov     [r8+8], r9
+#else
+    mov     r10, rdx              // save dst
+    mov     rdx, rsi              // b -> rdx
+    mulx    r9, rax, rdi
+    mov     [r10], rax
+    mov     [r10+8], r9
+#endif
     ret
 
 // ======================================

@@ -14,6 +14,7 @@
  */
 
 #include "../../../include/lmmp/impl/mparam.h"
+#include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -94,7 +95,32 @@ void lmmp_mul_basecase_unbalanced_(
     lmmp_param_assert(nb >= 1);
     if (na <= PART_SIZE || nb <= 2)
         lmmp_mul_basecase_(dst, numa, na, numb, nb);
-    else {
+    else if (nb >= MUL_UNBALANCED_HARD_THRESHOLD && nb <= LMMP_MUL_HARD_MAX_N) {
+        void (*mulfn)(mp_ptr, mp_srcptr, mp_srcptr) = lmmp_mul_hard_fns_[nb];
+        TEMP_S_DECL;
+        mp_ptr restrict tp = SALLOC_TYPE(nb, mp_limb_t);
+        mulfn(dst, numa, numb);
+        dst += nb;
+        numa += nb;
+        na -= nb;
+        lmmp_copy(tp, dst, nb);
+        while (na > nb) {
+            mulfn(dst, numa, numb);
+            if (lmmp_add_n_(dst, dst, tp, nb))
+                lmmp_inc(dst + nb);
+            dst += nb;
+            numa += nb;
+            na -= nb;
+            lmmp_copy(tp, dst, nb);
+        }
+        if (na == nb)
+            mulfn(dst, numa, numb);
+        else
+            lmmp_mul_basecase_(dst, numb, nb, numa, na);
+        if (lmmp_add_n_(dst, dst, tp, nb))
+            lmmp_inc(dst + nb);
+        TEMP_S_FREE;
+    } else {
         TEMP_S_DECL;
         mp_ptr restrict tp = SALLOC_TYPE(nb, mp_limb_t);
         lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
@@ -123,7 +149,7 @@ void lmmp_mul_basecase_unbalanced_(
 
 void lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb, mp_size_t n) {
     if (n < MUL_TOOM22_THRESHOLD)
-        lmmp_mul_basecase_(dst, numa, n, numb, n);
+        lmmp_mul_hard_n_(dst, numa, numb, n);
     else if (n < MUL_TOOM33_THRESHOLD)
         lmmp_mul_toom22_(dst, numa, n, numb, n);
     else if (n < MUL_TOOM44_THRESHOLD)
@@ -135,13 +161,13 @@ void lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restric
 }
 
 void lmmp_sqr_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    if (na < MUL_TOOM22_THRESHOLD)
-        lmmp_sqr_basecase_(dst, numa, na);
-    else if (na < MUL_TOOM33_THRESHOLD)
+    if (na < SQR_TOOM22_THRESHOLD)
+        lmmp_sqr_hard_n_(dst, numa, na);
+    else if (na < SQR_TOOM33_THRESHOLD)
         lmmp_sqr_toom2_(dst, numa, na);
-    else if (na < MUL_TOOM44_THRESHOLD)
+    else if (na < SQR_TOOM44_THRESHOLD)
         lmmp_sqr_toom3_(dst, numa, na);
-    else if (na < MUL_FFT_THRESHOLD)
+    else if (na < SQR_FFT_THRESHOLD)
         lmmp_sqr_toom4_(dst, numa, na);
     else
         lmmp_sqr_fft_(dst, numa, na);

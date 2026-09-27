@@ -197,6 +197,16 @@ BENCH_CASE("asm/mulbase", mul_basecase) {
     lmmp_free(a); lmmp_free(b); lmmp_free(d);
 }
 
+BENCH_CASE("asm/mulbase", mul_basecase_unbal) {
+    const mp_size_t na = 1000, nb = 7;
+    mp_ptr a = alloc_limbs(na), b = alloc_limbs(nb), d = alloc_limbs(na + nb);
+    fill_random(a, na, 0x0badcafef00dfaceull);
+    fill_random(b, nb, 0x13579bdf2468ace0ull);
+    auto m = measure([&] { lmmp_mul_basecase_(d, a, na, b, nb); g_sink += d[0]; });
+    report("lmmp_mul_basecase_(1000x7)", m, na * nb * 8.0);
+    lmmp_free(a); lmmp_free(b); lmmp_free(d);
+}
+
 BENCH_CASE("asm/mulbase", sqr_basecase) {
     const mp_size_t n = 200;
     mp_ptr a = alloc_limbs(n), d = alloc_limbs(2 * n + 1);

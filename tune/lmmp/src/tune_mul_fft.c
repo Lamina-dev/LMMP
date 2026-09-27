@@ -32,7 +32,7 @@ static void mul_ctx_init(mul_ctx* c, mp_size_t n) {
     c->n = n;
     c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->b = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)(2 * n + 1) * sizeof(mp_limb_t));
+    c->d = (mp_ptr)lmmp_alloc((size_t)(2 * n) * sizeof(mp_limb_t));
     tune_fill_limbs(c->a, n, UINT64_C(0x243f6a8885a308d3));
     tune_fill_limbs(c->b, n, UINT64_C(0x13198a2e03707344));
     c->a[n - 1] |= LIMB_B_2;
@@ -72,7 +72,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     if (use_high)
-        set_threshold(256);
+        set_threshold(size);
     else
         set_threshold(size + 1);
 }

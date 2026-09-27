@@ -24,19 +24,19 @@ mp_limb_t lmmp_add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, 
 
     for (; i + 4 <= n; i += 4) {
         __uint128_t s0 = (__uint128_t)numa[i + 0] + numb[i + 0] + cy;
-        __uint128_t s1 = (__uint128_t)numa[i + 1] + numb[i + 1] + (uint64_t)(s0 >> 64);
-        __uint128_t s2 = (__uint128_t)numa[i + 2] + numb[i + 2] + (uint64_t)(s1 >> 64);
-        __uint128_t s3 = (__uint128_t)numa[i + 3] + numb[i + 3] + (uint64_t)(s2 >> 64);
-        dst[i + 0] = (uint64_t)s0;
-        dst[i + 1] = (uint64_t)s1;
-        dst[i + 2] = (uint64_t)s2;
-        dst[i + 3] = (uint64_t)s3;
-        cy = (uint64_t)(s3 >> 64);
+        __uint128_t s1 = (__uint128_t)numa[i + 1] + numb[i + 1] + (mp_limb_t)(s0 >> 64);
+        __uint128_t s2 = (__uint128_t)numa[i + 2] + numb[i + 2] + (mp_limb_t)(s1 >> 64);
+        __uint128_t s3 = (__uint128_t)numa[i + 3] + numb[i + 3] + (mp_limb_t)(s2 >> 64);
+        dst[i + 0] = (mp_limb_t)s0;
+        dst[i + 1] = (mp_limb_t)s1;
+        dst[i + 2] = (mp_limb_t)s2;
+        dst[i + 3] = (mp_limb_t)s3;
+        cy = (mp_limb_t)(s3 >> 64);
     }
     for (; i < n; i++) {
         __uint128_t s = (__uint128_t)numa[i] + numb[i] + cy;
-        dst[i] = (uint64_t)s;
-        cy = (uint64_t)(s >> 64);
+        dst[i] = (mp_limb_t)s;
+        cy = (mp_limb_t)(s >> 64);
     }
 
     return cy;
