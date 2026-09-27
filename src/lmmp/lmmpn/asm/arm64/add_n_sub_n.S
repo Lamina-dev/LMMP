@@ -1,4 +1,3 @@
-//
 //  Copyright (C) 2026 HJimmyK(Jericho Knox)
 //
 //  This file is part of LMMP.
@@ -18,18 +17,20 @@
 //                             mp_size_t n);
 //
 //   x0=dsta, x1=dstb, x2=numa, x3=numb, x4=n
-//   ret x0 = 2*carry + borrow
+//   ret x0 = 2*cAdd + bSub
 //
 //   cal: [dsta,n] = numa + numb, [dstb,n] = numa - numb
 //
-//   简单占位版本: ARM64 仅有一组 C 标志, 无法像 x64 (adcx/adox) 那样
-//   双链并行, 故每肢交错计算加减, 进位/借位以寄存器传递:
-//     和: s = a + b + cAdd,  cAdd' = c1 + c2   (c2 仅在 a+b=B-1 且
-//         cAdd=1 时为 1, 与 c1 互斥)
-//     差: d = a - b - bSub,  bSub' = b1 + b2   (b2 仅在 a=b 且
-//         bSub=1 时为 1, 与 b1 互斥)
-//   eqsep(dsta|dstb, numa|numb) 重叠安全: 每肢两加载先于两存储。
-//   计数用 sub/cbnz (不带 s, 不动标志)。后续可改为更优的交错调度。
+//   ARM64 仅有一组 C 标志, 无法像 x64 (adcx/adox) 双链并行。
+//   分块 4 limb: 块内和链 (adcs) 与差链 (sbcs) 各自经 C 标志直连
+//   (1 cyc/limb), 块间进位/借位经寄存器中转:
+//     和链: cmp  x12, #1   -> C = cAdd        (x12 in {0,1})
+//     差链: cmp  xzr, x13  -> C = (x13 == 0) = !bSub
+//           借位存为 bSub ∈ {0,1}, 语义 d = a - b - bSub
+//   两条链在块内先后运行, 和链结果经寄存器暂存 (x15,x16),
+//   使差链输出可复用操作数寄存器 (x5..x8), 寄存器峰值 12 个。
+//   eqsep(dsta|dstb, numa|numb) 重叠安全: 块内 8 加载先于 8 存储
+//   (原地写回时操作数已在寄存器中)。
 //
 
 #include "lmmp_asm.h"
@@ -40,31 +41,55 @@
 .p2align 2
 
 ASM_GSYM(lmmp_add_n_sub_n_):
-    mov     x12, #0                // cAdd = 0
-    mov     x13, #0                // bSub = 0
+    mov     x12, #0                 // cAdd = 0
+    mov     x13, #0                 // bSub = 0
+    lsr     x17, x4, #2             // x17 = 主循环块数 (n/4)
+    and     x4, x4, #3              // x4 = 尾部 limb 数
+    cbz     x17, Lanss_tail
 
-Lanss_loop:
-    ldr     x5, [x2], #8           // x5 = a
-    ldr     x6, [x3], #8           // x6 = b
+.p2align 4
+Lanss_top:                          // 主循环: 4 limb/迭代
+    ldp     x5, x6, [x2], #16       // a0, a1
+    ldp     x7, x8, [x2], #16       // a2, a3
+    ldp     x9, x10, [x3], #16      // b0, b1
+    ldp     x11, x14, [x3], #16     // b2, b3
 
-    // 和链
-    adds    x7, x5, x6             // C = c1
-    adc     x9, xzr, xzr           // x9 = c1
-    adds    x7, x7, x12            // + cAdd(prev), C = c2
-    adc     x10, xzr, xzr          // x10 = c2
-    add     x12, x9, x10           // cAdd' = c1 + c2 <= 1
+    cmp     x12, #1                 // C = cAdd
+    adcs    x15, x5, x9             // s0 = a0 + b0 + cAdd
+    adcs    x16, x6, x10            // s1 = a1 + b1 + c0
+    stp     x15, x16, [x0], #16
+    adcs    x15, x7, x11            // s2 = a2 + b2 + c1
+    adcs    x16, x8, x14            // s3 = a3 + b3 + c2
+    stp     x15, x16, [x0], #16
+    cset    x12, cs                 // cAdd' = carry(s3)
 
-    // 差链
-    subs    x8, x5, x6             // C = !b1
-    cset    x9, cc                 // x9 = b1 (a < b)
-    subs    x8, x8, x13            // - bSub(prev), C = !b2
-    cset    x10, cc                // x10 = b2 (a == b 且 bSub == 1)
-    add     x13, x9, x10           // bSub' = b1 + b2 <= 1
+    cmp     xzr, x13                // C = !bSub
+    sbcs    x5, x5, x9              // d0 = a0 - b0 - bSub
+    sbcs    x6, x6, x10             // d1 = a1 - b1 - b0
+    stp     x5, x6, [x1], #16
+    sbcs    x7, x7, x11             // d2 = a2 - b2 - b1
+    sbcs    x8, x8, x14             // d3 = a3 - b3 - b2
+    stp     x7, x8, [x1], #16
+    cset    x13, cc                 // bSub' = borrow(d3)
 
-    str     x7, [x0], #8
-    str     x8, [x1], #8
-    sub     x4, x4, #1
-    cbnz    x4, Lanss_loop
+    subs    x17, x17, #1
+    cbnz    x17, Lanss_top
 
-    add     x0, x13, x12, lsl #1   // ret = 2*cAdd + bSub
+Lanss_tail:                         // 尾部: 剩余 0~3 limb
+    cbz     x4, Lanss_end
+    ldr     x5, [x2], #8            // a
+    ldr     x9, [x3], #8            // b
+    cmp     x12, #1                 // C = cAdd
+    adcs    x15, x5, x9             // s = a + b + cAdd
+    cset    x12, cs
+    cmp     xzr, x13                // C = !bSub
+    sbcs    x5, x5, x9              // d = a - b - bSub
+    cset    x13, cc
+    str     x15, [x0], #8
+    str     x5, [x1], #8
+    subs    x4, x4, #1
+    b.ne    Lanss_tail
+
+Lanss_end:
+    add     x0, x13, x12, lsl #1    // ret = 2*cAdd + bSub
     ret
