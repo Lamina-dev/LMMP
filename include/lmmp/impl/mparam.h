@@ -104,7 +104,7 @@
 
 // FFT平方阈值：超过此规模使用FFT平方。平方与乘法的 toom4/FFT 交叉点
 // 并不一致（平方交叉点显著更早），故与 MUL_FFT_THRESHOLD 分立调优
-#define LMMP_DEFAULT_SQR_FFT_THRESHOLD 1635
+#define LMMP_DEFAULT_SQR_FFT_THRESHOLD 1405
 #ifdef LMMP_TUNE
 #define SQR_FFT_THRESHOLD lmmp_tune_SQR_FFT_THRESHOLD
 #else

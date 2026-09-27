@@ -31,7 +31,7 @@ typedef struct {
 static void sqr_ctx_init(sqr_ctx* c, mp_size_t n) {
     c->n = n;
     c->a = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->d = (mp_ptr)lmmp_alloc((size_t)(2 * n + 1) * sizeof(mp_limb_t));
+    c->d = (mp_ptr)lmmp_alloc((size_t)(2 * n) * sizeof(mp_limb_t));
     tune_fill_limbs(c->a, n, UINT64_C(0xa4093822299f31d0));
     c->a[n - 1] |= LIMB_B_2;
 }
