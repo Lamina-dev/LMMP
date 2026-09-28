@@ -495,6 +495,7 @@ TEST_CASE("numth/sqrt", invsqrt_newton_semantics) {
                 lmmp_zero(a, na);
                 if (f < 3) {
                     random_limbs(a, na, seed);
+                    a[na - 1] |= 1ull << 61;
                 } else if (f == 3) {
                     a[na - 1] = LIMB_B_4;  // a = B^na/4，I=2*B^ns 边界
                 } else if (f == 4) {
@@ -647,6 +648,239 @@ TEST_CASE("numth/perfsqr", perfsqr_filter_perfsqr) {
             bool filt = lmmp_perfsqr_filter_(p, (mp_size_t)x.d.size());
             if (!filt) TEST_CHECK_MSG(!expect, "filter false implies non-square");
             lmmp_free(p);
+        }
+    }
+}
+
+/*
+    BigInt 整数牛顿参考：floor(cbrt(n))，n>0。
+    自上而下 x <- x - (x^3-n)/(3x^2-3x+1)，除数 3x^2-3x+1 保证不下冲，
+    收敛后立方比较收紧到精确 floor（与库实现完全独立）。
+*/
+static BigInt ref_icbrt_big(const BigInt& n) {
+    size_t bits = n.d.size() * 64;
+    BigInt x = BigInt::shl_bits(BigInt(1), (bits + 2) / 3);  // 2^ceil(bits/3) >= cbrt(n)
+    for (int it = 0; it < 200; ++it) {
+        BigInt x2 = BigInt::mul_school(x, x);
+        BigInt x3 = BigInt::mul_school(x, x2);
+        if (BigInt::cmp(x3, n) <= 0) break;
+        BigInt t = BigInt::sub_abs(x3, n);
+        // d = 3x^2 - 3x + 1（x>=1 时非负）
+        BigInt d = BigInt::sub_abs(BigInt::add_abs(BigInt::add_abs(x2, x2), x2),
+                                   BigInt::add_abs(BigInt::add_abs(x, x), x));
+        d = BigInt::add_small(d, 1);
+        BigInt r;
+        BigInt q = BigInt::divmod_school(t, d, r);
+        if (q.is_zero()) break;
+        if (BigInt::cmp(q, x) >= 0) break;
+        x = BigInt::sub_abs(x, q);
+    }
+    while (BigInt::cmp(BigInt::mul_school(x, BigInt::mul_school(x, x)), n) > 0)
+        x = BigInt::sub_small(x, 1);
+    for (;;) {
+        BigInt xp = BigInt::add_small(x, 1);
+        if (BigInt::cmp(BigInt::mul_school(xp, BigInt::mul_school(xp, xp)), n) <= 0)
+            x = xp;
+        else
+            break;
+    }
+    return x;
+}
+
+/*
+    lmmp_invcbrt_newton_ 误差语义：
+      ns>=na 时记 I=floor(cbrt(B^(3ns+na)/a))，须有 I-1 <= ic <= I 且 dstis[ns]>=1。
+    参照由 lmmp_div_（精确商）+ BigInt 牛顿构造。
+*/
+TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
+    u64 seed = 0x3a7c5e1f9b2d4608ull;
+    const mp_size_t nas[] = {1, 2, 5, 16, 33};
+    const mp_size_t nss[] = {4, 7, 16, 33, 90};
+    for (mp_size_t na : nas) {
+        for (mp_size_t ns : nss) {
+            if (ns < na) continue;
+            mp_ptr a = alloc_limbs(na);
+            mp_ptr dstis = alloc_limbs(ns + 2);
+            mp_ptr nb = alloc_limbs(3 * ns + na + 4);
+            mp_ptr q = alloc_limbs(3 * ns + 4);
+
+            for (int f = 0; f < 5; ++f) {
+                lmmp_zero(a, na);
+                if (f < 3) {
+                    random_limbs(a, na, seed);
+                    // 归一化顶 limb >= 3B/8（函数契约）
+                    a[na - 1] |= 3ull << 62;
+                } else if (f == 3) {
+                    a[na - 1] = 0x6000000000000000ull;  // 3B/8 边界，I 邻近 2*B^ns
+                } else {
+                    for (mp_size_t i = 0; i < na; ++i) a[i] = ~(u64)0;  // B^na-1，I 邻近 B^ns
+                }
+
+                lmmp_zero(dstis, ns + 2);
+                lmmp_invcbrt_newton_(dstis, ns, a, na);
+                TEST_CHECK_MSG(dstis[ns] >= 1, "invcbrt top limb >= 1");
+
+                // I = floor(cbrt(B^(3ns+na)/a))
+                mp_size_t L = 3 * ns + na;
+                lmmp_zero(nb, L + 1);
+                nb[L] = 1;
+                lmmp_div_(q, NULL, nb, L + 1, a, na);
+                mp_size_t ql = L + 1 - na;
+                while (ql > 1 && q[ql - 1] == 0) --ql;
+                BigInt bref = ref_icbrt_big(from_limbs(q, ql));
+                BigInt bir = from_limbs(dstis, ns + 1);
+                BigInt brefm1 = BigInt::sub_small(bref, 1);
+                TEST_CHECK_MSG(bir == brefm1 || bir == bref, "invcbrt in {I-1, I}");
+            }
+            lmmp_free(a);
+            lmmp_free(dstis);
+            lmmp_free(nb);
+            lmmp_free(q);
+        }
+    }
+}
+
+/*
+    lmmp_cbrt_newton_ 误差语义：
+      记 x = cbrt(a*B^(3nf))（实数），结果 = round(x-eps)，0 <= eps < 4/B^nf，
+      故结果 ∈ {round(x)-1, round(x)}；完全立方输入 frac(x)=0，必须精确命中。
+    参照：BigInt 牛顿 floor + 2(X-r^3) 与 3r^2+3r+1 的比较决定舍入方向。
+*/
+TEST_CASE("numth/cbrt", cbrt_newton_semantics) {
+    u64 seed = 0x5eed1c0ffee5eed1ull;
+    // cbrt_newton_ 新契约：任意 na 对齐/顶 limb（归一化内部完成，含 k^3 乘子），
+    // 非公倍数 na 专门覆盖 knorm 的乘子路径；na=1,2 覆盖 norm_shift 的
+    // 单 limb 视窗分支（调度器在大 nf 下可能以任意 na 进入本函数）
+    const mp_size_t nas[] = {1, 2, 3, 4, 5, 6, 7, 12, 21};
+    const mp_size_t nfs[] = {4, 10, 30, 80};
+    for (mp_size_t na : nas) {
+        for (mp_size_t nf : nfs) {
+            if (3 * nf < 2 * na + 3) continue;
+            mp_size_t ns = na / 3 + nf + 4;
+            mp_ptr a = alloc_limbs(na);
+            mp_ptr dsts = alloc_limbs(ns + 2);
+            mp_ptr radicand = alloc_limbs(na + 3 * nf);
+
+            for (int f = 0; f < 5; ++f) {
+                bool is_cube = false;
+                lmmp_zero(a, na);
+                if (f < 3) {
+                    random_limbs(a, na, seed);
+                    a[na - 1] |= 1ull << 61;
+                } else if (f == 3) {
+                    // 完全立方 a = s^3（s 压低使立方恰为 na limb）
+                    BigInt s;
+                    s.d.resize(na / 3 + 1);
+                    for (size_t i = 0; i < s.d.size(); ++i) s.d[i] = xorshift64(seed);
+                    // |1 保证 s>=1：na=1 时 back 是唯一 limb，纯掩码可能得 s=0，
+                    // 立方为 0 会以 numa[na-1]==0 违反函数契约
+                    s.d.back() = (s.d.back() & (1ull << 20)) | 1ull;
+                    s.trim();
+                    BigInt cube = BigInt::mul_school(s, BigInt::mul_school(s, s));
+                    if (cube.d.size() != (size_t)na || na == 0) continue;
+                    to_limbs(cube, a, na);
+                    is_cube = true;  // 任意顶 limb 均可（内部归一化）
+                } else {
+                    for (mp_size_t i = 0; i < na; ++i) a[i] = ~(u64)0;  // B^na-1
+                }
+
+                lmmp_zero(radicand, na + 3 * nf);
+                lmmp_copy(radicand + 3 * nf, a, na);
+                lmmp_zero(dsts, ns + 2);
+                lmmp_cbrt_newton_(dsts, a, na, nf);
+
+                BigInt X = from_limbs(radicand, na + 3 * nf);
+                BigInt r = ref_icbrt_big(X);
+                // round(x)：2*(X-r^3) >= 3r^2+3r+1 ?
+                BigInt rem = BigInt::sub_abs(X, BigInt::mul_school(r, BigInt::mul_school(r, r)));
+                BigInt rem2 = BigInt::add_abs(rem, rem);
+                BigInt r2 = BigInt::mul_school(r, r);
+                BigInt rhs = BigInt::add_abs(BigInt::add_abs(BigInt::add_abs(r2, r2), r2),
+                                             BigInt::add_abs(BigInt::add_abs(r, r), r));
+                rhs = BigInt::add_small(rhs, 1);  // 3r^2+3r+1
+                bool roundup = BigInt::cmp(rem2, rhs) >= 0;
+                BigInt expect = roundup ? BigInt::add_small(r, 1) : r;
+                BigInt bgot = from_limbs(dsts, ns);
+
+                if (is_cube) {
+                    TEST_CHECK_MSG(bgot == r, "cbrt_newton of perfect cube exact");
+                } else {
+                    BigInt expm1 = BigInt::sub_small(expect, 1);
+                    TEST_CHECK_MSG(bgot == expect || bgot == expm1, "cbrt_newton in {round, round-1}");
+                }
+            }
+            lmmp_free(a);
+            lmmp_free(dsts);
+            lmmp_free(radicand);
+        }
+    }
+}
+
+/*
+    lmmp_cbrt_ 分发器全分支：
+      小输入（nl<=6）/!dstr 且大 nf 的牛顿近似/其余的 knorm 归一化
+      （k^3 乘子 + 3 对齐移位）+ lmmp_cbrt_divide_ 精确求根。
+    dstr!=NULL 或 nf==0：精确 floor + 余数；nf>0 且 !dstr：[floor|round]。
+    topcls==1（顶 limb < 0x6000..）约半数落入 k^3 乘子路径，随机覆盖。
+*/
+TEST_CASE("numth/cbrt", cbrt_dispatcher) {
+    u64 seed = 0x1b2ad9f7e6c54321ull;
+    const mp_size_t nas[] = {1, 2, 3, 4, 5, 6, 7, 8, 10, 25, 40};
+    const mp_size_t nfs[] = {0, 1, 2, 3, 5};
+    for (mp_size_t na : nas) {
+        for (mp_size_t nf : nfs) {
+            for (int topcls = 0; topcls < 2; ++topcls) {
+                for (int with_rem = 0; with_rem < 2; ++with_rem) {
+                    mp_size_t nX = na + 3 * nf;
+                    mp_size_t ns = nX / 3 + 3;
+                    mp_ptr a = alloc_limbs(na);
+                    mp_ptr radicand = alloc_limbs(nX);
+                    mp_ptr dsts = alloc_limbs(ns + 4);
+                    mp_ptr dstr = with_rem ? alloc_limbs(2 * nX / 3 + 8) : NULL;
+
+                    lmmp_zero(a, na);
+                    for (mp_size_t i = 0; i < na; ++i) a[i] = xorshift64(seed);
+                    if (topcls == 0)
+                        a[na - 1] |= (u64)3 << 62;  // 可归一化（divide 条件之一）
+                    else
+                        a[na - 1] = (a[na - 1] >> 24) | 0x2000000000000000ull;  // 顶 < 0x6000..
+                    if (a[na - 1] == 0) a[na - 1] = 1;
+
+                    lmmp_zero(radicand, nX);
+                    lmmp_copy(radicand + 3 * nf, a, na);
+                    lmmp_zero(dsts, ns + 4);
+                    if (dstr) lmmp_zero(dstr, 2 * nX / 3 + 8);
+                    lmmp_cbrt_(dsts, dstr, a, na, nf);
+
+                    BigInt X = from_limbs(radicand, nX);
+                    BigInt r = ref_icbrt_big(X);
+                    if (with_rem || nf == 0) {
+                        BigInt bgot = from_limbs(dsts, ns);
+                        TEST_CHECK_MSG(bgot == r, "cbrt_ exact floor");
+                        if (with_rem) {
+                            BigInt rem_ref = BigInt::sub_abs(X, BigInt::mul_school(r, BigInt::mul_school(r, r)));
+                            BigInt brem = from_limbs(dstr, 2 * nX / 3 + 4);
+                            TEST_CHECK_MSG(brem == rem_ref, "cbrt_ remainder");
+                        }
+                    } else {
+                        BigInt rem = BigInt::sub_abs(X, BigInt::mul_school(r, BigInt::mul_school(r, r)));
+                        BigInt rem2 = BigInt::add_abs(rem, rem);
+                        BigInt r2 = BigInt::mul_school(r, r);
+                        BigInt rhs = BigInt::add_abs(BigInt::add_abs(BigInt::add_abs(r2, r2), r2),
+                                                     BigInt::add_abs(BigInt::add_abs(r, r), r));
+                        rhs = BigInt::add_small(rhs, 1);
+                        bool roundup = BigInt::cmp(rem2, rhs) >= 0;
+                        BigInt expect = roundup ? BigInt::add_small(r, 1) : r;
+                        BigInt expm1 = BigInt::sub_small(expect, 1);
+                        BigInt bgot = from_limbs(dsts, ns);
+                        TEST_CHECK_MSG(bgot == expect || bgot == expm1, "cbrt_ in {round, round-1}");
+                    }
+                    lmmp_free(a);
+                    lmmp_free(radicand);
+                    lmmp_free(dsts);
+                    if (dstr) lmmp_free(dstr);
+                }
+            }
         }
     }
 }

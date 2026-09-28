@@ -997,6 +997,79 @@ LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 LMMP_API void lmmp_cbrt_divide_(mp_ptr dst, mp_ptr numa, mp_size_t ns, mp_ptr tp, int calr);
 
 /**
+ * @brief 计算逆立方根的定点下近似：记 I=floor(cbrt(B^(3*ns+na)/[numa,na]))，
+ *        则 [dstis,ns+1] 满足 I-1 <= [dstis,ns+1] <= I，且 dstis[ns]>=1
+ * @param dstis 目标数组（长度为 ns+1 个limb）
+ * @param ns dstis数组的 limb 长度为 ns+1
+ * @param numa 输入数组
+ * @param na numa数组的 limb 长度
+ * @warning ns>=3, na>0, ns>=na, numa[na-1]>=0x6000000000000000 (3B/8),
+ *          dstis!=NULL, numa!=NULL, sep(dstis,numa)
+ * @note 结果是 I 的至多低估 1 的下近似，绝不高估；层内残差乘链
+ *       （ir^2、*an、*ir）在大规模时以梅森变换（mod B^mn-1）截断计算。
+ *       3B/8 归一化使 nr=2 基例直达 cbrt6_fast_ 的除法快速路径（无需
+ *       log2/exp2 估计兜底），并保证层不变式 ar >= 3*B^nr/8（误差界按
+ *       B^nr/8 论证，3B/8 自然满足）。当 ns<na 时语义变化：仅使用 numa
+ *       的最高 ns 个 limb（记为 a_top），结果变为
+ *       floor(cbrt(B^(4*ns)/a_top))-[0|1]。
+ */
+LMMP_API void lmmp_invcbrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief 计算近似立方根 [dsts,nR]=[floor|round](cbrt([numa,na]*B^(3*nf)))，
+ *        其中 nR = (na+3*nf+2)/3 + 1（高位补零写入）
+ * @param dsts 目标数组（长度至少 nR 个limb）
+ * @param numa 输入数组（长度为 na 个limb）
+ * @param na numa数组的 limb 长度（任意对齐、任意顶 limb 归一化）
+ * @param nf 精度因子
+ * @warning na>0, numa[na-1]!=0, nf>=2, 3*nf>=2*na+3, dsts!=NULL,
+ *          numa!=NULL, sep(dsts,numa)
+ * @note 归一化在本函数内完成：先乘小立方数 k^3（约 1/2 输入经 3 对齐
+ *       移位无法到达 3B/8 顶 limb，k^3 乘子改变 bl mod 3 类别后重试，
+ *       期望 2 次内命中），再 3 对齐移位 s=3t bit 使 limbs ≡ 0 (mod 3)
+ *       且顶 limb >= 3B/8（limb 对齐是重建移位量为整 limb 的必要条件：
+ *       B^(1/3) 无理，cbrt 无 sqrt 的半 limb 对齐技巧；3*nf >= 2*na+3
+ *       保证 ns >= na，invcb­rt 全量使用归一化后的被开方数）。
+ * @note 设 x = cbrt([numa,na]*B^(3*nf))（实数），移位问题根 x2 = x*k*2^t
+ *       的重建误差 eps 满足 0 <= eps < 4/B^nf；最终经 >>t 与四舍五入
+ *       div_1(k) 还原（floor 复合不变性），结果 ∈ {round(x)-1, round(x)}，
+ *       绝不超过 round(x)，完全立方输入恒精确命中。大规模逆立方根迭代层
+ *       的残差乘链以梅森变换（mod B^mn-1）截断计算加速，适用于 nf >> na
+ *       的非精确立方根场景。
+ */
+LMMP_API void lmmp_cbrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_size_t nf);
+
+/**
+ * @brief 计算 [numa,na] * B^(3*nf) 的立方根和余数
+ * @param dsts 立方根结果输出指针（缓冲区长度至少 nf+na/3+3 个limb）
+ * @param dstr 余数结果输出指针（缓冲区长度至少 2*(nf+na/3)+3 个limb，NULL 表示不计算余数）
+ * @param numa 源操作数指针（长度为 na 个limb）
+ * @param na 操作数的 limb 长度
+ * @param nf 精度因子
+ * @note if (dstr != NULL) {
+ *           [dsts],[dstr] = cbrtrem([numa,na]*B^(3*nf))，即精确 floor 立方根
+ *           与余数 [numa,na]*B^(3*nf) - [dsts]^3（长度 2*ns+1，ns 为根长）
+ *       } else {
+ *           if (nf == 0) {
+ *               [dsts] = floor(cbrt([numa,na]))
+ *           } else {
+ *               [dsts] = [floor|round](cbrt([numa,na]*B^(3*nf)))
+ *           }
+ *       }
+ *       分发策略（与 lmmp_sqrt_ 同构）：小输入（nl=na+3nf<=6）走基例
+ *       函数族；!dstr 且 nf >= CBRT_INVNEWTON_K_THRESHOLD*na 且
+ *       nf >= CBRT_INVNEWTON_NF_MIN 走 lmmp_cbrt_newton_ 的 [floor|round]
+ *       近似；其余（含全部 dstr != NULL 与精确 floor 语义）统一走 knorm
+ *       归一化 + lmmp_cbrt_divide_ 精确求根。knorm：3 对齐移位到顶 limb
+ *       >= 0x6000000000000000（约 1/2 输入不可达，bl≡1 (mod 3) 恒不可达），
+ *       不可达时乘小立方数 k^3 改类（sqrt 移位方法的 cbrt 补充），根经
+ *       >>t 与 div_1(k) 的 floor 复合精确还原，无需修正循环。
+ * @attention 如你需要精确的floor(cbrt(x))语义，请确保nf==0或传入dstr
+ * @warning na>0, numa[na-1]!=0, eqsep(dsts,numa), eqsep(dstr,numa)
+ */
+LMMP_API void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_t nf);
+
+/**
  * @brief 计算 floor(n^(1/root))
  * @param n 被开方数
  * @param root 开方次数
