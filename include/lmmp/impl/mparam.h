@@ -53,35 +53,36 @@
 /*
     立方根牛顿路径的切换阈值（nf >= K*na 且 nf >= NF_MIN）。
 
-    lmmp_cbrt_newton_ 与 lmmp_cbrt_divide_ 的等耗时边界实测（Apple M 系列
-    arm64，Release，中位数计时，na*nf 网格线性插值）：
+    lmmp_cbrt_newton_ 与 lmmp_cbrt_divide_ 的等耗时边界为水平段（na <= 12，
+    交叉点 ~1845，newton 固定开销主导：cbrt 重建需两次全乘 Q=a2*ic^2 且层
+    修正含 div_1 除 3，均非 sqrt 的移位可比）拼接射线段（na ∈ [48,384]，
+    交叉点 nf* ≈ 斜率*na，两算法的 na 增量成本比；实测交叉 r ∈ [38,44]，
+    badness plateau [43,45]）。故切换条件取 AND 复合：射线项 K*na 覆盖
+    中段，绝对下限 NF_MIN 封住水平段之下 newton 恒慢的小 nf 区（na<=12 时
+    K*na 远小于真实交叉点，纯射线会在小 nf 区误选 newton，实测慢 15%~80%）。
 
-        na:      3     6    12    24    48    96   192   384    768
-        nf*:  ~2100 ~1960 ~2000 ~2670 ~3320 ~5310 ~10000 ~21900  >64000
-        斜率:   -     -     -   111    69    55    52    57     >83
-
-    即边界在 na <= 12 为 ~2000 的水平段（newton 的固定开销主导：cbrt 重建
-    需两次全乘 Q=a2*ic^2 且层修正含 div_1 除 3，均非 sqrt 的移位可比），
-    在 na ∈ [48,384] 为过原点射线 nf* ≈ 52*na（两算法的 na 增量成本比），
-    na >= 768 后上翘（invcbrt 层内 an 参与的大层残差乘使 newton 的 na 敏感
-    度超过 divide 的 3*ns 增量）。故切换条件取 AND 复合：射线项 K*na 覆盖
-    中段（纯 sqrt 式），绝对下限 NF_MIN 封住水平段之下 newton 恒慢的小 nf
-    区（na<=12 时 K*na 远小于真实交叉点，纯射线会在 nf≈250~1500 处误选
-    newton，实测慢 15%~80%）。K 略偏保守（实测中段 52~57，取 52）：
-    na >= 768 的上翘段会在真实交叉点前 ~5% 提前切入 newton，属可接受损失。
-    sqrt 对照实测（同法）：其交叉点为 nf* ≈ 300（na<=24）过渡到斜率 ~16
-    的射线（na ∈ [96,384]），水平段仅 ~300 limb，纯射线 SQRT_INVNEWTON
-    _K_THRESHOLD=20 误选区间小（nf ∈ [20*na, nf*] 内损失有限）故无需
-    NF_MIN；cbrt 水平段 ~2000 limb 是 sqrt 的 ~7 倍，误选损失大，必须复合。
+    newton 路径改为 snorm 纯移位归一化（收敛仅需顶 limb >= B/8，无 k^3
+    乘子搜索/乘除还原，且 a2 平均更短）后，两阈值由调优程序复测整体下移
+    （Apple M 系列 arm64，Release，中位数计时）：
+        K     52  -> 45（badness 0.200 -> 0.060）
+        NF_MIN 2000 -> 1845
+    阈值与架构强相关，更新请运行：lmmp_tune --only cbrt_invnewton [--write]
+    （NF_MIN 段以小 na 样本隔离调优，K 段以射线区 na 混合样本隔离调优，
+    互不干扰，见 tune/lmmp/src/tune_cbrt_invnewton.c）。
 */
-#define LMMP_DEFAULT_CBRT_INVNEWTON_K_THRESHOLD 52
+#define LMMP_DEFAULT_CBRT_INVNEWTON_K_THRESHOLD 45
 #ifdef LMMP_TUNE
 #define CBRT_INVNEWTON_K_THRESHOLD lmmp_tune_CBRT_INVNEWTON_K_THRESHOLD
 #else
 #define CBRT_INVNEWTON_K_THRESHOLD LMMP_DEFAULT_CBRT_INVNEWTON_K_THRESHOLD
 #endif
 // 立方根牛顿路径的 nf 绝对下限（limb），封住小 na 段水平交叉点之下
-#define CBRT_INVNEWTON_NF_MIN 2000
+#define LMMP_DEFAULT_CBRT_INVNEWTON_NF_MIN 1845
+#ifdef LMMP_TUNE
+#define CBRT_INVNEWTON_NF_MIN lmmp_tune_CBRT_INVNEWTON_NF_MIN
+#else
+#define CBRT_INVNEWTON_NF_MIN LMMP_DEFAULT_CBRT_INVNEWTON_NF_MIN
+#endif
 // 梅森变换开方阈值：超过此规模选择梅森变换计算
 #define SQRT_NEWTON_MODM_THRESHOLD 434
 
@@ -372,6 +373,7 @@ extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
 extern uint64_t lmmp_tune_SQRT_INVNEWTON_K_THRESHOLD;
 extern uint64_t lmmp_tune_CBRT_INVNEWTON_K_THRESHOLD;
+extern uint64_t lmmp_tune_CBRT_INVNEWTON_NF_MIN;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_K_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_USHORT_B_THRESHOLD;
 extern uint64_t lmmp_tune_PERMUTATION_UINT_K_THRESHOLD;
@@ -434,5 +436,7 @@ extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
 #define LIMB_B_2 (0x8000000000000000ull)
 // B / 4
 #define LIMB_B_4 (0x4000000000000000ull)
+// B / 8
+#define LIMB_B_8 (0x2000000000000000ull)
 
 #endif // __LMMP_MPARAM_H__

@@ -704,14 +704,17 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
             mp_ptr nb = alloc_limbs(3 * ns + na + 4);
             mp_ptr q = alloc_limbs(3 * ns + 4);
 
-            for (int f = 0; f < 5; ++f) {
+            for (int f = 0; f < 6; ++f) {
                 lmmp_zero(a, na);
                 if (f < 3) {
                     random_limbs(a, na, seed);
-                    // 归一化顶 limb >= 3B/8（函数契约）
-                    a[na - 1] |= 3ull << 62;
+                    // 归一化顶 limb >= B/8（函数契约），随机落入 [B/8,3B/8)
+                    // 与 [3B/8,B) 两个区间，覆盖基例的估计回退/除法快速路径
+                    a[na - 1] |= 1ull << 61;
                 } else if (f == 3) {
-                    a[na - 1] = 0x6000000000000000ull;  // 3B/8 边界，I 邻近 2*B^ns
+                    a[na - 1] = 0x2000000000000000ull;  // B/8 边界，I 邻近 2*B^ns
+                } else if (f == 4) {
+                    a[na - 1] = 0x6000000000000000ull;  // 3B/8 边界（除法路径下限）
                 } else {
                     for (mp_size_t i = 0; i < na; ++i) a[i] = ~(u64)0;  // B^na-1，I 邻近 B^ns
                 }
@@ -741,21 +744,42 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
 }
 
 /*
-    lmmp_cbrt_newton_ 误差语义：
-      记 x = cbrt(a*B^(3nf))（实数），结果 = round(x-eps)，0 <= eps < 4/B^nf，
-      故结果 ∈ {round(x)-1, round(x)}；完全立方输入 frac(x)=0，必须精确命中。
+    lmmp_cbrt_newton_ 误差语义（输入契约版）：
+      输入先经 3 对齐移位 s 归一化（limbs ≡ 0 (mod 3)，顶 limb >= B/8），
+      记 x = cbrt(a*B^(3nf))（实数），结果 >>s/3 = round(x-eps)，
+      0 <= eps < 4/B，故结果 ∈ {round(x)-1, round(x)}；完全立方输入
+      frac(x)=0，必须精确命中。
     参照：BigInt 牛顿 floor + 2(X-r^3) 与 3r^2+3r+1 的比较决定舍入方向。
 */
+// 契约归一化：最小 3 对齐移位 s 使 limbs(a<<s) ≡ 0 (mod 3) 且顶 limb
+// 有效位宽 >= 62（即顶 limb >= B/8），*na2p = limbs(a<<s)
+static mp_size_t cbrt_contract_shift(const mp_ptr a, mp_size_t na, mp_size_t* na2p) {
+    long hb = 0;
+    while ((a[na - 1] >> hb) != 0) ++hb;
+    long bl = 64L * (na - 1) + hb;
+    for (long s = 0; s <= 189; s += 3) {
+        long T = bl + s;
+        long L = (T + 63) / 64;
+        if (L % 3 != 0) continue;
+        if (T - 64 * (L - 1) < 62) continue;
+        *na2p = (mp_size_t)L;
+        return (mp_size_t)s;
+    }
+    return 0;  // 不可达（B/8 三 class 全可达）
+}
+
 TEST_CASE("numth/cbrt", cbrt_newton_semantics) {
     u64 seed = 0x5eed1c0ffee5eed1ull;
-    // cbrt_newton_ 新契约：任意 na 对齐/顶 limb（归一化内部完成，含 k^3 乘子），
-    // 非公倍数 na 专门覆盖 knorm 的乘子路径；na=1,2 覆盖 norm_shift 的
-    // 单 limb 视窗分支（调度器在大 nf 下可能以任意 na 进入本函数）
+    // cbrt_newton_ 契约版：调用前 3 对齐移位归一化（limbs ≡ 0 (mod 3)，
+    // 顶 limb >= B/8），结果 >>s/3 还原；非公倍数 na 覆盖各类 bl mod 3
+    // 移位对齐，na=1,2 覆盖单 limb 视窗（调度器在大 nf 下可能以任意 na
+    // 进入 newton 分支）
     const mp_size_t nas[] = {1, 2, 3, 4, 5, 6, 7, 12, 21};
     const mp_size_t nfs[] = {4, 10, 30, 80};
     for (mp_size_t na : nas) {
+        mp_size_t na2w = 3 * ((na + 2) / 3);  // 移位后长度（= 3*ceil(na/3)）
         for (mp_size_t nf : nfs) {
-            if (3 * nf < 2 * na + 3) continue;
+            if (3 * nf < 2 * na2w + 3) continue;  // 契约按移位后长度检查
             mp_size_t ns = na / 3 + nf + 4;
             mp_ptr a = alloc_limbs(na);
             mp_ptr dsts = alloc_limbs(ns + 2);
@@ -773,21 +797,37 @@ TEST_CASE("numth/cbrt", cbrt_newton_semantics) {
                     s.d.resize(na / 3 + 1);
                     for (size_t i = 0; i < s.d.size(); ++i) s.d[i] = xorshift64(seed);
                     // |1 保证 s>=1：na=1 时 back 是唯一 limb，纯掩码可能得 s=0，
-                    // 立方为 0 会以 numa[na-1]==0 违反函数契约
+                    // 立方为 0 会以 numa[na-1]==0 违归一化前提
                     s.d.back() = (s.d.back() & (1ull << 20)) | 1ull;
                     s.trim();
                     BigInt cube = BigInt::mul_school(s, BigInt::mul_school(s, s));
                     if (cube.d.size() != (size_t)na || na == 0) continue;
                     to_limbs(cube, a, na);
-                    is_cube = true;  // 任意顶 limb 均可（内部归一化）
+                    is_cube = true;  // 任意顶 limb 均可（契约移位归一化）
                 } else {
                     for (mp_size_t i = 0; i < na; ++i) a[i] = ~(u64)0;  // B^na-1
                 }
 
                 lmmp_zero(radicand, na + 3 * nf);
                 lmmp_copy(radicand + 3 * nf, a, na);
+
+                // 契约归一化 a2 = a << s 后调用，结果 >>t 还原（floor 复合）
+                mp_size_t na2;
+                mp_size_t s = cbrt_contract_shift(a, na, &na2);
+                mp_size_t t = s / 3;
+                mp_ptr a2 = alloc_limbs(na2 + 2);
+                lmmp_zero(a2, na2 + 2);
+                {
+                    mp_size_t w = s / 64, b = s % 64;
+                    if (b)
+                        a2[w + na] = lmmp_shl_(a2 + w, a, na, b);
+                    else
+                        lmmp_copy(a2 + w, a, na);
+                }
                 lmmp_zero(dsts, ns + 2);
-                lmmp_cbrt_newton_(dsts, a, na, nf);
+                lmmp_cbrt_newton_(dsts, a2, na2, nf);
+                if (t) lmmp_shr_(dsts, dsts, na2 / 3 + nf + 1, t);
+                lmmp_free(a2);
 
                 BigInt X = from_limbs(radicand, na + 3 * nf);
                 BigInt r = ref_icbrt_big(X);

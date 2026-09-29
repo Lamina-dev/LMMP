@@ -23,8 +23,11 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-// 此阈值是为了保证 cbrt(A)^2 >= B^2/2
-// 实际值大约 0x5A827999FCEF3242
+// divide 路径（cbrt_divide_/cbrt6_fast_）的顶 limb 归一化下限：
+// 保证 cbrt(A)^2 >= B^2/2，实际最小值约 0x5A827999FCEF3242，取整为 3B/8。
+// newton 路径（invcbrt_newton_/cbrt_newton_）迭代收敛仅需顶 limb >= B/8
+// （LIMB_B_8，层误差界按 B^nr/8 论证），其基例在 [B/8,3B/8) 自动回退
+// 到 log2/exp2 估计路径
 #define CBRT_DIVIDE_MIN (0x6000000000000000ull)
 
 static inline void lmmp_cube_3_(mp_ptr restrict dst, mp_limb_t a) {
@@ -521,28 +524,6 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
 #undef scratch
 }
 
-/*
-    类别判定与最小移位的解析计算（原 64 次试探循环的替代，推导保留如下）。
-
-    求 s ≡ 0 (mod 3) 使 limbs(a<<s) ≡ 0 (mod 3) 且 top(a<<s) >= 3B/8。
-    s ≡ 0 (mod 3) 保证根可经右移 s/3 bit 精确回退：
-
-        floor(cbrt(X*2^(3t))) >> t == floor(cbrt(X))
-        （由 floor(2y)>>1 == floor(y) 对 t 归纳）
-
-    a<<s 的顶 limb 是 a 顶部比特的 64bit 视窗。记 bl = bitlen(a)，
-    pos = bl+s-64*(L-1)（顶 limb 有效位宽，L = limbs(a<<s) ≡ 0 (mod 3)，
-    64 ≡ 1 (mod 3) 使 pos ≡ bl+1 (mod 3)），则合法 pos ∈ {62,63,64} 中
-    仅 {63,64} 可达 3B/8 = 3*2^61：
-        bl ≡ 0 (mod 3)：pos=64 恒可达（顶 limb MSB=1 >= B/2）
-        bl ≡ 1 (mod 3)：max pos=62，恒不可达
-        bl ≡ 2 (mod 3)：仅 pos=63 且 a 顶 2bit 为 11（a >= 3*2^(bl-2)）可达
-    可达时最小 s（唯一，因 s 随 L 与 pos 的减小单调增）：
-        r=0: s = 64*L          - bl,  L = 3*ceil(ceil(bl/64)/3)
-        r=2: s = 63 + 64*(L-1) - bl,  L = 3*ceil(ceil((bl+1)/64)/3)
-    由 L ≡ 0, 64 ≡ 1 (mod 3) 自动有 s ≡ 0 (mod 3)，且 s <= 189。
-    不可达返回 -1，由调用方 knorm_ 以 k^3 乘子改类后重试。
-*/
 static inline mp_size_t lmmp_cbrt_cls_shift_(mp_size_t bl, int top2) {
     mp_size_t r = bl % 3;
     if (r == 1) return -1;
@@ -552,13 +533,29 @@ static inline mp_size_t lmmp_cbrt_cls_shift_(mp_size_t bl, int top2) {
     return (r == 0 ? 64 * L : 63 + 64 * (L - 1)) - bl;
 }
 
+// a2 = [src,n] << s（s < 192：置零 w = s/64 个整 limb 后按 b = s%64 移位，
+// 移位进位写入 a2[w+n]，缓冲至少 n+3 limb）。knorm 的 k=1/k^3 路径与
+// snorm 的纯移位路径共用
+static inline void lmmp_cbrt_shapply_(mp_srcptr src, mp_size_t n, mp_size_t s, mp_ptr a2) {
+    mp_size_t w = s / LIMB_BITS, b = s % LIMB_BITS;
+    lmmp_zero(a2, w);
+    if (b)
+        a2[w + n] = lmmp_shl_(a2 + w, src, n, b);
+    else
+        lmmp_copy(a2 + w, src, n);
+}
+
 /*
-    knorm：统一归一化入口（lmmp_cbrt_ 精确路径与 lmmp_cbrt_newton_ 共用）。
+    knorm：精确路径（lmmp_cbrt_ 的 cbrt_divide_ 分支）专用归一化入口。
+    divide 要求顶 limb >= 3B/8（CBRT_DIVIDE_MIN，保证 Alr 至多高估 1 的
+    论证与 div_s 归一化），策略为优先移位、移位不可达时才乘小立方数：
+    k=1 即纯 3 对齐移位路径（恒最先尝试），仅当移位无法到达 3B/8 时才
+    以 k^3 乘子改变 bl 类别后重试。newton 路径不使用本函数（其收敛仅需
+    B/8，移位恒可达，见 lmmp_cbrt_snorm_）。
 
     输出 a2 = numa*k^3 << s 写入调用方缓冲区（至少 na+5 limb），满足
-    limbs(a2) ≡ 0 (mod 3) 且 a2 顶 limb >= 3B/8（CBRT_DIVIDE_MIN，divide /
-    invcbrt 基例直达除法快速路径），同时返回：
-        *kp  = 乘子 k（k=1 表示无需乘子）
+    limbs(a2) ≡ 0 (mod 3) 且 a2 顶 limb >= 3B/8，同时返回：
+        *kp  = 乘子 k（k=1 表示纯移位，无需乘子）
         *na2p = a2 的 limb 数
         返回值 = t = s/3（根的右移回退量，< 64）
 
@@ -569,8 +566,7 @@ static inline mp_size_t lmmp_cbrt_cls_shift_(mp_size_t bl, int top2) {
 
         floor(floor(x*K) / K) == floor(x)          （floor 复合不变性）
 
-    即根结果 >>t 后一次 div_1(k) 即精确还原；[floor|round] 语义下的还原
-    见 lmmp_cbrt_newton_ 注释。
+    即根结果 >>t 后一次 div_1(k) 即精确还原。
 
     候选筛选不计算完整乘积：记 q = 高128bit(numa)*k^3（152bit 小乘），
     X = numa*k^3 = q*B^sh + low（low < B^sh，sh = 64*(na-2)，na<=1 时 X=q），
@@ -636,13 +632,7 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
 
         // a2 = ak << s（k=1 时 ak == numa；k>1 时 ak == xk 与 a2 分离）；na2 <= w+nak+1
         mp_size_t na2 = (bl + s + LIMB_BITS - 1) / LIMB_BITS;
-        mp_size_t w = s / LIMB_BITS, b = s % LIMB_BITS;
-        lmmp_zero(a2, w);
-        if (b) {
-            a2[w + nak] = lmmp_shl_(a2 + w, ak, nak, b);
-        } else {
-            lmmp_copy(a2 + w, ak, nak);
-        }
+        lmmp_cbrt_shapply_(ak, nak, s, a2);
         lmmp_debug_assert(na2 % 3 == 0 && a2[na2 - 1] >= CBRT_DIVIDE_MIN);
         *kp = k;
         *na2p = na2;
@@ -665,6 +655,10 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
 
         ir = [dstis-nr, nr+1] = floor(B^(4*nr/3) / cbrt(ar)) - [0|1]
         ar = an 的最高 nr 个 limb
+
+    层不变式仅要求 ar 顶 limb >= B/8（入口 B/8 归一化逐层保持：每层 ar
+    均含 a 顶 limb）：由此 ir ∈ [B^nr, 2*B^nr)（dstis[nr]=1），下方
+    d/xp/dip 的窗口宽度界均按此论证。
 
     残差与修正（对相对残差 e = 1 - an*ir^3/B^(naz+3*nr) 二次收敛 e' ~ 2*e^2）：
 
@@ -701,7 +695,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
     lmmp_param_assert(ns >= 3);
     lmmp_param_assert(na > 0);
     lmmp_param_assert(numa != NULL && dstis != NULL);
-    lmmp_param_assert(numa[na - 1] >= CBRT_DIVIDE_MIN);
+    lmmp_param_assert(numa[na - 1] >= LIMB_B_8);
     mp_size_t nr = ns, namax = na, mn;
     mp_size_t sizes[LIMB_BITS], *sizp = sizes;
 
@@ -715,20 +709,21 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
     dstis += ns;
 
     /*
-        nr=2 基例（x = a 的最高 2 个 limb 组成的 2 limb 数, 契约保证 x >= 3B^2/8）：
+        nr=2 基例（x = a 的最高 2 个 limb 组成的 2 limb 数, 契约保证 x >= B^2/8）：
 
-            s  = floor(cbrt(x*B^4))              in [3B^2/8, B^2)
+            s  = floor(cbrt(x*B^4))              in [B^2/2, B^2)
             i2 = floor((B^4-1)/(s+1)),  i2^3*x ≈ B^8, i2 ∈ (B^2, 2*B^2]
 
         分母 +1 使基例系统性略微低估（i2 < cbrt(B^8/x) 恒成立），
-        保证后续每层迭代恒有 ir <= 目标值。顶 limb >= 3B/8 使基例直达
-        cbrt6_fast_ 的除法快速路径（无需 log2/exp2 估计兜底）。
+        保证后续每层迭代恒有 ir <= 目标值。cbrt_6_ 按顶 limb 分流：
+        >= 3B/8 直达除法快速路径，[B/8, 3B/8) 回退 log2/exp2 估计 +
+        单调立方修正（仅 6 limb，代价可忽略）。
     */
-    mp_limb_t numa2[6], sval[2], tp8[8];
+    mp_limb_t numa2[6], sval[2];
     lmmp_zero(numa2, 4);
     numa2[4] = na > 1 ? numa[-2] : 0;
     numa2[5] = numa[-1];
-    lmmp_cbrt6_fast_(sval, numa2, tp8);
+    lmmp_cbrt_6_(sval, numa2, 6);
 
     if (sval[0] == LIMB_MAX && sval[1] == LIMB_MAX) {
         // s = B^2-1，s+1 = B^2 无法作为 div_s 的归一化除数，直接给出
@@ -863,73 +858,113 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
 }
 
 /*
-    计算 x = cbrt([numa,na]*B^(3nf)) 的舍入近似 r（归一化在本函数内完成，
-    对 numa 的 limb 对齐与顶 limb 无任何要求）：
+    snorm：newton 路径的移位归一化（无乘子版本，供 lmmp_cbrt_ 的 newton
+    分支调用；lmmp_cbrt_newton_ 本体已改为输入契约，归一化与还原均由调用
+    处完成）。invnewton 迭代的收敛条件实际仅需顶 limb >= B/8（层误差界按
+    B^nr/8 论证，见 lmmp_invcbrt_newton_ 注释），而 B/8 恒可由 3 对齐移位
+    到达，故 newton 路径不引入 knorm 的 k^3 乘子（省去乘子搜索、numa*k^3
+    的 mul_1 遍历与还原时的 div_1(k) 遍历）。
 
-        (a2, k, t) = knorm(numa)     a2 = numa*k^3 << (3t)，limbs(a2) ≡ 0 (mod 3)，
-                                     a2 顶 limb >= 3B/8（nf >= 2 且 3nf >= 2na+3
-                                     保证 ns >= na2，invcb­rt 全量使用 a2）
-        ic          = [ns+1] limb 逆立方根（ns = na2/3 + nf + 1）
-        Q = a2*ic^2（ic 先平方再一次全乘），root = round(Q / 2^e0)，
-        e0 = 2*ns + 2*(na2/3) - nf（整 limb 移位，na2 ≡ 0 (mod 3) 是必要条件：
-        cbrt 无 sqrt 的半 limb 对齐技巧，B^(1/3) 无理）
+    输出 a2 = numa << s 写入调用方缓冲区（至少 na+3 limb），满足
+    limbs(a2) ≡ 0 (mod 3)（重建移位量为整 limb 的必要条件：B^(1/3) 无理，
+    cbrt 无 sqrt 的半 limb 对齐技巧）且 a2 顶 limb >= B/8，即
+    lmmp_cbrt_newton_ 的输入契约；返回
+        *na2p = a2 的 limb 数（恒为 3*ceil(na/3)）
+        返回值 = t = s/3（根的右移回退量，< 64）
 
-    root 是移位问题根 x2 = x*k*2^t 的 [floor|round] 近似（误差分析同下方
-    eps 论证，对 a2 而言 eps < 4/B^nf），最终还原（floor 复合不变性）：
-
-        r = floor((floor((root) >> t) + k/2) / k) ∈ {round(x)-1, round(x)}
-
-    其中 >>t 与 div_1(k) 的 floor 复合精确，+k/2 实现四舍五入除法；root
-    的 ±1 容差经该复合至多放大 1/k+1/2 ulp，仍落在 {round(x)-1, round(x)}。
-    eps >= 0 使结果绝不超过 round(x)；仅当 frac(x) ∈ [1/2, 1/2+eps) 时得到
-    floor(x)（随机输入概率 < 2^-60）；完全立方输入（frac(x)=0，eps < 1/2）
-    恒精确命中。又 x < B^((na+3nf+2)/3)，结果恒不足 nR = (na+3nf+2)/3+1 limb，
-    输出按 nR limb 写入（高位补零）。
+    目标总位长 T = bl+s（bl = bitlen(numa)）的解析求解：s ≡ 0 (mod 3)
+    保证根可经右移 t = s/3 bit 精确回退（floor(cbrt(X*2^(3t))) >> t ==
+    floor(cbrt(X))，由 floor(2y)>>1 == floor(y) 对 t 归纳）。记
+    L = limbs(a2) ≡ 0 (mod 3)，pos = T - 64*(L-1) 为顶 limb 有效位宽，
+    由 64 ≡ 1 (mod 3) 有 T ≡ L-1+pos (mod 3)，结合 T ≡ bl (mod 3) 解出
+    每 class（r = bl mod 3）唯一的 (pos, L) 组合：
+        r=0: pos=64（顶 limb MSB=1 >= B/2）
+        r=1: pos=62（顶 limb ∈ [B/8, B/4)）
+        r=2: pos=63（顶 limb ∈ [B/4, B/2)）
+    可达时最小 s 唯一（s 随 L 增大单调增）且 s <= 189，故 t <= 63。
+    对照 divide 路径（knorm）：3B/8 仅 pos=63 且顶 2bit 为 11 或 pos=64
+    可达，约 1/2 输入（r=1 恒不可达，r=2 且顶 2bit 为 10 不可达）必须乘
+    小立方数 k^3 改类；B/8 三 class 全可达，移位永充分。
 */
+static mp_size_t lmmp_cbrt_snorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_size_t *na2p) {
+    lmmp_param_assert(numa != NULL && a2 != NULL && na > 0 && numa[na - 1] != 0);
+    mp_bitcnt_t hb = lmmp_limb_bits_(numa[na - 1]);
+    mp_size_t bl = LIMB_BITS * (na - 1) + (mp_size_t)hb;
+    mp_size_t r = bl % 3;
+    // (pos, T mod 3) 对应关系：pos=64≡1 → T≡0；pos=62≡2 → T≡1；pos=63≡0 → T≡2
+    static const mp_size_t POS_BY_CLASS[3] = {LIMB_BITS, LIMB_BITS - 2, LIMB_BITS - 1};
+    mp_size_t pos = POS_BY_CLASS[r];
+
+    // L = 最小的满足 T = 64*(L-1)+pos >= bl 的三倍数
+    mp_size_t L = 1;
+    if (bl > pos)
+        L = (bl - pos + LIMB_BITS - 1) / LIMB_BITS + 1;
+    L = (L + 2) / 3 * 3;
+
+    mp_size_t s = LIMB_BITS * (L - 1) + pos - bl;  // <= 189, ≡ 0 (mod 3)
+    lmmp_debug_assert(s >= 0 && s % 3 == 0 && s / 3 < LIMB_BITS);
+    lmmp_cbrt_shapply_(numa, na, s, a2);
+    lmmp_debug_assert(L % 3 == 0 && L <= na + 3 && a2[L - 1] >= LIMB_B_8);
+    *na2p = L;
+    return s / 3;
+}
+
+/*
+    计算已归一化输入 x = cbrt(a*B^(3nf)) 的舍入近似 r。输入契约（由调用
+    处保证，本函数不再内部归一化）：na ≡ 0 (mod 3) 且顶 limb >= B/8，
+    即 snorm 的输出形（B/8 为 invcbrt_newton_ 的收敛下限；na 整 limb 对齐
+    是重建移位量为整 limb 的必要条件——B^(1/3) 无理，cbrt 无 sqrt 的半
+    limb 对齐技巧）。归一化与 >>s/3 还原均在 lmmp_cbrt_ 分发处完成。
+
+        ic   = [ns+1] limb 逆立方根（多算 1 个 guard limb），ns = na/3+nf+1
+        Q    = a*ic^2（ic 先平方再一次全乘，均为精确整数乘）
+        root = round(Q / B^e0)，e0 = 2*ns + 2*(na/3) - nf
+
+    记 It = cbrt(B^(3ns+na)/a)（实值），有 Q/B^e0 = x*(ic/It)^2，故
+
+        r = round(x - eps),   eps = x*(1 - (ic/It)^2) >= 0
+
+    ic ∈ {I-1, I}（I = floor(It)：实值截断 + 算法至多 1 ulp 低估）给出
+    It-ic ∈ [0,2)，而 x/It = (a/B^na)^(2/3) / B（代入 ns = na/3+nf+1），
+    因此
+        0 <= eps = x*(It-ic)(It+ic)/It^2 < 4*x/It < 4/B
+
+    （sqrt 对照：其 eps < 2^-63/2^-31 由 na 奇偶引入 sqrt(B) 半 limb 视窗；
+    cbrt 的 B^(1/3) 无理使 na 必须整 limb 对齐，guard 恰为 1 limb）。
+    eps 非负故 r 绝不超过 round(x)；仅当 frac(x) ∈ [1/2, 1/2+eps) 时得到
+    floor(x)（eps < 2^-62，随机输入概率 < 2^-61）；完全立方输入（frac(x)=0，
+    eps < 1/2）恒精确命中。又 x < B^((na+3nf)/3) = B^(ns-1)，结果与舍入
+    进位均不出 ns limb，直接写入 [dsts,ns)。移位问题还原（floor 复合
+    不变性）：r' = floor(r >> t) ∈ {round(x')-1, round(x')}（x' = x/2^t
+    为原问题根），由分发处完成。
+*/
+
 void lmmp_cbrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
-    lmmp_param_assert(na > 0);
+    lmmp_param_assert(na > 0 && na % 3 == 0);
     lmmp_param_assert(nf >= 2);
     lmmp_param_assert(3 * nf >= 2 * na + 3);
     lmmp_param_assert(numa != NULL && dsts != NULL);
+    lmmp_param_assert(numa[na - 1] >= LIMB_B_8);
 
     TEMP_DECL;
-    mp_ptr a2 = TALLOC_TYPE(na + 5, mp_limb_t);
-    mp_size_t na2, nR = (na + 3 * nf + 2) / 3 + 1;
-    mp_limb_t k;
-    mp_size_t t = lmmp_cbrt_knorm_(numa, na, a2, &na2, &k);
-
-    mp_size_t ns = na2 / 3 + nf + 1;
-    lmmp_debug_assert(ns >= na2);
+    mp_size_t ns = na / 3 + nf + 1;
     mp_ptr ic = TALLOC_TYPE(ns + 1, mp_limb_t);
-    mp_ptr root = TALLOC_TYPE(ns + 2, mp_limb_t);
     mp_ptr q1 = TALLOC_TYPE(2 * ns + 2, mp_limb_t);
-    mp_ptr q = TALLOC_TYPE(na2 + 2 * ns + 3, mp_limb_t);
+    mp_ptr q = TALLOC_TYPE(na + 2 * ns + 3, mp_limb_t);
 
-    lmmp_invcbrt_newton_(ic, ns, a2, na2);
+    lmmp_invcbrt_newton_(ic, ns, numa, na);
 
-    // Q = a2*ic^2：先平方再单乘（对比 ic*a2 后再乘 ic 的两次同规模乘法，
-    // 平方以约半成本替代其一；2*ns+2 >= na2 满足 mul 的长操作数在前）
+    // Q = a*ic^2：先平方再单乘（对比 ic*a 后再乘 ic 的两次同规模乘法，
+    // 平方以约半成本替代其一；2*ns+2 >= na 满足 mul 的长操作数在前）
     lmmp_sqr_(q1, ic, ns + 1);
-    lmmp_mul_(q, q1, 2 * ns + 2, a2, na2);
+    lmmp_mul_(q, q1, 2 * ns + 2, numa, na);
 
-    // root = round(Q/2^e0)，舍入位为 q[e0-1] 的最高位（root < B^ns）
-    mp_size_t e0 = 2 * ns + 2 * (na2 / 3) - nf;
-    lmmp_zero(root + ns, 2);
-    lmmp_copy(root, q + e0, ns);
+    // dsts = round(Q/2^e0)，舍入位为 q[e0-1] 的最高位（结果 <= B^(ns-1)，
+    // 进位不会越出 ns limb，无需中间缓冲）
+    mp_size_t e0 = 2 * ns + 2 * (na / 3) - nf;
+    lmmp_copy(dsts, q + e0, ns);
     if (q[e0 - 1] >> (LIMB_BITS - 1))
-        lmmp_inc(root);
-
-    // r = ((root >> t) + k/2) / k：floor 复合 + 四舍五入除法
-    lmmp_zero(dsts, nR);
-    if (t)
-        lmmp_shr_(dsts, root, nR, t);
-    else
-        lmmp_copy(dsts, root, nR);
-    if (k > 1) {
-        lmmp_add_1_(dsts, dsts, nR, k >> 1);
-        lmmp_div_1_(dsts, dsts, nR, k);
-    }
-
+        lmmp_inc(dsts);
     TEMP_FREE;
 }
 
@@ -972,12 +1007,26 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
 
     /*
         与 lmmp_sqrt_ 的分发同构：大 nf 无余数走 lmmp_cbrt_newton_ 的
-        [floor|round] 近似（归一化在其内部完成）；其余（含全部 dstr != NULL
-        与精确 floor 语义）统一走 knorm 归一化 + lmmp_cbrt_divide_ 精确
-        求根，>>t 与 div_1(k) 的 floor 复合精确还原，无需任何修正循环。
+        [floor|round] 近似；其余（含全部 dstr != NULL 与精确 floor 语义）
+        统一走 knorm 归一化 + lmmp_cbrt_divide_ 精确求根，>>t 与 div_1(k)
+        的 floor 复合精确还原，无需任何修正循环。
+
+        cbrt_newton_ 为输入契约版（na ≡ 0 (mod 3)，顶 limb >= B/8），
+        归一化与还原在本分发处完成：snorm 纯移位归一化（与 knorm 的 k=1
+        移位路径共用 shapply，B/8 即满足迭代收敛）+ 契约调用 + 结果 >>t
+        的 floor 复合还原。na2 = 3*ceil(na/3) 使 na2/3+nf+1 恰等于
+        (na+3nf+2)/3+1，>>t 后的写入长度与语义和内部归一化旧版一致。
     */
     if (!dstr && nf >= CBRT_INVNEWTON_K_THRESHOLD * na && nf >= CBRT_INVNEWTON_NF_MIN) {
-        lmmp_cbrt_newton_(dsts, numa, na, nf);
+        TEMP_DECL;
+        mp_ptr a2 = TALLOC_TYPE(na + 3, mp_limb_t);
+        mp_size_t na2;
+        mp_size_t t = lmmp_cbrt_snorm_(numa, na, a2, &na2);
+        lmmp_debug_assert(na2 / 3 + nf + 1 == (na + 3 * nf + 2) / 3 + 1);
+        lmmp_cbrt_newton_(dsts, a2, na2, nf);
+        if (t)
+            lmmp_shr_(dsts, dsts, na2 / 3 + nf + 1, t);
+        TEMP_FREE;
         return;
     }
 
@@ -990,12 +1039,21 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
     mp_size_t ns2 = na2 / 3 + nf;    // 移位后问题根长（radicand = a2*B^(3nf)）
     mp_size_t ns0 = (nl + 2) / 3;    // 原问题根长
     mp_size_t nR = ns0 + 1;          // 根工作长度（含可能的最高零 limb）
-    mp_ptr rad = TALLOC_TYPE(3 * ns2, mp_limb_t);
     mp_ptr tp = TALLOC_TYPE(4 * ns2, mp_limb_t);
-    lmmp_zero(rad, 3 * nf);
-    lmmp_copy(rad + 3 * nf, a2, na2);
+    // nf==0 时被开方数即 a2 本身，rad 直接复用（knorm 后 a2 不再读取）；
+    // nf>0 时 rad = a2*B^(3nf) 须另建（低位补零后拷贝）。两种形下缓冲均
+    // 覆盖 divide 的 [rad,3ns2) 与余数修正的 [rad,2ns2+3)
+    mp_ptr rad;
+    if (nf) {
+        rad = TALLOC_TYPE(3 * ns2, mp_limb_t);
+        lmmp_zero(rad, 3 * nf);
+        lmmp_copy(rad + 3 * nf, a2, na2);
+    } else {
+        rad = a2;
+    }
 
-    lmmp_zero(dsts, nR);
+    // divide 写满 [dsts,ns2)（根顶 limb 恒非零），仅补零可能的最高空 limb
+    lmmp_zero(dsts + ns2, nR - ns2);
     /*
         dstr 路径基于恒等式（K = k*2^t，radicand = X*K^3）：
 
@@ -1015,9 +1073,11 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
     int remnorm = dstr != NULL && k == 1 && t == 0;
     lmmp_cbrt_divide_(dsts, rad, ns2, tp, dstr != NULL);
 
-    mp_ptr Sp = NULL;  // S 暂存（还原前复制，供修正项使用）
+    mp_ptr Sp = NULL;
     if (dstr && !remnorm) {
-        Sp = TALLOC_TYPE(ns2 + 1, mp_limb_t);
+        // S 暂存：随后的还原会原地改写 dsts（>>t 与 div_1(k)），而修正项
+        // 仍需还原前的 S，故先复制（e 依赖还原返回值，无法重排避免）
+        Sp = TALLOC_TYPE(ns2, mp_limb_t);
         lmmp_copy(Sp, dsts, ns2);
     }
     mp_limb_t elo = 0;
@@ -1045,15 +1105,14 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         }
 
         mp_size_t L = 2 * ns2 + 3;
-        mp_ptr s2v = TALLOC_TYPE(2 * ns2, mp_limb_t);
-        mp_ptr N = TALLOC_TYPE(L, mp_limb_t);
-        mp_ptr tb = TALLOC_TYPE(2 * ns2 + 2, mp_limb_t);
-        lmmp_sqr_(s2v, Sp, ns2);
-        lmmp_zero(N, L);
-        lmmp_copy(N, rad, 2 * ns2 + 1);  // N = R
+        mp_ptr N = rad;
+        lmmp_zero(N + 2 * ns2 + 1, L - (2 * ns2 + 1));
 
         if (e0 | e1) {
+            mp_ptr s2v = TALLOC_TYPE(2 * ns2, mp_limb_t);
+            mp_ptr tb = TALLOC_TYPE(2 * ns2 + 2, mp_limb_t);
             // N += 3*S^2*e，pe = [tb, 2*ns2+2) = S^2*e
+            lmmp_sqr_(s2v, Sp, ns2);
             mp_limb_t cy = lmmp_mul_1_(tb, s2v, 2 * ns2, e0);
             tb[2 * ns2] = cy;
             tb[2 * ns2 + 1] = 0;
@@ -1061,14 +1120,12 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
                 // addmul 窗口顶为 limb 2*ns2，返回进位归属 limb 2*ns2+1
                 tb[2 * ns2 + 1] = lmmp_addmul_1_(tb + 1, s2v, 2 * ns2, e1);
             }
-            // addmul/submul 的进位/借位不自动向窗口外传播，须手动接力
             cy = lmmp_addmul_1_(N, tb, 2 * ns2 + 2, 3);
             if (cy)
                 cy = lmmp_add_1_(N + 2 * ns2 + 2, N + 2 * ns2 + 2, L - 2 * ns2 - 2, cy);
             lmmp_debug_assert(cy == 0);
 
-            // N += e^3
-            mp_limb_t eb[2] = {e0, e1}, e2b[4] = {0, 0, 0, 0}, e3b[6] = {0, 0, 0, 0, 0, 0};
+            mp_limb_t eb[2] = {e0, e1}, e2b[4], e3b[6];
             lmmp_sqr_hard_2_(e2b, eb);
             lmmp_mul_basecase_(e3b, e2b, 4, eb, 2);
             cy = lmmp_add_(N, N, L, e3b, 6);
@@ -1091,8 +1148,9 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         mp_ptr rp = N + w;
         if (b)
             lmmp_shr_(rp, rp, L - w, b);
-        lmmp_zero(dstr, 2 * ns0 + 1);
-        lmmp_copy(dstr, rp, LMMP_MIN(L - w, 2 * ns0 + 1));
+        // w <= 2 且 ns2 >= ns0 保证 L - w >= 2*ns0 + 1，拷贝即写满余数区
+        lmmp_debug_assert(L - w >= 2 * ns0 + 1);
+        lmmp_copy(dstr, rp, 2 * ns0 + 1);
         TEMP_FREE;
         return;
     }
