@@ -754,8 +754,11 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
 // 契约归一化：最小 3 对齐移位 s 使 limbs(a<<s) ≡ 0 (mod 3) 且顶 limb
 // 有效位宽 >= 62（即顶 limb >= B/8），*na2p = limbs(a<<s)
 static mp_size_t cbrt_contract_shift(const mp_ptr a, mp_size_t na, mp_size_t* na2p) {
-    long hb = 0;
-    while ((a[na - 1] >> hb) != 0) ++hb;
+    // hb = bitlen(顶 limb) ∈ [1,64]：hb < 64 短路，避免 x>>64 的 UB
+    // （x86 硬件移位按 mod 64 回绕，会使该循环跑满 long 位宽后溢出）
+    u64 top = a[na - 1];
+    long hb = 1;
+    while (hb < 64 && (top >> hb) != 0) ++hb;
     long bl = 64L * (na - 1) + hb;
     for (long s = 0; s <= 189; s += 3) {
         long T = bl + s;
@@ -815,6 +818,8 @@ TEST_CASE("numth/cbrt", cbrt_newton_semantics) {
                 mp_size_t na2;
                 mp_size_t s = cbrt_contract_shift(a, na, &na2);
                 mp_size_t t = s / 3;
+                TEST_CHECK_MSG(na2 % 3 == 0 && na2 >= na && na2 <= na + 3,
+                               "contract shift limb count valid");
                 mp_ptr a2 = alloc_limbs(na2 + 2);
                 lmmp_zero(a2, na2 + 2);
                 {
@@ -824,6 +829,7 @@ TEST_CASE("numth/cbrt", cbrt_newton_semantics) {
                     else
                         lmmp_copy(a2 + w, a, na);
                 }
+                TEST_CHECK_MSG(a2[na2 - 1] >= 0x2000000000000000ull, "contract form top >= B/8");
                 lmmp_zero(dsts, ns + 2);
                 lmmp_cbrt_newton_(dsts, a2, na2, nf);
                 if (t) lmmp_shr_(dsts, dsts, na2 / 3 + nf + 1, t);
