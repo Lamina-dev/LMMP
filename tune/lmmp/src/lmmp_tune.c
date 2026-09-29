@@ -66,6 +66,7 @@ int tune_run_elem_mul(void);
 int tune_run_mat22_mul(void);
 int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
+int tune_run_cbrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
 int tune_run_gcd_hgcd(void);
@@ -103,6 +104,7 @@ static const tune_module_t g_modules[] = {
     {"mat22_mul", "MAT22_MUL_STRASSEN_THRESHOLD", "MAT22_MUL_STRASSEN_THRESHOLD", tune_run_mat22_mul},
     {"mat22_sqr", "MAT22_SQR_STRASSEN_THRESHOLD", "MAT22_SQR_STRASSEN_THRESHOLD", tune_run_mat22_sqr},
     {"sqrt_invnewton", "SQRT_INVNEWTON_K_THRESHOLD", "SQRT_INVNEWTON_K_THRESHOLD", tune_run_sqrt_invnewton},
+    {"cbrt_invnewton", "CBRT_INVNEWTON_K/NF_MIN", "CBRT_INVNEWTON_K_THRESHOLD+CBRT_INVNEWTON_NF_MIN", tune_run_cbrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},

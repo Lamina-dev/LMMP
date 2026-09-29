@@ -119,11 +119,13 @@ cmake --build build-tune --parallel 8
 `--list` 输出全部模块。旧名称仍作为别名保留：`mul22`、`mul33`、`mul44`、
 `mullo`、`npr_ushort`、`npr_uint`、`ncr`、`pow1`、`elem`、`bninv`。
 
-覆盖范围为 `mparam.h` 中全部 36 个 `LMMP_TUNE` 运行时阈值：
+覆盖范围为 `mparam.h` 中全部 39 个 `LMMP_TUNE` 运行时阈值：
 
 - 乘法/低位乘法：`MUL_TOOM22/33/44`、`SQR_TOOM22/33/44`、`MUL_FFT`、`SQR_FFT`、
   `MUL_UNBALANCED_HARD`、`MULLO_BASECASE`、`MULLO_DC`、`MUL_FFT_MODF`、`MULHI_MERSENNE`
-- 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON_K`
+- 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON_K`、
+  `CBRT_INVNEWTON_K`、`CBRT_INVNEWTON_NF_MIN`（后者为 AND 复合切换的
+  nf 下限，与 K 在同一 `cbrt_invnewton` 模块内分段隔离调优）
 - 字符串转换：`TO_STR_DIVIDE/BASEPOW`、`FROM_STR_DIVIDE/BASEPOW`
 - 数论组合：`PERMUTATION_USHORT_K/B`、`PERMUTATION_UINT_K/B`、
   `BINOMIAL_RN_BASECASE`、`BINOMIAL_DIV_K/B`、`ELEM_MUL_BASECASE`、
