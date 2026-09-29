@@ -15,6 +15,7 @@
 
 #include "../../../include/lmmp/impl/is_prime_table.h"
 #include "../../../include/lmmp/impl/prime_table.h"
+#include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/lmmpn.h"
@@ -37,11 +38,17 @@ static inline ulong mont64_reduce(u128 t, ulong m, ulong m_inv) {
     return hi >= m ? hi - m : hi;
 }
 
-static inline ulong mont64_R2(ulong m) {
-    mp_limb_t r[3] = {0, 0, 1};
+static inline ulong mont_R2(ulong m) {
+    mp_bitcnt_t shift = 0;
+    clz_shl_u64(m, m, shift);
+    mp_limb_t r[3] = {0, 0, 1ull << shift};
     mp_limb_t q[2];
     lmmp_div_1_s_(q, r, 3, m);
-    return r[0];
+    return r[0] >> shift;
+}
+
+static inline ulong mont64_R2(ulong m) {
+    return mont_R2(m);
 }
 
 static inline ulong to_mont64(ulong x, ulong R2, ulong m, ulong m_inv) {
@@ -65,12 +72,7 @@ static inline ulong mont63_reduce(u128 t, ulong m, ulong m_inv) {
 }
 
 static inline ulong mont63_R2(ulong m) {
-    mp_bitcnt_t shift = 0;
-    clz_shl_u64(m, m, shift);
-    mp_limb_t r[3] = {0, 0, 1ull << shift};
-    mp_limb_t q[2];
-    lmmp_div_1_s_(q, r, 3, m);
-    return r[0] >> shift;
+    return mont_R2(m);
 }
 
 static inline ulong to_mont63(ulong x, ulong R2, ulong m, ulong m_inv) {
@@ -165,7 +167,7 @@ static inline int miller_rabin_32(ulong a, ulong t, ulong u, uint m, _udiv64_t* 
         q = _udiv64by64_q_preinv(base, binv);
         base -= q * m;
     }
-    
+
     if (v == 1 || v == m - 1)
         return 1;
     for (ulong j = 1; j < t; ++j) {
@@ -180,51 +182,58 @@ static inline int miller_rabin_32(ulong a, ulong t, ulong u, uint m, _udiv64_t* 
     return 0;
 }
 
-static inline int miller_rabin_63(ulong a, ulong t, ulong u, ulong m, ulong m_inv, ulong one, ulong m_1) {
-    ulong v = one;
-    ulong base = a;
-    while (1) {
-        if (u & 1)
-            v = mont63_mul(v, base, m, m_inv);
-        u >>= 1;
-        if (u == 0)
-            break;
-        base = mont63_mul(base, base, m, m_inv);
-    }
-    if (v == one || v == m_1)
-        return 1;
-
-    for (ulong j = 1; j < t; ++j) {
+/*
+    强伪素数第二阶段检查：v = b^d（蒙域）已算出。
+    one/m_1 为蒙域的 1 与 m-1。
+    与旧实现一致：平方链中先查 m_1，再查 one（提前判定合数）。
+*/
+static inline int sprp_check63(ulong v, ulong t, ulong m, ulong m_inv, ulong one, ulong m_1) {
+    if (v == one || v == m_1) return 1;
+    for (t--; t > 0; t--) {
         v = mont63_mul(v, v, m, m_inv);
-        if (v == m_1)
-            return 1;
-        if (v == one)
-            return 0;
+        if (v == m_1) return 1;
+        if (v == one) return 0;
     }
     return 0;
 }
 
-static inline int miller_rabin_64(ulong a, ulong t, ulong u, ulong m, ulong m_inv, ulong one, ulong m_1) {
-    ulong v = one;
-    ulong base = a;
-    while (1) {
-        if (u & 1)
-            v = mont64_mul(v, base, m, m_inv);
-        u >>= 1;
-        if (u == 0)
-            break;
-        base = mont64_mul(base, base, m, m_inv);
-    }
-    if (v == one || v == m_1)
-        return 1;
-    for (ulong j = 1; j < t; ++j) {
+static inline int sprp_check64(ulong v, ulong t, ulong m, ulong m_inv, ulong one, ulong m_1) {
+    if (v == one || v == m_1) return 1;
+    for (t--; t > 0; t--) {
         v = mont64_mul(v, v, m, m_inv);
-        if (v == m_1)
-            return 1;
-        if (v == one)
-            return 0;
+        if (v == m_1) return 1;
+        if (v == one) return 0;
     }
     return 0;
+}
+
+/*
+    基底 2 专用幂（蒙域，LSB 链）：基底以蒙域值起步后，平方链保持
+   base_j = 2^(2^j)*B 不变量，结果恒在蒙域；平方链与 v 乘链相互独立，
+   乱序执行可重叠（实测优于 MSB 加倍链——加倍条件减位于串行依赖上）。
+*/
+static inline ulong powmod2_63(ulong d, ulong R2, ulong m, ulong m_inv) {
+    ulong v = to_mont63(1, R2, m, m_inv);
+    ulong base = to_mont63(2, R2, m, m_inv);
+    while (1) {
+        if (d & 1) v = mont63_mul(v, base, m, m_inv);
+        d >>= 1;
+        if (d == 0) break;
+        base = mont63_mul(base, base, m, m_inv);
+    }
+    return v;
+}
+
+static inline ulong powmod2_64(ulong d, ulong R2, ulong m, ulong m_inv) {
+    ulong v = to_mont64(1, R2, m, m_inv);
+    ulong base = to_mont64(2, R2, m, m_inv);
+    while (1) {
+        if (d & 1) v = mont64_mul(v, base, m, m_inv);
+        d >>= 1;
+        if (d == 0) break;
+        base = mont64_mul(base, base, m, m_inv);
+    }
+    return v;
 }
 
 /*******************************************************************************
@@ -276,6 +285,152 @@ bool lmmp_is_prime_uint_(uint n) {
         return false;
 }
 
+static void powmod_win3_63(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulong m_inv) {
+    ulong w[8], v = bm;
+    int bit = ebits - 2;
+    w[1] = bm;
+    w[2] = mont63_mul(bm, bm, m, m_inv);
+    w[3] = mont63_mul(w[2], bm, m, m_inv);
+    w[4] = mont63_mul(w[2], w[2], m, m_inv);
+    w[5] = mont63_mul(w[4], bm, m, m_inv);
+    w[6] = mont63_mul(w[3], w[3], m, m_inv);
+    w[7] = mont63_mul(w[6], bm, m, m_inv);
+    while (bit >= 2) {
+        v = mont63_mul(v, v, m, m_inv);
+        v = mont63_mul(v, v, m, m_inv);
+        v = mont63_mul(v, v, m, m_inv);
+        {
+            uint idx = (uint)(d >> (bit - 2)) & 7;
+            if (idx) v = mont63_mul(v, w[idx], m, m_inv);
+        }
+        bit -= 3;
+    }
+    for (; bit >= 0; bit--) {
+        v = mont63_mul(v, v, m, m_inv);
+        if ((d >> bit) & 1) v = mont63_mul(v, bm, m, m_inv);
+    }
+    *pv = v;
+}
+
+static void powmod_win3_64(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulong m_inv) {
+    ulong w[8], v = bm;
+    int bit = ebits - 2;
+    w[1] = bm;
+    w[2] = mont64_mul(bm, bm, m, m_inv);
+    w[3] = mont64_mul(w[2], bm, m, m_inv);
+    w[4] = mont64_mul(w[2], w[2], m, m_inv);
+    w[5] = mont64_mul(w[4], bm, m, m_inv);
+    w[6] = mont64_mul(w[3], w[3], m, m_inv);
+    w[7] = mont64_mul(w[6], bm, m, m_inv);
+    while (bit >= 2) {
+        v = mont64_mul(v, v, m, m_inv);
+        v = mont64_mul(v, v, m, m_inv);
+        v = mont64_mul(v, v, m, m_inv);
+        {
+            uint idx = (uint)(d >> (bit - 2)) & 7;
+            if (idx) v = mont64_mul(v, w[idx], m, m_inv);
+        }
+        bit -= 3;
+    }
+    for (; bit >= 0; bit--) {
+        v = mont64_mul(v, v, m, m_inv);
+        if ((d >> bit) & 1) v = mont64_mul(v, bm, m, m_inv);
+    }
+    *pv = v;
+}
+
+static void powmod2_win3_63(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits,
+                            ulong m, ulong m_inv) {
+    ulong w1[8], w2[8], v1 = bm1, v2 = bm2;
+    int bit = ebits - 2;
+    w1[1] = bm1;
+    w1[2] = mont63_mul(bm1, bm1, m, m_inv);
+    w1[3] = mont63_mul(w1[2], bm1, m, m_inv);
+    w1[4] = mont63_mul(w1[2], w1[2], m, m_inv);
+    w1[5] = mont63_mul(w1[4], bm1, m, m_inv);
+    w1[6] = mont63_mul(w1[3], w1[3], m, m_inv);
+    w1[7] = mont63_mul(w1[6], bm1, m, m_inv);
+    w2[1] = bm2;
+    w2[2] = mont63_mul(bm2, bm2, m, m_inv);
+    w2[3] = mont63_mul(w2[2], bm2, m, m_inv);
+    w2[4] = mont63_mul(w2[2], w2[2], m, m_inv);
+    w2[5] = mont63_mul(w2[4], bm2, m, m_inv);
+    w2[6] = mont63_mul(w2[3], w2[3], m, m_inv);
+    w2[7] = mont63_mul(w2[6], bm2, m, m_inv);
+    while (bit >= 2) {
+        v1 = mont63_mul(v1, v1, m, m_inv);
+        v2 = mont63_mul(v2, v2, m, m_inv);
+        v1 = mont63_mul(v1, v1, m, m_inv);
+        v2 = mont63_mul(v2, v2, m, m_inv);
+        v1 = mont63_mul(v1, v1, m, m_inv);
+        v2 = mont63_mul(v2, v2, m, m_inv);
+        {
+            uint idx = (uint)(d >> (bit - 2)) & 7;
+            if (idx) {
+                v1 = mont63_mul(v1, w1[idx], m, m_inv);
+                v2 = mont63_mul(v2, w2[idx], m, m_inv);
+            }
+        }
+        bit -= 3;
+    }
+    for (; bit >= 0; bit--) {
+        v1 = mont63_mul(v1, v1, m, m_inv);
+        v2 = mont63_mul(v2, v2, m, m_inv);
+        if ((d >> bit) & 1) {
+            v1 = mont63_mul(v1, bm1, m, m_inv);
+            v2 = mont63_mul(v2, bm2, m, m_inv);
+        }
+    }
+    *pv1 = v1;
+    *pv2 = v2;
+}
+
+static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits,
+                            ulong m, ulong m_inv) {
+    ulong w1[8], w2[8], v1 = bm1, v2 = bm2;
+    int bit = ebits - 2;
+    w1[1] = bm1;
+    w1[2] = mont64_mul(bm1, bm1, m, m_inv);
+    w1[3] = mont64_mul(w1[2], bm1, m, m_inv);
+    w1[4] = mont64_mul(w1[2], w1[2], m, m_inv);
+    w1[5] = mont64_mul(w1[4], bm1, m, m_inv);
+    w1[6] = mont64_mul(w1[3], w1[3], m, m_inv);
+    w1[7] = mont64_mul(w1[6], bm1, m, m_inv);
+    w2[1] = bm2;
+    w2[2] = mont64_mul(bm2, bm2, m, m_inv);
+    w2[3] = mont64_mul(w2[2], bm2, m, m_inv);
+    w2[4] = mont64_mul(w2[2], w2[2], m, m_inv);
+    w2[5] = mont64_mul(w2[4], bm2, m, m_inv);
+    w2[6] = mont64_mul(w2[3], w2[3], m, m_inv);
+    w2[7] = mont64_mul(w2[6], bm2, m, m_inv);
+    while (bit >= 2) {
+        v1 = mont64_mul(v1, v1, m, m_inv);
+        v2 = mont64_mul(v2, v2, m, m_inv);
+        v1 = mont64_mul(v1, v1, m, m_inv);
+        v2 = mont64_mul(v2, v2, m, m_inv);
+        v1 = mont64_mul(v1, v1, m, m_inv);
+        v2 = mont64_mul(v2, v2, m, m_inv);
+        {
+            uint idx = (uint)(d >> (bit - 2)) & 7;
+            if (idx) {
+                v1 = mont64_mul(v1, w1[idx], m, m_inv);
+                v2 = mont64_mul(v2, w2[idx], m, m_inv);
+            }
+        }
+        bit -= 3;
+    }
+    for (; bit >= 0; bit--) {
+        v1 = mont64_mul(v1, v1, m, m_inv);
+        v2 = mont64_mul(v2, v2, m, m_inv);
+        if ((d >> bit) & 1) {
+            v1 = mont64_mul(v1, bm1, m, m_inv);
+            v2 = mont64_mul(v2, bm2, m, m_inv);
+        }
+    }
+    *pv1 = v1;
+    *pv2 = v2;
+}
+
 bool lmmp_is_prime_notrial_(ulong n) {
     lmmp_param_assert(n > 2);
     if (n < 684630005672341) {
@@ -287,24 +442,22 @@ bool lmmp_is_prime_notrial_(ulong n) {
         if (n % bases[1] == 0)
             return false;
 
-        ulong one = 1;
-        ulong m_1 = n - 1;
-        ulong m_inv = lmmp_binvert_ulong_(n);
-        m_inv = -m_inv;
+        ulong m_inv = -lmmp_binvert_ulong_(n);
         ulong R2 = mont63_R2(n);
-        one = to_mont63(one, R2, n, m_inv);
-        m_1 = to_mont63(m_1, R2, n, m_inv);
+        ulong one = to_mont63(1, R2, n, m_inv);
+        ulong m_1 = to_mont63(n - 1, R2, n, m_inv);
 
-        ulong u = n - 1, t = 0;
-        while (u % 2 == 0) u /= 2, ++t;
+        ulong d;
+        ulong t;
+        ctz_shr_u64(d, n - 1, t);
+        int eb = lmmp_limb_bits_(d);
 
-        if (miller_rabin_63(bases[0], t, u, n, m_inv, one, m_1))
-            if (miller_rabin_63(bases[1], t, u, n, m_inv, one, m_1))
-                return true;
-            else
-                return false;
-        else
-            return false;
+        ulong v2 = powmod2_63(d, R2, n, m_inv);
+        if (!sprp_check63(v2, t, n, m_inv, one, m_1)) return false;
+
+        ulong v;
+        powmod_win3_63(&v, to_mont63(bases[1], R2, n, m_inv), d, eb, n, m_inv);
+        return sprp_check63(v, t, n, m_inv, one, m_1);
     } else {
         ushort bases[3];
         ulong bbmask = dj_base64[((0x3AC69A35UL * n) & 0xFFFFFFFFUL) >> 18];
@@ -317,49 +470,47 @@ bool lmmp_is_prime_notrial_(ulong n) {
         if (n % bases[1] == 0)
             return false;
         if (n % bases[2] == 0)
-            return false;
+            return n == bases[2];
 
         ulong one = 1;
         ulong m_1 = n - 1;
-        ulong m_inv = lmmp_binvert_ulong_(n);
-        m_inv = -m_inv;
+        ulong m_inv = -lmmp_binvert_ulong_(n);
+
+        ulong d;
+        ulong t;
+        ctz_shr_u64(d, n - 1, t);
+        int eb = lmmp_limb_bits_(d);
 
         if (n <= MONT63_MAX) {
             ulong R2 = mont63_R2(n);
             one = to_mont63(one, R2, n, m_inv);
             m_1 = to_mont63(m_1, R2, n, m_inv);
 
-            ulong u = n - 1, t = 0;
-            while (u % 2 == 0) u /= 2, ++t;
+            ulong v2 = powmod2_63(d, R2, n, m_inv);
+            if (!sprp_check63(v2, t, n, m_inv, one, m_1)) return false;
 
-            if (miller_rabin_63(bases[0], t, u, n, m_inv, one, m_1))
-                if (miller_rabin_63(bases[1], t, u, n, m_inv, one, m_1))
-                    if (miller_rabin_63(bases[2], t, u, n, m_inv, one, m_1))
-                        return true;
-                    else
-                        return false;
-                else
-                    return false;
-            else
-                return false;
+            /* 双基底交错 + 3 位窗口 */
+            ulong bm1 = to_mont63(bases[1], R2, n, m_inv);
+            ulong bm2 = to_mont63(bases[2], R2, n, m_inv);
+            ulong v1, v2_;
+            powmod2_win3_63(&v1, &v2_, bm1, bm2, d, eb, n, m_inv);
+            if (!sprp_check63(v1, t, n, m_inv, one, m_1)) return false;
+            return sprp_check63(v2_, t, n, m_inv, one, m_1);
         } else {
             ulong R2 = mont64_R2(n);
             one = to_mont64(one, R2, n, m_inv);
             m_1 = to_mont64(m_1, R2, n, m_inv);
 
-            ulong u = n - 1, t = 0;
-            while (u % 2 == 0) u /= 2, ++t;
+            ulong v2 = powmod2_64(d, R2, n, m_inv);
+            if (!sprp_check64(v2, t, n, m_inv, one, m_1)) return false;
 
-            if (miller_rabin_64(bases[0], t, u, n, m_inv, one, m_1))
-                if (miller_rabin_64(bases[1], t, u, n, m_inv, one, m_1))
-                    if (miller_rabin_64(bases[2], t, u, n, m_inv, one, m_1))
-                        return true;
-                    else
-                        return false;
-                else
-                    return false;
-            else
-                return false;
+            /* 双基底交错 + 3 位窗口 */
+            ulong bm1 = to_mont64(bases[1], R2, n, m_inv);
+            ulong bm2 = to_mont64(bases[2], R2, n, m_inv);
+            ulong v1, v2_;
+            powmod2_win3_64(&v1, &v2_, bm1, bm2, d, eb, n, m_inv);
+            if (!sprp_check64(v1, t, n, m_inv, one, m_1)) return false;
+            return sprp_check64(v2_, t, n, m_inv, one, m_1);
         }
     }
 }

@@ -405,6 +405,19 @@ LMMP_API bool lmmp_is_prime_ulong_(ulong n);
 LMMP_API bool lmmp_is_prime_notrial_(ulong n);
 
 /**
+ * @brief 判断 128 位素数
+ * @param lo 待判断数的低 64 位
+ * @param hi 待判断数的高 64 位
+ * @warning hi>0
+ * @note B <= n < SWbound = 3317044064679887385961981（约
+ *       2^81.5）时为确定性判据（前 13 个素数基底的 Rabin-Miller，
+ *       Sorenson-Webster），返回 1；更大时为 BPSW 型判据（基底 2 强伪素数
+ *       测试叠加强 Lucas-Selfridge 测试的 V 阶梯实现），无已知反例，返回 2。
+ * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（BPSW 型非确定性判据）
+ */
+LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
+
+/**
  * @brief 计算幂次方需要的limb缓冲区长度 [base,n] ^ exp
  * @param base 底数指针
  * @param n 底数 limb 长度
