@@ -99,7 +99,7 @@ LMMP_API void lmmp_binvert_n_dc_(mp_ptr dst, mp_srcptr numa, mp_size_t n, mp_ptr
  * @param n 结果的 limb 长度
  * @warning a%2==1, n>1, dst!=NULL
  */
-LMMP_API void lmmp_binvert_unbalanced_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
+LMMP_API void lmmp_binvert_unbalance_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
 
 /**
  * @brief 计算 [numa,2] 在 B^n 下的逆元
@@ -108,7 +108,7 @@ LMMP_API void lmmp_binvert_unbalanced_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
  * @param n 结果的 limb 长度
  * @warning numa[0]%2==1, n>2, dst!=NULL, numa!=NULL, sep(dst,numa)
  */
-LMMP_API void lmmp_binvert_unbalanced_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
+LMMP_API void lmmp_binvert_unbalance_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 
 /**
  * @brief 计算 [numa,na] 在 B^n 下的逆元
@@ -119,7 +119,7 @@ LMMP_API void lmmp_binvert_unbalanced_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n
  * @param tp 临时工作区指针（长度为 (9*na+5)/2 个limb）
  * @warning numa[0]%2==1, n>na, dst!=NULL, numa!=NULL, tp!=NULL, sep(dst,numa,tp)
  */
-LMMP_API void lmmp_binvert_unbalanced_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t n, mp_ptr tp);
+LMMP_API void lmmp_binvert_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t n, mp_ptr tp);
 
 /**
  * @brief 计算 [numa,na] 在 B^n 下的逆元
@@ -165,7 +165,7 @@ LMMP_API void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr
  * @warning dp[0]%2==1, nn>=dn>0, dst!=NULL, np!=NULL, dp!=NULL, eqsep(dst,np), sep(dp,dinv,[dst|np])
  * @note 若dst==np，只会覆写 [dst,nn-dn+1] 区域
  */
-LMMP_API void lmmp_divexact_unbalanced_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_ptr dinv);
+LMMP_API void lmmp_divexact_unbalance_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_ptr dinv);
 
 /**
  * @brief 精确除法（[dst,nn]=[np,nn]/[dp,dn]，且余数必须为0），朴素算法

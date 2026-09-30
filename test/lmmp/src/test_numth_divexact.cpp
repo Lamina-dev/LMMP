@@ -147,8 +147,8 @@ TEST_CASE("numth/divexact", divexact_basecase_divide_cross) {
             mp_ptr dst4 = alloc_limbs(qn + 1);
             mp_ptr np4 = alloc_limbs(nn);
             std::memcpy(np4, np, nn * 8);
-            lmmp_divexact_unbalanced_(dst4, np4, nn, d, dn, NULL);
-            TEST_CHECK_MSG(from_limbs(dst4, q_actual) == bq, "divexact_unbalanced quotient");
+            lmmp_divexact_unbalance_(dst4, np4, nn, d, dn, NULL);
+            TEST_CHECK_MSG(from_limbs(dst4, q_actual) == bq, "divexact_unbalance quotient");
             TEST_CHECK_EQ(dst4[q_actual], 0u);
 
             lmmp_free(d); lmmp_free(q); lmmp_free(np);
@@ -181,8 +181,8 @@ TEST_CASE("numth/divexact", divexact_unbalanced_preinv) {
             mp_ptr dst = alloc_limbs(qn + 1);
             mp_ptr np2 = alloc_limbs(nn);
             std::memcpy(np2, np, nn * 8);
-            lmmp_divexact_unbalanced_(dst, np2, nn, d, dn, dinv);
-            TEST_CHECK_MSG(from_limbs(dst, q_actual) == bq, "divexact_unbalanced preinv quotient");
+            lmmp_divexact_unbalance_(dst, np2, nn, d, dn, dinv);
+            TEST_CHECK_MSG(from_limbs(dst, q_actual) == bq, "divexact_unbalance preinv quotient");
             TEST_CHECK_EQ(dst[q_actual], 0u);
 
             lmmp_free(d); lmmp_free(q); lmmp_free(np); lmmp_free(dinv); lmmp_free(dst); lmmp_free(np2);

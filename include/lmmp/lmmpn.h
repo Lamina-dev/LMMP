@@ -375,7 +375,7 @@ LMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_sr
  * @warning 0<nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
-LMMP_API void lmmp_mul_basecase_unbalanced_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+LMMP_API void lmmp_mul_basecase_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-22乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]

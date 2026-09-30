@@ -48,7 +48,7 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
         else
             lmmp_mul_n_(dst, numa, numb, na);
     } else if (nb < MUL_TOOM22_THRESHOLD && !(4 * na < 5 * nb)) {
-        lmmp_mul_basecase_unbalanced_(dst, numa, na, numb, nb);
+        lmmp_mul_basecase_unbalance_(dst, numa, na, numb, nb);
     } else if (((na + nb) >> 1) < MUL_TOOM44_THRESHOLD || 2 * nb < MUL_TOOM44_THRESHOLD) {
         if (na < 3 * nb) {
             if (4 * na < 5 * nb) {
@@ -84,7 +84,7 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
     }
 }
 
-void lmmp_mul_basecase_unbalanced_(
+void lmmp_mul_basecase_unbalance_(
     mp_ptr    restrict  dst,
     mp_srcptr restrict numa,
     mp_size_t            na,

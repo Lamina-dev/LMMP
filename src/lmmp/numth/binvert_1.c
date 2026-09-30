@@ -182,7 +182,7 @@ unbalanced:
     k = (k + a*p) / B^na
 */
 
-void lmmp_binvert_unbalanced_1_(mp_ptr restrict dst, mp_limb_t a, mp_size_t n) {
+void lmmp_binvert_unbalance_1_(mp_ptr restrict dst, mp_limb_t a, mp_size_t n) {
     lmmp_param_assert(dst != NULL);
     lmmp_param_assert(a % 2 == 1);
     lmmp_param_assert(n > 1);
@@ -203,7 +203,7 @@ void lmmp_binvert_unbalanced_1_(mp_ptr restrict dst, mp_limb_t a, mp_size_t n) {
     dst[n - 1] = p;
 }
 
-void lmmp_binvert_unbalanced_2_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t n) {
+void lmmp_binvert_unbalance_2_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t n) {
     lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[0] % 2 == 1);
     lmmp_param_assert(n > 2);
