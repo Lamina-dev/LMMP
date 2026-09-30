@@ -212,8 +212,8 @@ static inline u128 factor_2adic(u128 x, slong *t) {
     return x >> *t;
 }
 
-/* (b|A) 二进制算法：A 奇，b < A < 2^16（移位/比较/减法，几次迭代） */
-static int jacobi_small(ulong b, ulong A) {
+/* (b|A) 二进制算法：A 奇，b < A（移位/比较/减法，几次迭代） */
+static inline int jacobi_small(ulong b, ulong A) {
     int sign = 1;
     if (b == 0) return 0;
     for (;;) {
@@ -233,12 +233,12 @@ static int jacobi_small(ulong b, ulong A) {
 }
 
 /*
-    (±Dabs|n)：Dabs 奇 < 2^16，n 128 位奇。n 以双 limb 模乘链折叠
+    (±Dabs|n)：Dabs 奇（uint 范围），n 128 位奇。n 以双 limb 模乘链折叠
     （r = (r*(B mod A) + limb) mod A，全程 64 位），再经二次互反律
     (A|n) = (n|A)*(-1)^(((A-1)/2)((n-1)/2)) 归结到 jacobi_small；
     D 为负时乘 (-1|n) 因子。gcd(|D|,n)>1 返回 0
 */
-static int jacobi_D(uint Dabs, int Dneg, u128 n) {
+static inline int jacobi_D(uint Dabs, int Dneg, u128 n) {
     ulong A = Dabs;
     ulong Bm = (ulong)-1 % A + 1;
     ulong b;
@@ -311,9 +311,7 @@ static void mont2_powmod_3_(u128 *y1, u128 *y2, u128 *y3, ulong b1, ulong b2, ul
 }
 
 /*
-    12 个奇基底 Rabin-Miller（基底 3..41，3 路交错），基底 2 已由调用
-    方先行完成（d/ebits/t/one/m_1 复用）。n < psi_13 时与前 13 个素数
-    基底共同构成 Sorenson-Webster 确定性判据
+    12 个奇基底 Rabin-Miller（基底 3..41，3 路交错）
 */
 static int mont2_is_prime_mr13(u128 n, u128 ninv, u128 R2, u128 d, int ebits, slong t, u128 one,
                                u128 m_1) {
@@ -329,6 +327,22 @@ static int mont2_is_prime_mr13(u128 n, u128 ninv, u128 R2, u128 d, int ebits, sl
         if (!mont2_sprp_stage2(y3, t, one, m_1, n, ninv)) return 0;
     }
     return 1;
+}
+
+static inline int is_square_2(u128 n) {
+    ulong hi = _u128high(n), lo = _u128low(n);
+    ulong src[2], rr[2], r;
+    lmmp_debug_assert(hi != 0);
+    int nsh = lmmp_leading_zeros_(hi) / 2;
+    if (nsh) {
+        ulong limbs[2] = {lo, hi};
+        lmmp_shl_(src, limbs, 2, 2 * nsh);
+    } else {
+        src[0] = lo;
+        src[1] = hi;
+    }
+    r = lmmp_sqrt_2_(rr, src) >> nsh;
+    return (u128)r * r == n;
 }
 
 /*
@@ -352,8 +366,14 @@ static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
     int j, Dneg;
     uint Dabs, Qabs;
 
-    /* 寻找 D：素数 n 的最小符合条件的 |D| 极小（< 2*log2(n)^2 量级），
-       上界 201 已远超已知记录；超界仍无 D 视为合数（如完全平方数） */
+    /* 寻找 D：非完全平方的 n 其 Jacobi 特征非平凡，序列中必存在
+       (D|n) = -1（全部为 +1 当且仅当 n 为完全平方），搜索必然终止，
+       不设上界；素数的最小 |D| 经验上 < 2*log2(n)^2 量级。完全平方数
+       是唯一不终止情形，经 17 处的延迟检测排除（平方检测走库内
+       sqrt_2_ 快速路径，放在少数次未命中之后，不进常见路径）——固定
+       小上界（如旧版 201）不可行：least |D| 随素数规模按 ~2^-k 几何
+       衰减，区间 [SWbound, 2^128) 内 least |D| > 201 的素数约 2^32 个，
+       上界会把它们误判为合数 */
     Dabs = 5;
     Dneg = 0;
     for (;;) {
@@ -362,7 +382,7 @@ static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
         if (j == -1) break;
         Dabs += 2;
         Dneg ^= 1;
-        if (Dabs > 201) return 0;
+        if (Dabs == 17 && is_square_2(n)) return 0;
     }
 
     /* Q = (1-D)/4，可为负；d*2^s = n+1（n 奇，n+1 偶） */
