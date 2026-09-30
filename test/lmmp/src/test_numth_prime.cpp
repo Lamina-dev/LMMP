@@ -355,6 +355,11 @@ TEST_CASE("numth/prime", is_prime_2) {
         {0x000000000002be69ull, 0x51adc5b22410a5fdull, false, "psi_13 = SWbound"},
         {0x000000000002be69ull, 0x51adc5b22410a68bull, true, "first prime > SWbound"},
         {0x0000000000000001ull, 0x0000000000000000ull, false, "2^64 even"},
+        /* D 搜索上界回归：least |D| > 201 的真素数（CRT 构造 + 扫描验证，
+           40 基底 MR 复核），旧版上界 201 会误判为合数（返回 0） */
+        {0x800000035f5a7854ull, 0x024690fc2c1cab2dull, true, "prime with least|D|=211"},
+        {0x80000023e5c609bfull, 0xa5c985498fc11b3dull, true, "prime with least|D|=227"},
+        {0x8000000be28e524cull, 0x609ffaaa3f5d4dd5ull, true, "prime with least|D|=211"},
     };
     for (const auto& c : cases) {
         TEST_CHECK_MSG(lmmp_is_prime_2_(c.lo, c.hi) == expect2(c.lo, c.hi, c.expect), c.what);

@@ -707,7 +707,7 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
             for (int f = 0; f < 6; ++f) {
                 lmmp_zero(a, na);
                 if (f < 3) {
-                    random_limbs(a, na, seed);
+                    random_limbs(a, na, seed, false);
                     // 归一化顶 limb >= B/8（函数契约），随机落入 [B/8,3B/8)
                     // 与 [3B/8,B) 两个区间，覆盖基例的估计回退/除法快速路径
                     a[na - 1] |= 1ull << 61;
@@ -928,5 +928,45 @@ TEST_CASE("numth/cbrt", cbrt_dispatcher) {
                 }
             }
         }
+    }
+}
+
+/*
+    knorm 预筛选进位回归：k>1 命中时 low*k3 的进位（< 2^24）可跨越 2^m
+    改变完整乘积的 bl 类别，旧版按预筛类别选移位会使根截断一个 limb。
+
+    构造（na ≡ 2 (mod 3)，na >= 8）：H = (2^72-1)/27（2^72 ≡ 1 mod 27
+    保证整除），低 na-2 limb 全 1：
+      k=1：bl = 64(na-2)+68 ≡ 2 且顶 2bit 为 10 → 类别不可达，跳过
+      k=3：预筛 q = H*27 = 2^72-1 → bl = 64(na-2)+72 ≡ 0 命中；
+           真乘积 (2^72+25)*B^(na-2)-27 → bl 大 1 ≡ 1 不可达（须弃选）
+*/
+TEST_CASE("numth/cbrt", knorm_carry_regression) {
+    const mp_size_t nas[] = {8, 11, 14, 20};
+    for (mp_size_t na : nas) {
+        u128 H = (((u128)1 << 72) - 1) / 27;
+        TEST_CHECK_MSG(H * 27 == (((u128)1 << 72) - 1), "H integer");
+        mp_ptr a = alloc_limbs(na);
+        for (mp_size_t i = 0; i + 2 < na; ++i) a[i] = ~(u64)0;
+        a[na - 2] = (u64)H;
+        a[na - 1] = (u64)(H >> 64);
+
+        mp_size_t ns = na / 3 + 2;
+        mp_ptr dsts = alloc_limbs(ns + 4);
+        mp_ptr dstr = alloc_limbs(2 * ns + 4);
+        lmmp_zero(dsts, ns + 4);
+        lmmp_zero(dstr, 2 * ns + 4);
+        lmmp_cbrt_(dsts, dstr, a, na, 0);
+
+        BigInt X = from_limbs(a, na);
+        BigInt r = ref_icbrt_big(X);
+        BigInt bgot = from_limbs(dsts, ns);
+        TEST_CHECK_MSG(bgot == r, "knorm carry root exact floor");
+        BigInt rem_ref = BigInt::sub_abs(X, BigInt::mul_school(r, BigInt::mul_school(r, r)));
+        BigInt brem = from_limbs(dstr, 2 * ns + 4);
+        TEST_CHECK_MSG(brem == rem_ref, "knorm carry remainder");
+        lmmp_free(a);
+        lmmp_free(dsts);
+        lmmp_free(dstr);
     }
 }

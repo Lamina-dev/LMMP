@@ -124,8 +124,8 @@ BENCH_CASE("numth/prime", is_prime_2_random_82b) {
     mp_ptr a = alloc_limbs(2 * POOL);
     for (int i = 0; i < POOL; i++) {
         lmmp_seed_random_(a + 2 * i, 2, 0x82b1feedfaceull + i, 1);
-        a[2 * i + 1] &= 0x1ff;
-        a[2 * i + 1] |= 0x100;
+        a[2 * i + 1] &= 0x3ffff;
+        a[2 * i + 1] |= 0x20000;
         a[2 * i] |= 1;
     }
     size_t idx = 0;
