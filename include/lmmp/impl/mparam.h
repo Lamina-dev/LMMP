@@ -333,6 +333,28 @@
 #define MULHI_MERSENNE_THRESHOLD LMMP_DEFAULT_MULHI_MERSENNE_THRESHOLD
 #endif
 
+// REDC 归约的 basecase 阈值：低于此规模用 n 次 addmul_1 的链式归约（Hensel
+// 逐 limb 消零，成本约一次 basecase 乘法，仅需单 limb 逆元），否则用
+// mullo(q)+高半积路径。2026-09-30 Apple M 系列 arm64 实测（Release，中位数
+// 计时；GMP 同角色阈值 REDC_1_TO_REDC_N 在 arm64 取 43，量级吻合）
+#define LMMP_DEFAULT_REDC_BASECASE_THRESHOLD 41
+#ifdef LMMP_TUNE
+#define REDC_BASECASE_THRESHOLD lmmp_tune_REDC_BASECASE_THRESHOLD
+#else
+#define REDC_BASECASE_THRESHOLD LMMP_DEFAULT_REDC_BASECASE_THRESHOLD
+#endif
+
+// REDC 归约中 q*m 高半积改用梅森折叠提取的阈值（与 MULHI_MERSENNE_THRESHOLD
+// 同构的低位已知折叠，但此处已知低位为 -t mod B^n，属 redc 专用路径，独立调优）。
+// 2026-09-30 Apple M 系列 arm64 实测（Release，中位数计时，plateau [292,309]），
+// 更新请运行：lmmp_tune --only redc_mersenne [--write]
+#define LMMP_DEFAULT_REDC_MERSENNE_THRESHOLD 309
+#ifdef LMMP_TUNE
+#define REDC_MERSENNE_THRESHOLD lmmp_tune_REDC_MERSENNE_THRESHOLD
+#else
+#define REDC_MERSENNE_THRESHOLD LMMP_DEFAULT_REDC_MERSENNE_THRESHOLD
+#endif
+
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
 #define LMMP_DEFAULT_GCD_HGCD_THRESHOLD 86
 #ifdef LMMP_TUNE
@@ -395,6 +417,8 @@ extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_REDC_BASECASE_THRESHOLD;
+extern uint64_t lmmp_tune_REDC_MERSENNE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
 extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;

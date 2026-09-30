@@ -364,6 +364,93 @@ LMMP_API uint lmmp_powmod_uint_odd_(uint base, ulong exp, uint mod);
 LMMP_API ulong lmmp_powmod_ulong_odd_(ulong base, ulong exp, ulong mod);
 
 /**
+ * @brief 计算 [bp,n]^[ep,en] mod B^n，并将结果写入 [dst,n]
+ * @param dst 结果指针（长度为 n 个limb）
+ * @param bp 底数指针
+ * @param n 底数的 limb 长度
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[n-1]>0, sep(dst,[bp|ep])
+ */
+LMMP_API void lmmp_powlo_(mp_ptr dst, mp_srcptr bp, mp_size_t n, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief 计算 [bp,1]^[ep,en] mod B，并将结果写入 [dst,1]（lmmp_powlo_ 的 1 limb 特化）
+ * @param dst 结果指针（长度为 1 个limb）
+ * @param bp 底数指针（长度为 1 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, sep(dst,[bp|ep])
+ * @note 指数为 1 时直接截断取 [bp,1]；单 limb 乘法 mod B 即自然回绕，
+ *       全程无归约开销
+ */
+LMMP_API void lmmp_powlo_1_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief 计算 [bp,2]^[ep,en] mod B^2，并将结果写入 [dst,2]（lmmp_powlo_ 的 2 limb 特化）
+ * @param dst 结果指针（长度为 2 个limb）
+ * @param bp 底数指针（长度为 2 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, sep(dst,[bp|ep])
+ * @note 指数为 1 时直接截断取 [bp,2]；乘法与平方均走 longlong.h 的
+ *       128 位低位积内联（_umul128to128_），全程无归约开销
+ */
+LMMP_API void lmmp_powlo_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief Montgomery 归约（REDC）：计算 ([tp,2n] + q*[mp,n]) / B^n，其中
+ *        q = [tp,n] * [ninv,n] mod B^n，即结果为 [tp,2n] * B^(-n) % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb）
+ * @param tp 被归约数指针（长度为 2n 个limb）
+ * @param ninv -[mp,n]^(-1) mod B^n（长度为 n 个limb）
+ * @param mp 模数指针（长度为 n 个limb）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, tp!=NULL, ninv!=NULL, mp!=NULL, n>0, mp[0]%2==1, mp[n-1]>0,
+ *          [ninv,n] == -[mp,n]^(-1) mod B^n, sep(dst,[tp|ninv|mp]), [tp,2n] < B^n*[mp,n]
+ * @return 结果最高位（第 n+1 limb 的值，[0|1]），返回值:[dst,n] 即归约结果，且结果 < 2*[mp,n]
+ * @note 典型用法：dst = a*b mod m（a,b < m）：先计算全积 [tp,2n] = a*b 再调用本函数，
+ *       随后若结果 >= m 则再减一次 m 即得 < m 的规范剩余
+ */
+LMMP_API mp_limb_t lmmp_redc_(mp_ptr dst, mp_srcptr tp, mp_srcptr ninv, mp_srcptr mp, mp_size_t n);
+
+/**
+ * @brief 计算奇模数模幂 [dst,1] = [bp,1]^[ep,en] % mod
+ * @param dst 结果指针（长度为 1 个limb）
+ * @param bp 底数指针（长度为 1 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mod 模数
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, mod%2==1, mod>1, [bp,1]<mod
+ */
+LMMP_API void lmmp_powmod_1_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_limb_t mod);
+
+/**
+ * @brief 计算奇模数模幂 [dst,2] = [bp,2]^[ep,en] % [mod,2]
+ * @param dst 结果指针（长度为 2 个limb）
+ * @param bp 底数指针（长度为 2 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mod 模数指针（长度为 2 个limb）
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mod!=NULL, en>0, ep[en-1]>0, mod[0]%2==1,
+ *          mod[1]!=0, [mod,2]>1, [bp,2]<[mod,2]
+ */
+LMMP_API void lmmp_powmod_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mod);
+
+/**
+ * @brief 计算奇模数模幂 [dst,n] = [bp,n]^[ep,en] % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb，规范剩余 < [mp,n]，高位可能为 0）
+ * @param bp 底数指针（长度为 n 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mp 模数指针（长度为 n 个limb）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mp!=NULL, en>0, ep[en-1]>0, n>0,
+ *          mp[0]%2==1, mp[n-1]>0, [mp,n]>1, [bp,n]<[mp,n], sep(dst,[bp|ep|mp])
+ */
+LMMP_API void lmmp_powmod_odd_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mp, mp_size_t n);
+
+/**
  * @brief 大于n的下一个素数
  * @param n 起始点（不含）
  * @warning 如果 n 大于等于ulong可表示最大的质数，则返回ulong_max
@@ -1110,17 +1197,6 @@ LMMP_API bool lmmp_perfsqr_filter_(mp_srcptr p, mp_size_t n);
  * @return 为完全平方数返回 true，否则返回 false
  */
 LMMP_API bool lmmp_perfsqr_(mp_srcptr p, mp_size_t n);
-
-/**
- * @brief 计算 [bp,n]^[ep,en] mod B^n，并将结果写入 [dst,n]
- * @param dst 结果指针（长度为 n 个limb）
- * @param bp 底数指针
- * @param n 底数的 limb 长度
- * @param ep 指数指针
- * @param en 指数的 limb 长度
- * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[n-1]>0, sep(dst,[bp|ep])
- */
-LMMP_API void lmmp_powlo_(mp_ptr dst, mp_srcptr bp, mp_size_t n, mp_srcptr ep, mp_size_t en);
 
 #ifdef __cplusplus
 }
