@@ -451,6 +451,19 @@ LMMP_API void lmmp_powmod_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t e
 LMMP_API void lmmp_powmod_odd_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mp, mp_size_t n);
 
 /**
+ * @brief 计算任意模数模幂 [dst,n] = [bp,n]^[ep,en] % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb，规范剩余 < [mp,n]，高位可能为 0）
+ * @param bp 底数指针（长度为 n 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mp 模数指针（长度为 n 个limb，奇偶皆可）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mp!=NULL, en>0, ep[en-1]>0, n>0,
+ *          mp[n-1]>0, [mp,n]>1, [bp,n]<[mp,n], sep(dst,[bp|ep|mp])
+ */
+LMMP_API void lmmp_powmod_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mp, mp_size_t n);
+
+/**
  * @brief 大于n的下一个素数
  * @param n 起始点（不含）
  * @warning 如果 n 大于等于ulong可表示最大的质数，则返回ulong_max

@@ -483,3 +483,171 @@ TEST_CASE("numth/powmod", powmod_specialized_and_dispatch) {
         lmmp_free(m); lmmp_free(b); lmmp_free(dst); lmmp_free(ep);
     }
 }
+
+// ---------------------------------------------------------------------------
+// lmmp_powmod_：任意模数（含偶模数），CRT 合成路径
+// ---------------------------------------------------------------------------
+
+// 构造 2^k * odd 形状的偶模数写入 [mp,容量n]，mm 接收其值，返回实际 limb 长度
+static size_t make_even_mod(size_t k, const BigInt& odd, mp_ptr mp, BigInt& mm) {
+    mm = BigInt::shl_bits(odd, k);
+    size_t n = mm.d.size();
+    to_limbs(mm, mp, (mp_size_t)n);
+    return n;
+}
+
+TEST_CASE("numth/powmod", powmod_two_adic_corners) {
+    u64 seed = 0x243f6a8885a308d3ull;
+    const size_t cap = 12;
+    mp_ptr mp = alloc_limbs(cap);
+    mp_ptr b = alloc_limbs(cap);
+    mp_ptr dst = alloc_limbs(cap);
+    mp_ptr ep = alloc_limbs(3);
+
+    /* 2-adic 赋值 k：覆盖 63/64/65 跨 limb 边界、limb 对齐值（免掩码分支）
+       与跨多 limb 的深移位；odd 部：纯 2 幂（m=2^k 与 B^n 族）、单 limb 奇、
+       双 limb 随机奇（触发 nodd < nb2 的借位传播形态） */
+    size_t ks[] = {1, 2, 3, 31, 62, 63, 64, 65, 66, 100, 127, 128, 129, 130,
+                   191, 192, 193, 256, 257, 320, 383, 384, 447, 448, 511, 512, 576};
+    for (size_t k : ks) {
+        BigInt odds[4];
+        odds[0] = BigInt(1);
+        odds[1] = BigInt(3);
+        odds[2] = BigInt(xorshift64(seed) | 1);
+        {
+            u64 t[2] = {xorshift64(seed) | 1, xorshift64(seed)};
+            odds[3] = BigInt(t, 2);
+        }
+
+        for (const BigInt& odd : odds) {
+            BigInt mm;
+            size_t n = make_even_mod(k, odd, mp, mm);
+            TEST_CHECK_MSG(n <= cap, "corner modulus fits buffer");
+
+            struct { mp_size_t en; u64 w[3]; } exps[] = {
+                {1, {1, 0, 0}},                 /* e=1 拷贝快路径 */
+                {1, {2, 0, 0}},
+                {1, {3, 0, 0}},
+                {1, {17, 0, 0}},
+                {1, {0xdeadbeefull, 0, 0}},
+                {3, {0, 0, 1}},                 /* e=B^2：偶底数 en>1 短路 */
+                {2, {0x9e3779b97f4a7c15ull, 0x1234, 0}},
+            };
+            for (const auto& ex : exps) {
+                for (mp_size_t i = 0; i < ex.en; ++i) ep[i] = ex.w[i];
+                BigInt ee(ex.w, ex.en);
+
+                /* 底数角点：随机归约、强制偶（触发 2^k 部短路）、m-1、0 */
+                BigInt bases[4];
+                {
+                    u64 s5 = seed ^ (u64)k * 0x9e3779b97f4a7c15ull ^ ex.w[0];
+                    random_limbs(b, n, s5);
+                    bases[0] = mod_school(BigInt(b, n), mm);
+                    bases[1] = BigInt::sub_small(bases[0], bases[0].d[0] & 1); /* 清最低位（奇偶两种随机形态） */
+                    bases[2] = BigInt::sub_small(mm, 1);
+                    bases[3] = BigInt(0);
+                }
+
+                for (int bi = 0; bi < 4; ++bi) {
+                    to_limbs(bases[bi], b, (mp_size_t)n);
+                    lmmp_powmod_(dst, b, ep, ex.en, mp, (mp_size_t)n);
+                    TEST_CHECK_MSG(from_limbs(dst, (mp_size_t)n) == powmod_school(bases[bi], ee, mm),
+                                   "powmod even corner");
+                }
+            }
+        }
+    }
+    lmmp_free(mp); lmmp_free(b); lmmp_free(dst); lmmp_free(ep);
+}
+
+TEST_CASE("numth/powmod", powmod_even_random) {
+    u64 seed = 0x13198a2e03707344ull;
+    for (size_t n : {1u, 2u, 3u, 5u, 9u, 17u, 33u, 70u}) {
+        for (int iter = 0; iter < 6; ++iter) {
+            mp_ptr m = alloc_limbs(n);
+            mp_ptr b = alloc_limbs(n);
+            mp_ptr dst = alloc_limbs(n);
+            random_limbs(m, n, seed);
+            /* 低 limb 形状轮换：随机偶 / 低 limb 全零（z>=1）/ ctz=1（m=2*odd） */
+            switch (iter % 3) {
+            case 0: m[0] &= ~(u64)1; break;
+            case 1: if (n > 1) m[0] = 0; else m[0] = 0xdeadbee0ull; break;
+            default: m[0] = (m[0] << 1) | 2; break;
+            }
+            BigInt mm(m, n);
+
+            random_limbs(b, n, seed);
+            BigInt bb = mod_school(BigInt(b, n), mm);
+            if (iter % 2 == 1 && bb > BigInt(1))
+                bb = BigInt::sub_small(bb, bb.d[0] & 1); /* 偶化，保持 >0 */
+            to_limbs(bb, b, (mp_size_t)n);
+
+            for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, (ulong)ULONG_MAX}) {
+                mp_ptr ep = alloc_limbs(1);
+                ep[0] = e;
+                lmmp_powmod_(dst, b, ep, 1, m, (mp_size_t)n);
+                TEST_CHECK_MSG(from_limbs(dst, (mp_size_t)n) == powmod_school(bb, BigInt(e), mm), "powmod even random");
+                lmmp_free(ep);
+            }
+
+            mp_ptr ep = alloc_limbs(3);
+            for (mp_size_t i = 0; i < 3; ++i) ep[i] = xorshift64(seed);
+            ep[2] |= (u64)1 << 63;
+            lmmp_powmod_(dst, b, ep, 3, m, (mp_size_t)n);
+            TEST_CHECK_MSG(from_limbs(dst, (mp_size_t)n) == powmod_school(bb, BigInt(ep, 3), mm), "powmod even 3-limb exp");
+            lmmp_free(ep);
+
+            lmmp_free(m); lmmp_free(b); lmmp_free(dst);
+        }
+    }
+
+    /* 奇模数经 lmmp_powmod_ 分派须与 lmmp_powmod_odd_ 同值 */
+    {
+        u64 seed2 = 0xa4093822299f31d0ull;
+        for (size_t n : {1u, 5u, 17u}) {
+            mp_ptr m = alloc_limbs(n);
+            mp_ptr b = alloc_limbs(n);
+            mp_ptr dst = alloc_limbs(n);
+            make_mod_and_base(m, b, n, seed2);
+            BigInt mm(m, n), bb(b, n);
+            mp_ptr ep = alloc_limbs(1);
+            ep[0] = 0x9e3779b9ull;
+            lmmp_powmod_(dst, b, ep, 1, m, (mp_size_t)n);
+            TEST_CHECK_MSG(from_limbs(dst, (mp_size_t)n) == powmod_school(bb, BigInt(ep[0]), mm), "powmod odd dispatch");
+            lmmp_free(m); lmmp_free(b); lmmp_free(dst); lmmp_free(ep);
+        }
+    }
+}
+
+TEST_CASE("numth/powmod", powmod_even_large_fold) {
+    u64 seed = 0x9e3779b97f4a7c33ull;
+    /* nodd >= REDC_MERSENNE_THRESHOLD(309)：偶模数内部的奇部走梅森折叠 REDC。
+       m = 2*odd（k=1，nb2=1）与深移位 m = 2^65*odd 两种形态 */
+    for (int shape = 0; shape < 2; ++shape) {
+        size_t n = shape == 0 ? 403u : 405u;
+        mp_ptr m = alloc_limbs(n);
+        mp_ptr b = alloc_limbs(n);
+        mp_ptr dst = alloc_limbs(n);
+        random_limbs(m, n, seed);
+        if (shape == 0) {
+            m[0] = (m[0] << 1) | 2; /* k=1 */
+        } else {
+            m[0] = 0;
+            m[1] = 2; /* k=65 */
+        }
+        BigInt mm(m, n);
+        random_limbs(b, n, seed);
+        BigInt bb = mod_school(BigInt(b, n), mm);
+        to_limbs(bb, b, (mp_size_t)n);
+
+        /* 短指数控制 oracle（schoolbook mul + Knuth-D div）耗时 */
+        for (ulong e : {3ull, 0x9e3779b9ull}) {
+            mp_ptr ep = alloc_limbs(1);
+            ep[0] = e;
+            lmmp_powmod_(dst, b, ep, 1, m, (mp_size_t)n);
+            TEST_CHECK_MSG(from_limbs(dst, (mp_size_t)n) == powmod_school(bb, BigInt(e), mm), "powmod even fold");
+            lmmp_free(ep);
+        }
+        lmmp_free(m); lmmp_free(b); lmmp_free(dst);
+    }
+}
