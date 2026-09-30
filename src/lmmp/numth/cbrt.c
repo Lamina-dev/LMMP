@@ -569,12 +569,16 @@ static inline void lmmp_cbrt_shapply_(mp_srcptr src, mp_size_t n, mp_size_t s, m
     即根结果 >>t 后一次 div_1(k) 即精确还原。
 
     候选筛选不计算完整乘积：记 q = 高128bit(numa)*k^3（152bit 小乘），
-    X = numa*k^3 = q*B^sh + low（low < B^sh，sh = 64*(na-2)，na<=1 时 X=q），
-    则 X 的类别完全由 q 决定且无歧义边界：
+    X = numa*k^3 = q*B^sh + low（sh = 64*(na-2)，na<=1 时 X=q）。k=1 时
+    low < B^sh 无进位，X 的类别由 q 精确决定且无歧义边界：
         q ∈ [2^(blq-1), 2^blq)  =>  X ∈ [2^(sh+blq-1), 2^(sh+blq))，bl(X) 精确
         3*2^(bl(X)-2) = qT*B^sh（qT = 3*2^(blq-2)）为阈值形式，
-        X >= 3*2^(bl(X)-2)  <=>  q >= qT，low 不影响判定
-    故 miss 的 k 仅花费 2 次 64x24bit 小乘即可排除，完整 mul_1 仅对最终
+        X >= 3*2^(bl(X)-2)  <=>  q >= qT
+    k>1 时 low*k3 可向高位进位（carry < 2^24，可跨越 2^m 或 3B/8 阈值改变
+    类别），故命中后必须按完整乘积 xk 复核 bl/top2/s（下方 mul_1 之后），
+    复核类别不可达时弃选该 k 继续搜索（预筛仅可能出现伪命中/伪跳过，
+    不影响正确性——每个 k 真实命中概率仍约 1/2）。
+    故 miss 的 k 仅花费 2 次 64x24bit 小乘即可排除，完整 mul_1 仅对预筛
     命中的 k 计算一次。k 的类别近似均匀，每 k 命中概率约 1/2，搜索上限
     256 内未命中概率 < 2^-100（实际期望 2 次内命中）。
 */
@@ -628,6 +632,15 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
             nak = na;
             if (cy) xk[na] = cy, ++nak;
             ak = xk;
+            // low*k3 的进位可改变完整乘积的类别：按 xk 全量复核 bl/top2/s，
+            // 类别不可达（如 r=1）则弃选该 k（预筛伪命中）
+            mp_limb_t xtop = xk[nak - 1];
+            mp_size_t xhb = lmmp_limb_bits_(xtop);
+            bl = LIMB_BITS * (nak - 1) + xhb;
+            top2 = xhb >= 2 ? xtop >= 3ULL << (xhb - 2)
+                            : (nak >= 2 && (xk[nak - 2] >> (LIMB_BITS - 1)));
+            s = lmmp_cbrt_cls_shift_(bl, top2);
+            if (s == (mp_size_t)-1) continue;
         }
 
         // a2 = ak << s（k=1 时 ak == numa；k>1 时 ak == xk 与 a2 分离）；na2 <= w+nak+1
