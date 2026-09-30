@@ -214,6 +214,8 @@ int tune_run_div_divide(void);
 int tune_run_bninv_newton(void);
 int tune_run_mul_fft_modf(void);
 int tune_run_mulhi_mersenne(void);
+int tune_run_redc_mersenne(void);
+int tune_run_redc_basecase(void);
 int tune_run_to_str_basepow(void);
 int tune_run_to_str_divide(void);
 int tune_run_from_str_basepow(void);

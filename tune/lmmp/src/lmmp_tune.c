@@ -50,6 +50,8 @@ int tune_run_div_divide(void);
 int tune_run_bninv_newton(void);
 int tune_run_mul_fft_modf(void);
 int tune_run_mulhi_mersenne(void);
+int tune_run_redc_mersenne(void);
+int tune_run_redc_basecase(void);
 int tune_run_to_str_basepow(void);
 int tune_run_to_str_divide(void);
 int tune_run_from_str_basepow(void);
@@ -88,6 +90,8 @@ static const tune_module_t g_modules[] = {
     {"bninv_newton", "bninv,BNINV_NEWTON_THRESHOLD", "BNINV_NEWTON_THRESHOLD", tune_run_bninv_newton},
     {"mul_fft_modf", "MUL_FFT_MODF_THRESHOLD", "MUL_FFT_MODF_THRESHOLD", tune_run_mul_fft_modf},
     {"mulhi_mersenne", "MULHI_MERSENNE_THRESHOLD", "MULHI_MERSENNE_THRESHOLD", tune_run_mulhi_mersenne},
+    {"redc_mersenne", "REDC_MERSENNE_THRESHOLD", "REDC_MERSENNE_THRESHOLD", tune_run_redc_mersenne},
+    {"redc_basecase", "REDC_BASECASE_THRESHOLD", "REDC_BASECASE_THRESHOLD", tune_run_redc_basecase},
     {"to_str_basepow", "TO_STR_BASEPOW_THRESHOLD", "TO_STR_BASEPOW_THRESHOLD", tune_run_to_str_basepow},
     {"to_str_divide", "TO_STR_DIVIDE_THRESHOLD", "TO_STR_DIVIDE_THRESHOLD", tune_run_to_str_divide},
     {"from_str_basepow", "FROM_STR_BASEPOW_THRESHOLD", "FROM_STR_BASEPOW_THRESHOLD", tune_run_from_str_basepow},
