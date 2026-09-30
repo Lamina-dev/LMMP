@@ -231,6 +231,7 @@ int tune_run_elem_mul(void);
 int tune_run_mat22_mul(void);
 int tune_run_mat22_sqr(void);
 int tune_run_sqrt_invnewton(void);
+int tune_run_cbrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
 int tune_run_fft_table(void);

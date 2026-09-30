@@ -405,6 +405,19 @@ LMMP_API bool lmmp_is_prime_ulong_(ulong n);
 LMMP_API bool lmmp_is_prime_notrial_(ulong n);
 
 /**
+ * @brief 判断 128 位素数
+ * @param lo 待判断数的低 64 位
+ * @param hi 待判断数的高 64 位
+ * @warning hi>0
+ * @note B <= n < SWbound = 3317044064679887385961981（约
+ *       2^81.5）时为确定性判据（前 13 个素数基底的 Rabin-Miller，
+ *       Sorenson-Webster），返回 1；更大时为 BPSW 型判据（基底 2 强伪素数
+ *       测试叠加强 Lucas-Selfridge 测试的 V 阶梯实现），无已知反例，返回 2。
+ * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（BPSW 型非确定性判据）
+ */
+LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
+
+/**
  * @brief 计算幂次方需要的limb缓冲区长度 [base,n] ^ exp
  * @param base 底数指针
  * @param n 底数 limb 长度
@@ -995,6 +1008,62 @@ LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @note 即使输入calr=0，numa也会被修改，如果calr=1，则[numa,2*ns+1]将会储存余数。
  */
 LMMP_API void lmmp_cbrt_divide_(mp_ptr dst, mp_ptr numa, mp_size_t ns, mp_ptr tp, int calr);
+
+/**
+ * @brief 计算逆立方根的定点下近似：记 I=floor(cbrt(B^(3*ns+na)/[numa,na]))，
+ *        则 [dstis,ns+1] 满足 I-1 <= [dstis,ns+1] <= I，且 dstis[ns]>=1
+ * @param dstis 目标数组（长度为 ns+1 个limb）
+ * @param ns dstis数组的 limb 长度为 ns+1
+ * @param numa 输入数组
+ * @param na numa数组的 limb 长度
+ * @warning ns>=3, na>0, ns>=na, numa[na-1]>=B/8 (0x2000000000000000),
+ *          dstis!=NULL, numa!=NULL, sep(dstis,numa)
+ * @note 结果是 I 的至多低估 1 的下近似，绝不高估；随机输入实测几乎恒等于 I，
+ *       仅当 I 邻近 B^ns 或 2*B^ns 的构造输入（如 [numa,na]=B^na-1、B^na/8
+ *       等）会得到 I-1。
+ *       恒有 dstis[ns]>=1，即结果落在 [B^ns, 2*B^ns] 内。
+ *       当 ns<na 时语义不同：仅使用 numa 的最高 ns 个 limb（记为 a_top），
+ *       结果变为 floor(cbrt(B^(4*ns)/a_top))-[0|1]，与 I 相差 B^((ns-na)/3) 倍。
+ */
+LMMP_API void lmmp_invcbrt_newton_(mp_ptr dstis, mp_size_t ns, mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief 计算近似立方根 [dsts,na/3+nf+1]=[floor|round](cbrt([numa,na]*B^(3*nf)))，
+ *        输入须已归一化：na ≡ 0 (mod 3) 且顶 limb >= B/8
+ * @param dsts 目标数组（长度至少 na/3+nf+1 个limb）
+ * @param numa 输入数组（长度为 na 个limb，已 3 对齐归一化）
+ * @param na numa数组的 limb 长度（3 的倍数）
+ * @param nf 精度因子
+ * @warning na>0, na%3==0, numa[na-1]>=B/8, nf>=2, 3*nf>=2*na+3, dsts!=NULL,
+ *          numa!=NULL, sep(dsts,numa)
+ * @note 设 x = cbrt([numa,na]*B^(3*nf))（实数），round 为四舍五入（恰为 1/2 时进位），
+ *       则结果恰为 round(x-eps)，其中 0 <= eps < 2^-62。eps 非负，故结果绝不超过
+ *       round(x)；仅当 x 的小数部分落在 [1/2, 1/2+eps) 时得到 floor(x) 而非
+ *       floor(x)+1（随机输入下概率 < 2^-62），此即 [floor|round] 的确切含义。
+ */
+LMMP_API void lmmp_cbrt_newton_(mp_ptr dsts, mp_srcptr numa, mp_size_t na, mp_size_t nf);
+
+/**
+ * @brief 计算 [numa,na] * B^(3*nf) 的立方根和余数
+ * @param dsts 立方根结果输出指针（缓冲区长度至少 nf+na/3+3 个limb）
+ * @param dstr 余数结果输出指针（缓冲区长度至少 2*(nf+na/3)+3 个limb，NULL 表示不计算余数）
+ * @param numa 源操作数指针（长度为 na 个limb）
+ * @param na 操作数的 limb 长度
+ * @param nf 精度因子
+ * @warning na>0, numa[na-1]!=0, eqsep(dsts,numa), eqsep(dstr,numa)
+ * @note if (dstr != NULL) {
+ *           [dsts],[dstr] = cbrtrem([numa,na]*B^(3*nf))，即精确 floor 立方根
+ *           与余数 [numa,na]*B^(3*nf) - [dsts]^3（长度 2*ns+1，ns 为根长）
+ *       } else {
+ *           if (nf == 0) {
+ *               [dsts] = floor(cbrt([numa,na]))
+ *           } else {
+ *               [dsts] = [floor|round](cbrt([numa,na]*B^(3*nf)))
+ *           }
+ *       }
+ * @attention 如你需要精确的floor(cbrt(x))语义，请确保nf==0或传入dstr
+ */
+LMMP_API void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_t nf);
 
 /**
  * @brief 计算 floor(n^(1/root))

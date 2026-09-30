@@ -17,7 +17,7 @@ set(LMMP_BENCH_SRCS
     main.cpp
     src/bench_basic.cpp
     src/bench_asm.cpp
-    src/bench_numth_cbrt.cpp
+    src/bench_numth_prime.cpp
 )
 
 add_executable(LmmpBenchmark ${LMMP_BENCH_SRCS})
