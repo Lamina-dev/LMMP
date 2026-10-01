@@ -213,7 +213,7 @@ TEST_CASE("numth/powmod", powmod_odd_random) {
             BigInt mm(m, n), bb(b, n);
 
             // 多种指数：边界短指数、单 limb、双 limb、三 limb（触发更大窗口）
-            for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, (ulong)ULONG_MAX}) {
+            for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, 0xffffffffffffffffull}) {
                 mp_ptr ep = alloc_limbs(1);
                 mp_size_t en = 1;
                 ep[0] = e;
@@ -321,7 +321,7 @@ TEST_CASE("numth/pow", powlo_specialized_and_dispatch) {
         random_limbs(b2, 2, seed);
         BigInt bb1(b1, 1), bb2(b2, 2);
 
-        for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, (ulong)ULONG_MAX}) {
+        for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, 0xffffffffffffffffull}) {
             mp_ptr ep = alloc_limbs(1);
             mp_ptr d1 = alloc_limbs(1);
             mp_ptr d2 = alloc_limbs(2);
@@ -392,7 +392,7 @@ TEST_CASE("numth/powmod", powmod_specialized_and_dispatch) {
         make_mod_and_base(m2, b2, 2, seed);
         BigInt mm2(m2, 2), bb2(b2, 2);
 
-        for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, (ulong)ULONG_MAX}) {
+        for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, 0xffffffffffffffffull}) {
             mp_ptr ep = alloc_limbs(1);
             ep[0] = e;
             mp_ptr d1 = alloc_limbs(1);
@@ -583,7 +583,7 @@ TEST_CASE("numth/powmod", powmod_even_random) {
                 bb = BigInt::sub_small(bb, bb.d[0] & 1); /* 偶化，保持 >0 */
             to_limbs(bb, b, (mp_size_t)n);
 
-            for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, (ulong)ULONG_MAX}) {
+            for (ulong e : {1ull, 2ull, 3ull, 5ull, 17ull, 64ull, 1000ull, 0xdeadbeefull, 0xffffffffffffffffull}) {
                 mp_ptr ep = alloc_limbs(1);
                 ep[0] = e;
                 lmmp_powmod_(dst, b, ep, 1, m, (mp_size_t)n);
