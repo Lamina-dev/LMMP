@@ -518,6 +518,57 @@ LMMP_API bool lmmp_is_prime_notrial_(ulong n);
 LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
 
 /**
+ * @brief 单轮 Rabin-Miller 强伪素数测试（大于 128 位）
+ * @param np 待测奇数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @param bp 基底指针（nn 个limb）
+ * @warning np!=NULL, bp!=NULL, nn>2, np[nn-1]>0, np[0]%2==1,
+ *          2 <= [bp,nn] <= [np,nn]-2
+ * @return 1 = 通过该基底的 Miller-Rabin 测试；0 = 合数
+ */
+LMMP_API int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp);
+
+/**
+ * @brief 强 Lucas-Selfridge 测试（大于 128 位）
+ * @param np 待测奇数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
+ * @note Selfridge 方法 A：P=1，Q=(1-D)/4，D 取 5,-7,9,-11,... 中首个
+ *       (D|n)=-1 者；V-only 阶梯判据（gcd(D,n)=1 下与 U/V 强 Lucas 判据
+ *       等价）。判定合数的情形含 gcd(|D|,n)>1 与 n 为完全平方数。
+ *       单轮成本约为单轮 MR 的 1.6~2 倍
+ * @return 1 = 通过强 Lucas 测试；0 = 合数
+ */
+LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
+
+/**
+ * @brief 大整数素性检验（强度分档，大于 128 位）
+ * @param np 待测数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @param strength 检测强度 [0,7]，各档构成（随机基底 MR 为"至多"轮数，
+ *        任一轮检出合数即提前终止）：
+ *        | 强度 | 基底2 MR| 随机基底 MR |  强 Lucas | 试除上界 |
+ *        | --- | ------- | ---------- | -------- | ------- |
+ *        |  0  |   √     |    4       |    -     | 100     |
+ *        |  1  |   √     |    5       |    -     | 300     |
+ *        |  2  |   √     |    6       |    -     | 1000    |
+ *        |  3  |   √     |    8       |    -     | 3000    |
+ *        |  4  |   √     |    0       |    √     | 1000    |
+ *        |  5  |   √     |    2       |    √     | 3000    |
+ *        |  6  |   √     |    4       |    √     | 5000    |
+ *        |  7  |   √     |    6       |    √     | 10000   |
+ * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
+ * @note 各档均以基底 2 特化 MR（lmmp_is_sprp_）起步，4 档及以上为 BPSW 型
+ *       判据（数学界目前无已知反例）。随机基底取自全局 RNG（lmmp_random_），
+         均匀分布。契约域 n > 2^128 超过一切已实用化的确定性 MR 基组界
+ *       （psi_13 约 3.3e24 < 2^82），故实际不会返回 1，语义保留与
+ *       lmmp_is_prime_2_ 一致。
+ * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
+ *         2 = 极大概率为素数
+ */
+LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
+
+/**
  * @brief 计算幂次方需要的limb缓冲区长度 [base,n] ^ exp
  * @param base 底数指针
  * @param n 底数 limb 长度
