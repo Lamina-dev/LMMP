@@ -270,7 +270,7 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
         mp_ptr a = pool_odd_n(n, 0x51ce77ab##limbs##ull, cnt);                        \
         mp_ptr bg = alloc_limbs(n);                                                   \
         lmmp_zero(bg, (mp_size_t)n);                                                  \
-        bg[0] = 0x9e3779b97f4a7c15ull; /* 固定大基底（< 一切池内奇数） */              \
+        bg[0] = 0x9e3779b97f4a7c15ull;                                                \
         size_t idx = 0;                                                               \
         auto m = measure([&] {                                                        \
             lmmp_is_sprp_(a + n * (idx++ % cnt), (mp_size_t)n, bg);                   \
@@ -287,7 +287,7 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
         auto m = measure([&] {                                                        \
             lmmp_is_strong_lucas_(a + n * (idx++ % cnt), (mp_size_t)n);               \
         });                                                                           \
-        report("strong_lucas coprime n=" #limbs, m);                                   \
+        report("strong_lucas coprime n=" #limbs, m);                                  \
         lmmp_free(a);                                                                 \
     }                                                                                 \
     BENCH_CASE("numth/prime", ipn_s4_##limbs##_l) {                                   \
@@ -298,7 +298,7 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
         auto m = measure([&] {                                                        \
             lmmp_is_prime_n_(a + n * (idx++ % cnt), (mp_size_t)n, 4);                 \
         });                                                                           \
-        report("is_prime_n s4 coprime n=" #limbs, m);                                  \
+        report("is_prime_n s4 coprime n=" #limbs, m);                                 \
         lmmp_free(a);                                                                 \
     }
 

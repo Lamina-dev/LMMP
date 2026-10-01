@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -44,15 +44,15 @@ void fill_powmod_inputs(mp_ptr m, mp_ptr b, mp_ptr e, size_t n, size_t en, mp_li
 
 }  // namespace
 
-#define BENCH_POWMOD(limbs)                                                        \
-    BENCH_CASE("numth/powmod", powmod_##limbs##_l) {                               \
-        const size_t n = (limbs);                                                  \
-        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);          \
-        mp_ptr dst = alloc_limbs(n);                                               \
-        fill_powmod_inputs(m, b, e, n, n, 0x51ce77aa##limbs##ull);                  \
+#define BENCH_POWMOD(limbs)                                                                     \
+    BENCH_CASE("numth/powmod", powmod_##limbs##_l) {                                            \
+        const size_t n = (limbs);                                                               \
+        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);                      \
+        mp_ptr dst = alloc_limbs(n);                                                            \
+        fill_powmod_inputs(m, b, e, n, n, 0x51ce77aa##limbs##ull);                              \
         auto mm = measure([&] { lmmp_powmod_odd_(dst, b, e, (mp_size_t)n, m, (mp_size_t)n); }); \
-        report("powmod_odd n=" #limbs " e=n", mm);                                 \
-        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                   \
+        report("powmod_odd n=" #limbs " e=n", mm);                                              \
+        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                               \
     }
 
 BENCH_POWMOD(1)
@@ -71,41 +71,41 @@ BENCH_POWMOD(2000)
     尺寸档与奇模数档对齐便于直接对照。e ~ 64n 时偶底数结果恒 0（2^k 部
     短路），故底数强制取奇以衡量典型负载。
 */
-#define BENCH_POWMOD_EVEN(limbs)                                                     \
-    BENCH_CASE("numth/powmod", powmod_even_##limbs##_l) {                            \
-        const size_t n = (limbs);                                                    \
-        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);           \
-        mp_ptr dst = alloc_limbs(n);                                                 \
-        lmmp_seed_random_(m, (mp_size_t)n, 0x51ce77ac##limbs##ull, 1);               \
-        m[0] = (m[0] << 1) | 2; /* k=1：m = 2*odd */                                 \
-        m[n - 1] |= (mp_limb_t)1 << 63;                                              \
-        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ac##limbs##ull * 3 + 1, 1);       \
-        lmmp_div_(NULL, b, b, (mp_size_t)n, m, (mp_size_t)n);                        \
-        b[0] |= 1; /* m 偶故置位不越界，指数满宽时偶底数恒 0 非典型 */                 \
-        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff35##limbs##ull, 1);               \
-        e[n - 1] |= (mp_limb_t)1 << 63;                                              \
+#define BENCH_POWMOD_EVEN(limbs)                                                            \
+    BENCH_CASE("numth/powmod", powmod_even_##limbs##_l) {                                   \
+        const size_t n = (limbs);                                                           \
+        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);                  \
+        mp_ptr dst = alloc_limbs(n);                                                        \
+        lmmp_seed_random_(m, (mp_size_t)n, 0x51ce77ac##limbs##ull, 1);                      \
+        m[0] = (m[0] << 1) | 2; /* k=1: m = 2*odd */                                        \
+        m[n - 1] |= (mp_limb_t)1 << 63;                                                     \
+        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ac##limbs##ull * 3 + 1, 1);              \
+        lmmp_div_(NULL, b, b, (mp_size_t)n, m, (mp_size_t)n);                               \
+        b[0] |= 1;                                                                          \
+        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff35##limbs##ull, 1);                      \
+        e[n - 1] |= (mp_limb_t)1 << 63;                                                     \
         auto mm = measure([&] { lmmp_powmod_(dst, b, e, (mp_size_t)n, m, (mp_size_t)n); }); \
-        report("powmod_even n=" #limbs " e=n", mm);                                  \
-        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                    \
+        report("powmod_even n=" #limbs " e=n", mm);                                         \
+        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                           \
     }
 
-#define BENCH_POWMOD_EVEN2(limbs)                                                    \
-    BENCH_CASE("numth/powmod", powmod_even2_##limbs##_l) {                           \
-        const size_t n = (limbs);                                                    \
-        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);           \
-        mp_ptr dst = alloc_limbs(n);                                                 \
-        lmmp_seed_random_(m, (mp_size_t)n, 0x51ce77ad##limbs##ull, 1);               \
-        m[0] = 0;                                                                    \
-        m[1] = 2; /* k=65：m = 2^65*odd，nb2=2 */                                    \
-        m[n - 1] |= (mp_limb_t)1 << 63;                                              \
-        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ad##limbs##ull * 3 + 1, 1);       \
-        lmmp_div_(NULL, b, b, (mp_size_t)n, m, (mp_size_t)n);                        \
-        b[0] |= 1;                                                                   \
-        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff36##limbs##ull, 1);               \
-        e[n - 1] |= (mp_limb_t)1 << 63;                                              \
+#define BENCH_POWMOD_EVEN2(limbs)                                                           \
+    BENCH_CASE("numth/powmod", powmod_even2_##limbs##_l) {                                  \
+        const size_t n = (limbs);                                                           \
+        mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n);                  \
+        mp_ptr dst = alloc_limbs(n);                                                        \
+        lmmp_seed_random_(m, (mp_size_t)n, 0x51ce77ad##limbs##ull, 1);                      \
+        m[0] = 0;                                                                           \
+        m[1] = 2; /* k=65: m = 2^65*odd, nb2=2 */                                           \
+        m[n - 1] |= (mp_limb_t)1 << 63;                                                     \
+        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ad##limbs##ull * 3 + 1, 1);              \
+        lmmp_div_(NULL, b, b, (mp_size_t)n, m, (mp_size_t)n);                               \
+        b[0] |= 1;                                                                          \
+        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff36##limbs##ull, 1);                      \
+        e[n - 1] |= (mp_limb_t)1 << 63;                                                     \
         auto mm = measure([&] { lmmp_powmod_(dst, b, e, (mp_size_t)n, m, (mp_size_t)n); }); \
-        report("powmod_even2 n=" #limbs " e=n", mm);                                 \
-        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                    \
+        report("powmod_even2 n=" #limbs " e=n", mm);                                        \
+        lmmp_free(m); lmmp_free(b); lmmp_free(e); lmmp_free(dst);                           \
     }
 
 BENCH_POWMOD_EVEN(1)
@@ -123,18 +123,18 @@ BENCH_POWMOD_EVEN2(64)
 BENCH_POWMOD_EVEN2(400)
 BENCH_POWMOD_EVEN2(1000)
 
-#define BENCH_POWLO(limbs)                                                          \
-    BENCH_CASE("numth/powlo", powlo_##limbs##_l) {                                  \
-        const size_t n = (limbs);                                                   \
-        mp_ptr b = alloc_limbs(n), e = alloc_limbs(n);                              \
-        mp_ptr dst = alloc_limbs(n);                                                \
-        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ab##limbs##ull, 1);               \
-        b[0] |= 1; /* 偶底数在 e>>64n 时结果恒 0，非典型负载 */                      \
-        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff34##limbs##ull, 1);               \
-        e[n - 1] |= (mp_limb_t)1 << 63;                                             \
+#define BENCH_POWLO(limbs)                                                              \
+    BENCH_CASE("numth/powlo", powlo_##limbs##_l) {                                      \
+        const size_t n = (limbs);                                                       \
+        mp_ptr b = alloc_limbs(n), e = alloc_limbs(n);                                  \
+        mp_ptr dst = alloc_limbs(n);                                                    \
+        lmmp_seed_random_(b, (mp_size_t)n, 0x51ce77ab##limbs##ull, 1);                  \
+        b[0] |= 1;                                                                      \
+        lmmp_seed_random_(e, (mp_size_t)n, 0x25c0ff34##limbs##ull, 1);                  \
+        e[n - 1] |= (mp_limb_t)1 << 63;                                                 \
         auto mm = measure([&] { lmmp_powlo_(dst, b, (mp_size_t)n, e, (mp_size_t)n); }); \
-        report("powlo n=" #limbs " e=n", mm);                                       \
-        lmmp_free(b); lmmp_free(e); lmmp_free(dst);                                 \
+        report("powlo n=" #limbs " e=n", mm);                                           \
+        lmmp_free(b); lmmp_free(e); lmmp_free(dst);                                     \
     }
 
 BENCH_POWLO(1)
