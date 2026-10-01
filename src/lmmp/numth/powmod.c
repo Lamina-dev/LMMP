@@ -29,9 +29,8 @@
     高半积 mulhi(q,m) 的三种来源（按规模分层）：
       1. basecase（n < REDC_BASECASE_THRESHOLD，实测 41）：链式 Hensel 归约——
          n 次 addmul_1 逐 limb 消零（q_j = up[0]*ninv1 mod B），成本约一次
-         basecase 乘法，且只需单 limb 逆元（对标 GMP mpn_redc_1，其 clobber
-         输入的特性见各调用点：梯子内直接破坏 prod，公开 lmmp_redc_ 为维持
-         tp 只读契约先复制一份）；
+         basecase 乘法，且只需单 limb 逆元（其 clobber 输入的特性见各调用点：
+         梯子内直接破坏 prod，公开 lmmp_redc_ 为维持 tp 只读契约先复制一份）；
       2. 全积取高半：lmmp_mul_n_ 后读高 n limb（中尺寸段）；
       3. 梅森折叠（n >= REDC_MERSENNE_THRESHOLD，实测 309）：由于 (q*m) mod B^n
          = -t_lo mod B^n 是已知量 L，与 binvert_mulhi_ 同构——先算 V = q*m
@@ -39,14 +38,9 @@
          复用），从 V 中减去 L 后旋转载出高半。两操作数均 < B^n 保证
          hi <= B^n-2，拼接表示不会落在 B^msz-1 的二义点上；而 L==0 强制
          q==0、积为零，也不与零类的非规范表示冲突。
-    入蒙域用一次 (b*B^n) mod m 除法（GMP redcify 模式），比 RR=B^2n mod m
-    加乘加归约的旧路径省约两个 M(n) 的预处理；basecase 层连全长 binvert
-    也一并省去（仅需低 limb 逆元）。
+    入蒙域用一次 (b*B^n) mod m 除法（，比 RR=B^2n mod m 加乘加归约的旧路径省约
+    两个 M(n) 的预处理；basecase 层连全长 binvert 也一并省去（仅需低 limb 逆元）。
 
-    任意模数入口 lmmp_powmod_（对标 GMP mpz/powm.c 的 CRT 结构）：m 奇直接
-    分派上述梯子；m 偶按 2-adic 赋值分解 m = 2^k * m_odd，奇部走 REDC 梯子
-    （b 先除法归约到 < m_odd），2^k 部走 powlo 梯子，最后以
-    r = r1 + m_odd * t（t = (r2-r1)*m_odd^(-1) mod 2^k）合成。
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -225,7 +219,7 @@ static void powmod_fold_hi_(
 }
 
 /**
- * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零（对标 GMP mpn_redc_1）
+ * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零
  * @param dst 结果指针（n 个limb），接收 ([up,2n] + q*m)/B^n 的低 n limb
  * @param up 输入兼工作区（2n 个limb，出口被破坏）
  * @param m 模数（n 个limb）
@@ -683,7 +677,7 @@ void lmmp_powmod_odd_(
         lmmp_inc(rc.ninv);
     }
 
-    /* 进蒙域：x_m = b*B^n mod m，一次 2n/n 除法（GMP redcify 模式）。
+    /* 进蒙域：x_m = b*B^n mod m，一次 2n/n 
        低位补 n 个零 limb 实现 <<B^n，比 RR=B^2n mod m 加乘加归约省约两个 M(n) */
     lmmp_zero(prod, n);
     lmmp_copy(prod + n, bp, n);
@@ -762,7 +756,7 @@ done:
 }
 
 /*
-    任意模数模幂：m 偶时以 2-adic 分解 + CRT 合成（对标 GMP mpz/powm.c）。
+    任意模数模幂：m 偶时以 2-adic 分解 + CRT 合成
 
     分解 m = 2^k * m_odd（gcd(2^k, m_odd) = 1），中国剩余定理给出唯一解：
 

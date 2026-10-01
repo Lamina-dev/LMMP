@@ -370,7 +370,7 @@ LMMP_API ulong lmmp_powmod_ulong_odd_(ulong base, ulong exp, ulong mod);
  * @param n 底数的 limb 长度
  * @param ep 指数指针
  * @param en 指数的 limb 长度
- * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[n-1]>0, sep(dst,[bp|ep])
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[en-1]>0, sep(dst,[bp|ep])
  */
 LMMP_API void lmmp_powlo_(mp_ptr dst, mp_srcptr bp, mp_size_t n, mp_srcptr ep, mp_size_t en);
 
@@ -409,8 +409,12 @@ LMMP_API void lmmp_powlo_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en
  * @warning dst!=NULL, tp!=NULL, ninv!=NULL, mp!=NULL, n>0, mp[0]%2==1, mp[n-1]>0,
  *          [ninv,n] == -[mp,n]^(-1) mod B^n, sep(dst,[tp|ninv|mp]), [tp,2n] < B^n*[mp,n]
  * @return 结果最高位（第 n+1 limb 的值，[0|1]），返回值:[dst,n] 即归约结果，且结果 < 2*[mp,n]
- * @note 典型用法：dst = a*b mod m（a,b < m）：先计算全积 [tp,2n] = a*b 再调用本函数，
- *       随后若结果 >= m 则再减一次 m 即得 < m 的规范剩余
+ * @note 典型用法（蒙域乘法）：a_m = a*B^n mod m 与 b_m = b*B^n mod m（均 < m）的
+ *       全积 [tp,2n] = a_m*b_m 经本函数得 (a*b)*B^n mod m（仍在蒙域），随后若
+ *       结果 >= m 再减一次 m 即得 < m 的规范蒙域剩余。
+ *       注意：对普通整数 a、b 的全积直接调用得到的是 a*b*B^(-n) mod m（带
+ *       Montgomery 缩放因子，条件减法不能将其消去），并非 a*b mod m；如需单次
+ *       REDC 完成普通模乘，一操作数取普通域、另一取蒙域：REDC(a*b_m) = a*b mod m
  */
 LMMP_API mp_limb_t lmmp_redc_(mp_ptr dst, mp_srcptr tp, mp_srcptr ninv, mp_srcptr mp, mp_size_t n);
 
@@ -534,8 +538,9 @@ LMMP_API int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp);
  * @param nn 待测数的 limb 长度
  * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
  * @note Selfridge 方法 A：P=1，Q=(1-D)/4，D 取 5,-7,9,-11,... 中首个
- *       (D|n)=-1 者；V-only 阶梯判据（gcd(D,n)=1 下与 U/V 强 Lucas 判据
- *       等价）。判定合数的情形含 gcd(|D|,n)>1 与 n 为完全平方数。
+ *       (D|n)=-1 者；V-only 阶梯实现，判据与标准 U/V 强 Lucas 测试精确一致
+ *       （U_d=0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 以 2V_{d+1}=V_d 检出）。
+ *       判定合数的情形含 gcd(|D|,n)>1 与 n 为完全平方数。
  *       单轮成本约为单轮 MR 的 1.6~2 倍
  * @return 1 = 通过强 Lucas 测试；0 = 合数
  */

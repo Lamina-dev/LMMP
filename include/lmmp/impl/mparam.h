@@ -50,26 +50,7 @@
 #define SQRT_INVNEWTON_K_THRESHOLD LMMP_DEFAULT_SQRT_INVNEWTON_K_THRESHOLD
 #endif
 
-/*
-    立方根牛顿路径的切换阈值（nf >= K*na 且 nf >= NF_MIN）。
-
-    lmmp_cbrt_newton_ 与 lmmp_cbrt_divide_ 的等耗时边界为水平段（na <= 12，
-    交叉点 ~1845，newton 固定开销主导：cbrt 重建需两次全乘 Q=a2*ic^2 且层
-    修正含 div_1 除 3，均非 sqrt 的移位可比）拼接射线段（na ∈ [48,384]，
-    交叉点 nf* ≈ 斜率*na，两算法的 na 增量成本比；实测交叉 r ∈ [38,44]，
-    badness plateau [43,45]）。故切换条件取 AND 复合：射线项 K*na 覆盖
-    中段，绝对下限 NF_MIN 封住水平段之下 newton 恒慢的小 nf 区（na<=12 时
-    K*na 远小于真实交叉点，纯射线会在小 nf 区误选 newton，实测慢 15%~80%）。
-
-    newton 路径改为 snorm 纯移位归一化（收敛仅需顶 limb >= B/8，无 k^3
-    乘子搜索/乘除还原，且 a2 平均更短）后，两阈值由调优程序复测整体下移
-    （Apple M 系列 arm64，Release，中位数计时）：
-        K     52  -> 45（badness 0.200 -> 0.060）
-        NF_MIN 2000 -> 1845
-    阈值与架构强相关，更新请运行：lmmp_tune --only cbrt_invnewton [--write]
-    （NF_MIN 段以小 na 样本隔离调优，K 段以射线区 na 混合样本隔离调优，
-    互不干扰，见 tune/lmmp/src/tune_cbrt_invnewton.c）。
-*/
+// 立方根计算中牛顿路径的切换阈值（nf >= K*na 且 nf >= NF_MIN）。
 #define LMMP_DEFAULT_CBRT_INVNEWTON_K_THRESHOLD 45
 #ifdef LMMP_TUNE
 #define CBRT_INVNEWTON_K_THRESHOLD lmmp_tune_CBRT_INVNEWTON_K_THRESHOLD
@@ -333,10 +314,7 @@
 #define MULHI_MERSENNE_THRESHOLD LMMP_DEFAULT_MULHI_MERSENNE_THRESHOLD
 #endif
 
-// REDC 归约的 basecase 阈值：低于此规模用 n 次 addmul_1 的链式归约（Hensel
-// 逐 limb 消零，成本约一次 basecase 乘法，仅需单 limb 逆元），否则用
-// mullo(q)+高半积路径。2026-09-30 Apple M 系列 arm64 实测（Release，中位数
-// 计时；GMP 同角色阈值 REDC_1_TO_REDC_N 在 arm64 取 43，量级吻合）
+// REDC 归约的 basecase 阈值
 #define LMMP_DEFAULT_REDC_BASECASE_THRESHOLD 41
 #ifdef LMMP_TUNE
 #define REDC_BASECASE_THRESHOLD lmmp_tune_REDC_BASECASE_THRESHOLD
@@ -345,9 +323,7 @@
 #endif
 
 // REDC 归约中 q*m 高半积改用梅森折叠提取的阈值（与 MULHI_MERSENNE_THRESHOLD
-// 同构的低位已知折叠，但此处已知低位为 -t mod B^n，属 redc 专用路径，独立调优）。
-// 2026-09-30 Apple M 系列 arm64 实测（Release，中位数计时，plateau [292,309]），
-// 更新请运行：lmmp_tune --only redc_mersenne [--write]
+// 同构的低位已知折叠，但此处已知低位为 -t mod B^n，属 redc 专用路径，独立调优）
 #define LMMP_DEFAULT_REDC_MERSENNE_THRESHOLD 309
 #ifdef LMMP_TUNE
 #define REDC_MERSENNE_THRESHOLD lmmp_tune_REDC_MERSENNE_THRESHOLD
