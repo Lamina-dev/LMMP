@@ -20,6 +20,7 @@
 
 #include <cstring>
 #include <vector>
+#include <climits>
 
 using namespace lmmp_test_utils;
 
