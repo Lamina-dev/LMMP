@@ -156,7 +156,7 @@ static inline void lmmp_mulhi_n_(
 }
 #endif // 0
 
-void lmmp_divexact_unbalanced_(
+void lmmp_divexact_unbalance_(
     mp_ptr              dst,
     mp_srcptr            np,
     mp_size_t            nn,
@@ -344,7 +344,7 @@ void lmmp_divexact_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr restrict d
             lmmp_divexact_divide_(dst, np, nn, dp, dn);
             TEMP_FREE;
         } else {
-            lmmp_divexact_unbalanced_(dst, np, nn, dp, dn, NULL);
+            lmmp_divexact_unbalance_(dst, np, nn, dp, dn, NULL);
         }
     }
 }

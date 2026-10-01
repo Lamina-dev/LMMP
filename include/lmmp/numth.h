@@ -99,7 +99,7 @@ LMMP_API void lmmp_binvert_n_dc_(mp_ptr dst, mp_srcptr numa, mp_size_t n, mp_ptr
  * @param n 结果的 limb 长度
  * @warning a%2==1, n>1, dst!=NULL
  */
-LMMP_API void lmmp_binvert_unbalanced_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
+LMMP_API void lmmp_binvert_unbalance_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
 
 /**
  * @brief 计算 [numa,2] 在 B^n 下的逆元
@@ -108,7 +108,7 @@ LMMP_API void lmmp_binvert_unbalanced_1_(mp_ptr dst, mp_limb_t a, mp_size_t n);
  * @param n 结果的 limb 长度
  * @warning numa[0]%2==1, n>2, dst!=NULL, numa!=NULL, sep(dst,numa)
  */
-LMMP_API void lmmp_binvert_unbalanced_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
+LMMP_API void lmmp_binvert_unbalance_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 
 /**
  * @brief 计算 [numa,na] 在 B^n 下的逆元
@@ -119,7 +119,7 @@ LMMP_API void lmmp_binvert_unbalanced_2_(mp_ptr dst, mp_srcptr numa, mp_size_t n
  * @param tp 临时工作区指针（长度为 (9*na+5)/2 个limb）
  * @warning numa[0]%2==1, n>na, dst!=NULL, numa!=NULL, tp!=NULL, sep(dst,numa,tp)
  */
-LMMP_API void lmmp_binvert_unbalanced_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t n, mp_ptr tp);
+LMMP_API void lmmp_binvert_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t n, mp_ptr tp);
 
 /**
  * @brief 计算 [numa,na] 在 B^n 下的逆元
@@ -165,7 +165,7 @@ LMMP_API void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr
  * @warning dp[0]%2==1, nn>=dn>0, dst!=NULL, np!=NULL, dp!=NULL, eqsep(dst,np), sep(dp,dinv,[dst|np])
  * @note 若dst==np，只会覆写 [dst,nn-dn+1] 区域
  */
-LMMP_API void lmmp_divexact_unbalanced_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_ptr dinv);
+LMMP_API void lmmp_divexact_unbalance_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_ptr dinv);
 
 /**
  * @brief 精确除法（[dst,nn]=[np,nn]/[dp,dn]，且余数必须为0），朴素算法
@@ -364,6 +364,110 @@ LMMP_API uint lmmp_powmod_uint_odd_(uint base, ulong exp, uint mod);
 LMMP_API ulong lmmp_powmod_ulong_odd_(ulong base, ulong exp, ulong mod);
 
 /**
+ * @brief 计算 [bp,n]^[ep,en] mod B^n，并将结果写入 [dst,n]
+ * @param dst 结果指针（长度为 n 个limb）
+ * @param bp 底数指针
+ * @param n 底数的 limb 长度
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[en-1]>0, sep(dst,[bp|ep])
+ */
+LMMP_API void lmmp_powlo_(mp_ptr dst, mp_srcptr bp, mp_size_t n, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief 计算 [bp,1]^[ep,en] mod B，并将结果写入 [dst,1]（lmmp_powlo_ 的 1 limb 特化）
+ * @param dst 结果指针（长度为 1 个limb）
+ * @param bp 底数指针（长度为 1 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, sep(dst,[bp|ep])
+ * @note 指数为 1 时直接截断取 [bp,1]；单 limb 乘法 mod B 即自然回绕，
+ *       全程无归约开销
+ */
+LMMP_API void lmmp_powlo_1_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief 计算 [bp,2]^[ep,en] mod B^2，并将结果写入 [dst,2]（lmmp_powlo_ 的 2 limb 特化）
+ * @param dst 结果指针（长度为 2 个limb）
+ * @param bp 底数指针（长度为 2 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, sep(dst,[bp|ep])
+ * @note 指数为 1 时直接截断取 [bp,2]；乘法与平方均走 longlong.h 的
+ *       128 位低位积内联（_umul128to128_），全程无归约开销
+ */
+LMMP_API void lmmp_powlo_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en);
+
+/**
+ * @brief Montgomery 归约（REDC）：计算 ([tp,2n] + q*[mp,n]) / B^n，其中
+ *        q = [tp,n] * [ninv,n] mod B^n，即结果为 [tp,2n] * B^(-n) % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb）
+ * @param tp 被归约数指针（长度为 2n 个limb）
+ * @param ninv -[mp,n]^(-1) mod B^n（长度为 n 个limb）
+ * @param mp 模数指针（长度为 n 个limb）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, tp!=NULL, ninv!=NULL, mp!=NULL, n>0, mp[0]%2==1, mp[n-1]>0,
+ *          [ninv,n] == -[mp,n]^(-1) mod B^n, sep(dst,[tp|ninv|mp]), [tp,2n] < B^n*[mp,n]
+ * @return 结果最高位（第 n+1 limb 的值，[0|1]），返回值:[dst,n] 即归约结果，且结果 < 2*[mp,n]
+ * @note 典型用法（蒙域乘法）：a_m = a*B^n mod m 与 b_m = b*B^n mod m（均 < m）的
+ *       全积 [tp,2n] = a_m*b_m 经本函数得 (a*b)*B^n mod m（仍在蒙域），随后若
+ *       结果 >= m 再减一次 m 即得 < m 的规范蒙域剩余。
+ *       注意：对普通整数 a、b 的全积直接调用得到的是 a*b*B^(-n) mod m（带
+ *       Montgomery 缩放因子，条件减法不能将其消去），并非 a*b mod m；如需单次
+ *       REDC 完成普通模乘，一操作数取普通域、另一取蒙域：REDC(a*b_m) = a*b mod m
+ */
+LMMP_API mp_limb_t lmmp_redc_(mp_ptr dst, mp_srcptr tp, mp_srcptr ninv, mp_srcptr mp, mp_size_t n);
+
+/**
+ * @brief 计算奇模数模幂 [dst,1] = [bp,1]^[ep,en] % mod
+ * @param dst 结果指针（长度为 1 个limb）
+ * @param bp 底数指针（长度为 1 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mod 模数
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, ep[en-1]>0, mod%2==1, mod>1, [bp,1]<mod
+ */
+LMMP_API void lmmp_powmod_1_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_limb_t mod);
+
+/**
+ * @brief 计算奇模数模幂 [dst,2] = [bp,2]^[ep,en] % [mod,2]
+ * @param dst 结果指针（长度为 2 个limb）
+ * @param bp 底数指针（长度为 2 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mod 模数指针（长度为 2 个limb）
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mod!=NULL, en>0, ep[en-1]>0, mod[0]%2==1,
+ *          mod[1]!=0, [mod,2]>1, [bp,2]<[mod,2]
+ */
+LMMP_API void lmmp_powmod_2_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mod);
+
+/**
+ * @brief 计算奇模数模幂 [dst,n] = [bp,n]^[ep,en] % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb，规范剩余 < [mp,n]，高位可能为 0）
+ * @param bp 底数指针（长度为 n 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mp 模数指针（长度为 n 个limb）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mp!=NULL, en>0, ep[en-1]>0, n>0,
+ *          mp[0]%2==1, mp[n-1]>0, [mp,n]>1, [bp,n]<[mp,n], sep(dst,[bp|ep|mp])
+ */
+LMMP_API void lmmp_powmod_odd_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mp, mp_size_t n);
+
+/**
+ * @brief 计算任意模数模幂 [dst,n] = [bp,n]^[ep,en] % [mp,n]
+ * @param dst 结果指针（长度为 n 个limb，规范剩余 < [mp,n]，高位可能为 0）
+ * @param bp 底数指针（长度为 n 个limb）
+ * @param ep 指数指针
+ * @param en 指数的 limb 长度
+ * @param mp 模数指针（长度为 n 个limb，奇偶皆可）
+ * @param n 模数的 limb 长度
+ * @warning dst!=NULL, bp!=NULL, ep!=NULL, mp!=NULL, en>0, ep[en-1]>0, n>0,
+ *          mp[n-1]>0, [mp,n]>1, [bp,n]<[mp,n], sep(dst,[bp|ep|mp])
+ */
+LMMP_API void lmmp_powmod_(mp_ptr dst, mp_srcptr bp, mp_srcptr ep, mp_size_t en, mp_srcptr mp, mp_size_t n);
+
+/**
  * @brief 大于n的下一个素数
  * @param n 起始点（不含）
  * @warning 如果 n 大于等于ulong可表示最大的质数，则返回ulong_max
@@ -416,6 +520,58 @@ LMMP_API bool lmmp_is_prime_notrial_(ulong n);
  * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（BPSW 型非确定性判据）
  */
 LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
+
+/**
+ * @brief 单轮 Rabin-Miller 强伪素数测试（大于 128 位）
+ * @param np 待测奇数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @param bp 基底指针（nn 个limb）
+ * @warning np!=NULL, bp!=NULL, nn>2, np[nn-1]>0, np[0]%2==1,
+ *          2 <= [bp,nn] <= [np,nn]-2
+ * @return 1 = 通过该基底的 Miller-Rabin 测试；0 = 合数
+ */
+LMMP_API int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp);
+
+/**
+ * @brief 强 Lucas-Selfridge 测试（大于 128 位）
+ * @param np 待测奇数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
+ * @note Selfridge 方法 A：P=1，Q=(1-D)/4，D 取 5,-7,9,-11,... 中首个
+ *       (D|n)=-1 者；V-only 阶梯实现，判据与标准 U/V 强 Lucas 测试精确一致
+ *       （U_d=0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 以 2V_{d+1}=V_d 检出）。
+ *       判定合数的情形含 gcd(|D|,n)>1 与 n 为完全平方数。
+ *       单轮成本约为单轮 MR 的 1.6~2 倍
+ * @return 1 = 通过强 Lucas 测试；0 = 合数
+ */
+LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
+
+/**
+ * @brief 大整数素性检验（强度分档，大于 128 位）
+ * @param np 待测数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @param strength 检测强度 [0,7]，各档构成（随机基底 MR 为"至多"轮数，
+ *        任一轮检出合数即提前终止）：
+ *        | 强度 | 基底2 MR| 随机基底 MR |  强 Lucas | 试除上界 |
+ *        | --- | ------- | ---------- | -------- | ------- |
+ *        |  0  |   √     |    4       |    -     | 100     |
+ *        |  1  |   √     |    5       |    -     | 300     |
+ *        |  2  |   √     |    6       |    -     | 1000    |
+ *        |  3  |   √     |    8       |    -     | 3000    |
+ *        |  4  |   √     |    0       |    √     | 1000    |
+ *        |  5  |   √     |    2       |    √     | 3000    |
+ *        |  6  |   √     |    4       |    √     | 5000    |
+ *        |  7  |   √     |    6       |    √     | 10000   |
+ * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
+ * @note 各档均以基底 2 特化 MR（lmmp_is_sprp_）起步，4 档及以上为 BPSW 型
+ *       判据（数学界目前无已知反例）。随机基底取自全局 RNG（lmmp_random_），
+         均匀分布。契约域 n > 2^128 超过一切已实用化的确定性 MR 基组界
+ *       （psi_13 约 3.3e24 < 2^82），故实际不会返回 1，语义保留与
+ *       lmmp_is_prime_2_ 一致。
+ * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
+ *         2 = 极大概率为素数
+ */
+LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
 
 /**
  * @brief 计算幂次方需要的limb缓冲区长度 [base,n] ^ exp
@@ -1110,17 +1266,6 @@ LMMP_API bool lmmp_perfsqr_filter_(mp_srcptr p, mp_size_t n);
  * @return 为完全平方数返回 true，否则返回 false
  */
 LMMP_API bool lmmp_perfsqr_(mp_srcptr p, mp_size_t n);
-
-/**
- * @brief 计算 [bp,n]^[ep,en] mod B^n，并将结果写入 [dst,n]
- * @param dst 结果指针（长度为 n 个limb）
- * @param bp 底数指针
- * @param n 底数的 limb 长度
- * @param ep 指数指针
- * @param en 指数的 limb 长度
- * @warning dst!=NULL, bp!=NULL, ep!=NULL, en>0, n>0, ep[n-1]>0, sep(dst,[bp|ep])
- */
-LMMP_API void lmmp_powlo_(mp_ptr dst, mp_srcptr bp, mp_size_t n, mp_srcptr ep, mp_size_t en);
 
 #ifdef __cplusplus
 }

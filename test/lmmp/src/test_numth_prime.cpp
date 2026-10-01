@@ -564,3 +564,371 @@ TEST_CASE("numth/prime", mulmod_powmod) {
         TEST_CHECK_EQ(r, expect);
     }
 }
+
+/*
+    ============ >128 位素性检验：lmmp_is_sprp_ / lmmp_is_strong_lucas_ /
+    lmmp_is_prime_n_ ============
+
+    参考实现全部独立于库代码：
+    - ref_sprp_big：BigInt 教科书 MR（Knuth-D 取模梯子）；
+    - ref_strong_lucas_big：标准 (U,V,Q) 单状态阶梯（Crandall-Pomerance
+      公式，含 /2 即乘 inv2 的 mod-n 处理），与库内 V-only 判据互为独立
+      实现，等价性在 gcd(D,n)=1 下成立；
+    - ref_jacobi_si：教科书二进制 Jacobi。
+    参考分类取前 12 个素数基底 MR（< psi_12 ~ 2^78 确定性，更大时误判率
+    <= 4^-12，本文件调用规模下总误判期望可忽略）。
+*/
+
+namespace {
+
+size_t bigint_bits_n(const BigInt& x) {
+    u64 top = x.d.back();
+    return (x.d.size() - 1) * 64 + (64 - __builtin_clzll(top == 0 ? 1 : top));
+}
+
+BigInt mod_school_n(const BigInt& x, const BigInt& m) {
+    BigInt q, r;
+    q = BigInt::divmod_school(x, m, r);
+    (void)q;
+    return r;
+}
+
+BigInt powmod_school_n(const BigInt& b, const BigInt& e, const BigInt& m) {
+    BigInt r(1), base = mod_school_n(b, m);
+    size_t ebits = bigint_bits_n(e);
+    for (size_t i = 0; i < ebits; ++i) {
+        if ((e.d[i / 64] >> (i % 64)) & 1)
+            r = mod_school_n(BigInt::mul_school(r, base), m);
+        if (i + 1 < ebits)
+            base = mod_school_n(BigInt::sqr_school(base), m);
+    }
+    return r;
+}
+
+/* mod-n 加/减（操作数与结果均为 < n 的规范剩余；n 奇）*/
+BigInt addmod_big(const BigInt& a, const BigInt& b, const BigInt& n) {
+    BigInt s = BigInt::add_abs(a, b);
+    if (BigInt::cmp(s, n) >= 0) s = BigInt::sub_abs(s, n);
+    return s;
+}
+
+BigInt submod_big(const BigInt& a, const BigInt& b, const BigInt& n) {
+    return BigInt::cmp(a, b) >= 0 ? BigInt::sub_abs(a, b)
+                                  : BigInt::sub_abs(n, BigInt::sub_abs(b, a));
+}
+
+/* (b|A)：A 奇正，b 非负（教科书二进制算法）*/
+int ref_jacobi_small(u64 b, u64 A) {
+    int sign = 1;
+    if (b == 0) return 0;
+    for (;;) {
+        int tz = __builtin_ctzll(b);
+        b >>= tz;
+        if ((tz & 1) && ((A & 7) == 3 || (A & 7) == 5)) sign = -sign;
+        if (b == 1) return sign;
+        if (b < A) {
+            u64 s = b;
+            b = A;
+            A = s;
+            if ((b & 3) == 3 && (A & 3) == 3) sign = -sign;
+        }
+        b -= A;
+        if (b == 0) return 0;
+    }
+}
+
+/* (D|n)：D 为小奇（可负），n 为大奇数，经二次互反律折叠 */
+int ref_jacobi_si(long D, const BigInt& n) {
+    u64 A = D < 0 ? (u64)(-D) : (u64)D;
+    u64 b = BigInt::mod_small(n, A);
+    int sign = 1;
+    if ((A & 3) == 3 && (n.d[0] & 3) == 3) sign = -sign;
+    sign *= ref_jacobi_small(b, A);
+    if (sign == 0) return 0;
+    if (D < 0 && (n.d[0] & 3) == 3) sign = -sign;
+    return sign;
+}
+
+bool ref_sprp_big(const BigInt& n, const BigInt& b) {
+    BigInt nm1 = BigInt::sub_small(n, 1);
+    size_t t = 0;
+    while (((nm1.d[t / 64] >> (t % 64)) & 1) == 0) ++t;
+    BigInt d = BigInt::shr_bits(nm1, t);
+    BigInt x = powmod_school_n(b, d, n);
+    BigInt m1 = BigInt::sub_small(n, 1);
+    if (x == BigInt(1) || x == m1) return true;
+    for (size_t r = 1; r < t; ++r) {
+        x = mod_school_n(BigInt::sqr_school(x), n);
+        if (x == m1) return true;
+    }
+    return false;
+}
+
+bool ref_is_prime_big(const BigInt& n) {
+    if (n.d.size() == 1) return ref_is_prime64(n.d[0]);
+    for (u64 p : {2ull, 3ull, 5ull, 7ull, 11ull, 13ull, 17ull, 19ull, 23ull, 29ull, 31ull, 37ull}) {
+        if (n == BigInt(p)) return true;
+        if (BigInt::mod_small(n, p) == 0) return false;
+    }
+    for (u64 a : {2ull, 3ull, 5ull, 7ull, 11ull, 13ull, 17ull, 19ull, 23ull, 29ull, 31ull, 37ull}) {
+        if (!ref_sprp_big(n, BigInt(a))) return false;
+    }
+    return true;
+}
+
+/*
+    强 Lucas 参考（Selfridge 方法 A，标准 (U,V,Q) 阶梯）：
+      自 (U,V,Qk)=(U_k,V_k,Q^k)（k=1 起，P=1）：
+        倍加 k->2k:   U'=U*V, V'=V^2-2Qk, Qk'=Qk^2
+        加一 2k->2k+1: U'=(U'+V')/2, V'=(V'+D*U')/2, Qk'=Qk'*Q （/2 即乘 inv2）
+      通过: U_d=0 或 V_{d*2^r}=0（0<=r<s），d*2^s=n+1
+*/
+bool ref_strong_lucas_big(const BigInt& n) {
+    long D = 5;
+    for (;;) {
+        int j = ref_jacobi_si(D, n);
+        if (j == 0) return false;
+        if (j == -1) break;
+        D = D > 0 ? -(D + 2) : -(D - 2);
+    }
+    long Q = (1 - D) / 4;
+    u64 Da = D < 0 ? (u64)(-D) : (u64)D;
+
+    BigInt np1 = BigInt::add_small(n, 1);
+    size_t s = 0;
+    while (((np1.d[s / 64] >> (s % 64)) & 1) == 0) ++s;
+    BigInt d = BigInt::shr_bits(np1, s);
+
+    BigInt inv2 = BigInt::shr_bits(BigInt::add_small(n, 1), 1); /* (n+1)/2 */
+    auto mulmod = [&](const BigInt& a, const BigInt& b) { return mod_school_n(BigInt::mul_school(a, b), n); };
+    BigInt U(1), V(1); /* U_1 = 1，V_1 = P = 1 */
+    BigInt Qres(Q < 0 ? BigInt::sub_abs(n, BigInt((u64)(-Q))) : BigInt((u64)Q)); /* Q 的 mod-n 剩余 */
+    BigInt Qk = Qres; /* Q^1 */
+
+    size_t db = bigint_bits_n(d);
+    for (size_t i = db - 1; i-- > 0;) {
+        BigInt u2 = mulmod(U, V);
+        BigInt v2 = submod_big(mulmod(V, V), addmod_big(Qk, Qk, n), n);
+        BigInt q2 = mulmod(Qk, Qk);
+        if ((d.d[i / 64] >> (i % 64)) & 1) {
+            BigInt t = mulmod(addmod_big(u2, v2, n), inv2);   /* U_{2k+1} */
+            BigInt w = mulmod(u2, BigInt(Da));                 /* |D|*U_{2k} */
+            BigInt v3 = D < 0 ? addmod_big(v2, w, n) : submod_big(v2, w, n);
+            v3 = mulmod(v3, inv2);                             /* V_{2k+1} */
+            u2 = t;
+            v2 = v3;
+            q2 = mulmod(q2, Qres); /* Q^{2k+1} */
+        }
+        U = u2;
+        V = v2;
+        Qk = q2;
+    }
+    /* 判据 */
+    if (U.is_zero()) return true;
+    for (size_t r = 0; r < s; ++r) {
+        if (r > 0) {
+            V = submod_big(mulmod(V, V), addmod_big(Qk, Qk, n), n);
+            Qk = mulmod(Qk, Qk);
+        }
+        if (V.is_zero()) return true;
+    }
+    return false;
+}
+
+/* 随机大奇数（ limbs 位数，顶两位置 10 保持位数与加 2 余量）*/
+BigInt rand_big_odd(u64& seed, size_t limbs) {
+    BigInt r;
+    r.d.assign(limbs, 0);
+    for (size_t i = 0; i < limbs; ++i) r.d[i] = xorshift64(seed);
+    r.d[limbs - 1] = (r.d[limbs - 1] >> 2) | ((u64)1 << 62);
+    r.d[0] |= 1;
+    r.trim();
+    return r;
+}
+
+BigInt next_prime_big(u64& seed, size_t limbs) {
+    BigInt n = rand_big_odd(seed, limbs);
+    for (;;) {
+        if (ref_is_prime_big(n)) return n;
+        n = BigInt::add_small(n, 2);
+    }
+}
+
+mp_ptr limbs_of(const BigInt& x) {
+    mp_ptr p = (mp_ptr)lmmp_alloc(x.d.size() * sizeof(mp_limb_t));
+    to_limbs(x, p, (mp_size_t)x.d.size());
+    return p;
+}
+
+}  // namespace
+
+/* 单轮 MR 精确对拍：基底 2（特化梯子）、小素数基底、随机大基底 */
+TEST_CASE("numth/prime", is_sprp_n) {
+    u64 seed = 0x8f3a21c94d6e5b70ull;
+    for (size_t limbs : {3, 4, 5, 7}) {
+        for (int k = 0; k < 10; ++k) {
+            BigInt n = rand_big_odd(seed, limbs);
+            mp_ptr np = limbs_of(n);
+            /* 基底 2：特化加倍梯子 */
+            {
+                mp_ptr bp = (mp_ptr)lmmp_alloc(limbs * sizeof(mp_limb_t));
+                std::memset(bp, 0, limbs * sizeof(mp_limb_t));
+                bp[0] = 2;
+                TEST_CHECK_MSG(lmmp_is_sprp_(np, (mp_size_t)limbs, bp) == ref_sprp_big(n, BigInt(2)),
+                               "sprp base2");
+                lmmp_free(bp);
+            }
+            /* 小素数与随机大基底 */
+            for (int bi = 0; bi < 3; ++bi) {
+                BigInt b;
+                if (bi < 2) {
+                    static const u64 bs[] = {3, 325};
+                    b = BigInt(bs[bi]);
+                } else {
+                    b = rand_big_odd(seed, limbs);
+                    b = mod_school_n(b, n);
+                }
+                if (BigInt::cmp(b, BigInt(2)) < 0) b = BigInt(3);
+                if (BigInt::cmp(b, BigInt::sub_small(n, 2)) > 0) b = BigInt(3);
+                mp_ptr bp = limbs_of(b);
+                TEST_CHECK_MSG(lmmp_is_sprp_(np, (mp_size_t)limbs, bp) == ref_sprp_big(n, b), "sprp generic");
+                lmmp_free(bp);
+            }
+            lmmp_free(np);
+        }
+    }
+}
+
+/* 强 Lucas 精确对拍（独立 U/V 阶梯参考）+ 平方数与素数专项 */
+TEST_CASE("numth/prime", is_strong_lucas_n) {
+    u64 seed = 0x2f1e3d4c5b6a7988ull;
+
+    /* 素数必过（含各种 D 命中深度）*/
+    for (size_t limbs : {3, 4, 5}) {
+        for (int k = 0; k < 3; ++k) {
+            BigInt p = next_prime_big(seed, limbs);
+            mp_ptr pp = limbs_of(p);
+            TEST_CHECK_MSG(lmmp_is_strong_lucas_(pp, (mp_size_t)p.d.size()) == 1, "lucas prime pass");
+            lmmp_free(pp);
+        }
+    }
+    /* 完全平方数必拒（D 搜索的延迟平方检测路径）*/
+    for (int k = 0; k < 6; ++k) {
+        BigInt p = next_prime_big(seed, 2);
+        BigInt sq = BigInt::mul_school(p, p);
+        if (sq.d.size() < 3) sq = BigInt::mul_school(sq, BigInt(3));
+        mp_ptr sp = limbs_of(sq);
+        TEST_CHECK_MSG(lmmp_is_strong_lucas_(sp, (mp_size_t)sq.d.size()) == 0, "lucas square reject");
+        lmmp_free(sp);
+    }
+    /* 非平方的含平方因子合数（p^2*q / p^3 型）：perfsqr 拦不住、直达
+       阶梯判据，正是 U_d=0 与 U_d^2=0 分歧的形态，须与独立参考精确一致 */
+    for (int k = 0; k < 8; ++k) {
+        BigInt p = next_prime_big(seed, 2);
+        BigInt q = next_prime_big(seed, 2);
+        BigInt n = k % 2 ? BigInt::mul_school(BigInt::mul_school(p, p), q)
+                         : BigInt::mul_school(BigInt::mul_school(p, BigInt(p)), BigInt(p));
+        if (n.d.size() < 3) n = BigInt::mul_school(n, BigInt(0x1000000007ull));
+        if (n.d.size() < 3) continue;
+        if (BigInt::mod_small(n, 3) == 0) n = BigInt::add_small(n, 2); /* 3|n 时 D=9 提前退出的平凡路径 */
+        mp_ptr np = limbs_of(n);
+        TEST_CHECK_MSG(lmmp_is_strong_lucas_(np, (mp_size_t)n.d.size()) == ref_strong_lucas_big(n),
+                       "lucas nonsquarefree exact");
+        lmmp_free(np);
+    }
+    /* 随机 + 结构输入与独立参考精确对拍 */
+    for (size_t limbs : {3, 4, 6}) {
+        for (int k = 0; k < 12; ++k) {
+            BigInt n;
+            if (k % 4 == 3) {
+                /* 2^m±1 型（长 t / d=1 的阶梯边界）*/
+                n = BigInt::shl_bits(BigInt(1), limbs * 64 - 1 - (k % 11));
+                n = k % 2 ? BigInt::add_small(n, 1) : BigInt::sub_small(n, 1);
+                if ((n.d[0] & 1) == 0 || n.d.size() < 3) n = BigInt::add_small(n, 1);
+                if (n.d.size() < 3) continue;
+            } else {
+                n = rand_big_odd(seed, limbs);
+            }
+            if (BigInt::mod_small(n, 3) == 0) n = BigInt::add_small(n, 2); /* 避开平凡因子 */
+            mp_ptr np = limbs_of(n);
+            int expect = ref_strong_lucas_big(n);
+            TEST_CHECK_MSG(lmmp_is_strong_lucas_(np, (mp_size_t)n.d.size()) == expect, "lucas exact");
+            lmmp_free(np);
+        }
+    }
+}
+
+/* is_prime_n_：结构向量 + 随机分层，全档位与参考分类对拍 */
+TEST_CASE("numth/prime", is_prime_n) {
+    u64 seed = 0x77aa55eecd119922ull;
+
+    /* 1. 结构向量 */
+    {
+        std::vector<BigInt> nums;
+        nums.push_back(BigInt::add_small(BigInt::shl_bits(BigInt(1), 128), 1)); /* 2^128+1 */
+        nums.push_back(BigInt::add_small(BigInt::shl_bits(BigInt(1), 129), 1));
+        nums.push_back(BigInt::add_small(BigInt::shl_bits(BigInt(1), 192), 1)); /* 2^192+1 代数分解 */
+        nums.push_back(BigInt::add_small(BigInt::shl_bits(BigInt(1), 256), 1)); /* F5 */
+        nums.push_back(BigInt::sub_small(BigInt::shl_bits(BigInt(1), 193), 1)); /* 2^193-1 */
+        nums.push_back(BigInt::sub_small(BigInt::shl_bits(BigInt(1), 192), 1)); /* 全 1 顶 */
+        for (BigInt n : nums) {
+            int expect = ref_is_prime_big(n) ? 2 : 0;
+            mp_ptr np = limbs_of(n);
+            for (int s = 0; s <= 7; ++s)
+                TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)n.d.size(), s) == expect, "structural");
+            lmmp_free(np);
+        }
+        /* p²、p·q、97·p、p（各强度）*/
+        BigInt p3 = next_prime_big(seed, 3);
+        BigInt p2 = next_prime_big(seed, 2);
+        std::vector<BigInt> more;
+        more.push_back(BigInt::mul_school(p2, p2));        /* 平方 */
+        more.push_back(BigInt::mul_school(p3, p2));        /* 半素数（无小因子）*/
+        more.push_back(BigInt::mul_school(p3, BigInt(97))); /* 小因子 97 */
+        more.push_back(p3);                                 /* 素数 */
+        for (BigInt n : more) {
+            if (n.d.size() < 3) continue;
+            int expect = ref_is_prime_big(n) ? 2 : 0;
+            mp_ptr np = limbs_of(n);
+            for (int s = 0; s <= 7; ++s)
+                TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)n.d.size(), s) == expect, "structured");
+            lmmp_free(np);
+        }
+    }
+
+    /* 2. 偶数与试除命中 */
+    {
+        BigInt p3 = next_prime_big(seed, 3);
+        BigInt even = BigInt::add_small(p3, 1);
+        BigInt by3 = BigInt::mul_school(p3, BigInt(3));
+        BigInt by97 = BigInt::mul_school(p3, BigInt(9973));
+        for (BigInt* n : {&even, &by3, &by97}) {
+            mp_ptr np = limbs_of(*n);
+            for (int s = 0; s <= 7; ++s)
+                TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)n->d.size(), s) == 0, "quick reject");
+            lmmp_free(np);
+        }
+    }
+
+    /* 3. 随机分层：小尺寸全档位，大尺寸抽样档位 */
+    for (size_t limbs : {3, 4, 5, 6}) {
+        for (int k = 0; k < 8; ++k) {
+            BigInt n = rand_big_odd(seed, limbs);
+            int expect = ref_is_prime_big(n) ? 2 : 0;
+            mp_ptr np = limbs_of(n);
+            for (int s = 0; s <= 7; ++s)
+                TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)limbs, s) == expect, "random tiers");
+            lmmp_free(np);
+        }
+    }
+    for (size_t limbs : {10, 20}) {
+        for (int k = 0; k < 2; ++k) {
+            BigInt n = rand_big_odd(seed, limbs);
+            int expect = ref_is_prime_big(n) ? 2 : 0;
+            mp_ptr np = limbs_of(n);
+            for (int s : {0, 3, 4, 7})
+                TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)limbs, s) == expect, "random large");
+            lmmp_free(np);
+        }
+    }
+}

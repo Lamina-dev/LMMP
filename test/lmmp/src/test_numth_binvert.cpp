@@ -148,28 +148,28 @@ TEST_CASE("numth/binvert", bninv_power2_top_limb) {
 TEST_CASE("numth/binvert", binvert_unbalanced_variants) {
     u64 seed = 0xa1b2c3d4e5f60718ull;
 
-    // unbalanced_1：单 limb 底数
+    // unbalance_1：单 limb 底数
     for (mp_size_t n : {2, 3, 5, 10, 30, 80}) {
         u64 a = xorshift64(seed) | 1;
         mp_ptr inv = alloc_limbs(n);
-        lmmp_binvert_unbalanced_1_(inv, a, n);
+        lmmp_binvert_unbalance_1_(inv, a, n);
         verify_inverse(BigInt(a), inv, n);
         lmmp_free(inv);
     }
 
-    // unbalanced_2：双 limb 底数
+    // unbalance_2：双 limb 底数
     for (mp_size_t n : {3, 4, 10, 30, 80}) {
         mp_ptr a = alloc_limbs(2);
         mp_ptr inv = alloc_limbs(n);
         random_limbs(a, 2, seed);
         a[0] |= 1;
         BigInt ba(a, 2);
-        lmmp_binvert_unbalanced_2_(inv, a, n);
+        lmmp_binvert_unbalance_2_(inv, a, n);
         verify_inverse(ba, inv, n);
         lmmp_free(a); lmmp_free(inv);
     }
 
-    // unbalanced 和通用入口
+    // unbalance 和通用入口
     for (mp_size_t n : {3, 5, 10, 30, 80}) {
         mp_size_t na = (n + 1) / 2;
         if (na < 1) na = 1;
@@ -180,7 +180,7 @@ TEST_CASE("numth/binvert", binvert_unbalanced_variants) {
         random_limbs(a, na, seed);
         a[0] |= 1;
         BigInt ba(a, na);
-        lmmp_binvert_unbalanced_(inv, a, na, n, tp);
+        lmmp_binvert_unbalance_(inv, a, na, n, tp);
         verify_inverse(ba, inv, n);
 
         mp_ptr inv2 = alloc_limbs(n);
