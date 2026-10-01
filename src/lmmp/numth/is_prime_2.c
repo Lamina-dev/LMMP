@@ -355,10 +355,12 @@ static inline int is_square_2(u128 n) {
       V_{2k+2} = V_{k+1}^2 - 2Q^{k+1}
     Q 链同步阶梯：(Q^k, Q^{k+1}) --bit0--> ((Q^k)^2, (Q^k)^2*Q)，
     --bit1--> (Q^k*Q^{k+1}, (Q^{k+1})^2)。
-    判据（gcd(D,n)=1 下与 U/V 强 Lucas 判据等价，U_d = 0 经恒等式
-    V_d^2 - D*U_d^2 = 4Q^d 转为 V_d^2 = 4Q^d）：
-      V_d = 0，或 V_d^2 = 4Q^d，或 V_{d*2^r} = 0（0 < r < s），
-    d*2^s = n+1。通过返回 1；判定合数（含 gcd(|D|,n)>1）返回 0
+    判据（与标准 U/V 强 Lucas 测试精确一致）：
+      U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1。
+    U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 转为 2V_{d+1} = V_d 检出
+    （阶梯末态 Vk1 = V_{d+1}；D 搜索保证 gcd(D,n)=1，等价精确成立，含平方
+    因子的 n 亦然；旧判据 V_d^2 = 4Q^d 仅在 n 无平方因子时等价，对
+    p^2*q 型 n 会多接受）。通过返回 1；判定合数（含 gcd(|D|,n)>1）返回 0
 */
 static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
     u128 one, Qm, Qk, Qk1, Vk, Vk1, d, u, w, r;
@@ -420,11 +422,11 @@ static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
         }
     }
 
-    /* 判据 */
+    /* 判据：V_d = 0（r=0），或 U_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
+       U_d = 0 经 D*U_d = 2V_{d+1} - V_d 检出（末态 Vk1 = V_{d+1}） */
     if (Vk == 0) return 1;
+    if (mont2_dbl(Vk1, n) == Vk) return 1;
     u = mont2_sqr(Vk, n, ninv);
-    r = mont2_dbl(mont2_dbl(Qk, n), n); /* 4Q^d */
-    if (u == r) return 1;
     for (s--; s > 0; s--) {
         r = mont2_dbl(Qk, n);
         Vk = mont2_sub(u, r, n); /* V_{2d} = V_d^2 - 2Q^d（复用 u = V_d^2） */

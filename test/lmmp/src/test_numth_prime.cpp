@@ -821,6 +821,21 @@ TEST_CASE("numth/prime", is_strong_lucas_n) {
         TEST_CHECK_MSG(lmmp_is_strong_lucas_(sp, (mp_size_t)sq.d.size()) == 0, "lucas square reject");
         lmmp_free(sp);
     }
+    /* 非平方的含平方因子合数（p^2*q / p^3 型）：perfsqr 拦不住、直达
+       阶梯判据，正是 U_d=0 与 U_d^2=0 分歧的形态，须与独立参考精确一致 */
+    for (int k = 0; k < 8; ++k) {
+        BigInt p = next_prime_big(seed, 2);
+        BigInt q = next_prime_big(seed, 2);
+        BigInt n = k % 2 ? BigInt::mul_school(BigInt::mul_school(p, p), q)
+                         : BigInt::mul_school(BigInt::mul_school(p, BigInt(p)), BigInt(p));
+        if (n.d.size() < 3) n = BigInt::mul_school(n, BigInt(0x1000000007ull));
+        if (n.d.size() < 3) continue;
+        if (BigInt::mod_small(n, 3) == 0) n = BigInt::add_small(n, 2); /* 3|n 时 D=9 提前退出的平凡路径 */
+        mp_ptr np = limbs_of(n);
+        TEST_CHECK_MSG(lmmp_is_strong_lucas_(np, (mp_size_t)n.d.size()) == ref_strong_lucas_big(n),
+                       "lucas nonsquarefree exact");
+        lmmp_free(np);
+    }
     /* 随机 + 结构输入与独立参考精确对拍 */
     for (size_t limbs : {3, 4, 6}) {
         for (int k = 0; k < 12; ++k) {

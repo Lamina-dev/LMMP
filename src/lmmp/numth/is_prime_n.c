@@ -22,10 +22,12 @@
     蒙域乘 2 即剩余加倍（2*R ≡ 倍加），逢 1 指数位以 O(n) 加法替代一次
     M(n) 蒙乘，单轮约省 1/4 ~ 1/3。强 Lucas（Selfridge 方法 A）：P = 1，
     Q = (1-D)/4，D 取 5,-7,9,-11,... 中首个 (D|n) = -1 者；V 阶梯判据与
-    128 位版（is_prime_2.c）一致：
-      V_d = 0，或 V_d^2 = 4Q^d，或 V_{d*2^r} = 0（0 < r < s），d*2^s = n+1
-    （gcd(D,n)=1 下与 U/V 强 Lucas 判据等价，U_d = 0 经恒等式
-    V_d^2 - D*U_d^2 = 4Q^d 转为 V_d^2 = 4Q^d）。
+    标准 U/V 强 Lucas 测试精确一致：
+      U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1
+    其中 U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 转为 2V_{d+1} = V_d
+    检出（D 搜索保证 gcd(D,n)=1，等价精确成立，含平方因子的 n 亦然；旧
+    判据 V_d^2 = 4Q^d 依 V_d^2 - D*U_d^2 = 4Q^d 仅在 n 无平方因子时等价，
+    对 p^2*q 型 n 会多接受标准测试拒绝的合数）。
 
     Montgomery 核与 powmod.c 同源（R = B^n，三层 REDC：basecase 链式
     Hensel 归约 / 全积取高半 / 梅森折叠，含 FFT 变换缓存），按项目惯例
@@ -45,8 +47,7 @@
         7  |    √     |         6          |    √     |  10000
     各档均先做基底 2 特化 MR；"至多 N 轮"指任一轮检出合数即提前终止，
     实际执行轮数不超过 N。试除上界随强度递增：高强度下幸存者代价更大
-    （更多轮次/含 Lucas），更深的初筛以近零代价换更高的提前淘汰率，
-    上界量级与 GMP probab_prime_p 的常用配置对齐。
+    （更多轮次/含 Lucas），更深的初筛以近零代价换更高的提前淘汰率。
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -124,7 +125,7 @@ static void ipn_fold_hi_(
 }
 
 /**
- * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零（对标 GMP mpn_redc_1），
+ * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零
  *        与 powmod.c 的 powmod_redc_basecase_ 同源
  * @param dst 结果指针（n 个limb），接收 ([up,2n] + q*m)/B^n 的低 n limb
  * @param up 输入兼工作区（2n 个limb，出口被破坏）
@@ -230,7 +231,7 @@ static mp_size_t ipn_mont_need_(mp_size_t n) {
 }
 
 /**
- * @brief 进蒙域：[dst,n] = [xp,n]*B^n mod [mp,n]（GMP redcify 除法模式）
+ * @brief 进蒙域：[dst,n] = [xp,n]*B^n mod [mp,n]
  * @param dst 结果指针（n 个limb）
  * @param xp 普通域输入（n 个limb，eqsep(dst,xp)）
  * @param n 操作数长度
@@ -585,19 +586,20 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
         sw = Qk1; Qk1 = T2; T2 = sw;
     }
 
-    /* 判据：V_d = 0，或 V_d^2 = 4Q^d，或 V_{d*2^r} = 0（0 < r < s） */
+    /* 判据：V_d = 0（r=0），或 U_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
+       U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 检出（阶梯末态
+       Vk1 = V_{d+1}；gcd(D,n)=1 下与 U_d ≡ 0 (mod n) 精确等价） */
     if (lmmp_zero_q_(Vk, nn)) {
         ret = 1;
         goto done;
     }
-    lmmp_sqr_(prod, Vk, nn);
-    ipn_redc_(T1, prod, &mc); /* T1 = V_d^2 */
-    ipn_mont_dbl_(T2, Qk, &mc);
-    ipn_mont_dbl_(T2, T2, &mc); /* T2 = 4Q^d */
-    if (lmmp_cmp_(T1, T2, nn) == 0) {
+    ipn_mont_dbl_(T2, Vk1, &mc); /* 2V_{d+1} */
+    if (lmmp_cmp_(T2, Vk, nn) == 0) {
         ret = 1;
         goto done;
     }
+    lmmp_sqr_(prod, Vk, nn);
+    ipn_redc_(T1, prod, &mc); /* T1 = V_d^2，供 V_{2d} 递推复用 */
     for (; s > 1; s--) {
         mp_ptr sw;
         ipn_mont_dbl_(T2, Qk, &mc);
