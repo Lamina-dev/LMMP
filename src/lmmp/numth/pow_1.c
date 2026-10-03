@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -346,32 +346,33 @@ mp_size_t lmmp_u32_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     lmmp_param_assert(base >= 2);
     lmmp_param_assert(base <= MP_UINT_MAX);
     TEMP_DECL;
-    mp_limb_t b1[1] = { base};
+    mp_limb_t b1[1] = {base};
 #define b1n 1
-    mp_limb_t b2[1] = { base * base};
+    mp_limb_t b2[1] = {base * base};
 #define b2n 1
     
     mp_limb_t b3[2];
-#define b3n 2
     lmmp_mullh_(b2[0], base, b3);
-    
+    mp_size_t b3n = b3[1] != 0 ? 2 : 1;
+
     mp_limb_t b4[2];
-#define b4n 2
     lmmp_mullh_(b2[0], b2[0], b4);
-    
+    mp_size_t b4n = b4[1] != 0 ? 2 : 1;
+
     mp_limb_t b5[3];
-    b5[2] = lmmp_mul_1_(b5, b4, b4n, base);
-    mp_size_t b5n = b5[2] != 0 ? 3 : 2;
+    b5[b4n] = lmmp_mul_1_(b5, b4, b4n, base);
+    mp_size_t b5n = b4n + 1;
+    b5n -= (b5[b5n - 1] == 0) ? 1 : 0;
 
     mp_limb_t b6[4];
-    lmmp_sqr_hard_2_(b6, b3);
+    lmmp_sqr_hard_n_(b6, b3, b3n);
     mp_size_t b6n = 2 * b3n;
-    while (b6[b6n - 1] == 0) --b6n;
+    b6n -= (b6[b6n - 1] == 0) ? 1 : 0;
 
     mp_limb_t b7[4];
-    b7[3] = lmmp_mul_1_(b7, b5, b5n, b2[0]);
-    mp_size_t b7n = 4;
-    while (b7[b7n - 1] == 0) --b7n;
+    b7[b5n] = lmmp_mul_1_(b7, b5, b5n, b2[0]);
+    mp_size_t b7n = b5n + 1;
+    b7n -= (b7[b7n - 1] == 0) ? 1 : 0;
 
     mp_ptr restrict sq = TALLOC_TYPE(rn, mp_limb_t);
     sq[0] = 1;
@@ -422,8 +423,6 @@ mp_size_t lmmp_u32_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     return rn;
 #undef b1n
 #undef b2n
-#undef b3n
-#undef b4n
 }
 
 mp_size_t lmmp_u64_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong exp) {
@@ -431,7 +430,7 @@ mp_size_t lmmp_u64_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
     TEMP_DECL;
 
 #define b1n 1
-    mp_limb_t b1[1] = { base};
+    mp_limb_t b1[1] = {base};
 #define b2n 2
     mp_limb_t b2[2];
     lmmp_mullh_(base, base, b2);

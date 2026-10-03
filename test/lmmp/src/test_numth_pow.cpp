@@ -122,6 +122,100 @@ TEST_CASE("numth/pow", pow_1_variants) {
     check_dispatch(0x8000000000000000ull, 3, lmmp_u64_pow_1_);
 }
 
+// 标量底数系统扫描：各家族契约域内 2^k 量级边界 ±1、表构造归一化边界
+// （u32: base^3~2^64 / base^5~2^128）、3-bit 窗口形状（含全 7 窗口 255/0o377、
+// 进位 256/0o400、0o525）、exp 阈值边界与完全幂，BigInt oracle 逐 limb 对拍。
+TEST_CASE("numth/pow", pow_1_scalar_sweep) {
+    // 窗口形状 exp：25..64 覆盖两窗口全组合的低位段，其余覆盖窗口进位/重复 7
+    static const ulong exps[] = {
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 39, 40, 47, 48, 55, 56, 63, 64,
+        100, 125, 127, 128, 129, 255, 256, 341, 511, 512, 625, 729, 1024, 1331, 2000
+    };
+
+    auto check = [&](ulong base, ulong exp,
+                     mp_size_t (*fn)(mp_ptr, mp_size_t, ulong, ulong)) {
+        BigInt expect = BigInt::pow(BigInt(base), exp);
+        mp_size_t need = lmmp_pow_1_size_(base, exp);
+        TEST_CHECK_MSG(need >= (mp_size_t)expect.d.size(), "pow_1_size enough");
+        mp_ptr dst = alloc_limbs((size_t)need + 3);
+        memset(dst, 0xAA, ((size_t)need + 3) * sizeof(mp_limb_t));
+        mp_size_t rn = fn(dst, need + 3, base, exp);
+        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "sweep value");
+        lmmp_free(dst);
+    };
+
+    // u4：复合底数 6/9/10/12/14 走 npow/sqr/shl 复合路径
+    for (ulong base = 1; base <= 15; ++base) {
+        check(base, 31, lmmp_u4_pow_1_);
+        check(base, 255, lmmp_u4_pow_1_);
+    }
+    for (ulong exp : exps) {
+        check(1, exp, lmmp_u4_pow_1_);
+        check(2, exp, lmmp_u4_pow_1_);
+        check(3, exp, lmmp_u4_pow_1_);
+        check(6, exp, lmmp_u4_pow_1_);
+        check(10, exp, lmmp_u4_pow_1_);
+        check(15, exp, lmmp_u4_pow_1_);
+    }
+
+    // u8
+    for (ulong base = 16; base <= 255; base = base * 2 + 7) {
+        for (ulong exp : exps) check(base, exp, lmmp_u8_pow_1_);
+    }
+    for (ulong base : {(ulong)0xff, (ulong)0x100 - 2, (ulong)0x80, (ulong)0x81}) {
+        for (ulong exp : exps) check(base, exp, lmmp_u8_pow_1_);
+    }
+
+    // u16：域界 256/65535、base^5~2^64 边界（2760/7386）
+    for (ulong base : {(ulong)0x100, (ulong)0x101, (ulong)0x1000,
+                       (ulong)0x1001, (ulong)2760, (ulong)2761, (ulong)7386,
+                       (ulong)7387, (ulong)0xffff, (ulong)0xfffe}) {
+        for (ulong exp : exps) check(base, exp, lmmp_u16_pow_1_);
+    }
+
+    // u32：2^k 边界、base^3~2^64（2642246）、base^5~2^128（50854530，
+    // b5 双 limb 时 b7 进位回收路径）、历史 bug 底数 0x2bad99
+    for (int k = 16; k <= 31; ++k) {
+        ulong b = (ulong)1 << k;
+        check(b - 1, 31, lmmp_u32_pow_1_);
+        check(b - 1, 255, lmmp_u32_pow_1_);
+        check(b, 31, lmmp_u32_pow_1_);
+        check(b, 255, lmmp_u32_pow_1_);
+        check(b + 1, 31, lmmp_u32_pow_1_);
+        check(b + 1, 255, lmmp_u32_pow_1_);
+    }
+    for (ulong base : {(ulong)0x10000, (ulong)2642245, (ulong)2642246,
+                       (ulong)50854529, (ulong)50854530, (ulong)50854531,
+                       (ulong)0x2bad99, (ulong)0xffffffff, (ulong)0xfffffffe}) {
+        for (ulong exp : exps) check(base, exp, lmmp_u32_pow_1_);
+    }
+
+    // u64（域界：base > 2^32-1；k=32 的 b-1 属 u32 域故跳过）
+    for (int k = 32; k <= 63; k += 4) {
+        ulong b = (ulong)1 << k;
+        check(b, 255, lmmp_u64_pow_1_);
+        check(b + 1, 255, lmmp_u64_pow_1_);
+        if (k > 32) check(b - 1, 255, lmmp_u64_pow_1_);
+    }
+    for (ulong base : {(ulong)0x100000000ull, (ulong)0xdeadbeefcafeull,
+                       (ulong)0x7fffffffffffffffull, UINT64_MAX, UINT64_MAX - 1}) {
+        for (ulong exp : exps) check(base, exp, lmmp_u64_pow_1_);
+    }
+
+    // 顶层 lmmp_pow_1_：偶底数 tz 剥离（shw/shl 全量级）+ 奇底数直进
+    for (int k = 1; k <= 32; ++k) {
+        ulong b = (ulong)1 << k;
+        check(b, 31, lmmp_pow_1_);
+        check(b, 255, lmmp_pow_1_);
+        check(b + 2, 63, lmmp_pow_1_);
+        if (b > 4) check(b - 2, 127, lmmp_pow_1_);
+    }
+    for (ulong base : {(ulong)3, (ulong)0x2bad99, (ulong)0x2bad99 * 2,
+                       (ulong)50854530 * 2, (ulong)0xffffffff, UINT64_MAX - 1}) {
+        for (ulong exp : exps) check(base, exp, lmmp_pow_1_);
+    }
+}
+
 TEST_CASE("numth/pow", pow_basecase_win2_pow) {
     u64 seed = 0xf0f0f0f0c3c3c3c3ull;
     for (mp_size_t n : {1, 2, 5, 10, 30, 100}) {
