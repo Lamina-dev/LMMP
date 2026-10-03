@@ -545,45 +545,7 @@ static inline void lmmp_cbrt_shapply_(mp_srcptr src, mp_size_t n, mp_size_t s, m
         lmmp_copy(a2 + w, src, n);
 }
 
-/*
-    knorm：精确路径（lmmp_cbrt_ 的 cbrt_divide_ 分支）专用归一化入口。
-    divide 要求顶 limb >= 3B/8（CBRT_DIVIDE_MIN，保证 Alr 至多高估 1 的
-    论证与 div_s 归一化），策略为优先移位、移位不可达时才乘小立方数：
-    k=1 即纯 3 对齐移位路径（恒最先尝试），仅当移位无法到达 3B/8 时才
-    以 k^3 乘子改变 bl 类别后重试。newton 路径不使用本函数（其收敛仅需
-    B/8，移位恒可达，见 lmmp_cbrt_snorm_）。
-
-    输出 a2 = numa*k^3 << s 写入调用方缓冲区（至少 na+5 limb），满足
-    limbs(a2) ≡ 0 (mod 3) 且 a2 顶 limb >= 3B/8，同时返回：
-        *kp  = 乘子 k（k=1 表示纯移位，无需乘子）
-        *na2p = a2 的 limb 数
-        返回值 = t = s/3（根的右移回退量，< 64）
-
-    约 1/2 输入（bl ≡ 1 (mod 3)，或 bl ≡ 2 且顶 2bit 为 10）经 3 对齐移位
-    无法到达 3B/8，此时乘小立方数 k^3 改变 bl 类别后重试。2 的幂乘子
-    （k = 2,4,8,...）等价于 3 对齐移位（k^3 = 2^(3j)），不改变类别，故跳过。
-    根的还原基于恒等式（K = k*2^t，x 为实值根）：
-
-        floor(floor(x*K) / K) == floor(x)          （floor 复合不变性）
-
-    即根结果 >>t 后一次 div_1(k) 即精确还原。
-
-    候选筛选不计算完整乘积：记 q = 高128bit(numa)*k^3（152bit 小乘），
-    X = numa*k^3 = q*B^sh + low（sh = 64*(na-2)，na<=1 时 X=q）。k=1 时
-    low < B^sh 无进位，X 的类别由 q 精确决定且无歧义边界：
-        q ∈ [2^(blq-1), 2^blq)  =>  X ∈ [2^(sh+blq-1), 2^(sh+blq))，bl(X) 精确
-        3*2^(bl(X)-2) = qT*B^sh（qT = 3*2^(blq-2)）为阈值形式，
-        X >= 3*2^(bl(X)-2)  <=>  q >= qT
-    k>1 时 low*k3 可向高位进位（carry < 2^24，可跨越 2^m 或 3B/8 阈值改变
-    类别），故命中后必须按完整乘积 xk 复核 bl/top2/s（下方 mul_1 之后），
-    复核类别不可达时弃选该 k 继续搜索（预筛仅可能出现伪命中/伪跳过，
-    不影响正确性——每个 k 真实命中概率仍约 1/2）。
-    故 miss 的 k 仅花费 2 次 64x24bit 小乘即可排除，完整 mul_1 仅对预筛
-    命中的 k 计算一次。k 的类别近似均匀，每 k 命中概率约 1/2，搜索上限
-    256 内未命中概率 < 2^-100（实际期望 2 次内命中）。
-*/
-static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_size_t *na2p,
-                                   mp_limb_t *kp) {
+static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_size_t* na2p, mp_limb_t* kp) {
     lmmp_param_assert(numa != NULL && a2 != NULL && na > 0 && numa[na - 1] != 0);
     TEMP_DECL;
     mp_ptr xk = NULL;  // numa*k^3 暂存（仅命中 k>1 时分配一次，与 a2 分离）
@@ -652,8 +614,7 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
         TEMP_FREE;
         return s / 3;
     }
-    TEMP_FREE;
-    lmmp_param_assert(0);  // 理论不可达（< 2^-100）
+    lmmp_debug_assert(0);
     return 0;
 }
 

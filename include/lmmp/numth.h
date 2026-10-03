@@ -1231,6 +1231,89 @@ LMMP_API void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na,
 LMMP_API ulong lmmp_nthroot_ulong_(ulong n, ulong root);
 
 /**
+ * @brief 计算算术根 floor([numa,root]^(1/root))（结果为 1 个 limb）
+ * @param numa 被开方数指针（root 个 limb）
+ * @param root 开方次数
+ * @return floor([numa,root]^(1/root))
+ * @warning root>=4, numa!=NULL, numa[root-1]!=0
+ * @note log2/exp2 定点估计（除数由 3 推广为 root）+ 单调幂比较修正，
+ *       顶 limb 无归一化要求。供 lmmp_nthroot_divide_ 的 ns==1 基例使用。
+ */
+LMMP_API mp_limb_t lmmp_nthroot_1_(mp_srcptr numa, ulong root);
+
+/**
+ * @brief 计算算术根 [dst,2] = floor([numa,na]^(1/root))（结果为 2 个 limb）
+ * @param dst 结果指针（2 个 limb）
+ * @param numa 被开方数指针（缓冲区至少 2*root 个 limb；若 na<2*root，
+ *             高位视为 0 并会被覆写；calr=1 时 [numa,2*root-1] 存余数）
+ * @param na 被开方数的有效 limb 长度
+ * @param root 开方次数
+ * @param calr 是否计算余数（0 不计算，1 计算 [numa,2*root-1]=A-[dst,2]^root）
+ * @warning root>=4, root<na<=2*root, numa!=NULL, dst!=NULL,
+ *          numa[na-1]!=0, sep(dst,numa)
+ * @note log2_fixed_128/exp2_fixed_128 估计（cbrt_6_ 的一般化）+ 单调幂
+ *       比较修正，顶 limb 无归一化要求。供 lmmp_nthroot_divide_ 的
+ *       ns==2 路径使用。
+ */
+LMMP_API void lmmp_nthroot_2_(mp_ptr dst, mp_ptr numa, mp_size_t na, ulong root, int calr);
+
+/**
+ * @brief 计算 lmmp_nthroot_divide_ 所需的被开方数顶 limb 归一化下限
+ * @param root 开方次数
+ * @return 顶 limb 下限 MIN(root) = ceil(B*2^(-root/(root-1)) 的富余值)
+ * @warning root>=4
+ * @note 保证 Ahr = floor(Ahi^(1/root)) >= 2^(-1/(root-1))*B^hi，从而除数
+ *       Ahr^(root-1) 恰 (root-1)*hi 个 limb 且 MSB=1（div_s 归一化），
+ *       同时保证商 Alr 至多高估 1（正确性条件，非仅性能条件）。
+ *       root=3 时对应 cbrt_divide_ 的 CBRT_DIVIDE_MIN(3B/8) 推导。
+ */
+LMMP_API mp_limb_t lmmp_nthroot_divide_min_(ulong root);
+
+/**
+ * @brief 计算 lmmp_nthroot_divide_ 所需的 tp 缓冲区长度
+ * @param ns 根的 limb 长度
+ * @param root 开方次数
+ * @return tp 至少需要的 limb 数
+ * @warning ns>0, root>=4
+ */
+LMMP_API mp_size_t lmmp_nthroot_divide_size_(mp_size_t ns, ulong root);
+
+/**
+ * @brief 计算算术根 [dst,ns] = floor([numa,root*ns]^(1/root))
+ * @param dst 结果指针（ns 个 limb，顶 limb 恒非零）
+ * @param numa 被开方数指针（root*ns 个 limb，会被修改；calr=1 时
+ *             [numa,(root-1)*ns+1] 存余数 A-[dst,ns]^root）
+ * @param ns 根的 limb 长度
+ * @param root 开方次数
+ * @param tp 临时区（至少 lmmp_nthroot_divide_size_(ns,root) 个 limb）
+ * @param calr 是否计算余数（0 不计算，1 计算；calr=0 时 numa 亦被修改）
+ * @warning ns>0, root>=4, numa[root*ns-1]>=lmmp_nthroot_divide_min_(root),
+ *          dst!=NULL, numa!=NULL, tp!=NULL, sep(dst,numa,tp)
+ */
+LMMP_API void lmmp_nthroot_divide_(mp_ptr dst, mp_ptr numa, mp_size_t ns, ulong root, mp_ptr tp, int calr);
+
+/**
+ * @brief 计算 lmmp_nthroot_ 所需的 tp 缓冲区长度（任意长度输入入口）
+ * @param na 被开方数的 limb 长度
+ * @param root 开方次数
+ * @return tp 至少需要的 limb 数
+ * @warning na>0, root>=4, root<=2^56
+ */
+LMMP_API mp_size_t lmmp_nthroot_size_(mp_size_t na, ulong root);
+
+/**
+ * @brief 计算算术根 [dsts,nr] = floor([numa,na]^(1/root))（任意 na/任意顶 limb）
+ * @param dsts 结果指针（nr = ceil(na/root) 个 limb，顶 limb 恒非零）
+ * @param dstr 余数结果输出指针（(root-1)*nr+1 个 limb，NULL 表示不计算余数）
+ * @param numa 被开方数指针（只读）
+ * @param na 被开方数的 limb 长度
+ * @param root 开方次数
+ * @param tp 临时区（至少 lmmp_nthroot_size_(na,root) 个 limb）
+ * @warning na>0, numa[na-1]!=0, root>=4, root<=2^56, sep(dsts,dstr,numa,tp)
+ */
+LMMP_API void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong root, mp_ptr tp);
+
+/**
  * @brief 计算 [p,n] % 2^48-1
  * @param p 被除数指针
  * @param n 被除数的 limb 长度
