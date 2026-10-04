@@ -708,12 +708,16 @@ int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
     lmmp_shr_(d, nm1 + t / LIMB_BITS, dn, t % LIMB_BITS);
     dn = ipn_norm_(d, dn);
 
-    /* 随机基底 MR（至多 N 轮，检出即止）：b ∈ [2,n-2] 均匀 */
+    /* 随机基底 MR（至多 N 轮，检出即止）：b ∈ [2,n-2] 均匀。
+       顶 limb 掩码到 n 的位长内再整体拒绝采样：位长内均匀故 P(>=n) <= 1/2，
+       期望 <= 2 次填充，免去每轮一次 nn/nn 全除归约（旧路径 lmmp_div_） */
+    uint tb = lmmp_limb_bits_(np[nn - 1]);
+    mp_limb_t tmask = (tb == LIMB_BITS) ? ~(mp_limb_t)0 : (((mp_limb_t)1 << tb) - 1);
     for (int r = ipn_rnd_rounds[strength]; r > 0; r--) {
         for (;;) {
             lmmp_random_(b2, nn);
-            lmmp_div_(NULL, b2, b2, nn, np, nn); /* eqsep 原地归约，b2 < n */
-            if ((b2[0] >= 2 || !lmmp_zero_q_(b2 + 1, nn - 1)) && lmmp_cmp_(b2, nm1, nn) < 0)
+            b2[nn - 1] &= tmask;
+            if (lmmp_cmp_(b2, nm1, nn) < 0 && (b2[0] >= 2 || !lmmp_zero_q_(b2 + 1, nn - 1)))
                 break;
         }
         lmmp_powmod_odd_(y, b2, d, dn, np, nn);
