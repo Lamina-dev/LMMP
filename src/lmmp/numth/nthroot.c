@@ -420,8 +420,16 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
             mp_size_t m = na < 3 ? na : 3;  // bl < 129 ⟹ na ≤ 3
             lmmp_copy(w, numa, m);
             unsigned sh = (unsigned)(129 - bl);
-            mp_limb_t cy = lmmp_shl_(w, w, 3, sh);
-            (void)cy;  // 高于 129bit 的进位即前导 1 之上，弃
+            if (sh == 64) {
+                // bl=65（恰 2 limb、顶 limb=1）：整 limb 上移，越过 shl_ 的
+                // [0,63] 契约域（asm 掩码行为未定义，须显式处理）
+                w[2] = w[1];
+                w[1] = w[0];
+                w[0] = 0;
+            } else {
+                mp_limb_t cy = lmmp_shl_(w, w, 3, sh);
+                (void)cy;  // 高于 129bit 的进位即前导 1 之上，弃
+            }
             flo = w[0];
             fhi = w[1];
         }
