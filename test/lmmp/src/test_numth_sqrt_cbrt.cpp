@@ -593,23 +593,64 @@ TEST_CASE("numth/cbrt", cbrt_6) {
 
 TEST_CASE("numth/cbrt", cbrt_divide) {
     u64 seed = 0x0f15ae2697d3c4b8ull;
-    for (mp_size_t ns : {1, 2, 3, 5, 10}) {
+    // 恰尺寸 tp（契约 8*ns+71）+ 双口径 + 随机/完全立方±band 构造
+    //（band 构造命中探针不确定带与先降后升回退；ns=4/5 跨探针 gate
+    // bitlen(y)>=256 的门槛）。ns=1/2 走基例分支仅随机回归。
+    auto run_one = [&](mp_size_t ns, const BigInt& ba) {
         mp_size_t na = 3 * ns;
         mp_ptr numa = alloc_limbs(na);
         mp_ptr dst = alloc_limbs(ns + 1);
-        mp_ptr tp = alloc_limbs(4 * ns + 2);
-        random_limbs(numa, na, seed);
-        numa[na - 1] = (numa[na - 1] & 0x9fffffffffffffull) | 0x6000000000000000ull;
+        mp_ptr tp = alloc_limbs(6 * ns + 4);
+        to_limbs(ba, numa, na);
+        if (numa[na - 1] < 0x6000000000000000ull)
+            numa[na - 1] |= 0x6000000000000000ull;  // 契约域顶 limb（值微调不改 floor 语义域）
         BigInt bn(numa, na);
 
-        lmmp_cbrt_divide_(dst, numa, ns, tp, 1);
-        BigInt bc(dst, ns);
-        BigInt rem(numa, 2 * ns + 1);
-        BigInt c3 = BigInt::pow(bc, 3);
-        TEST_CHECK_MSG(BigInt::add_abs(c3, rem) == bn, "cbrt_divide cbrtrem relation");
-        TEST_CHECK_MSG(c3 <= bn && BigInt::pow(BigInt::add_small(bc, 1), 3) > bn, "cbrt_divide floor property");
-
+        for (int calr : {0, 1}) {
+            mp_ptr numa2 = alloc_limbs(na);
+            lmmp_copy(numa2, numa, na);
+            lmmp_cbrt_divide_(dst, numa2, ns, tp, calr);
+            BigInt bc(dst, ns);
+            BigInt c3 = BigInt::pow(bc, 3);
+            TEST_CHECK_MSG(c3 <= bn && BigInt::pow(BigInt::add_small(bc, 1), 3) > bn,
+                           calr ? "cbrt_divide floor property (calr=1)" : "cbrt_divide floor property (calr=0)");
+            TEST_CHECK_MSG(dst[ns - 1] != 0,
+                           calr ? "cbrt_divide top limb nonzero (calr=1)" : "cbrt_divide top limb nonzero (calr=0)");
+            if (calr) {
+                BigInt rem(numa2, 2 * ns + 1);
+                TEST_CHECK_MSG(BigInt::add_abs(c3, rem) == bn, "cbrt_divide cbrtrem relation");
+            }
+            lmmp_free(numa2);
+        }
         lmmp_free(numa); lmmp_free(dst); lmmp_free(tp);
+    };
+
+    for (mp_size_t ns : {1, 2, 3, 4, 5, 8, 10}) {
+        mp_size_t na = 3 * ns;
+        // 随机（契约顶 limb）
+        {
+            mp_ptr a = alloc_limbs(na);
+            random_limbs(a, na, seed);
+            if (a[na - 1] < 0x6000000000000000ull) a[na - 1] |= 0x6000000000000000ull;
+            BigInt bn(a, na);
+            run_one(ns, bn);
+            lmmp_free(a);
+        }
+        if (ns < 3) continue;  // 基例分支无需构造覆盖
+        // 完全立方 ±band：S^3、S^3-{1,2}、S^3+{1,3}（S 顶 limb ≥ 0.75B
+        // 保证立方恰 3ns limb 且顶 ≥ 3B/8 契约）
+        mp_ptr sb = alloc_limbs(ns);
+        random_limbs(sb, ns, seed);
+        sb[ns - 1] |= 0xc000000000000000ull;
+        BigInt S(sb, ns);
+        lmmp_free(sb);
+        BigInt c3 = BigInt::pow(S, 3);
+        if ((mp_size_t)c3.d.size() != na) continue;  // 防御（顶 ≥ 0.75B 时恒等）
+        run_one(ns, c3);
+        run_one(ns, BigInt::sub_small(c3, 1));
+        run_one(ns, BigInt::sub_small(c3, 2));
+        run_one(ns, BigInt::add_small(c3, 1));
+        run_one(ns, BigInt::add_small(c3, 3));
     }
 }
 

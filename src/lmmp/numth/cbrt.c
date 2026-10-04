@@ -338,7 +338,7 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
 #define Ahr2    (tp)                   // [tp,                2*hi]
 #define Alr     (tp + 2 * hi)          // [tp + 2*hi,         lo+1]
 #define Alr2    (tp + 2 * hi + lo)     // [tp + 2*hi+lo,      2*lo]
-#define scratch (tp + 2 * hi + 3 * lo) // [tp + 2*hi+3*lo, hi+2*lo]
+#define scratch (tp + 2 * hi + 3 * lo) // t = [.., hi+lo+1), W = [+hi+lo+1, +ns+lo+1)
 
         lmmp_cbrt_divide_(Ahr, rk, hi, tp, 1);
 
@@ -472,15 +472,11 @@ void lmmp_cbrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
             lmmp_copy(dst, Alr, lo);
         } else {
             lmmp_sqr_(Alr2, Alr, lo);
-            lmmp_mul_(scratch, Alr2, 2 * lo, Alr, lo);
-            r = lmmp_sub_(R, R, 2 * ns + 1, scratch, 3 * lo);
-
-            if (2 * lo >= hi)
-                lmmp_mul_(scratch, Alr2, 2 * lo, Ahr, hi);
-            else
-                lmmp_mul_(scratch, Ahr, hi, Alr2, 2 * lo);
-            mp_limb_t b = lmmp_submul_1_(R + lo, scratch, 2 * lo + hi, 3);
-            r += lmmp_sub_1_(R + 2 * lo + ns, R + 2 * lo + ns, ns + 1 - 2 * lo, b);
+            // W = 3*Ahr*Alr^2*B^lo + Alr^3 = Alr^2*(3*Ahr*B^lo + Alr)
+            lmmp_copy(scratch, Alr, lo);
+            scratch[lo + hi] = lmmp_mul_1_(scratch + lo, Ahr, hi, 3);
+            lmmp_mul_(scratch + hi + lo + 2, scratch, hi + lo + 1, Alr2, 2 * lo);
+            r = lmmp_sub_(R, R, 2 * ns + 1, scratch + hi + lo + 2, 3 * lo + hi + 1);
 
             if (r > 0) {
                 // + 3*Alr^2
@@ -1013,7 +1009,7 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
     mp_size_t ns2 = na2 / 3 + nf;    // 移位后问题根长（radicand = a2*B^(3nf)）
     mp_size_t ns0 = (nl + 2) / 3;    // 原问题根长
     mp_size_t nR = ns0 + 1;          // 根工作长度（含可能的最高零 limb）
-    mp_ptr tp = TALLOC_TYPE(4 * ns2, mp_limb_t);
+    mp_ptr tp = TALLOC_TYPE(6 * ns2 + 4, mp_limb_t);
     // nf==0 时被开方数即 a2 本身，rad 直接复用（knorm 后 a2 不再读取）；
     // nf>0 时 rad = a2*B^(3nf) 须另建（低位补零后拷贝）。两种形下缓冲均
     // 覆盖 divide 的 [rad,3ns2) 与余数修正的 [rad,2ns2+3)
