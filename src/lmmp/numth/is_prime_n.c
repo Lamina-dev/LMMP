@@ -20,7 +20,9 @@
     记 n = [np,nn]（奇，n > 2^128）。MR 单轮：n-1 = d*2^t（d 奇），梯子计算
     蒙域 y = b^d，判 y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t）。基底 2 特化：
     蒙域乘 2 即剩余加倍（2*R ≡ 倍加），逢 1 指数位以 O(n) 加法替代一次
-    M(n) 蒙乘，单轮约省 1/4 ~ 1/3。强 Lucas（Selfridge 方法 A）：P = 1，
+    M(n) 蒙乘，单轮约省 1/4 ~ 1/3。随机基底轮改调 lmmp_powmod_odd_（powmod.c
+    的滑动窗口梯子，大尺寸省 ~30% 乘法；d 各轮固定），y 为普通域值直接 ±1
+    探测，t-1 次探测平方走 sqr_+div_。强 Lucas（Selfridge 方法 A）：P = 1，
     Q = (1-D)/4，D 取 5,-7,9,-11,... 中首个 (D|n) = -1 者；V 阶梯判据与
     标准 U/V 强 Lucas 测试精确一致：
       U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1
@@ -641,30 +643,57 @@ int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
 
     TEMP_DECL;
     /*
-       [b2(n)] 基底载体：先基底 2，后随机基底
-       [up(n)] 随机基底上界 n-2（排除平凡通过基底 n-1 与 <2 的退化基底）
+       [b2(n)]    基底载体：基底 2 特化轮与随机轮共用
+       [y(n)]     随机轮 y = b^d mod n（普通域；powmod_odd_ 要求 sep(dst,bp)）
+       [nm1(n)]   n-1（随机基底上界 n-1 与 -1 探测基准）
+       [d(n)]     (n-1)>>t（各随机轮固定不变）
+       [prod(2n)] 探测平方工作区（sqr 全积兼 div 被除数）
     */
-    mp_ptr restrict b2 = TALLOC_TYPE(2 * nn, mp_limb_t);
-    mp_ptr restrict up = b2 + nn;
-    lmmp_zero(b2, 2 * nn);
+    mp_ptr restrict b2 = TALLOC_TYPE(6 * nn, mp_limb_t);
+    mp_ptr restrict y = b2 + nn;
+    mp_ptr restrict nm1 = y + nn;
+    mp_ptr restrict d = nm1 + nn;
+    mp_ptr restrict prod = d + nn;
+    lmmp_zero(b2, nn);
     b2[0] = 2;
 
-    /* 各档公共首步：基底 2 特化 MR（BPSW 的 MR 半部） */
+    /* 各档公共首步：基底 2 特化 MR（BPSW 的 MR 半部，倍加梯子） */
     if (!lmmp_is_sprp_(np, nn, b2)) goto composite;
 
-    lmmp_copy(up, np, nn);
-    lmmp_dec(up);
-    lmmp_dec(up); /* up = n-2 */
+    /* nm1 = n-1；t = v2(n-1)；d = (n-1)>>t（奇）。随机基底轮改走窗口梯子：
+       lmmp_powmod_odd_ 计 y = b^d（普通域值直接做 ±1 探测，蒙域/普通域
+       经 redcify 双射等价），t-1 次探测平方走 sqr_+div_。通用梯子逐位
+       平方+蒙乘无窗口（~dbits/2 次乘）在大尺寸比窗口梯子多 ~30% 乘法 */
+    lmmp_copy(nm1, np, nn);
+    lmmp_dec(nm1);
+    mp_bitcnt_t t = ipn_ctz_(nm1);
+    mp_size_t dn = ipn_norm_(nm1 + t / LIMB_BITS, nn - t / LIMB_BITS);
+    lmmp_shr_(d, nm1 + t / LIMB_BITS, dn, t % LIMB_BITS);
+    dn = ipn_norm_(d, dn);
 
-    /* 随机基底 MR（至多 N 轮，检出即止） */
+    /* 随机基底 MR（至多 N 轮，检出即止）：b ∈ [2,n-2] 均匀 */
     for (int r = ipn_rnd_rounds[strength]; r > 0; r--) {
         for (;;) {
             lmmp_random_(b2, nn);
             lmmp_div_(NULL, b2, b2, nn, np, nn); /* eqsep 原地归约，b2 < n */
-            if ((b2[0] >= 2 || !lmmp_zero_q_(b2 + 1, nn - 1)) && lmmp_cmp_(b2, up, nn) <= 0)
+            if ((b2[0] >= 2 || !lmmp_zero_q_(b2 + 1, nn - 1)) && lmmp_cmp_(b2, nm1, nn) < 0)
                 break;
         }
-        if (!lmmp_is_sprp_(np, nn, b2)) goto composite;
+        lmmp_powmod_odd_(y, b2, d, dn, np, nn);
+        int ok = 0;
+        if ((y[0] == 1 && lmmp_zero_q_(y + 1, nn - 1)) || lmmp_cmp_(y, nm1, nn) == 0) {
+            ok = 1;
+        } else {
+            for (mp_bitcnt_t j = t - 1; j > 0; j--) {
+                lmmp_sqr_(prod, y, nn);
+                lmmp_div_(NULL, y, prod, 2 * nn, np, nn);
+                if (lmmp_cmp_(y, nm1, nn) == 0) {
+                    ok = 1;
+                    break;
+                }
+            }
+        }
+        if (!ok) goto composite;
     }
 
     /* 4 档及以上：BPSW 的 Lucas 半部（嵌套 TEMP，免提前回收） */
