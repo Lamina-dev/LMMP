@@ -15,7 +15,7 @@
 
 /*
     大整数素性检验（n > 2 limb）：单轮 Rabin-Miller 强伪素数测试（基底 2
-    特化）、强 Lucas-Selfridge 测试与强度分档入口 lmmp_is_prime_n_。
+    特化）、强 Lucas-Selfridge 测试（U 阶梯）与强度分档入口 lmmp_is_prime_n_。
 
     记 n = [np,nn]（奇，n > 2^128）。MR 单轮：n-1 = d*2^t（d 奇），梯子计算
     蒙域 y = b^d，判 y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t）。基底 2 特化：
@@ -23,13 +23,12 @@
     M(n) 蒙乘，单轮约省 1/4 ~ 1/3。随机基底轮改调 lmmp_powmod_odd_（powmod.c
     的滑动窗口梯子，大尺寸省 ~30% 乘法；d 各轮固定），y 为普通域值直接 ±1
     探测，t-1 次探测平方走 sqr_+div_。强 Lucas（Selfridge 方法 A）：P = 1，
-    Q = (1-D)/4，D 取 5,-7,9,-11,... 中首个 (D|n) = -1 者；V 阶梯判据与
-    标准 U/V 强 Lucas 测试精确一致：
+    Q = (1-D)/4，D 取 5,-7,9,-11,... 中首个 (D|n) = -1 者；判据与标准
+    U/V 强 Lucas 测试一致：
       U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1
-    其中 U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 转为 2V_{d+1} = V_d
-    检出（D 搜索保证 gcd(D,n)=1，等价精确成立，含平方因子的 n 亦然；旧
-    判据 V_d^2 = 4Q^d 依 V_d^2 - D*U_d^2 = 4Q^d 仅在 n 无平方因子时等价，
-    对 p^2*q 型 n 会多接受标准测试拒绝的合数）。
+    阶梯为 Hackman 平方型 U 递推（GMP 6.3 lucmod.c 同构，见
+    lmmp_is_strong_lucas_ 注释），Q 仅以小标量进入运算，Q^d 于末尾经
+    V_d^2 - D*U_d^2 = 4Q^d 一次性恢复（模 n 两次折半代 GMP 的精确 /4）。
 
     Montgomery 核与 powmod.c 同源（R = B^n，三层 REDC：basecase 链式
     Hensel 归约 / 全积取高半 / 梅森折叠，含 FFT 变换缓存），按项目惯例
@@ -344,6 +343,54 @@ static inline void ipn_mont_neg_(mp_ptr dst, mp_srcptr x, ipn_mont_t* restrict m
     (void)lmmp_sub_n_(dst, mc->m, x, mc->n);
 }
 
+/* 蒙域模加 a+b（a,b < m）。和 < 2m < B^n+m：进位回绕（和 >= B^n）时
+   回绕值 < m，随后减 m 的借位在 B^n 下恰好补回，回绕结果即 a+b-m */
+static inline void ipn_mont_add_(mp_ptr dst, mp_srcptr a, mp_srcptr b, ipn_mont_t* restrict mc) {
+    mp_limb_t c = lmmp_add_n_(dst, a, b, mc->n);
+    if (c)
+        (void)lmmp_sub_n_(dst, dst, mc->m, mc->n);
+    else if (lmmp_cmp_(dst, mc->m, mc->n) >= 0)
+        lmmp_sub_n_(dst, dst, mc->m, mc->n);
+}
+
+/* 蒙域值模 n 折半 x <- x/2 mod n（n 奇：x 偶直接移位；x 奇先加 n 再移，
+   加法进位跨 limb 并入移位高位，B^n 回绕无损：真值 < 2n < 2B^n 且折半
+   后 < B^n 可表示） */
+static inline void ipn_mont_half_(mp_ptr x, ipn_mont_t* restrict mc) {
+    mp_size_t n = mc->n;
+    mp_limb_t c = (x[0] & 1) ? lmmp_add_n_(x, x, mc->m, n) : 0;
+    lmmp_shr_(x, x, n, 1);
+    x[n - 1] |= c << (LIMB_BITS - 1);
+}
+
+/*
+    蒙域小标量乘 dst = (±q)*x (mod m)。倍加链 r=0; 逐高位 r=2r(+x)，
+    全程 O(n) 模加/模加倍，对任意 ulong 的 q 均正确（大 q 仅减慢，
+    正常路径 |Q|、|D| 为个位数）；sep(dst,x)
+*/
+static void ipn_mont_mul_small_(
+    mp_ptr           dst,
+    mp_srcptr         x,
+    ulong           qabs,
+    int              qneg,
+    ipn_mont_t* restrict mc
+) {
+    if (qabs == 0) {
+        lmmp_zero(dst, mc->n);
+        return;
+    }
+    mp_bitcnt_t hb = lmmp_limb_bits_(qabs) - 1;
+    lmmp_copy(dst, x, mc->n);
+    for (mp_bitcnt_t i = hb; i-- > 0;) {
+        ipn_mont_dbl_(dst, dst, mc);
+        if ((qabs >> i) & 1)
+            ipn_mont_add_(dst, dst, x, mc);
+    }
+    /* 负标量最后取负（in-place：sub_n 逐 limb 先读后写，安全） */
+    if (qneg && !lmmp_zero_q_(dst, mc->n))
+        ipn_mont_neg_(dst, dst, mc);
+}
+
 /* d 低位起 0 的个数；调用前应保证 [dp,n] != 0 */
 static inline mp_bitcnt_t ipn_ctz_(mp_srcptr dp) {
     mp_size_t z = 0;
@@ -479,16 +526,17 @@ static int ipn_jacobi_D_(uint Dabs, int Dneg, mp_srcptr np, mp_size_t nn) {
 }
 
 /*
-    强 Lucas-Selfridge 测试（V-only 阶梯，判据等价性见文件头注）。
-    阶梯递推（蒙域，Q 可为负，Qm 为其蒙域剩余）：
-      V_{2k}   = V_k^2 - 2Q^k
-      V_{2k+1} = V_k*V_{k+1} - Q^k
-      V_{2k+2} = V_{k+1}^2 - 2Q^{k+1}
-    Q 链同步阶梯：(Q^k, Q^{k+1}) --bit0--> ((Q^k)^2, (Q^k)^2*Q)，
-    --bit1--> (Q^k*Q^{k+1}, (Q^{k+1})^2)。D 搜索：非完全平方的 n 其
-    Jacobi 特征非平凡，序列中必存在 (D|n) = -1，搜索必然终止；完全平方
-    是唯一不终止情形，经 Dabs==17 处的延迟检测排除（lmmp_perfsqr_，
-    不进常见路径；固定小上界不可行，见 is_prime_2.c 同段注释）
+    强 Lucas-Selfridge 测试（U 阶梯，Hackman 平方型公式，P=1 特化，
+    结构移植自 GMP 6.3 mpz/lucmod.c）。阶梯递推（蒙域，Q 仅以小标量
+    出现，Q^k 链整体取消，Q^d 于末尾一次性恢复）：
+      U_{2k}   = U_{k+1}^2 - (U_{k+1}-U_k)^2
+      U_{2k+1} = U_{k+1}^2 - Q*U_k^2
+      U_{2k+2} = U_{2k+1} - Q*U_{2k}（bit=1 时经递推免去第三次平方）
+    每 bit 3 次平方 + 3 次 REDC + O(n) 标量运算（V/Q 双阶梯旧结构为
+    4 次乘族 + 4 次 REDC）。D 搜索：非完全平方的 n 其 Jacobi 特征
+    非平凡，序列中必存在 (D|n) = -1，搜索必然终止；完全平方是唯一
+    不终止情形，经 Dabs==17 处的延迟检测排除（lmmp_perfsqr_，不进
+    常见路径；固定小上界不可行，见 is_prime_2.c 同段注释）
 */
 int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
     lmmp_param_assert(np != NULL);
@@ -514,22 +562,18 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
 
     /*
        单块工作区分段：
-         [prod(2n)]   平方/全积兼 redcify 被除数
+         [prod(2n)]   平方全积（REDC 被归约数）
          [np1(n+1)]   n+1（防全 1 顶进位越顶）→ d 所在段
-         [Qm(n)]      蒙域 Q
-         [Vk|Vk1|Qk|Qk1(4n)]   V/Q 阶梯槽（经指针换名与 T 槽接力）
-         [T1|T2|T3(3n)]        蒙乘/倍加中转槽
-       蒙域段之后的调用者段合计 11n+1（勿按段数误计为 10n+1，
-       T3 整段越界在 bump 分配富余空间下静默存活，顶到块边界
-       即静默算错）
+         [Uk|Uk1(2n)] U 阶梯状态对 (U_k, U_{k+1})
+         [T1|T2|T3(3n)] 差值平方 / A / B 载体与标量乘输出
+       蒙域段之后的调用者段合计 8n+1
     */
     mp_size_t mn = ipn_mont_need_(nn);
-    mp_ptr restrict arena = TALLOC_TYPE(mn + 11 * nn + 1, mp_limb_t);
+    mp_ptr restrict arena = TALLOC_TYPE(mn + 8 * nn + 1, mp_limb_t);
     mp_ptr restrict prod = arena + mn;
     mp_ptr restrict np1 = prod + 2 * nn;
-    mp_ptr restrict Qm = np1 + nn + 1;
-    mp_ptr Vk = Qm + nn, Vk1 = Vk + nn, Qk = Vk1 + nn, Qk1 = Qk + nn;
-    mp_ptr T1 = Qk1 + nn, T2 = T1 + nn, T3 = T2 + nn;
+    mp_ptr Uk = np1 + nn + 1, Uk1 = Uk + nn;
+    mp_ptr T1 = Uk1 + nn, T2 = T1 + nn, T3 = T2 + nn;
 
     lmmp_copy(np1, np, nn);
     np1[nn] = 0;
@@ -542,82 +586,75 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
 
     ipn_mont_init_(&mc, np, nn, arena, prod);
 
-    /* Qm = 蒙域 Q（D>0 时 Q = -Qabs，取负） */
-    lmmp_zero(Qm, nn);
-    Qm[0] = Qabs;
-    ipn_redcify_(Qm, Qm, nn, prod, np);
-    if (!Dneg)
-        ipn_mont_neg_(Qm, Qm, &mc);
+    /* 阶梯初态 k=1：(U_1, U_2) = (1, 1)（P=1, U_0=0 → U_2 与 Q 无关） */
+    lmmp_copy(Uk, mc.one, nn);
+    lmmp_copy(Uk1, mc.one, nn);
 
-    /* 阶梯初态 k=1：(V_1, V_2, Q^1, Q^2) = (1, 1-2Q, Q, Q^2)（P=1） */
-    lmmp_copy(Vk, mc.one, nn);
-    ipn_mont_dbl_(T1, Qm, &mc);
-    ipn_mont_sub_(Vk1, mc.one, T1, &mc);
-    lmmp_copy(Qk, Qm, nn);
-    lmmp_sqr_(prod, Qm, nn);
-    ipn_redc_(Qk1, prod, &mc);
-
-    int ret = 0;
     mp_bitcnt_t dbits = (dn - 1) * LIMB_BITS + lmmp_limb_bits_(d[dn - 1]);
     for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
-        mp_ptr sw;
+        ipn_mont_sub_(T1, Uk1, Uk, &mc);         /* (U_{k+1}-U_k)R */
+        lmmp_sqr_(prod, Uk1, nn);
+        ipn_redc_(T2, prod, &mc);                /* A = U_{k+1}^2 R */
+        lmmp_sqr_(prod, Uk, nn);
+        ipn_redc_(T3, prod, &mc);                /* B = U_k^2 R */
+        lmmp_sqr_(prod, T1, nn);
+        ipn_redc_(T1, prod, &mc);                /* D = (U_{k+1}-U_k)^2 R */
+        ipn_mont_mul_small_(Uk, T3, Qabs, !Dneg, &mc); /* Q*U_k^2 R */
+        ipn_mont_sub_(Uk1, T2, Uk, &mc);         /* U_{2k+1} = A - Q*B */
+        ipn_mont_sub_(Uk, T2, T1, &mc);          /* U_{2k}   = A - D */
         if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1) {
-            lmmp_mul_(prod, Vk, nn, Vk1, nn);
-            ipn_redc_(T1, prod, &mc); /* V_{2k+1} 主项 */
-            lmmp_sqr_(prod, Vk1, nn);
-            ipn_redc_(T2, prod, &mc); /* V_{2k+2} 主项 */
-            ipn_mont_dbl_(T3, Qk1, &mc);
-            ipn_mont_sub_(Vk, T1, Qk, &mc);  /* V_{2k+1} = V_k*V_{k+1} - Q^k */
-            ipn_mont_sub_(Vk1, T2, T3, &mc); /* V_{2k+2} = V_{k+1}^2 - 2Q^{k+1} */
-            lmmp_mul_(prod, Qk, nn, Qk1, nn);
-            ipn_redc_(T1, prod, &mc); /* Q^{2k+1} */
-            lmmp_sqr_(prod, Qk1, nn);
-            ipn_redc_(T2, prod, &mc); /* Q^{2k+2} */
-        } else {
-            lmmp_sqr_(prod, Vk, nn);
-            ipn_redc_(T1, prod, &mc); /* V_{2k} 主项 */
-            lmmp_mul_(prod, Vk, nn, Vk1, nn);
-            ipn_redc_(T2, prod, &mc); /* V_{2k+1} 主项 */
-            ipn_mont_dbl_(T3, Qk, &mc);
-            ipn_mont_sub_(Vk, T1, T3, &mc); /* V_{2k} = V_k^2 - 2Q^k */
-            ipn_mont_sub_(Vk1, T2, Qk, &mc); /* V_{2k+1} = V_k*V_{k+1} - Q^k */
-            lmmp_sqr_(prod, Qk, nn);
-            ipn_redc_(T1, prod, &mc); /* Q^{2k} */
-            lmmp_mul_(prod, T1, nn, Qm, nn);
-            ipn_redc_(T2, prod, &mc); /* Q^{2k+1} */
+            ipn_mont_mul_small_(T3, Uk, Qabs, !Dneg, &mc); /* Q*U_{2k} R */
+            mp_ptr sw = Uk; Uk = Uk1; Uk1 = sw;  /* (U_{2k+1}, _) */
+            ipn_mont_sub_(Uk1, Uk, T3, &mc);     /* U_{2k+2} = U_{2k+1} - Q*U_{2k} */
         }
-        /* Q 槽接力换新，降级旧槽为 T 槽 */
-        sw = Qk; Qk = T1; T1 = sw;
-        sw = Qk1; Qk1 = T2; T2 = sw;
     }
 
-    /* 判据：V_d = 0（r=0），或 U_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
-       U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 检出（阶梯末态
-       Vk1 = V_{d+1}；gcd(D,n)=1 下与 U_d ≡ 0 (mod n) 精确等价） */
-    if (lmmp_zero_q_(Vk, nn)) {
+    /* 判据：U_d = 0，或 V_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
+       U_d 由阶梯直接给出（标准强 Lucas 判据；旧 V-only 阶梯以
+       2V_{d+1} = V_d 间接检出，依 P=1 恒等式 D*U_d = 2V_{d+1} - V_d
+       与 gcd(D,n)=1（D 搜索保证）精确等价，接受集不变）。
+       V_d = 2U_{d+1} - U_d（联立 U_{d+1} = U_d - Q*U_{d-1} 与
+       V_d = U_{d+1} - Q*U_{d-1}，阶梯末态恰为 (U_d, U_{d+1})，免 Q
+       参与；GMP 同式而阶梯终点为 (U_{d-1},U_d)，故其写成
+       U_d - 2Q*U_{d-1}）。Q^d = (V_d^2 - D*U_d^2)/4 */
+    int ret = 0;
+    if (lmmp_zero_q_(Uk, nn)) {
         ret = 1;
         goto done;
     }
-    ipn_mont_dbl_(T2, Vk1, &mc); /* 2V_{d+1} */
-    if (lmmp_cmp_(T2, Vk, nn) == 0) {
+    ipn_mont_dbl_(T1, Uk1, &mc);
+    ipn_mont_sub_(T1, T1, Uk, &mc); /* V_d = 2U_{d+1} - U_d */
+    if (lmmp_zero_q_(T1, nn)) {
         ret = 1;
         goto done;
     }
-    lmmp_sqr_(prod, Vk, nn);
-    ipn_redc_(T1, prod, &mc); /* T1 = V_d^2，供 V_{2d} 递推复用 */
-    for (; s > 1; s--) {
-        mp_ptr sw;
-        ipn_mont_dbl_(T2, Qk, &mc);
-        ipn_mont_sub_(Vk, T1, T2, &mc); /* V_{2d} = V_d^2 - 2Q^d（复用 T1） */
-        lmmp_sqr_(prod, Qk, nn);
-        ipn_redc_(T3, prod, &mc); /* Q^{2d} */
-        lmmp_sqr_(prod, Vk, nn);
-        ipn_redc_(T1, prod, &mc); /* V_{2d}^2 */
-        if (lmmp_zero_q_(Vk, nn)) {
-            ret = 1;
-            goto done;
+    if (s > 1) {
+        /* Q^d R = (V_d^2 - D*U_d^2)R/4：两平方 REDC，D 以小标量合成，
+           再模 n 两次折半（GMP 在普通域有精确整除 /4 便车，蒙域以
+           折半替代，O(n)） */
+        lmmp_sqr_(prod, T1, nn);
+        ipn_redc_(T2, prod, &mc); /* V_d^2 R */
+        lmmp_sqr_(prod, Uk, nn);
+        ipn_redc_(Uk, prod, &mc); /* U_d^2 R（U_d 槽至此耗尽） */
+        ipn_mont_mul_small_(T3, Uk, Dabs, 0, &mc);
+        if (!Dneg)
+            ipn_mont_sub_(T2, T2, T3, &mc); /* D>0：V_d^2 - D*U_d^2 */
+        else
+            ipn_mont_add_(T2, T2, T3, &mc); /* D<0：V_d^2 + |D|*U_d^2 */
+        ipn_mont_half_(T2, &mc); /* (V^2 - D U^2) = 4Q^d → 2Q^d */
+        ipn_mont_half_(T2, &mc); /* → Q^d（阶为蒙域剩余） */
+        for (; s > 1; s--) {
+            ipn_mont_dbl_(T3, T2, &mc); /* 2Q^m R */
+            lmmp_sqr_(prod, T1, nn);
+            ipn_redc_(Uk, prod, &mc); /* V_m^2 R */
+            lmmp_sqr_(prod, T2, nn);
+            ipn_redc_(T2, prod, &mc); /* Q^{2m} R（旧值已被消费） */
+            ipn_mont_sub_(T1, Uk, T3, &mc); /* V_{2m} = V_m^2 - 2Q^m */
+            if (lmmp_zero_q_(T1, nn)) {
+                ret = 1;
+                goto done;
+            }
         }
-        sw = Qk; Qk = T3; T3 = sw;
     }
 
 done:
