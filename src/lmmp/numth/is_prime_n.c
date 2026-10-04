@@ -517,9 +517,12 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
          [Qm(n)]      蒙域 Q
          [Vk|Vk1|Qk|Qk1(4n)]   V/Q 阶梯槽（经指针换名与 T 槽接力）
          [T1|T2|T3(3n)]        蒙乘/倍加中转槽
+       蒙域段之后的调用者段合计 11n+1（勿按段数误计为 10n+1，
+       T3 整段越界在 bump 分配富余空间下静默存活，顶到块边界
+       即静默算错）
     */
     mp_size_t mn = ipn_mont_need_(nn);
-    mp_ptr restrict arena = TALLOC_TYPE(mn + 10 * nn + 1, mp_limb_t);
+    mp_ptr restrict arena = TALLOC_TYPE(mn + 11 * nn + 1, mp_limb_t);
     mp_ptr restrict prod = arena + mn;
     mp_ptr restrict np1 = prod + 2 * nn;
     mp_ptr restrict Qm = np1 + nn + 1;
