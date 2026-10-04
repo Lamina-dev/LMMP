@@ -292,7 +292,6 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
     lmmp_param_assert(na > 0 && numa != NULL && numa[na - 1] != 0);
     lmmp_param_assert(root >= 4 && root <= (1ull << 56));
     lmmp_param_assert(dsts != NULL && tp != NULL);
-    lmmp_param_assert(dstr == NULL || (dstr != dsts && dstr != tp));
     mp_size_t nr = (na + (mp_size_t)root - 1) / (mp_size_t)root;  // 根长
 
     // 平凡域：A < 2^(64na) <= 2^root → 根为 1
