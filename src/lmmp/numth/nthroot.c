@@ -447,6 +447,10 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
     }
 
     // ---- 2) 位窗牛顿精化：e_eff = L'-shx → L'（全程显式长度，零 trim 扫描/零全段清零）----
+    // @note 勿在层内对 tl/al/nl 加 lmmp_debug_assert 容量绊线：Release 下它们是
+    //       __builtin_assume，GCC 13.3（ubuntu-24.04）对这三条循环携带区间的联立
+    //       推导会误删 na==1 路径的 dstr NULL 守卫（NULL 写，x64/arm64 双双复现；
+    //       任意两条则不受影响）。容量界已由定理证明 + 恰尺寸 ASan 验证。
     slong lambda = (slong)lmmp_limb_bits_(root - 1) + 12;
     for (;;) {
         slong e_eff = (slong)Lp - shx;
@@ -529,7 +533,6 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
                     lmmp_copy(Nseg + loff, t2, tl);
                     tl += loff;
                 }
-                lmmp_debug_assert(tl <= NW);  // 暂存容量绊线
                 tq = Nseg;
             } else {
                 tq = t2;
@@ -551,7 +554,6 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
             lmmp_zero(asmb, dloff);
             al += dloff;
         }
-        lmmp_debug_assert(al <= XW);  // 装配段容量绊线
 
         // x' = floor((a1 + t2)/root)：长者在前的单次 add + 原地单limb除
         {
@@ -571,7 +573,6 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
                 nl = tl;
             }
             if (c) np[nl++] = c;
-            lmmp_debug_assert(nl <= (np == Nseg ? NW : XW));
             lmmp_div_1_(np, np, nl, root);  // 原地（契约 eqsep），商高位补零
 
             /*
