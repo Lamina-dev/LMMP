@@ -178,6 +178,13 @@ LMMP_INLINE void pcg64_le_seq_next(mp_ptr restrict dst, mp_size_t n, pcg64_le_se
     }
 }
 
+/**
+ * @brief 依据全局状态获取单个随机limb（0 - B 均匀分布）
+ * @return 随机limb
+ * @note 每调用一次将会重置全局随机状态
+ */
+mp_limb_t lmmp_randlimb_(void);
+
 #undef LMMP_INLINE
 
 #endif  // __LMMP_RAND_STATE_H__
