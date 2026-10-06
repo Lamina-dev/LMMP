@@ -182,23 +182,16 @@ TEST_CASE("numth/trialdiv", trialdiv_remove) {
         u64 seed = 0x0123456789abcdeful + n;
         for (size_t i = 0; i < (size_t)n; ++i) p[i] = xorshift64(seed);
         if (p[n - 1] == 0) p[n - 1] = 1;
-        ushort rn = 0;
-        ushortp divs = lmmp_trialdiv_(p, n, 100, &rn);
-        // 用参考方法验证：每个返回素数都能整除 p，且无遗漏小素数
+        // 参考判定：≤100 内是否存在能整除 p 的素数，与试除布尔结果逐例比对
         BigInt bp(p, n);
-        for (ushort i = 0; i < rn; ++i) {
-            u16 d = divs[i];
-            TEST_CHECK_MSG(BigInt::mod_small(bp, d) == 0, "trialdiv divisor divides");
-            TEST_CHECK_MSG(is_prime_small(d), "trialdiv divisor prime");
-        }
+        bool ref = false;
         for (u32 d = 2; d <= 100; ++d) {
             if (is_prime_small(d) && BigInt::mod_small(bp, d) == 0) {
-                bool found = false;
-                for (ushort i = 0; i < rn; ++i) if (divs[i] == d) found = true;
-                TEST_CHECK_MSG(found, "trialdiv found small prime divisor");
+                ref = true;
+                break;
             }
         }
-        if (divs) lmmp_free(divs);
+        TEST_CHECK_MSG(lmmp_trialdiv_(p, n, 100) == ref, "trialdiv matches reference");
         lmmp_free(p);
     }
 

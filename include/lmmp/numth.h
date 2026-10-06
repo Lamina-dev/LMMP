@@ -522,17 +522,6 @@ LMMP_API bool lmmp_is_prime_notrial_(ulong n);
 LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
 
 /**
- * @brief 单轮 Rabin-Miller 强伪素数测试（大于 128 位）
- * @param np 待测奇数指针（nn 个limb）
- * @param nn 待测数的 limb 长度
- * @param bp 基底指针（nn 个limb）
- * @warning np!=NULL, bp!=NULL, nn>2, np[nn-1]>0, np[0]%2==1,
- *          2 <= [bp,nn] <= [np,nn]-2
- * @return 1 = 通过该基底的 Miller-Rabin 测试；0 = 合数
- */
-LMMP_API int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp);
-
-/**
  * @brief 强 Lucas-Selfridge 测试（大于 128 位）
  * @param np 待测奇数指针（nn 个limb）
  * @param nn 待测数的 limb 长度
@@ -550,24 +539,26 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  * @brief 大整数素性检验（强度分档，大于 128 位）
  * @param np 待测数指针（nn 个limb）
  * @param nn 待测数的 limb 长度
- * @param strength 检测强度 [0,7]，各档构成（随机基底 MR 为"至多"轮数，
- *        任一轮检出合数即提前终止）：
- *        | 强度 | 基底2 MR| 随机基底 MR |  强 Lucas | 试除上界 |
- *        | --- | ------- | ---------- | -------- | ------- |
- *        |  0  |   √     |    4       |    -     | 100     |
- *        |  1  |   √     |    5       |    -     | 300     |
- *        |  2  |   √     |    6       |    -     | 1000    |
- *        |  3  |   √     |    8       |    -     | 3000    |
- *        |  4  |   √     |    0       |    √     | 1000    |
- *        |  5  |   √     |    2       |    √     | 3000    |
- *        |  6  |   √     |    4       |    √     | 5000    |
- *        |  7  |   √     |    6       |    √     | 10000   |
+ * @param strength 检测强度 [0,7]。随机基底 MR 分两层："1+n" 搭配指先跑至多
+ *        x 轮 1 limb 基底（a in [3,B) 均匀，最廉价，尽早拒判）再跑至多 y 轮
+ *        全域（n limb，[2,n-2] 均匀）基底。各层均为"至多"轮数，任一轮检出
+ *        合数即提前终止：
+ *        | 强度 | 基底2 MR | 1 limb 基底 MR | n limb 基底 MR | 强 Lucas |
+ *        | --- | ------- | -------------- | -------------- | -------- |
+ *        |  0  |   √     |       2        |       2        |    -     |
+ *        |  1  |   √     |       3        |       2        |    -     |
+ *        |  2  |   √     |       4        |       3        |    -     |
+ *        |  3  |   √     |       5        |       4        |    -     |
+ *        |  4  |   √     |       0        |       0        |    √     |
+ *        |  5  |   √     |       2        |       0        |    √     |
+ *        |  6  |   √     |       2        |       1        |    √     |
+ *        |  7  |   √     |       3        |       2        |    √     |
  * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
- * @note 各档均以基底 2 特化 MR（lmmp_is_sprp_）起步，4 档及以上为 BPSW 型
- *       判据（数学界目前无已知反例）。随机基底取自全局 RNG（lmmp_random_），
-         均匀分布。契约域 n > 2^128 超过一切已实用化的确定性 MR 基组界
- *       （psi_13 约 3.3e24 < 2^82），故实际不会返回 1，语义保留与
- *       lmmp_is_prime_2_ 一致。
+ * @note 契约域 n > 2^128 超过一切已实用化的确定性 MR 基组界（psi_13 约 3.3e24 < 2^82），
+         故实际不会返回 1，语义保留与 lmmp_is_prime_2_ 一致。
+ * @attention 1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
+ *            > (log n)^(1/3)）知窄基底类在最坏/对抗情形弱于全宽随机轮：本"1+n"
+ *            搭配定位于随机候选（keygen）场景，不承诺对抗性输入下的强度保证。
  * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
  *         2 = 极大概率为素数
  */
@@ -982,13 +973,11 @@ LMMP_API mp_size_t lmmp_arith_seqprod_(mp_ptr dst, mp_size_t rn, uint x, uint n,
  * @param num 被除数
  * @param nn 被除数的 limb 长度
  * @param N 试除法尝试的质数最大值
- * @param rn 结果指针的 limb 长度
- * @warning num!=NULL, nn>0, N>2, rn!=NULL
- * @note 试除法尝试从 2-N 中所有质数进行试除，如果能整除则会插入到返回结果数组中，没有整除的则会返回 NULL。
- *       结果指针请使用 lmmp_free() 函数进行释放。
- * @return 结果指针，返回不超过N，且能整除[np,nn]的素数（从小到大排列），若没有能够整除的素数，则返回NULL
+ * @warning num!=NULL, nn>0, N>2
+ * @note 试除法尝试从 2-N 中所有质数进行试除，如果存在可以整除的素数则立即返回true
+ * @return 若存在不超过N，且能整除[np,nn]的素数则返回true，若没有能够整除的素数，则返回false
  */
-LMMP_API ushortp lmmp_trialdiv_(mp_srcptr np, mp_size_t nn, ushort N, ushort* rn);
+LMMP_API bool lmmp_trialdiv_(mp_srcptr np, mp_size_t nn, ushort N);
 
 /**
  * @brief 除去[np,nn]中的[dp,dn]的因子

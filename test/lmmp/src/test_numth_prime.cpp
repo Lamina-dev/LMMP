@@ -566,9 +566,11 @@ TEST_CASE("numth/prime", mulmod_powmod) {
 }
 
 /*
-    ============ >128 位素性检验：lmmp_is_sprp_ / lmmp_is_strong_lucas_ /
-    lmmp_is_prime_n_ ============
+    ============ >128 位素性检验：lmmp_is_strong_lucas_ / lmmp_is_prime_n_
+    ============
 
+    （单轮 MR 原语已降级为 is_prime_n.c 内部 static 实现，不再对外暴露，
+    故本文件只测对外接口；其行为由各档位用例与 §4.2 定向向量间接覆盖。）
     参考实现全部独立于库代码：
     - ref_sprp_big：BigInt 教科书 MR（Knuth-D 取模梯子）；
     - ref_strong_lucas_big：标准 (U,V,Q) 单状态阶梯（Crandall-Pomerance
@@ -762,40 +764,35 @@ mp_ptr limbs_of(const BigInt& x) {
 
 }  // namespace
 
-/* 单轮 MR 精确对拍：基底 2（特化梯子）、小素数基底、随机大基底 */
-TEST_CASE("numth/prime", is_sprp_n) {
-    u64 seed = 0x8f3a21c94d6e5b70ull;
-    for (size_t limbs : {3, 4, 5, 7}) {
-        for (int k = 0; k < 10; ++k) {
-            BigInt n = rand_big_odd(seed, limbs);
-            mp_ptr np = limbs_of(n);
-            /* 基底 2：特化加倍梯子 */
-            {
-                mp_ptr bp = (mp_ptr)lmmp_alloc(limbs * sizeof(mp_limb_t));
-                std::memset(bp, 0, limbs * sizeof(mp_limb_t));
-                bp[0] = 2;
-                TEST_CHECK_MSG(lmmp_is_sprp_(np, (mp_size_t)limbs, bp) == ref_sprp_big(n, BigInt(2)),
-                               "sprp base2");
-                lmmp_free(bp);
-            }
-            /* 小素数与随机大基底 */
-            for (int bi = 0; bi < 3; ++bi) {
-                BigInt b;
-                if (bi < 2) {
-                    static const u64 bs[] = {3, 325};
-                    b = BigInt(bs[bi]);
-                } else {
-                    b = rand_big_odd(seed, limbs);
-                    b = mod_school_n(b, n);
-                }
-                if (BigInt::cmp(b, BigInt(2)) < 0) b = BigInt(3);
-                if (BigInt::cmp(b, BigInt::sub_small(n, 2)) > 0) b = BigInt(3);
-                mp_ptr bp = limbs_of(b);
-                TEST_CHECK_MSG(lmmp_is_sprp_(np, (mp_size_t)limbs, bp) == ref_sprp_big(n, b), "sprp generic");
-                lmmp_free(bp);
-            }
-            lmmp_free(np);
+/*
+    §4.2 定向向量：强伪素数（SPRP）结构。
+
+    (1) 经典 SPRP-2 小表（2047、3277、4033、4681、8321、15841、29341…）：
+        它们逐一低于本模块契约域 n > 2^128，只能用 64 位接口验证"整条流水线
+        必判合数"（基 2 轮放行、后续轮拒判——已独立确认这些小表均非 SPRP(3)）。
+    (2) >2^128 的定向向量取 Mersenne 数 M_p = 2^p-1（p 为奇素数且 M_p 合数）：
+        ord_{M_p}(2) = p，且 (M_p-1)/2 = 2^(p-1)-1 被 p 整除（费马小定理），
+        故 2 是 M_p 的强伪素数基底——基 2 轮必放行，只能由后续随机基底轮拒判，
+        正是"能骗过基 2 的合数"必须被拦下的定向检验。其中
+        2^137-1、2^149-1、2^163-1 的最小素因子（分别 >2e5、>2e5、150287）都
+        超过全部档位的试除上界（<=10000），故 8 个档位都必须在跑完 1 limb 轮
+        （或其后轮次）后判合数；2^131-1 的最小素因子为 263，超过 0 档试除上界
+        100，0 档同样只能靠随机轮拒判（1 档起由试除拦下）。
+*/
+TEST_CASE("numth/prime", is_prime_n_spsp2) {
+    for (u64 n : {2047ull, 3277ull, 4033ull, 4681ull, 8321ull, 15841ull, 29341ull}) {
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == false, "classic spsp2 rejected (ulong)");
+        TEST_CHECK_MSG(lmmp_is_prime_notrial_(n) == false, "classic spsp2 rejected (notrial)");
+    }
+
+    for (int p : {131, 137, 149, 163}) {
+        BigInt n = BigInt::sub_small(BigInt::shl_bits(BigInt(1), p), 1);
+        mp_ptr np = limbs_of(n);
+        mp_size_t nn = (mp_size_t)n.d.size();
+        for (int s = 0; s <= 7; ++s) {
+            TEST_CHECK_MSG(lmmp_is_prime_n_(np, nn, s) == 0, "Mersenne composite rejected by all tiers");
         }
+        lmmp_free(np);
     }
 }
 

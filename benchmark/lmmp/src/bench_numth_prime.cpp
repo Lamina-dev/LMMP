@@ -233,10 +233,7 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
         lmmp_seed_random_(cur, (mp_size_t)n, seed + i * 131, 1);
         cur[n - 1] |= (mp_limb_t)1 << 63;
         cur[0] |= 1;
-        ushort rn;
-        ushortp divs;
-        while ((divs = lmmp_trialdiv_(cur, (mp_size_t)n, 1000, &rn)) != NULL) {
-            lmmp_free(divs);
+        while (lmmp_trialdiv_(cur, (mp_size_t)n, 1000)) {
             cur[0] += 2;
         }
     }
@@ -245,40 +242,12 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
 
 }  // namespace
 
-#define BENCH_IPN_ONE(limbs)                                                          \
-    BENCH_CASE("numth/prime", ipn_sprp2_##limbs##_l) {                                \
-        const size_t n = (limbs);                                                     \
-        const int cnt = (limbs) <= 64 ? 32 : 8;                                       \
-        mp_ptr a = pool_odd_n(n, 0x51ce77aa##limbs##ull, cnt);                        \
-        mp_ptr b2 = alloc_limbs(n);                                                   \
-        lmmp_zero(b2, (mp_size_t)n);                                                  \
-        b2[0] = 2;                                                                    \
-        size_t idx = 0;                                                               \
-        auto m = measure([&] {                                                        \
-            lmmp_is_sprp_(a + n * (idx++ % cnt), (mp_size_t)n, b2);                   \
-        });                                                                           \
-        report("is_sprp base2 random n=" #limbs, m);                                  \
-        lmmp_free(a);                                                                 \
-        lmmp_free(b2);                                                                \
-    }
-
+/*
+    注：单轮 MR 原语（基底 2 特化轮、通用基底轮）已降级为 is_prime_n.c 的内部
+    static 实现，不再对外暴露，其单轮基准用例（原 ipn_sprp2_ 与 ipn_sprpg_ 两组）
+    随之移除；强度档位与 Lucas 用例保持原样。
+*/
 #define BENCH_IPN(limbs)                                                              \
-    BENCH_IPN_ONE(limbs)                                                              \
-    BENCH_CASE("numth/prime", ipn_sprpg_##limbs##_l) {                                \
-        const size_t n = (limbs);                                                     \
-        const int cnt = (limbs) <= 64 ? 32 : 8;                                       \
-        mp_ptr a = pool_odd_n(n, 0x51ce77ab##limbs##ull, cnt);                        \
-        mp_ptr bg = alloc_limbs(n);                                                   \
-        lmmp_zero(bg, (mp_size_t)n);                                                  \
-        bg[0] = 0x9e3779b97f4a7c15ull;                                                \
-        size_t idx = 0;                                                               \
-        auto m = measure([&] {                                                        \
-            lmmp_is_sprp_(a + n * (idx++ % cnt), (mp_size_t)n, bg);                   \
-        });                                                                           \
-        report("is_sprp generic random n=" #limbs, m);                                \
-        lmmp_free(a);                                                                 \
-        lmmp_free(bg);                                                                \
-    }                                                                                 \
     BENCH_CASE("numth/prime", ipn_lucas_##limbs##_l) {                                \
         const size_t n = (limbs);                                                     \
         const int cnt = (limbs) <= 64 ? 32 : 8;                                       \

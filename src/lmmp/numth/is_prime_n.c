@@ -15,16 +15,24 @@
 
 /*
     大整数素性检验（n > 2 limb）：单轮 Rabin-Miller 强伪素数测试（基底 2
-    特化）、强 Lucas-Selfridge 测试（U 阶梯）与强度分档入口 lmmp_is_prime_n_。
+    特化、1 limb 基底短乘特化）、强 Lucas-Selfridge 测试（U 阶梯）与
+    强度分档入口 lmmp_is_prime_n_。单轮 MR 原语（lmmp_is_sprp_base2_ 与
+    lmmp_is_sprp_1_）均为本文件内部 static 实现，不对外暴露。
 
     记 n = [np,nn]（奇，n > 2^128）。MR 单轮：n-1 = d*2^t（d 奇），梯子计算
-    蒙域 y = b^d，判 y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t）。基底 2 特化：
-    蒙域乘 2 即剩余加倍（2*R ≡ 倍加），逢 1 指数位以 O(n) 加法替代一次
-    M(n) 蒙乘，单轮约省 1/4 ~ 1/3。随机基底轮改调 lmmp_powmod_odd_（powmod.c
-    的滑动窗口梯子，大尺寸省 ~30% 乘法；d 各轮固定），y 为普通域值直接 ±1
-    探测，t-1 次探测平方走 sqr_+div_。强 Lucas（Selfridge 方法 A）：P = 1，
-    Q = (1-D)/4，D 取 5,-7,9,-11,... 中首个 (D|n) = -1 者；判据与标准
-    U/V 强 Lucas 测试一致：
+    蒙域 y = b^d，判 y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t）。基底形态：
+      - 基底 2：蒙域乘 2 即剩余加倍（2*R ≡ 倍加），逢 1 指数位以 O(n) 加法
+        替代一次 M(n) 蒙乘，单轮约省 1/4 ~ 1/3（lmmp_is_sprp_base2_）；
+      - 1 limb 基底：乘底步走"短乘短除"内核（lmmp_is_sprp_1_），利用
+        蒙域表示对裸标量的线性，以两趟 O(nn) 完成一次乘底，免 REDC 与基底
+        入蒙域的全宽预处理（见下方内核注释）；
+      - >=2 limb 基底：改调 lmmp_powmod_odd_（powmod.c 的滑动窗口梯子，
+        大尺寸省 ~30% 乘法；d 各轮固定），y 为普通域值直接 ±1 探测，t-1 次
+        探测平方走 sqr_+div_。1 limb 短乘路径与宽基底路径的 SPRP 判据、
+        d/2^t 分解与早退条件严格一致。
+
+    强 Lucas（Selfridge 方法 A）：P = 1，Q = (1-D)/4，D 取 5,-7,9,-11,...
+    中首个 (D|n) = -1 者；判据与标准 U/V 强 Lucas 测试一致：
       U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1
     阶梯为 Hackman 平方型 U 递推（GMP 6.3 lucmod.c 同构，见
     lmmp_is_strong_lucas_ 注释），Q 仅以小标量进入运算，Q^d 于末尾经
@@ -36,33 +44,44 @@
     进蒙域走 redcify 除法（x*B^n mod n），one = B^n mod n 为各测试公共的
     比较基准，m1 = m - one 即 -1 的蒙域剩余。
 
-    强度分档（strength ∈ [0,7]，随机基底取自全局 RNG，[2,n-2] 均匀）：
-        档 | 基底2 MR  | 随机基底 MR（至多）   | 强 Lucas | 试除上界
-        0  |    √     |         4          |    -     |    100
-        1  |    √     |         5          |    -     |    300
-        2  |    √     |         6          |    -     |   1000
-        3  |    √     |         8          |    -     |   3000
-        4  |    √     |         -          |    √     |   1000
-        5  |    √     |         2          |    √     |   3000
-        6  |    √     |         4          |    √     |   5000
-        7  |    √     |         6          |    √     |  10000
+    强度分档（strength ∈ [0,7]，随机基底取自全局 RNG）。随机轮分两层：
+    先跑至多 x 轮 1 limb 基底（a ∈ [3,B) 均匀，单轮最廉，尽早拒判），再跑
+    至多 y 轮全域（n limb，[2,n-2] 均匀）基底：
+        档 | 基底2 MR  | 1 limb 轮 | n limb 轮 | 强 Lucas | 试除上界
+        0  |    √     |     2     |     2     |    -     |    100
+        1  |    √     |     3     |     2     |    -     |    300
+        2  |    √     |     4     |     3     |    -     |   1000
+        3  |    √     |     5     |     4     |    -     |   3000
+        4  |    √     |     -     |     -     |    √     |   1000
+        5  |    √     |     2     |     0     |    √     |   3000
+        6  |    √     |     2     |     1     |    √     |   5000
+        7  |    √     |     3     |     2     |    √     |  10000
     各档均先做基底 2 特化 MR；"至多 N 轮"指任一轮检出合数即提前终止，
     实际执行轮数不超过 N。试除上界随强度递增：高强度下幸存者代价更大
     （更多轮次/含 Lucas），更深的初筛以近零代价换更高的提前淘汰率。
+    各档独立基底轮总数（含基底 2）为 s0..s3 = 5/6/8/10、s4..s7 = 1/3/4/6；
+    1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
+    > (log n)^(1/3)）知窄基底类的最坏/对抗情形弱于全宽随机轮，本"1+n"
+    搭配定位于随机候选（keygen）场景。
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/impl/inlines.h"
+#include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/mul_cache.h"
+#include "../../../include/lmmp/impl/rand_state.h"
 #include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
 #include "../../../include/lmmp/mprand.h"
+#include "../../../include/lmmp/numth.h"
 
 /* ============ 强度分档参数 ============ */
 
-/* 随机基底 MR 轮数上限（检出合数提前终止） */
-static const uchar ipn_rnd_rounds[8] = {4, 5, 6, 8, 0, 2, 4, 6};
+/* 1 limb 基底随机 MR 轮数上限（检出合数提前终止） */
+static const uchar ipn_r1_rounds[8] = {2, 3, 4, 5, 0, 2, 2, 3};
+
+/* 全域（n limb，[2,n-2] 均匀）基底随机 MR 轮数上限（检出合数提前终止） */
+static const uchar ipn_rn_rounds[8] = {2, 2, 3, 4, 0, 0, 1, 2};
 
 /* 小素数试除上界（N 传给 lmmp_trialdiv_，即试除 <= N 的全部素数） */
 static const ushort ipn_trial_bound[8] = {100, 300, 1000, 3000, 1000, 3000, 5000, 10000};
@@ -404,35 +423,38 @@ static inline mp_size_t ipn_norm_(mp_srcptr dp, mp_size_t dn) {
     return dn;
 }
 
-/*
-    蒙域 L2R 梯子：u = b^d。通用基底逐位"平方 + 蒙乘 bm"；基底 2 特化为
-    "平方 + 倍加"（蒙域乘 2 = 剩余加倍，O(n) 替代 M(n) 蒙乘，蒙域 2 由
-    one 倍加而来，免去 redcify 除法）。二次探测：y ∈ {1,-1} 或
-    y^(2^j) = -1（0 < j < t）
-*/
-int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp) {
-    lmmp_param_assert(np != NULL && bp != NULL);
+/**
+ * @brief 单轮 Rabin-Miller 强伪素数测试（大于 128 位，基底硬编码为 2）
+ * @param np 待测奇数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
+ * @note 蒙域 L2R 梯子：u = 2^d（蒙域剩余）。基底 2 特化为"平方 + 倍加"
+ *       （蒙域乘 2 即剩余加倍 2*R ≡ 倍加，O(n) 替代一次 M(n) 蒙乘，蒙域 2
+ *       由 one 倍加而来，免去基底入蒙域的 redcify 除法）。判定用蒙域基准
+ *       one = B^n mod n 与 m1 = n - one（即 -1 的蒙域剩余），二次探测：
+ *       y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t，n-1 = d*2^t）
+ * @return 1 = 通过基 2 的 Miller-Rabin 测试；0 = 合数
+ */
+static int lmmp_is_sprp_base2_(mp_srcptr np, mp_size_t nn) {
+    lmmp_param_assert(np != NULL);
     lmmp_param_assert(nn > 2 && np[nn - 1] > 0);
     lmmp_param_assert(np[0] % 2 == 1);
 
-    int is2 = (bp[0] == 2) && lmmp_zero_q_(bp + 1, nn - 1);
     TEMP_DECL;
     ipn_mont_t mc;
 
     /*
        单块工作区分段（蒙域段在前，调用者段续后）：
-         [prod(2n)]   平方/全积兼 redcify 被除数
+         [prod(2n)]   平方全积（REDC 被归约数）兼 redcify 工作区
          [nm1(n)]     n-1，低 z 零 limb 折叠为指针偏移后即 d 所在段
          [u(n)]       梯子累加器
-         [bm(n)]      蒙域基底（is2 时免配）
        蒙域段：basecase 2n | 中层 8n | 折叠 8n+msz（ipn_mont_need_）
     */
     mp_size_t mn = ipn_mont_need_(nn);
-    mp_ptr restrict arena = TALLOC_TYPE(mn + (is2 ? 4 : 5) * nn, mp_limb_t);
+    mp_ptr restrict arena = TALLOC_TYPE(mn + 4 * nn, mp_limb_t);
     mp_ptr restrict prod = arena + mn;
     mp_ptr restrict nm1 = prod + 2 * nn;
     mp_ptr restrict u = nm1 + nn;
-    mp_ptr restrict bm = u + nn;
 
     ipn_mont_init_(&mc, np, nn, arena, prod);
 
@@ -446,25 +468,13 @@ int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp) {
     dn = ipn_norm_(d, dn);
     mp_bitcnt_t dbits = (dn - 1) * LIMB_BITS + lmmp_limb_bits_(d[dn - 1]);
 
-    if (is2) {
-        ipn_mont_dbl_(u, mc.one, &mc);
-        for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
-            lmmp_sqr_(prod, u, nn);
-            ipn_redc_(u, prod, &mc);
-            if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1)
-                ipn_mont_dbl_(u, u, &mc);
-        }
-    } else {
-        ipn_redcify_(bm, bp, nn, prod, np);
-        lmmp_copy(u, bm, nn);
-        for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
-            lmmp_sqr_(prod, u, nn);
-            ipn_redc_(u, prod, &mc);
-            if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1) {
-                lmmp_mul_(prod, u, nn, bm, nn);
-                ipn_redc_(u, prod, &mc);
-            }
-        }
+    /* 蒙域初值 one+one = 蒙域 2，逐位平方 + bit=1 倍加 */
+    ipn_mont_dbl_(u, mc.one, &mc);
+    for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
+        lmmp_sqr_(prod, u, nn);
+        ipn_redc_(u, prod, &mc);
+        if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1)
+            ipn_mont_dbl_(u, u, &mc);
     }
 
     /* 二次探测：y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t，共 t-1 次平方） */
@@ -485,6 +495,203 @@ int lmmp_is_sprp_(mp_srcptr np, mp_size_t nn, mp_srcptr bp) {
     ipn_mont_free_(&mc);
     TEMP_FREE;
     return ret;
+}
+
+/* ============ 1 limb 基底 SPRP 特化：短乘短除内核 ============ */
+
+/*
+    蒙域表示对裸标量线性：x̃ ≡ x*B^nn (mod n)，两侧乘裸整数 a 得
+    x̃*a ≡ (a*x)*B^nn，即乘裸标量后仍是同一模数下的合法蒙域剩余。故乘底步
+    既不需要 REDC，也不需要把基底提升成蒙域形式 a*B^nn（提升即全宽，优势尽
+    失）；1 limb 基底用二进制梯子而非窗口表（窗口表条目 a^j 全宽，会把短乘
+    优势全部吃掉）。
+
+    1 limb 基底（lmmp_is_sprp_1_）：t = x̃*a < n*B，故商 q = t div n 恰为
+    1 limb。归一化移位 sh = clz(n[nn-1])、归一化除数顶 2 limb (d1,d0) 及其
+    2/1 逆元于上下文初始化时一次算好；每步以 t<<sh 的顶 3 limb (u2,u1,u0)
+    对 (d1,d0) 作 3/2 除法（_udiv_qr_3by2）估商 q̂。由 t<<sh < (n<<sh)*B 知
+    q̂ 的顶 limb u2 <= d1：u2 == d1 时真商必为 B-1 或 B-2（取 q̂ = B-1，至多
+    回补一次）；u2 < d1 时（u2,u1,u0）< (d1,d0)*B 成立、3/2 除法契约满足，
+    截去 t 与 n 的低位分别使 q̂ >= q、q̂ <= q+1（实测回补率 ~0，2/1 估商则
+    高达 15%~34%，故取 3/2），乘减后回补 n 至多 1 次。除末尾回补外全程只有
+    mul_1 与 submul_1 两趟 O(nn)，无除法循环；平方步仍为全宽 sqr_ + REDC
+    （本测试的复杂度主导项，与基底宽无关，故不动）。
+
+    2 limb 及以上基底不再特化（裁定沿用 lmmp_powmod_odd_ 窗口梯子）：短乘短除
+    的收益来自"以两趟 O(nn) 替代一次全宽乘"，在 nn=3（唯一可能采样到 <=2 limb
+    基底的尺寸）全宽乘仅约 nn^2 = 9 次乘加，而 lmmp_div_ 的固定开销（归一化、
+    临时分配、部分除 + 修正）反超其节省——实测 2 limb 基底走"mul_1 + 移位
+    addmul_1 + lmmp_div_"内核比通用路径慢约 22%，nn>=8 才反超（+11%~24%）；
+    而 nn>=4 的均匀采样基底退化为 <=2 limb 的概率仅 ~2^-64，分派无从生效。
+    故宽度分派只保留宽度 1（见 lmmp_is_prime_n_ 内注释）。
+
+    实测（M5/arm64/Release/best-of-5，与 lmmp_powmod_odd_ 轮同 n、同 d、同
+    基底值域）：nn=16/32/64 时 is_sprp_1_ 单轮比通用随机轮快 10.9%/13.0%/
+    12.5%；而与"乘底步退化为 O(nn) 倍加"的基底 2 特化轮相比仅慢约 1%——
+    即乘底步已压到几乎可忽略，剩余差距全部来自窗口梯子自身的乘底份额
+    （64 limb 实测约 13%，而非设计预期的 1/6~1/3，故 17%~20% 的估计提速
+    不可达；本内核已达该思路的上限）。
+*/
+
+/* 短除上下文：归一化除数顶 2 limb 及其 2/1 逆元（1 limb 基底路径专用） */
+typedef struct {
+    mp_srcptr n;    /* 模数 [n,nn]（奇，顶 limb 非零，nn>=3） */
+    mp_limb_t d1;   /* [n,nn]<<sh 的顶 limb（MSB 置 1） */
+    mp_limb_t d0;   /* [n,nn]<<sh 的次顶 limb */
+    mp_limb_t dinv; /* (B^3-1)/(d1*B+d0) - B（_udiv_qr_3by2 的 dinv） */
+    mp_size_t nn;   /* 模数 limb 长度 */
+    mp_bitcnt_t sh; /* clz(n[nn-1]) */
+} ipn_sdiv_t;
+
+/**
+ * @brief 短除上下文初始化：归一化除数顶 2 limb 与其 2/1 逆元
+ * @param sd 上下文
+ * @param np 模数（nn 个limb）
+ * @param nn 模数 limb 长度
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
+ */
+static void ipn_sdiv_init_(ipn_sdiv_t* sd, mp_srcptr np, mp_size_t nn) {
+    mp_bitcnt_t sh = lmmp_leading_zeros_(np[nn - 1]);
+    sd->n = np;
+    sd->nn = nn;
+    sd->sh = sh;
+    if (sh == 0) {
+        sd->d1 = np[nn - 1];
+        sd->d0 = np[nn - 2];
+    } else {
+        sd->d1 = (np[nn - 1] << sh) | (np[nn - 2] >> (LIMB_BITS - sh));
+        sd->d0 = (np[nn - 2] << sh) | (np[nn - 3] >> (LIMB_BITS - sh));
+    }
+    sd->dinv = lmmp_inv_2_1_(sd->d1, sd->d0);
+}
+
+/**
+ * @brief 蒙域内乘裸 1 limb 标量：x <- x*a mod n（结果仍是蒙域剩余）
+ * @param x 蒙域剩余（nn 个limb，原地读写）
+ * @param a 裸标量（a < B）
+ * @param sd 短除上下文
+ * @warning x < [sd->n,sd->nn], sep(x,sd->n)
+ * @note 估商与回补的界见本节顶部注；"乘减 q*n"大操作数 n 在前、标量 q 在后
+ */
+static inline void ipn_sdiv_mul1_(mp_ptr x, mp_limb_t a, const ipn_sdiv_t* sd) {
+    mp_size_t nn = sd->nn;
+    /* t = x*a：低 nn limb 落回 x，第 nn+1 limb 为进位 */
+    mp_limb_t cy = lmmp_mul_1_(x, x, nn, a);
+
+    /* t<<sh 的顶 3 limb (u2,u1,u0)；t<<sh < (n<<sh)*B ⟹ u2 <= d1 */
+    mp_limb_t u2, u1, u0;
+    if (sd->sh == 0) {
+        u2 = cy;
+        u1 = x[nn - 1];
+        u0 = x[nn - 2];
+    } else {
+        u2 = (cy << sd->sh) | (x[nn - 1] >> (LIMB_BITS - sd->sh));
+        u1 = (x[nn - 1] << sd->sh) | (x[nn - 2] >> (LIMB_BITS - sd->sh));
+        u0 = (x[nn - 2] << sd->sh) | (x[nn - 3] >> (LIMB_BITS - sd->sh));
+    }
+
+    mp_limb_t q, r1, r0;
+    if (u2 >= sd->d1) {
+        /* u2 == d1：真商 ∈ {B-1,B-2}，取 B-1 至多回补一次 */
+        q = LIMB_MAX;
+    } else {
+        /* u2 < d1 ⟹ (u2,u1,u0) < (d1,d0)*B，3/2 除法契约满足 */
+        _udiv_qr_3by2(q, r1, r0, u2, u1, u0, sd->d1, sd->d0, sd->dinv);
+    }
+    (void)r1;
+    (void)r0;
+
+    /* x <- t - q*n；估商偏高时差值为负（hi != 0 即 B^{nn+1} 补码），回补 n */
+    mp_limb_t hi = cy - lmmp_submul_1_(x, sd->n, nn, q);
+    while (hi != 0)
+        hi += lmmp_add_n_(x, x, sd->n, nn);
+}
+
+/**
+ * @brief 短基底 MR 单轮：基底为 1 limb 裸标量，SPRP 判据与基底 2 轮一致
+ * @param np 待测奇数（nn 个limb）
+ * @param nn 待测数 limb 长度
+ * @param a 基底（1 个limb，a < B）
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1, 2 <= a <= [np,nn]-2
+ *          （契约域 n > 2^128 > B 恒成立）
+ * @return 1 = 通过该基底的 Miller-Rabin 测试；0 = 合数
+ */
+static int ipn_sprp_short_(mp_srcptr np, mp_size_t nn, mp_limb_t a) {
+    TEMP_DECL;
+    ipn_mont_t mc;
+    ipn_sdiv_t sd;
+
+    /*
+       单块工作区分段（蒙域段在前，调用者段续后）：
+         [prod(2n)]  平方全积（REDC 被归约数）兼 redcify 工作区
+         [nm1(n)]    n-1（-1 探测基准，亦是 d 分解的来源）
+         [d(n)]      (n-1)>>t
+         [x(n)]      梯子累加器（兼出蒙域结果与探测载体）
+       蒙域段：basecase 2n | 中层 8n | 折叠 8n+msz（ipn_mont_need_）
+    */
+    mp_size_t mn = ipn_mont_need_(nn);
+    mp_ptr restrict arena = TALLOC_TYPE(mn + 5 * nn, mp_limb_t);
+    mp_ptr restrict prod = arena + mn;
+    mp_ptr restrict nm1 = prod + 2 * nn;
+    mp_ptr restrict d = nm1 + nn;
+    mp_ptr restrict x = d + nn;
+
+    ipn_mont_init_(&mc, np, nn, arena, prod);
+    ipn_sdiv_init_(&sd, np, nn);
+
+    /* n-1 = d*2^t（d 奇）：低零 limb 折叠为指针偏移，余位单次移位 */
+    lmmp_copy(nm1, np, nn);
+    lmmp_dec(nm1);
+    mp_bitcnt_t tbits = ipn_ctz_(nm1);
+    mp_size_t dn = ipn_norm_(nm1 + tbits / LIMB_BITS, nn - tbits / LIMB_BITS);
+    lmmp_shr_(d, nm1 + tbits / LIMB_BITS, dn, tbits % LIMB_BITS);
+    dn = ipn_norm_(d, dn);
+    mp_bitcnt_t dbits = (dn - 1) * LIMB_BITS + lmmp_limb_bits_(d[dn - 1]);
+
+    /* 梯子初值 x̃ = a*B^nn mod n = one*a：复用同一乘底内核，免去基底入蒙域的
+       全宽 redcify 除法 */
+    lmmp_copy(x, mc.one, nn);
+    ipn_sdiv_mul1_(x, a, &sd);
+
+    /* 二进制 L2R 梯子：逐位平方 + bit=1 乘底 */
+    for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
+        lmmp_sqr_(prod, x, nn);
+        ipn_redc_(x, prod, &mc);
+        if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1)
+            ipn_sdiv_mul1_(x, a, &sd);
+    }
+
+    /* 出蒙域：y = a^d mod n（普通域），探测结构与 is_prime_n_ 随机轮同构 */
+    lmmp_copy(prod, x, nn);
+    lmmp_zero(prod + nn, nn);
+    ipn_redc_(x, prod, &mc);
+
+    /* 二次探测：y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t，共 t-1 次平方） */
+    int ret = 0;
+    if ((x[0] == 1 && lmmp_zero_q_(x + 1, nn - 1)) || lmmp_cmp_(x, nm1, nn) == 0) {
+        ret = 1;
+    } else {
+        for (mp_bitcnt_t j = tbits - 1; j > 0; j--) {
+            lmmp_sqr_(prod, x, nn);
+            lmmp_div_(NULL, x, prod, 2 * nn, np, nn);
+            if (lmmp_cmp_(x, nm1, nn) == 0) {
+                ret = 1;
+                break;
+            }
+        }
+    }
+
+    ipn_mont_free_(&mc);
+    TEMP_FREE;
+    return ret;
+}
+
+static int lmmp_is_sprp_1_(mp_srcptr np, mp_size_t nn, mp_limb_t a) {
+    lmmp_param_assert(np != NULL);
+    lmmp_param_assert(nn > 2 && np[nn - 1] > 0);
+    lmmp_param_assert(np[0] % 2 == 1);
+    lmmp_param_assert(a >= 2);
+    return ipn_sprp_short_(np, nn, a);
 }
 
 /* (b|A) 二进制算法：A 奇，b < A（移位/比较/减法，几次迭代），
@@ -671,17 +878,12 @@ int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
     if ((np[0] & 1) == 0) return 0;
 
     /* 小素数试除初筛：契约域 n > 2^128 大于一切表内素数，命中即合数 */
-    ushort rn;
-    ushortp divs = lmmp_trialdiv_(np, nn, ipn_trial_bound[strength], &rn);
-    if (divs != NULL) {
-        lmmp_free(divs);
-        return 0;
-    }
+    if (lmmp_trialdiv_(np, nn, ipn_trial_bound[strength])) return 0;
 
     TEMP_DECL;
     /*
-       [b2(n)]    基底载体：基底 2 特化轮与随机轮共用
-       [y(n)]     随机轮 y = b^d mod n（普通域；powmod_odd_ 要求 sep(dst,bp)）
+       [b2(n)]    全域（n limb）随机轮的采样基底载体
+       [y(n)]     宽基底轮 y = b^d mod n（普通域；powmod_odd_ 要求 sep(dst,bp)）
        [nm1(n)]   n-1（随机基底上界 n-1 与 -1 探测基准）
        [d(n)]     (n-1)>>t（各随机轮固定不变）
        [prod(2n)] 探测平方工作区（sqr 全积兼 div 被除数）
@@ -691,16 +893,15 @@ int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
     mp_ptr restrict nm1 = y + nn;
     mp_ptr restrict d = nm1 + nn;
     mp_ptr restrict prod = d + nn;
-    lmmp_zero(b2, nn);
-    b2[0] = 2;
 
     /* 各档公共首步：基底 2 特化 MR（BPSW 的 MR 半部，倍加梯子） */
-    if (!lmmp_is_sprp_(np, nn, b2)) goto composite;
+    if (!lmmp_is_sprp_base2_(np, nn)) goto composite;
 
-    /* nm1 = n-1；t = v2(n-1)；d = (n-1)>>t（奇）。随机基底轮改走窗口梯子：
-       lmmp_powmod_odd_ 计 y = b^d（普通域值直接做 ±1 探测，蒙域/普通域
-       经 redcify 双射等价），t-1 次探测平方走 sqr_+div_。通用梯子逐位
-       平方+蒙乘无窗口（~dbits/2 次乘）在大尺寸比窗口梯子多 ~30% 乘法 */
+    /* nm1 = n-1；t = v2(n-1)；d = (n-1)>>t（奇），各随机轮共用。随机基底轮
+       分两层：1 limb 基底走短乘短除内核（最廉价，先跑），全域基底按有效
+       limb 宽分派（宽 1 亦走短乘，宽 >=2 走 lmmp_powmod_odd_ 的滑动窗口
+       梯子，大尺寸省 ~30% 乘法）。两条路径的 y 均为普通域值直接 ±1
+       探测（蒙域/普通域经 redcify 双射等价），t-1 次探测平方走 sqr_+div_ */
     lmmp_copy(nm1, np, nn);
     lmmp_dec(nm1);
     mp_bitcnt_t t = ipn_ctz_(nm1);
@@ -708,17 +909,38 @@ int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
     lmmp_shr_(d, nm1 + t / LIMB_BITS, dn, t % LIMB_BITS);
     dn = ipn_norm_(d, dn);
 
-    /* 随机基底 MR（至多 N 轮，检出即止）：b ∈ [2,n-2] 均匀。
+    /* 1 limb 基底 MR：a ∈ [3,B-1] 均匀（全局 RNG 单 limb 直取，免去
+       lmmp_random_ 的整块播种开销）。契约域 n > 2^128 > B 保证任意 a 满足
+       3 <= a <= n-2，无需拒绝采样 */
+    for (int r = ipn_r1_rounds[strength]; r > 0; r--) {
+        mp_limb_t a;
+        do {
+            a = lmmp_randlimb_();
+        } while (a < 3);
+        if (!lmmp_is_sprp_1_(np, nn, a)) goto composite;
+    }
+
+    /* 全域（n limb）基底 MR（至多 N 轮，检出即止）：b ∈ [2,n-2] 均匀。
        顶 limb 掩码到 n 的位长内再整体拒绝采样：位长内均匀故 P(>=n) <= 1/2，
        期望 <= 2 次填充，免去每轮一次 nn/nn 全除归约（旧路径 lmmp_div_） */
     uint tb = lmmp_limb_bits_(np[nn - 1]);
     mp_limb_t tmask = (tb == LIMB_BITS) ? ~(mp_limb_t)0 : (((mp_limb_t)1 << tb) - 1);
-    for (int r = ipn_rnd_rounds[strength]; r > 0; r--) {
+    for (int r = ipn_rn_rounds[strength]; r > 0; r--) {
         for (;;) {
             lmmp_random_(b2, nn);
             b2[nn - 1] &= tmask;
             if (lmmp_cmp_(b2, nm1, nn) < 0 && (b2[0] >= 2 || !lmmp_zero_q_(b2 + 1, nn - 1)))
                 break;
+        }
+        /* 基底有效 limb 宽：nn=3 且 n 接近 2^128 时 <=1 limb 的基底占比可达
+           可观比例（均匀采样下约 2^128/n），窄基底走短乘可省下全宽乘。
+           宽度 2 不特化：其唯一可能出现的尺寸 nn=3 上短除内核慢于通用路径
+           （见本节顶部实测注），而 nn>=4 采样退化为 <=2 limb 的概率 ~2^-64 */
+        mp_size_t bw = nn;
+        while (bw > 1 && b2[bw - 1] == 0) bw--;
+        if (bw == 1) {
+            if (!lmmp_is_sprp_1_(np, nn, b2[0])) goto composite;
+            continue;
         }
         lmmp_powmod_odd_(y, b2, d, dn, np, nn);
         int ok = 0;
