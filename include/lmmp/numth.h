@@ -969,8 +969,8 @@ LMMP_API mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m);
 LMMP_API mp_size_t lmmp_arith_seqprod_(mp_ptr dst, mp_size_t rn, uint x, uint n, uint m);
 
 /**
- * @brief 试除法
- * @param num 被除数
+ * @brief 试除法，若存在不超过 N 的质因数，则返回true，否则返回false
+ * @param np 被除数指针
  * @param nn 被除数的 limb 长度
  * @param N 试除法尝试的质数最大值
  * @warning num!=NULL, nn>0, N>2
