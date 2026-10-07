@@ -41,8 +41,6 @@ static const lmmp_global_entry_t lmmp_global_entries[] = {
     {NULL, lmmp_prime_int_table_free_},
     // 十进制幂表：首次调用 lmmp_dec_pow_table_ 时惰性构建，仅注册释放
     {NULL, lmmp_dec_pow_table_free_},
-    // trialdiv 素数积缓存：首次进入乘积路径时惰性构建，仅注册释放
-    {NULL, lmmp_trialdiv_cache_free_},
 };
 
 #define GLOBAL_ENTRIES_NUM (sizeof(lmmp_global_entries) / sizeof(lmmp_global_entries[0]))

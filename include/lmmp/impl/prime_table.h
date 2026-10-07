@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -108,11 +108,6 @@ void lmmp_prime_int_table_init_(uint n);
  * @brief 释放全局素数表
  */
 void lmmp_prime_int_table_free_(void);
-
-/**
- * @brief 释放 trialdiv 素数积缓存（numth/trialdiv.c 内惰性构建）
- */
-void lmmp_trialdiv_cache_free_(void);
 
 typedef struct {
     uintp restrict pp; // 质数数组（升序排列）

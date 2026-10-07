@@ -16,31 +16,16 @@
 /*
     奇模数模幂：Montgomery 归约（REDC）+ 滑动窗口梯子。
 
-    记 R = B^n，m 为奇模数（n limb），ninv = -m^(-1) mod B^n。
-    单步 REDC：给定 t = a*b < m*B^n（[tp,2n]），令
-
-        q = t_lo * ninv mod B^n        （q*m ≡ -t_lo (mod B^n)）
-
-    则 (t + q*m)/B^n ≡ t*R^(-1) (mod m) 且 < 2m。低半部分 t_lo + (q*m)_lo
-    恰为 B^n*[t_lo!=0]，无需逐 limb 相加，故
-
-        u = t_hi + mulhi(q, m) + [t_lo!=0]
-
-    高半积 mulhi(q,m) 的三种来源（按规模分层）：
-      1. basecase（n < REDC_BASECASE_THRESHOLD，实测 41）：链式 Hensel 归约——
-         n 次 addmul_1 逐 limb 消零（q_j = up[0]*ninv1 mod B），成本约一次
-         basecase 乘法，且只需单 limb 逆元（其 clobber 输入的特性见各调用点：
-         梯子内直接破坏 prod，公开 lmmp_redc_ 为维持 tp 只读契约先复制一份）；
-      2. 全积取高半：lmmp_mul_n_ 后读高 n limb（中尺寸段）；
-      3. 梅森折叠（n >= REDC_MERSENNE_THRESHOLD，实测 309）：由于 (q*m) mod B^n
-         = -t_lo mod B^n 是已知量 L，与 binvert_mulhi_ 同构——先算 V = q*m
-         mod (B^msz-1)（msz 为 admissible 尺寸，模数 m 一侧的变换全程缓存
-         复用），从 V 中减去 L 后旋转载出高半。两操作数均 < B^n 保证
-         hi <= B^n-2，拼接表示不会落在 B^msz-1 的二义点上；而 L==0 强制
-         q==0、积为零，也不与零类的非规范表示冲突。
-    入蒙域用一次 (b*B^n) mod m 除法（，比 RR=B^2n mod m 加乘加归约的旧路径省约
-    两个 M(n) 的预处理；basecase 层连全长 binvert 也一并省去（仅需低 limb 逆元）。
-
+    Montgomery 域核心（三层 REDC 分派、蒙域上下文与进蒙域 redcify）的
+    单一定义见 include/lmmp/impl/powmod.h，由本文件与 is_prime_n.c 共用。
+    本文件提供：
+      - 1/2 limb 特化 lmmp_powmod_1_ / lmmp_powmod_2_（u128 标量蒙域梯子）；
+      - 蒙域梯子 lmmp_powmod_odd_mont_（滑动窗口，结果留在蒙域：同模数批量
+        幂/素性检验多轮经同一上下文复用 ninv 与 FFT 变换缓存，并免去出蒙域
+        REDC——蒙域内 ±1 探测等价性见 impl/powmod.h 头注）；
+      - 公开入口 lmmp_powmod_odd_（= 上下文 init + 蒙域梯子 + 出蒙域 REDC）；
+      - 任意模数 lmmp_powmod_（m 偶时 2-adic 分解 + CRT 合成）。
+      - 单步公开 REDC lmmp_redc_（tp 只读契约：basecase 层先复制再归约）。
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -48,16 +33,10 @@
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/mul_cache.h"
+#include "../../../include/lmmp/impl/powmod.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
 
-
-static inline mp_size_t win_size(mp_size_t eb) {
-    mp_size_t k;
-    static mp_bitcnt_t x[] = {7, 25, 81, 241, 673, 1793, 4609, 11521, 28161, ~(mp_bitcnt_t)0};
-    for (k = 0; eb > x[k++];);
-    return k;
-}
 
 #define getbit(p, bi) ((p[(bi - 1) / LIMB_BITS] >> (bi - 1) % LIMB_BITS) & 1)
 
@@ -182,72 +161,6 @@ static inline u128 mont2_mul_2(u128 a, u128 b, u128 n, u128 ninv) {
     return mont2_redc(h, l, n, ninv);
 }
 
-/**
- * @brief 从梅森折叠积中提取高半积（低位已知变体的 mulhi）
- * @param hi 结果指针（n 个limb），接收 [q,n]*[mp,n] div B^n
- * @param V 输入兼工作区（msz 个limb），入口为 q*m mod B^msz-1，出口被破坏
- * @param L 已知低位（n 个limb），满足 q*m ≡ L (mod B^n)，此处 L = -t_lo mod B^n
- * @param n 操作数长度
- * @param msz 折叠尺寸，admissible 且 n <= msz < 2n
- * @warning sep(hi,V), V 的 msz-n 个高位 limb 亦会被读写
- * @note 设 P = q*m = hi*B^n + L，则 W = (V-L) mod B^msz-1 = hi*B^n mod B^msz-1，
- *       即 hi 的第 j limb 恰位于 W[(j+n) mod msz]，旋转载出即得
- */
-static void powmod_fold_hi_(
-    mp_ptr    restrict hi,
-    mp_ptr    restrict V,
-    mp_srcptr restrict L,
-    mp_size_t             n,
-    mp_size_t             msz
-) {
-    mp_size_t fn = msz - n; /* hi 中线性对位部分长度（取自 V+n） */
-    mp_size_t sn = n - fn;  /* hi 中环绕部分长度（取自 V 头部） */
-    lmmp_debug_assert(msz >= n && 2 * n > msz);
-
-    mp_limb_t bor = lmmp_sub_n_(V, V, L, n);
-    if (bor) {
-        /* 数组当前值 = V - L + B^n（借位等价于吸收在第 n 个 limb 上） */
-        if (msz > n)
-            bor = lmmp_sub_1_(V + n, V + n, msz - n, 1);
-        /* 若高位段借位（此时 V < L，高位段必为全零，减 1 后变全 1），
-           或 msz==n（借位即 V<L），整体再减 1 补回 B^msz-1 */
-        if (msz == n || bor)
-            lmmp_dec(V);
-    }
-    lmmp_copy(hi, V + n, fn);
-    lmmp_copy(hi + fn, V, sn);
-}
-
-/**
- * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零
- * @param dst 结果指针（n 个limb），接收 ([up,2n] + q*m)/B^n 的低 n limb
- * @param up 输入兼工作区（2n 个limb，出口被破坏）
- * @param m 模数（n 个limb）
- * @param n 操作数长度
- * @param ninv1 -m^(-1) mod B（单 limb）
- * @warning sep(dst,up), n < REDC_BASECASE_THRESHOLD 时才是优选路径
- * @return 进位（[0|1]），返回值:[dst,n] 即 REDC 结果 < 2m（t < B^n*m 时）
- * @note 每轮 q = up[0]*ninv1 mod B 使 up[0] 恰好归零，addmul_1 的进位
- *       存入刚清零的 limb；n 轮后高半与累积进位的低半相加即得结果。
- *       总成本 n 次 addmul_1 ≈ 一次 basecase 乘法
- */
-static inline mp_limb_t powmod_redc_basecase_(
-    mp_ptr    restrict dst,
-    mp_ptr    restrict up,
-    mp_srcptr restrict m,
-    mp_size_t             n,
-    mp_limb_t             ninv1
-) {
-    mp_ptr restrict up0 = up;
-    for (mp_size_t j = n; j > 0; j--) {
-        mp_limb_t cy = lmmp_addmul_1_(up, m, n, up[0] * ninv1);
-        lmmp_debug_assert(up[0] == 0);
-        up[0] = cy;
-        up++;
-    }
-    return lmmp_add_n_(dst, up0 + n, up0, n);
-}
-
 mp_limb_t lmmp_redc_(
     mp_ptr    restrict  dst,
     mp_srcptr restrict   tp,
@@ -265,7 +178,7 @@ mp_limb_t lmmp_redc_(
     if (n < REDC_BASECASE_THRESHOLD) {
         mp_ptr restrict up = TALLOC_TYPE(2 * n, mp_limb_t);
         lmmp_copy(up, tp, 2 * n);
-        mp_limb_t cy = powmod_redc_basecase_(dst, up, mp, n, ninv[0]);
+        mp_limb_t cy = lmmp_mont_redc_bc_(dst, up, mp, n, ninv[0]);
         TEMP_FREE;
         return cy;
     }
@@ -299,7 +212,7 @@ mp_limb_t lmmp_redc_(
         } else {
             lmmp_zero(L, n);
         }
-        powmod_fold_hi_(hi, V, L, n, msz);
+        lmmp_mont_fold_hi_(hi, V, L, n, msz);
     }
 
     mp_limb_t cy = lmmp_add_nc_(dst, tp + n, hi, n, carry);
@@ -330,7 +243,7 @@ void lmmp_powmod_1_(
         return;
     }
 
-    unsigned windowsize = win_size(ebi);
+    unsigned windowsize = lmmp_powmod_win_size_(ebi);
     lmmp_debug_assert(windowsize < ebi);
     mp_limb_t ninv = 0 - lmmp_binvert_ulong_(mod);
     /* 进蒙域：x_m = b*B mod m，128/64 一步除法（b < mod 保证商不溢出） */
@@ -418,7 +331,7 @@ void lmmp_powmod_2_(
         return;
     }
 
-    unsigned windowsize = win_size(ebi);
+    unsigned windowsize = lmmp_powmod_win_size_(ebi);
     lmmp_debug_assert(windowsize < ebi);
     /* ninv = -m^(-1) mod B^2：u128 回绕取负 */
     mp_limb_t inv[2];
@@ -491,87 +404,98 @@ done:
     TEMP_FREE;
 }
 
-/* REDC 梯子上下文：预分配全部工作区，并缓存 m / ninv 一侧的 FFT 变换 */
-typedef struct {
-    mp_size_t n;
-    mp_srcptr m;     /* 模数 */
-    mp_srcptr ninv;  /* -m^(-1) mod B^n（basecase 层不使用，为 NULL） */
-    mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用） */
-    int fold;        /* n >= REDC_MERSENNE_THRESHOLD 时走梅森折叠 */
-    mp_size_t msz;   /* 折叠尺寸（fold 时有效） */
-    mp_ptr q;        /* [n]        q = t_lo * ninv mod B^n */
-    mp_ptr Lbuf;     /* [n]        -t_lo mod B^n */
-    mp_ptr hi;       /* [n]        q*m 的高 n limb（折叠路径输出） */
-    mp_ptr mulhi;    /* [2n]       全积路径的 q*m（非折叠路径） */
-    mp_ptr V;        /* [msz]      折叠积 q*m mod B^msz-1 */
-    mp_ptr mscratch; /* [2n]       mullo scratch */
-    fft_gr_cache mcache;
-    int mcache_on;
-    fft_mullo_cache ncache;
-    int ncache_on;
-} powmod_redc_t;
+void lmmp_powmod_odd_mont_(
+    mp_ptr          restrict u,
+    mp_srcptr       restrict bp,
+    mp_srcptr       restrict ep,
+    mp_size_t                 en,
+    lmmp_mont_t* restrict     mc,
+    mp_ptr          restrict b2,
+    mp_ptr          restrict prod,
+    mp_ptr          restrict pp
+) {
+    lmmp_param_assert(u != NULL && bp != NULL && ep != NULL && mc != NULL);
+    lmmp_param_assert(b2 != NULL && prod != NULL && pp != NULL);
+    lmmp_param_assert(en > 0 && ep[en - 1] > 0);
 
-/**
- * @brief REDC 单步并规范化：[dst,n] = (t + q*m)/B^n mod m，结果 < m
- * @param dst 结果指针（n 个limb）
- * @param tp 被归约数兼工作区（2n 个limb，t < B^n*[m,n]，出口被破坏）
- * @param rc 梯子上下文
- * @warning sep(dst,tp), dst 与 rc 内各缓冲区均分离
- */
-static void powmod_redc_(mp_ptr restrict dst, mp_ptr restrict tp, powmod_redc_t* restrict rc) {
-    mp_size_t n = rc->n;
-    mp_ptr restrict hi;
+    mp_size_t n = mc->n;
+    mp_bitcnt_t ebi, cnt;
+    unsigned windowsize, this_windowsize;
+    mp_limb_t expbits;
 
-    if (n < REDC_BASECASE_THRESHOLD) {
-        mp_limb_t cy = powmod_redc_basecase_(dst, tp, rc->m, n, rc->ninv1);
-        if (cy) {
-            /* 值 >= B^n > m，减 m 必然可行；借位恰好抵消进位 limb */
-            (void)lmmp_sub_n_(dst, dst, rc->m, n);
-        } else if (lmmp_cmp_(dst, rc->m, n) >= 0) {
-            lmmp_sub_n_(dst, dst, rc->m, n);
-        }
+    ebi = count_bits(ep, en);
+
+    /* 进蒙域：pp[0] = b*B^n mod m，一次 2n/n 除法（低位补 n 零 limb 实现
+       <<B^n，比 RR=B^2n mod m 加乘加归约省约两个 M(n)） */
+    lmmp_mont_redcify_(pp, bp, n, prod, mc->m);
+
+    /* 指数为 1：梯子即入蒙域本体 */
+    if (ebi == 1) {
+        lmmp_copy(u, pp, n);
         return;
     }
 
-    mp_limb_t carry = !lmmp_zero_q_(tp, n);
+    windowsize = lmmp_powmod_win_size_(ebi);
 
-    if (n < MULLO_DC_THRESHOLD) {
-        lmmp_mullo_dc_(rc->q, tp, rc->ninv, rc->mscratch, n);
-    } else if (rc->ncache_on == 0) {
-        lmmp_mullo_fft_cache_init_(rc->q, tp, rc->ninv, n, rc->mscratch, &rc->ncache);
-        rc->ncache_on = 1;
-    } else {
-        lmmp_mullo_fft_cache_(rc->q, tp, rc->mscratch, &rc->ncache);
-    }
+    if (windowsize > 1) {
+        lmmp_debug_assert(windowsize < ebi);
 
-    if (rc->fold == 0) {
-        lmmp_mul_n_(rc->mulhi, rc->q, rc->m, n);
-        hi = rc->mulhi + n;
-    } else {
-        if (rc->mcache_on == 0) {
-            lmmp_mul_mersenne_cache_init_(rc->V, rc->msz, rc->q, n, rc->m, n, &rc->mcache);
-            rc->mcache_on = 1;
-        } else {
-            lmmp_mul_mersenne_cache_(rc->V, rc->q, &rc->mcache);
+        /* b2 = b^2*B^n mod m，用于生成奇次幂表 */
+        lmmp_sqr_(prod, pp, n);
+        lmmp_mont_redc_(b2, prod, mc);
+
+        for (mp_size_t i = 1; i < ((mp_size_t)1 << (windowsize - 1)); i++) {
+            lmmp_mul_(prod, pp + (i - 1) * n, n, b2, n);
+            lmmp_mont_redc_(pp + i * n, prod, mc);
         }
-        if (carry) {
-            lmmp_not_(rc->Lbuf, tp, n);
-            lmmp_inc(rc->Lbuf);
-        } else {
-            lmmp_zero(rc->Lbuf, n);
-        }
-        powmod_fold_hi_(rc->hi, rc->V, rc->Lbuf, n, rc->msz);
-        hi = rc->hi;
+
+        expbits = getbits(ep, ebi, windowsize);
+        ebi -= windowsize;
+
+        ctz_shr_u64(expbits, expbits, cnt);
+        ebi += cnt;
+
+        lmmp_copy(u, pp + n * (expbits >> 1), n);
+    } else {
+        lmmp_copy(u, pp, n);
+        --ebi;
     }
 
-    /* u = t_hi + hi + carry，结果 carry_out:[dst,n] < 2m */
-    mp_limb_t cy = lmmp_add_nc_(dst, tp + n, hi, n, carry);
-    if (cy) {
-        /* 值 >= B^n > m，减 m 必然可行；n limb 减法的借位恰好抵消进位 limb */
-        (void)lmmp_sub_n_(dst, dst, rc->m, n);
-    } else if (lmmp_cmp_(dst, rc->m, n) >= 0) {
-        lmmp_sub_n_(dst, dst, rc->m, n);
+    while (ebi != 0) {
+        while (getbit(ep, ebi) == 0) {
+            lmmp_sqr_(prod, u, n);
+            lmmp_mont_redc_(u, prod, mc);
+            if (--ebi == 0)
+                return;
+        }
+
+        /* The next bit of the exponent is 1.  Now extract the largest block of
+           bits <= windowsize, and such that the least significant bit is 1.  */
+
+        expbits = getbits(ep, ebi, windowsize);
+        this_windowsize = LMMP_MIN(windowsize, ebi);
+
+        ctz_shr_u64(expbits, expbits, cnt);
+        this_windowsize -= cnt;
+        ebi -= this_windowsize;
+
+        while (this_windowsize > 1) {
+            lmmp_sqr_(prod, u, n);
+            lmmp_mont_redc_(u, prod, mc);
+            lmmp_sqr_(prod, u, n);
+            lmmp_mont_redc_(u, prod, mc);
+            this_windowsize -= 2;
+        }
+
+        if (this_windowsize != 0) {
+            lmmp_sqr_(prod, u, n);
+            lmmp_mont_redc_(u, prod, mc);
+        }
+        lmmp_mul_(prod, u, n, pp + n * (expbits >> 1), n);
+        lmmp_mont_redc_(u, prod, mc);
     }
+    /* 不出蒙域：[u,n] = b^e*B^n mod m < m（含规范化），供调用者蒙域内继续
+       运算或 ±1 探测 */
 }
 
 void lmmp_powmod_odd_(
@@ -602,156 +526,43 @@ void lmmp_powmod_odd_(
         return;
     }
 
-    mp_bitcnt_t ebi, cnt;
-    unsigned windowsize, this_windowsize;
-    mp_limb_t expbits;
-    TEMP_DECL;
-
-    ebi = count_bits(ep, en);
+    mp_bitcnt_t ebi = count_bits(ep, en);
 
     /* 指数为 1：契约 [bp,n] < [mp,n]，直接拷贝即已取模，免去全部蒙域预处理 */
     if (ebi == 1) {
         lmmp_copy(dst, bp, n);
-        TEMP_FREE;
         return;
     }
 
-    windowsize = win_size(ebi);
-
-    powmod_redc_t rc;
-    rc.n = n;
-    rc.m = mp;
-    rc.fold = n >= REDC_MERSENNE_THRESHOLD;
-    rc.msz = rc.fold ? lmmp_fft_next_size_((2 * n + 1) >> 1) : 0;
-    rc.mcache_on = 0;
-    rc.ncache_on = 0;
-    if (rc.fold)
-        lmmp_debug_assert(2 * n > rc.msz && rc.msz >= n);
+    TEMP_DECL;
+    lmmp_mont_t mc;
 
     /*
-       basecase（n < REDC_BASECASE_THRESHOLD）：链式归约只碰梯子本体，
-           u(n) | b2(n) | prod(2n) | pp                       == 4n  + ppn
-       中层：另需 q/ninv/mscratch/mulhi；Lbuf/hi/V 为折叠专用，免配
-           u | b2 | prod | ninv(n) | q(n) | mscratch(2n) | mulhi(2n) | pp
-                                                              == 10n + ppn
-       折叠层：mulhi(2n) 换 Lbuf(n) | hi(n) | V(msz)
-           ... | mscratch | Lbuf | hi | V | pp               == 10n + msz + ppn
+       单块工作区分段（蒙域段在前，梯子段续后，段布局见 impl/powmod.h）：
+         [蒙域段]     basecase 0 | 中层 6n | 折叠 6n+msz（lmmp_mont_need_）
+         [u(n)]       梯子累加器
+         [b2(n)]      表生成暂存
+         [prod(2n)]   全积兼 redcify 工作区
+         [pp(ppn)]    奇次幂表，ppn = n << (win-1)
      */
-    mp_size_t ppn = (mp_size_t)n << (windowsize - 1);
-    mp_ptr restrict arena, u, b2, prod, pp;
-    if (n < REDC_BASECASE_THRESHOLD) {
-        arena = TALLOC_TYPE(4 * n + ppn, mp_limb_t);
-        u = arena;
-        b2 = arena + n;
-        prod = arena + 2 * n;
-        pp = arena + 4 * n;
-        rc.ninv = NULL;
-        rc.ninv1 = 0 - lmmp_binvert_ulong_(mp[0]);
-        rc.q = rc.Lbuf = rc.hi = rc.mscratch = rc.mulhi = rc.V = NULL;
-    } else {
-        rc.ninv1 = 0;
-        if (rc.fold) {
-            arena = TALLOC_TYPE(10 * n + rc.msz + ppn, mp_limb_t);
-            rc.q = arena + 5 * n;
-            rc.mscratch = arena + 6 * n;
-            rc.Lbuf = arena + 8 * n;
-            rc.hi = arena + 9 * n;
-            rc.V = arena + 10 * n;
-            rc.mulhi = NULL;
-            pp = arena + 10 * n + rc.msz;
-        } else {
-            arena = TALLOC_TYPE(10 * n + ppn, mp_limb_t);
-            rc.q = arena + 5 * n;
-            rc.mscratch = arena + 6 * n;
-            rc.mulhi = arena + 8 * n;
-            rc.Lbuf = rc.hi = rc.V = NULL;
-            pp = arena + 10 * n;
-        }
-        u = arena;
-        b2 = arena + n;
-        prod = arena + 2 * n;
-        rc.ninv = arena + 4 * n;
-        /* ninv = -m^(-1) mod B^n：m 奇故其逆亦奇，取反加一不会越顶 */
-        lmmp_binvert_(rc.ninv, mp, n, n);
-        lmmp_not_(rc.ninv, rc.ninv, n);
-        lmmp_inc(rc.ninv);
-    }
+    unsigned win = lmmp_powmod_win_size_(ebi);
+    mp_size_t mn = lmmp_mont_need_(n, 0);
+    mp_ptr restrict arena = TALLOC_TYPE(mn + 4 * n + ((mp_size_t)n << (win - 1)), mp_limb_t);
+    mp_ptr restrict u = arena + mn;
+    mp_ptr restrict b2 = u + n;
+    mp_ptr restrict prod = b2 + n;
+    mp_ptr restrict pp = prod + 2 * n;
 
-    /* 进蒙域：x_m = b*B^n mod m，一次 2n/n 
-       低位补 n 个零 limb 实现 <<B^n，比 RR=B^2n mod m 加乘加归约省约两个 M(n) */
-    lmmp_zero(prod, n);
-    lmmp_copy(prod + n, bp, n);
-    lmmp_div_(NULL, pp, prod, 2 * n, mp, n);
+    lmmp_mont_init_(&mc, mp, n, arena, 0, prod);
+    lmmp_powmod_odd_mont_(u, bp, ep, en, &mc, b2, prod, pp);
 
-    if (windowsize > 1) {
-        lmmp_debug_assert(windowsize < ebi);
-
-        /* b2 = b^2*B^n mod m，用于生成奇次幂表 */
-        lmmp_sqr_(prod, pp, n);
-        powmod_redc_(b2, prod, &rc);
-
-        for (mp_size_t i = 1; i < ((mp_size_t)1 << (windowsize - 1)); i++) {
-            lmmp_mul_(prod, pp + (i - 1) * n, n, b2, n);
-            powmod_redc_(pp + i * n, prod, &rc);
-        }
-
-        expbits = getbits(ep, ebi, windowsize);
-        ebi -= windowsize;
-
-        ctz_shr_u64(expbits, expbits, cnt);
-        ebi += cnt;
-
-        lmmp_copy(u, pp + n * (expbits >> 1), n);
-    } else {
-        lmmp_copy(u, pp, n);
-        --ebi;
-    }
-
-    while (ebi != 0) {
-        while (getbit(ep, ebi) == 0) {
-            lmmp_sqr_(prod, u, n);
-            powmod_redc_(u, prod, &rc);
-            if (--ebi == 0)
-                goto done;
-        }
-
-        /* The next bit of the exponent is 1.  Now extract the largest block of
-           bits <= windowsize, and such that the least significant bit is 1.  */
-
-        expbits = getbits(ep, ebi, windowsize);
-        this_windowsize = LMMP_MIN(windowsize, ebi);
-
-        ctz_shr_u64(expbits, expbits, cnt);
-        this_windowsize -= cnt;
-        ebi -= this_windowsize;
-
-        while (this_windowsize > 1) {
-            lmmp_sqr_(prod, u, n);
-            powmod_redc_(u, prod, &rc);
-            lmmp_sqr_(prod, u, n);
-            powmod_redc_(u, prod, &rc);
-            this_windowsize -= 2;
-        }
-
-        if (this_windowsize != 0) {
-            lmmp_sqr_(prod, u, n);
-            powmod_redc_(u, prod, &rc);
-        }
-        lmmp_mul_(prod, u, n, pp + n * (expbits >> 1), n);
-        powmod_redc_(u, prod, &rc);
-    }
-
-done:
     /* 离开 Montgomery 域：r = REDC(u * 1) = u*B^(-n) mod m < m */
     lmmp_copy(prod, u, n);
     lmmp_zero(prod + n, n);
-    powmod_redc_(u, prod, &rc);
+    lmmp_mont_redc_(u, prod, &mc);
     lmmp_copy(dst, u, n);
 
-    if (rc.mcache_on)
-        lmmp_fft_gr_cache_free_(&rc.mcache);
-    if (rc.ncache_on)
-        lmmp_mullo_cache_free_(&rc.ncache);
+    lmmp_mont_free_(&mc);
     TEMP_FREE;
 }
 

@@ -59,7 +59,7 @@ struct Measurement {
 
 inline Measurement measure(const std::function<void()>& op, double target_sec = 0.15) {
     // 预热
-    for (int i = 0; i < 3; ++i) op();
+    op();
 
     uint64_t k = 1;
     double elapsed = 0.0;
@@ -72,8 +72,10 @@ inline Measurement measure(const std::function<void()>& op, double target_sec = 
         k <<= 1;
     }
 
-    // 再测若干次，取最小值以降低调度抖动。
-    int samples = 5;
+    // 再测若干次，取最小值以降低调度抖动。单块已达几十毫秒以上的慢操作
+    // （大尺寸模幂/素性检验整池），调度噪声占比极小，减采样省墙钟；
+    // 快操作维持原样本数。
+    int samples = elapsed >= 0.05 ? 2 : 5;
     double best = elapsed * 1e9 / (double)k;  // 统一换算为 ns/op
     for (int s = 0; s < samples; ++s) {
         auto t0 = Clock::now();

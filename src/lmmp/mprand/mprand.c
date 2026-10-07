@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -29,6 +29,12 @@ static LMMP_THREAD_LOCAL lmmp_global_rng_t lmmp_global_rng = {GLOBAL_RNG_INIT_ST
 void lmmp_global_rng_init_(unsigned seed, unsigned seed_type) {
     lmmp_global_rng.state = lmmp_seed_generator(seed + seed_type);
     lmmp_global_rng.seed_type = seed_type % 2;
+}
+
+mp_limb_t lmmp_randlimb_(void) {
+    mp_limb_t ret = mix64(lmmp_global_rng.state);
+    lmmp_global_rng.state = lmmp_seed_generator(lmmp_global_rng.state);
+    return ret;
 }
 
 mp_size_t lmmp_seed_random_(mp_ptr restrict dst, mp_size_t n, mp_limb_t seed, unsigned seed_type) {
