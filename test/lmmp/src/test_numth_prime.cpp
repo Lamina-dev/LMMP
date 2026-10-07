@@ -891,6 +891,22 @@ TEST_CASE("numth/prime", is_prime_n) {
                 TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)n.d.size(), s) == expect, "structured");
             lmmp_free(np);
         }
+        /* v2(n-1) 跨 limb 边界：n = m*2^t+1（m 奇），t=63/64/65/127/128/129
+           覆盖 d 分解的折叠偏移 × 位内移位组合（含 t%64==0 的零移位分支）
+           与 t-1 次尾部探测链的长度边界 */
+        for (int t : {63, 64, 65, 127, 128, 129}) {
+            for (int k = 0; k < 3; ++k) {
+                u64 seed2 = seed ^ ((u64)t * 0x9e3779b97f4a7c15ull + k);
+                BigInt m = rand_big_odd(seed2, 3);
+                BigInt n = BigInt::add_small(BigInt::mul_school(m, BigInt::shl_bits(BigInt(1), t)), 1);
+                if (n.d.size() < 3) continue;
+                int expect = ref_is_prime_big(n) ? 2 : 0;
+                mp_ptr np = limbs_of(n);
+                for (int s = 0; s <= 7; ++s)
+                    TEST_CHECK_MSG(lmmp_is_prime_n_(np, (mp_size_t)n.d.size(), s) == expect, "v2 boundary");
+                lmmp_free(np);
+            }
+        }
     }
 
     /* 2. 偶数与试除命中 */
