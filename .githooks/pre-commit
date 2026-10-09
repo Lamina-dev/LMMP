@@ -1,0 +1,24 @@
+#!/bin/sh
+# LMMP pre-commit hook: format staged files with scripts/lmmp/format_sources.py
+# (tab expansion, trailing whitespace, final newline, trailing blank line
+# collapse, macro backslash alignment) and re-stage whatever it fixes.
+#
+# Works on Linux, macOS and Windows (Git for Windows ships the same sh).
+# Requires Python 3 somewhere on PATH (python3, python, or the Windows
+# "py" launcher); without it the commit is blocked -- use --no-verify to
+# bypass explicitly.
+
+repo=$(git rev-parse --show-toplevel) || exit 1
+formatter="$repo/scripts/lmmp/format_sources.py"
+
+if command -v python3 >/dev/null 2>&1; then
+    exec python3 "$formatter" --staged
+elif command -v python >/dev/null 2>&1; then
+    exec python "$formatter" --staged
+elif command -v py >/dev/null 2>&1; then
+    exec py -3 "$formatter" --staged
+fi
+
+echo "error: python3 is required by the LMMP pre-commit formatting hook." >&2
+echo "error: install Python 3, or bypass with: git commit --no-verify" >&2
+exit 1

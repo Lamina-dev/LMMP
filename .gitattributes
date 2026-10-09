@@ -4,3 +4,5 @@
 *.cpp text eol=lf
 *.h text eol=lf
 *.hpp text eol=lf
+.githooks/* text eol=lf
+*.py text eol=lf
