@@ -18,6 +18,7 @@
 
 #include "../lmmpn.h"
 #include "../numth.h"
+#include "longlong.h"
 #include "mparam.h"
 #include "mul_cache.h"
 
@@ -326,6 +327,134 @@ static inline void lmmp_mont_free_(lmmp_mont_t* mc) {
         lmmp_fft_gr_cache_free_(&mc->mcache);
     if (mc->ncache_on)
         lmmp_mullo_cache_free_(&mc->ncache);
+}
+
+/* ============ 稀疏模数蒙域旁路（lmmp_mont_sp_t，不接入 lmmp_mont_t） ============ */
+
+/*
+    形状 m = ε + Kv·B^p（ε ∈ {+1,−1}，Kv ≤ 2 limb，p ≥ 1，n ≥ 2）：
+      +1 形（Proth）：limb0 = 1、limb 1..p−1 全零、顶部 ≤2 limb 簇 = Kv；
+      −1 形（Mersenne/Riesel）：limb 0..p−1 全 B−1、顶部簇读值 Kv−1
+                               （m = Kv·B^p − 1，簇全 B−1 已被探测排除，Kv 无越顶）。
+
+    单步 REDC 与 lmmp_mont_redc_bc_ 同为链式 Hensel 逐 limb 消零，但每轮
+    addmul_1 经伸缩恒等式坍缩为 O(1)：
+
+        q·m·B^64j = q·Kv·B^(64(j+p)) + ε·q·B^64j
+
+    乘子由 m ≡ ε (mod B) 免费给出（ε=+1 ⟹ m^(-1)=1 ⟹ q = B − up[j]，本位
+    u0+q = B 恰清零、进位 1 入 j+1；ε=−1 ⟹ q = up[j]，本位 u0−q 恰清零无
+    借位），中间 limb 零贡献，唯一的实做是 j+p 处 q·Kv 的 ≤3 limb 乘加与
+    有界进位游程（add_1 遇非 B−1 即停，游程被后续 O(1) 次写入重建，充电
+    论证总游程 O(n)）。p ≥ 1 保证各操作只触 ≥ j+1 位，低 j limb 恒零，
+    n 轮后高 n limb 即结果。整步 O(n)，全尺寸优于 bc/中层/折叠三层
+    （后三者 ≈ 一次 M(n)）——本旁路因此独立于 lmmp_mont_t 的尺寸分派，
+    形状命中即用，上下文无任何工作段与缓存（init 免配、无 free）。
+
+    值域核算：表示值 = 数组 + top·B^2n ≡ t + (Σq_j B^j)m < 2m·B^n ≤ 2B^2n，
+    数组非负 ⟹ top ∈ {0,1}（越顶进位逐次捕获累加）；结果 = 高半 + top·B^n
+    ∈ [0,2m)，规范化至多减 m 一次。
+*/
+typedef struct {
+    mp_size_t n;   /* 模数 limb 长度 */
+    mp_srcptr m;   /* 模数（引用调用者内存，生命周期须覆盖上下文全程） */
+    int form;      /* 形状：+1 / −1（0 = 非稀疏，上下文未装配） */
+    mp_size_t p;   /* 簇偏移（1 <= p <= n-1） */
+    mp_limb_t kv0; /* Kv 低 limb */
+    mp_limb_t kv1; /* Kv 高 limb（1 limb 簇时为 0；−1 形为簇读值+1 的产物） */
+} lmmp_mont_sp_t;
+
+/**
+ * @brief 稀疏形状探测与上下文装配（O(n) 扫描，免分配）
+ * @param mc 上下文（出口：形状命中时就绪，否则 form=0 其余字段无效）
+ * @param mp 模数（n 个limb，奇，顶 limb 非零）
+ * @param n 模数 limb 长度
+ * @warning n >= 2
+ * @return 形状（+1/−1），非稀疏返回 0
+ */
+static inline int lmmp_mont_sp_init_(lmmp_mont_sp_t* mc, mp_srcptr mp, mp_size_t n) {
+    lmmp_debug_assert(n >= 2 && mp[0] % 2 == 1 && mp[n - 1] != 0);
+    mc->n = n;
+    mc->m = mp;
+    if (mp[0] == 1) {
+        mp_size_t i = 1;
+        while (i < n && mp[i] == 0) i++;
+        if (n - i < 1 || n - i > 2) return mc->form = 0;
+        mc->form = 1;
+        mc->p = i;
+        mc->kv0 = mp[i];
+        mc->kv1 = (n - i == 2) ? mp[n - 1] : 0;
+        return 1;
+    }
+    if (mp[0] == LIMB_MAX) {
+        mp_size_t i = 1;
+        while (i < n && mp[i] == LIMB_MAX) i++;
+        if (i >= n || n - i > 2) return mc->form = 0;
+        mc->form = -1;
+        mc->p = i;
+        /* Kv = 簇读值 + 1；mp[i] != B-1（探测保证）⟹ kv0 不回绕、无进位 */
+        mc->kv0 = mp[i] + 1;
+        mc->kv1 = (n - i == 2) ? mp[n - 1] : 0;
+        return -1;
+    }
+    return mc->form = 0;
+}
+
+/**
+ * @brief 稀疏模数 REDC 单步并规范化：[dst,n] = t*B^(-n) mod m，结果 < m
+ * @param dst 结果指针（n 个limb）
+ * @param tp 被归约数兼工作区（2n 个limb，t < m*B^n，出口被破坏）
+ * @param mc 稀疏蒙域上下文（须已完成 lmmp_mont_sp_init_ 且 form != 0）
+ * @warning sep(dst,tp)，dst 与 mc->m 分离
+ */
+static inline void lmmp_mont_sp_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_sp_t* restrict mc) {
+    mp_size_t n = mc->n, n2 = 2 * n;
+    mp_size_t p = mc->p;
+    mp_limb_t kv0 = mc->kv0, kv1 = mc->kv1;
+    mp_ptr up = tp;
+    mp_limb_t top = 0;
+
+    for (mp_size_t j = 0; j < n; j++, up++) {
+        mp_limb_t u0 = up[0];
+        if (u0 == 0) continue;
+        mp_limb_t q;
+        if (mc->form > 0) {
+            /* +1 形：q = B − u0，本位清零、进位 1 入 j+1（游程遇非 B−1 即停） */
+            q = LIMB_MAX - u0 + 1;
+            up[0] = 0;
+            top += lmmp_add_1_(up + 1, up + 1, n2 - j - 1, 1);
+        } else {
+            /* −1 形：q = u0，本位恰清零无借位 */
+            q = u0;
+            up[0] = 0;
+        }
+        /* 绝对位 j+p 处 += q·Kv（up 已前移 j，故相对偏移恰为 p；Kv <= 2 limb
+           ⟹ 积 <= 3 limb，绝对位 j+p+1 <= 2n-1 恒在界内） */
+        mp_size_t w = p;
+        u128 t = (u128)q * kv0;
+        u128 s = (u128)up[w] + (mp_limb_t)t;
+        up[w] = (mp_limb_t)s;
+        t = (u128)q * kv1 + (mp_limb_t)(t >> 64);
+        s = (u128)up[w + 1] + (mp_limb_t)t + (mp_limb_t)(s >> 64);
+        up[w + 1] = (mp_limb_t)s;
+        mp_limb_t cy = (mp_limb_t)(t >> 64) + (mp_limb_t)(s >> 64);
+        if (cy) {
+            /* 绝对位 j+p+2 = 2n（1 limb 簇顶格）时进位直达 top */
+            if (j + w + 2 < n2)
+                cy = lmmp_add_1_(up + w + 2, up + w + 2, n2 - j - w - 2, cy);
+            top += cy;
+        }
+    }
+    lmmp_debug_assert(top <= 1);
+
+    /* 低 n limb 恒零；结果 = 高半 + top（虚进位），< 2m，规范化一次 */
+    lmmp_copy(dst, tp + n, n);
+    if (top) {
+        /* 值 >= B^n > m，减 m 必然可行，借位恰好抵消虚进位 */
+        (void)lmmp_sub_n_(dst, dst, mc->m, n);
+    } else if (lmmp_cmp_(dst, mc->m, n) >= 0) {
+        lmmp_sub_n_(dst, dst, mc->m, n);
+    }
 }
 
 /**

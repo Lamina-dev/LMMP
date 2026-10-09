@@ -66,6 +66,12 @@
     1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
     > (log n)^(1/3)）知窄基底类的最坏/对抗情形弱于全宽随机轮，本"1+n"
     搭配定位于随机候选（keygen）场景。
+
+    Proth 形状独立入口 lmmp_is_prothprime_(k, n)（判 k*2^n+1，k 奇 < 2^32，
+    契约 k>0 奇、n>0）：
+    普罗斯定理的单梯子双方向确定性判决，不经强度分档，也不接入
+    lmmp_is_prime_n_ 的通用分派（保持通用路径的形状无关性），设计见
+    文末 Proth 节注释。
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -709,4 +715,156 @@ composite:
     lmmp_mont_free_(&mc);
     TEMP_FREE;
     return 0;
+}
+
+/* ============ Proth 形状素性检验（lmmp_is_prothprime_） ============ */
+
+/*
+    普罗斯定理：N = k*2^t+1（k 奇，k < 2^t）为素数 ⟺ 存在 a 使
+    a^((N-1)/2) ≡ -1 (mod N)。正向（≡ -1 ⟹ N 素）为 Pocklington 型
+    阶论证，无需分解 k：任一素因子 p 满足 ord_p(a) | N-1 且
+    ∤ (N-1)/2，故 v2(ord_p(a)) = t，2^t | p-1，p >= 2^t+1 > sqrt(N)
+    （k < 2^t ⟹ N < 2^(2t)+1），与合数必有不超 sqrt(N) 的素因子矛盾。
+    反向仅在 Jacobi(a,N) = -1 的见证上成立（N 素时 Euler 判据强制
+    a^((N-1)/2) ≡ (a|N) = -1）：故 Jacobi = 0 即 gcd(a,N) > 1 判合数
+    （本域 a < N 恒成立），首个 Jacobi = -1 的奇数 a 上单条梯子出双
+    方向定论；Jacobi = +1 的基对判决无贡献（素数给 +1，平方数亦恒给
+    +1，(a|p^2) = (a|p)^2 且 a^((p^2-1)/2) = (±1)^(p+1) = +1，两侧
+    不可区分），直接跳过。
+
+    见证搜索沿奇数 a = 3,5,7,... 至防御上界 IPN_PROTH_WITNESS_MAX（与
+    ipn_lucas_i_ 的 D 搜索同哲学：非平凡特征必存在见证，可证的小上界
+    不存在）。终止性：唯一无
+    -1 见证的情形是 N 为完全平方，而本域（N >= 2^64，kk < 2^32，
+    ne = t >= 64）内平方不可能——若 N = p^2 且 (p-1)(p+1) = kk*2^t，
+    记 p-1 = 2^a*u、p+1 = 2^b*v（u,v 奇，{a,b} 含 1），p >= 2^32 与
+    uv = kk < 2^32 联立迫使小 v2 侧奇部 >= 2^31、另一侧奇部 = 1，
+    只剩 p ∈ {2^32-1, 2^33-1, 2^32+1}，均非素——故 (·|N) 非平凡，
+    必有奇素数见证 < N，搜索有限步终止（实际首见证个位数到几十）。
+
+    梯子结构：指数 (N-1)/2 = k*2^(t-1) 低 t-1 位全零——k 部分（<= 32
+    位）走 L2R 二进制梯（乘底至多 31 次全宽乘，占梯子份额可忽略，故
+    不做窗口/短乘特化），尾部 t-1 步为纯平方链。全程蒙域，终点与 m1
+    （蒙域 -1）比较，免出蒙域归约；指数无需物化为 limb 数组，两段
+    循环由 kk 与 ne 直接驱动。
+
+    蒙域上下文走稀疏模数旁路（lmmp_mont_sp_t）：驱动域内 N = 1 +
+    (kk<<s)·B^p 恒命中 +1 形（kk < 2^32 ⟹ 簇 <= 2 limb），REDC 每步
+    O(n)（伸缩恒等式坍缩，见 impl/powmod.h 稀疏节注释），梯子整体
+    平方主导；m1（蒙域 -1）经一次 redcify 除法装配 one 后取 N − one，
+    不经 lmmp_mont_t 的通用三层分派。
+*/
+
+/*
+    普罗斯定理驱动（N = kk*2^ne+1 已装配为 [np,nn]，kk 奇 < 2^32，
+    ne >= 64 ⟹ nn >= 2、limb0 恒纯 1（稀疏形状必命中）、kk < 2^ne 自动
+    成立）：首个 Jacobi = -1 的奇数 a 上跑 a^((N-1)/2) 蒙域梯子
+*/
+
+/* 见证搜索上界（防御性）：域内非平方引理保证存在 Jacobi = -1 的奇素
+   见证（实际最小见证个位数到几十），上界仅为拦截不可达的异常情形
+   （形状前提被破坏/宇宙射线）——越界回退强度分档检验（概率性），
+   保持判决正确性而非悬挂 */
+#define IPN_PROTH_WITNESS_MAX 65535u
+
+static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
+    /* 见证搜索（纯 Jacobi，无分配）：首个 Jacobi != +1 者即决 */
+    ulong a;
+    int j = 1; /* 初值 1：上界耗尽/空转均归入防御回退分支 */
+    for (a = 3; a <= IPN_PROTH_WITNESS_MAX; a += 2) {
+        j = ipn_jacobi_D_((uint)a, 0, np, nn);
+        if (j != 1) break;
+    }
+    if (j == 0) return 0; /* gcd(a,N) > 1 且 a < N（N > 2^64 > a）*/
+    if (j == 1) return lmmp_is_prime_n_(np, nn, 4); /* 上界耗尽（不可达）：防御回退，值透传 */
+
+    TEMP_DECL;
+    lmmp_mont_sp_t mc;
+    int form = lmmp_mont_sp_init_(&mc, np, nn);
+    lmmp_debug_assert(form == 1);
+    /*
+       [m1(n)]     蒙域 -1（one 装配载体转 m1）
+       [prod(2n)]  redcify/平方/乘底全积（sp REDC 被归约数）
+       [u(n)]      梯子累加器
+       [abar(n)]   蒙域基底 ā（先作普通域基底载体，eqsep 原地 redcify）
+    */
+    mp_ptr restrict m1 = TALLOC_TYPE(5 * nn, mp_limb_t);
+    mp_ptr restrict prod = m1 + nn;
+    mp_ptr restrict u = prod + 2 * nn;
+    mp_ptr restrict abar = u + nn;
+
+    /* m1 = N − one（蒙域 -1）：one = B^nn mod N 经一次 redcify 除法 */
+    lmmp_zero(m1, nn);
+    m1[0] = 1;
+    lmmp_mont_redcify_(abar, m1, nn, prod, np);
+    (void)lmmp_sub_n_(m1, np, abar, nn);
+
+    /* ā = a*B^nn mod N */
+    lmmp_zero(abar, nn);
+    abar[0] = a;
+    lmmp_mont_redcify_(abar, abar, nn, prod, np);
+
+    /* k 部分：u = ā^kk（L2R；kk <= 2^32-1） */
+    lmmp_copy(u, abar, nn);
+    for (mp_bitcnt_t i = lmmp_limb_bits_(kk) - 1; i-- > 0;) {
+        lmmp_sqr_(prod, u, nn);
+        lmmp_mont_sp_redc_(u, prod, &mc);
+        if ((kk >> i) & 1) {
+            lmmp_mul_n_(prod, u, abar, nn);
+            lmmp_mont_sp_redc_(u, prod, &mc);
+        }
+    }
+
+    /* 尾部 t-1 次纯平方：u = u^(2^(ne-1)) */
+    for (mp_bitcnt_t i = ne - 1; i-- > 0;) {
+        lmmp_sqr_(prod, u, nn);
+        lmmp_mont_sp_redc_(u, prod, &mc);
+    }
+
+    /* a^((N-1)/2) ≡ -1 ⟺ 蒙域终值 = m1：素数（定理正向）；否则该
+       Jacobi = -1 见证下必为合数（Euler 反证） */
+    int ret = lmmp_cmp_(u, m1, nn) == 0;
+    TEMP_FREE;
+    return ret;
+}
+
+int lmmp_is_prothprime_(uint k, mp_size_t n) {
+    lmmp_param_assert(k > 0 && n > 0);
+    lmmp_param_assert(k & 1 == 1);
+    /* 契约域：k 奇（无 2 因子归一化），ne := n 即 v2(N-1) */
+    ulong kk = k;
+    mp_bitcnt_t ne = (mp_bitcnt_t)n;
+    uint bk = (uint)lmmp_limb_bits_(kk);
+
+    /* N < 2^64（ne + bitlen(kk) <= 64）：确定性小数路径 */
+    if (ne + bk <= 64) return lmmp_is_prime_ulong_((kk << ne) + 1) ? 1 : 0;
+
+    /* ne < 64：kk 簇低位与 limb0 的 1 共享 limb（N < 2^32*2^63 < 2^96，恰
+       双 limb），非稀疏形状——走 lmmp_is_prime_2_ 三态路径值透传
+       （<SWbound 确定性返回 1，之上 BPSW 型返回 2） */
+    if (ne < 64) {
+        u128 N = ((u128)kk << ne) + 1;
+        return lmmp_is_prime_2_((mp_limb_t)N, (mp_limb_t)(N >> 64));
+    }
+
+    /* 普罗斯定理驱动域：ne >= 64 ⟹ N >= 2^64 且 limb0 恒为纯 1（kk 簇整
+       体位于 limb >= 1，稀疏形状必命中），nn >= 2，kk < 2^32 <= 2^ne（定
+       理条件 k 奇、k < 2^t 自动成立）。装配 N = kk*2^ne + 1 */
+    mp_size_t nn = (mp_size_t)((ne + bk - 1) / LIMB_BITS) + 1;
+    TEMP_DECL;
+    mp_ptr np = TALLOC_TYPE(nn, mp_limb_t);
+    lmmp_zero(np, nn);
+    np[0] = 1;
+    mp_size_t w = (mp_size_t)(ne / LIMB_BITS);
+    mp_bitcnt_t s = ne % LIMB_BITS;
+    if (s == 0) {
+        np[w] = (mp_limb_t)kk;
+    } else {
+        np[w] |= (mp_limb_t)(kk << s);
+        mp_limb_t hi = (mp_limb_t)(kk >> (LIMB_BITS - s));
+        if (hi) np[w + 1] = hi; /* hi != 0 ⟺ 顶位跨 limb ⟺ w+1 == nn-1 */
+    }
+    int ret = ipn_proth_i_(np, nn, kk, ne);
+    TEMP_FREE;
+    return ret;
 }
