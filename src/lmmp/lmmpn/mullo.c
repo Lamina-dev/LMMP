@@ -144,9 +144,9 @@ void lmmp_mullo_fft_cache_(mp_ptr dst, mp_srcptr numa, mp_ptr scratch, fft_mullo
 #define MUL_TOOM88_THRESHOLD 2921
 
 void lmmp_mullo_dc_(
-    mp_ptr    restrict  dst, 
-    mp_srcptr restrict numa, 
-    mp_srcptr restrict numb, 
+    mp_ptr    restrict  dst,
+    mp_srcptr restrict numa,
+    mp_srcptr restrict numb,
     mp_ptr    restrict   tp,
     mp_size_t             n
 ) {

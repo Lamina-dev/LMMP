@@ -53,7 +53,7 @@ void lmmp_invappr_newton_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_
     lmmp_param_assert(na > 4);
     lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_param_assert(numa[na - 1] >= LIMB_B_2);
-    
+
     mp_limb_t cy;
     mp_size_t nr = na, mn;
     mp_size_t sizes[LIMB_BITS], *sizp = sizes;

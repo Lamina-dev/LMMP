@@ -97,7 +97,7 @@ mp_limb_t lmmp_mulh_(mp_limb_t a, mp_limb_t b) {
 void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr restrict dst) {
 #if (defined(__GNUC__) || defined(__clang__)) && defined(__SIZEOF_INT128__)
     __uint128_t prod = (__uint128_t)a * b;
-    dst[0] = (mp_limb_t)prod;        
+    dst[0] = (mp_limb_t)prod;
     dst[1] = (mp_limb_t)(prod >> 64);
 #else
     uint64_t ah = a >> 32, bh = b >> 32;

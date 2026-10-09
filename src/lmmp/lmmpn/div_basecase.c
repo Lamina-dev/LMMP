@@ -19,7 +19,7 @@
 
 mp_limb_t lmmp_div_basecase_(
     mp_ptr    restrict dstq,
-    mp_ptr    restrict numa, 
+    mp_ptr    restrict numa,
     mp_size_t            na,
     mp_srcptr restrict numb,
     mp_size_t            nb,

@@ -36,7 +36,7 @@ ASM_GSYM(lmmp_add_n_):
     cmn     xzr, xzr                // 0 + 0: C = 0, carry = 0
 
 Ladd_ent:
-    lsr     x17, x3, #2             // x17 = n >> 2; 4 limb 
+    lsr     x17, x3, #2             // x17 = n >> 2; 4 limb
     tbz     x3, #0, Ladd_bx0        // n mod 2 == 0
 
 Ladd_bx1:                           // n mod 2 == 1

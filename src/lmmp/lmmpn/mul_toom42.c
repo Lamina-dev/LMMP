@@ -427,7 +427,7 @@ void lmmp_mul_toom42_unbalance_(
     cache.tp = SALLOC_TYPE(4 * cache.n + 4, mp_limb_t);
     cache._bp1 = SALLOC_TYPE(2 * cache.n + 1, mp_limb_t);
     cache._bm1 = cache._bp1 + cache.n + 1;
-    
+
     int flag = lmmp_mul_toom42_cache_init_(dst, numa, &cache);
     dst += 2 * nb;
     numa += 2 * nb;

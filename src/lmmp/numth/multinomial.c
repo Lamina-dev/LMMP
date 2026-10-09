@@ -98,10 +98,10 @@ static inline ushort factor_size_short(mp_size_t rn) {
 }
 
 static mp_size_t lmmp_odd_multinomial_ushort_(
-          mp_ptr    restrict dst, 
-          mp_size_t           rn, 
-          uint                 n, 
-    const uintp     restrict   r, 
+          mp_ptr    restrict dst,
+          mp_size_t           rn,
+          uint                 n,
+    const uintp     restrict   r,
           uint                 m
 ) {
     if (n < ODD_FACTORIAL_SIZE) {

@@ -28,7 +28,7 @@
     else                                                   \
         lmmp_mul_toom44_((dst), (numa), (n), (numb), (n))
 
-/* 
+/*
 Evaluate in:
    0, +1, -1, +2, -2, 1/2, +inf
 
@@ -74,7 +74,7 @@ void lmmp_mul_toom62_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 
     lmmp_debug_assert(0 < s && s <= n);
     lmmp_debug_assert(0 < t && t <= n);
-    
+
     mp_ptr restrict scratch = SALLOC_TYPE(10 * n + 10, mp_limb_t);
 
     mp_ptr restrict tmp = SALLOC_TYPE(10 * n + 10, mp_limb_t);
@@ -577,7 +577,7 @@ void lmmp_mul_toom62_unbalance_(
     cache.bs2 = cache.bsm1 + cache.n;
     cache.bsm2 = cache.bs2 + cache.n + 1;
     cache.bsh = cache.bsm2 + cache.n + 1;
-    
+
     enum toom7_flags bflags = lmmp_mul_toom62_cache_init_(dst, numa, &cache);
     dst += 3 * nb;
     numa += 3 * nb;

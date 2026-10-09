@@ -219,7 +219,7 @@ static mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n) {
 }
 
 /**
- * @brief 矩阵列交换（指针交换）：对应右乘 P（M <- M*P），用于数对翻转的簿记 
+ * @brief 矩阵列交换（指针交换）：对应右乘 P（M <- M*P），用于数对翻转的簿记
  */
 static inline void lmmp_hgcd_matrix_swap_cols_(lmmp_hgcd_matrix_t* M) {
     LMMP_SWAP(M->m[0][0], M->m[0][1], mp_ptr);

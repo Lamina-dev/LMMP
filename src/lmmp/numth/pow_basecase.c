@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -20,9 +20,9 @@
 #include "../../../include/lmmp/numth.h"
 
 
-#define mul_b(_i_)                                 \
-    lmmp_mul_(dst, sq, rn, b##_i_, b##_i_##n);     \
-    rn += b##_i_##n;                               \
+#define mul_b(_i_)                             \
+    lmmp_mul_(dst, sq, rn, b##_i_, b##_i_##n); \
+    rn += b##_i_##n;                           \
     rn -= (dst[rn - 1] == 0) ? 1 : 0
 
 mp_size_t lmmp_pow_basecase_(mp_ptr restrict dst, mp_size_t rn, mp_srcptr restrict base, mp_size_t n, ulong exp) {
@@ -42,8 +42,8 @@ mp_size_t lmmp_pow_basecase_(mp_ptr restrict dst, mp_size_t rn, mp_srcptr restri
     int i = 62 - lz;
     exp <<= lz + 1;
 /*
-    For the intermediate 0, we will skip it entirely until the next 1, 
-    and then perform a multiplication. This can reduce the extra copying 
+    For the intermediate 0, we will skip it entirely until the next 1,
+    and then perform a multiplication. This can reduce the extra copying
     caused by sparse 1s and improve efficiency.
  */
     for ( ; i > 0; ) {
@@ -90,7 +90,7 @@ mp_size_t lmmp_pow_basecase_(mp_ptr restrict dst, mp_size_t rn, mp_srcptr restri
     lmmp_debug_assert(exp == LIMB_B_2);
 
     mul_b(1);
-    
+
     TEMP_FREE;
     return rn;
 

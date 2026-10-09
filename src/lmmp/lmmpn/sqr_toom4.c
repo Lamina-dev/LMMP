@@ -28,7 +28,7 @@
     else                                      \
         lmmp_sqr_toom4_((dst), (numa), (n))
 
-/* 
+/*
 Evaluate in: -1, -1/2, 0, +1/2, +1, +2, +inf
 
   <-s--><--n--><--n--><--n-->

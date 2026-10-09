@@ -8,7 +8,7 @@
  *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed WITHOUT ANY WARRANTY. 
+ *  This program is distributed WITHOUT ANY WARRANTY.
  *
  *  See <https://www.gnu.org/licenses/>.
  */
@@ -53,7 +53,7 @@
 
 */
 
-#include <stddef.h> 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,7 +234,7 @@ LMMP_API int lmmp_stack_deinit(void);
  *       则会直接返回-1，表示已经初始化（并非错误），且不进行任何其他操作。
  *       lmmp_global_init 函数会自动调用此函数，分配的额外缓冲池大小为 LMMP_POOL_SIZE 的大小
  *       （默认为512kb），无需手动调用。
- *       如果你想手动设置缓冲池的大小，可以先调用 lmmp_stack_deinit 函数，再调用此函数，将 POOL_SIZE 
+ *       如果你想手动设置缓冲池的大小，可以先调用 lmmp_stack_deinit 函数，再调用此函数，将 POOL_SIZE
  *       设置为你想要的值。同时你也可以禁用缓冲池（即size为0），此时不会分配额外缓冲池。
  * @return 返回0表示成功初始化，返回-1表示已经初始化（并非错误）。
  */
@@ -284,7 +284,7 @@ LMMP_API lmmp_abort_fn lmmp_set_abort_fn(lmmp_abort_fn func);
  *
  *        2. DEBUG_ASSERT_FAILURE （枚举值为2）为lmmp_debug_assert触发的退出。其通常表明预期之外的错误，
  *             这通常是调用者的UB，如无UB的情况下触发此错误；也可能是LMMP内部的逻辑错误，开发者期待的输入错误，
- *             在该逻辑处仅简单考虑了某些情况。如有此类错误，可以报告给开发者。此类型只会在定义了 
+ *             在该逻辑处仅简单考虑了某些情况。如有此类错误，可以报告给开发者。此类型只会在定义了
  *             LMMP_DEBUG_ASSERT_CHECK 宏为 1 的情况下才会触发。
  *
  *        3. PARAM_ASSERT_FAILURE （枚举值为3）为参数检查失败导致的退出。其通常表明调用者传入了无效的参数，
@@ -357,7 +357,7 @@ LMMP_API void* lmmp_realloc(void* ptr, size_t size, const char* func, int line);
  * @return 成功返回指向新内存区域的指针（分配失败不会 return NULL，而是直接触发 lmmp_abort）
  */
 LMMP_API void* lmmp_realloc(void* ptr, size_t size);
-#endif 
+#endif
 
 #if LMMP_DEBUG_MEMORY_CHECK == 1
 LMMP_API void lmmp_free(void* ptr, const char* func, int line);

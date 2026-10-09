@@ -8,7 +8,7 @@
 #  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  This program is distributed WITHOUT ANY WARRANTY. 
+#  This program is distributed WITHOUT ANY WARRANTY.
 #
 #  See <https://www.gnu.org/licenses/>.
 
@@ -246,13 +246,13 @@ function(lmmp_target_setup target)
                 )
             endif()
         endif()
-    elseif(  TARGET_SYSTEM STREQUAL "LIN" 
-          OR MINGW 
-          OR (TARGET_SYSTEM STREQUAL "WIN" AND 
-              CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND 
+    elseif(  TARGET_SYSTEM STREQUAL "LIN"
+          OR MINGW
+          OR (TARGET_SYSTEM STREQUAL "WIN" AND
+              CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
               NOT CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"))
-                
-        # Linux 
+
+        # Linux
         # MinGW 环境
         # Windows 上的 GNU 驱动 Clang（非 MSVC 兼容模式的 Clang）
         target_link_options(${target} PRIVATE

@@ -8,7 +8,7 @@
 #  by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  This program is distributed WITHOUT ANY WARRANTY. 
+#  This program is distributed WITHOUT ANY WARRANTY.
 #
 #  See <https://www.gnu.org/licenses/>.
 

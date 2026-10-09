@@ -76,7 +76,7 @@ balanced:
  we know that   a == a_lo + a_hi * B^n
        and   x_lo == a_lo ^ -1 mod B^n
  means x_lo * a_lo == 1 + k * B^n and k < B^n
- 
+
  x = x_lo * (2 - a * x_lo)  mod B^2n
    = x_lo * (2 - a_lo * x_lo - a_hi * x_lo * B^n)  mod B^2n
    = x_lo * (1 - k * B^n - a_hi * x_lo * B^n)  mod B^2n
@@ -97,9 +97,9 @@ unbalanced:
                             k + a*p = 0 mod B^na
                                   p = -k * a^-1 mod B^na
  此时，我们已经有了新的X{t+1}，我们需要更新 k 为 k'
- 我们需要 k' 满足 
+ 我们需要 k' 满足
       a*X{t+1} = 1 + k' * B^(t+1)*na, k' < B^na
-     k' * B^na = k + a*p 
+     k' * B^na = k + a*p
             k' = (k + a*p) / B^na
 */
 

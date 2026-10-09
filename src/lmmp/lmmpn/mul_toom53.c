@@ -28,7 +28,7 @@
     else                                                   \
         lmmp_mul_toom44_((dst), (numa), (n), (numb), (n))
 
-/* 
+/*
 Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 
   <-s-><--n--><--n--><--n--><--n-->

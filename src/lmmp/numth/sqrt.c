@@ -557,7 +557,7 @@ void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
             else
                 lmmp_copy(dstr, numa2, ns);
         }
-        
+
         TEMP_FREE;
     }
 }

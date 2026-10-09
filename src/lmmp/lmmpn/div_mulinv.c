@@ -71,7 +71,7 @@ mp_limb_t lmmp_div_mulinv_(
     qh = lmmp_cmp_(numa, numb, nb) >= 0;
     if (qh) {
         lmmp_sub_n_(numa, numa, numb, nb);
-	}
+    }
 
     fft_gr_cache mersenne_ctx;
     int mersenne_flag = 0;
@@ -108,7 +108,7 @@ mp_limb_t lmmp_div_mulinv_(
 
         if (nb < DIV_MULINV_MODM_THRESHOLD || (mn = lmmp_fft_next_size_(nb + 1)) >= nb + ni) {
             lmmp_mul_(tp, numb, nb, dstq, ni);  // nb+ni limbs, high 'ni' cancels
-		} else {
+        } else {
             // 0<wn<ni<=nb<mn<nb+ni
             wn = nb + ni - mn;
 
@@ -123,7 +123,7 @@ mp_limb_t lmmp_div_mulinv_(
                 } else {
                     lmmp_mul_mersenne_cache_(tp, dstq, &mersenne_ctx);
                 }
-            }            
+            }
 
             // tp-=ah:0 mod B^mn-1, if result=0, represent it as B^mn-1
             cy = lmmp_sub_nc_(tp, tp, numa + mn, wn, 1);

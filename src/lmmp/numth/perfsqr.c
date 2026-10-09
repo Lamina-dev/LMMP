@@ -5,7 +5,7 @@
  *
  *  LMMP is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License (LGPL) as published
- *   by the Free Software Foundation; either version 3 of the License, or
+ *  by the Free Software Foundation; either version 3 of the License, or
  *  (at your option) any later version.
  *
  *  This program is distributed WITHOUT ANY WARRANTY.
@@ -69,7 +69,7 @@ mp_limb_t lmmp_mod_2p48sub1_(mp_srcptr p, mp_size_t n) {
         ADD(c0, a0, p[0]);
     }
 
-    mp_limb_t res = PARTS0(a0) + PARTS1(a1) + PARTS2(a2) 
+    mp_limb_t res = PARTS0(a0) + PARTS1(a1) + PARTS2(a2)
                   + PARTS1(c0) + PARTS2(c1) + PARTS0(c2);
 
     res = (res & MASK48) + (res >> B3);

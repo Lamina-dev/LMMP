@@ -28,7 +28,7 @@
     else                                                   \
         lmmp_mul_toom44_((dst), (numa), (n), (numb), (n))
 
-/* 
+/*
 Evaluate in: -2, -1, 0, +1, +2, +inf
 
   <-s-><--n--><--n--><--n-->
@@ -176,8 +176,8 @@ void lmmp_mul_toom43_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 #undef bsm2
 #undef asm1
 #undef asm2
-#undef as1 
-#undef as2 
+#undef as1
+#undef as2
 #undef a0a2
 #undef b0b2
 #undef a1a3

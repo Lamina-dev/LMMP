@@ -28,7 +28,7 @@
     else                                                   \
         lmmp_mul_toom44_((dst), (numa), (n), (numb), (n))
 
-/* 
+/*
 Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 
   <-s--><--n--><--n--><--n-->
@@ -148,7 +148,7 @@ void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     if (s > t)
         lmmp_mul_(vinf, a3, s, b3, t);
     else
-        lmmp_mul_n_(vinf, a3, b3, s); 
+        lmmp_mul_n_(vinf, a3, b3, s);
 
     lmmp_toom_interp7_(dst, n, flags, vm2, vm1, v2, vh, s + t, tp);
 

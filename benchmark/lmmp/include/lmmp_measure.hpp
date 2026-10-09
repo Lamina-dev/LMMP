@@ -165,7 +165,7 @@ static inline void progress_bar(unsigned long long current, unsigned long long t
     if (current > total) current = total;
 
     double percent = (double)current / (double)total;
-    percent *=  100.0; 
+    percent *=  100.0;
     unsigned long long filled = (current * width) / total;
 
     printf("\r%s: [", label);

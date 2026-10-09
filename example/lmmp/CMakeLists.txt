@@ -8,7 +8,7 @@
 #   by the Free Software Foundation; either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  This program is distributed WITHOUT ANY WARRANTY. 
+#  This program is distributed WITHOUT ANY WARRANTY.
 #
 #  See <https://www.gnu.org/licenses/>.
 
@@ -23,22 +23,22 @@ foreach(EXAMPLE_FILE ${EXAMPLE_FILES})
     get_filename_component(EXAMPLE_NAME ${EXAMPLE_FILE} NAME_WE)
     # 生成可执行文件名称（如Lmmpexample1）
     set(TARGET_NAME "lmmp_${EXAMPLE_NAME}")
-    
+
     # 添加可执行文件
     add_executable(${TARGET_NAME} ${EXAMPLE_FILE})
-    
+
     # 头文件包含
     target_include_directories(${TARGET_NAME}
         PRIVATE
             ${CMAKE_SOURCE_DIR}/include
     )
-    
+
     # 链接核心动态库
     target_link_libraries(${TARGET_NAME} PRIVATE lmmp)
-    
+
     # 设置编译器选项
     lmmp_target_setup(${TARGET_NAME})
-    
+
     # 设置输出属性
     set_target_properties(${TARGET_NAME} PROPERTIES
         OUTPUT_NAME ${TARGET_NAME}

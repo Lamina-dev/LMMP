@@ -351,7 +351,7 @@ void lmmp_prime_cache_free_(prime_cache_t* cache) {
 ushort lmmp_prime_cnt16_(ushort n) {
     if (n < 2)
         return 0;
-    if (n >= prime_short_table[PRIME_SHORT_TABLE_SIZE - 1]) 
+    if (n >= prime_short_table[PRIME_SHORT_TABLE_SIZE - 1])
         return PRIME_SHORT_TABLE_SIZE;
 
     ushort lo = 0;
@@ -365,7 +365,7 @@ ushort lmmp_prime_cnt16_(ushort n) {
             hi = mid;
         }
     }
-    return lo; 
+    return lo;
 }
 
 void lmmp_prime_int_table_free_(void) {

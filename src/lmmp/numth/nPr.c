@@ -251,7 +251,7 @@ mp_size_t lmmp_odd_nPr_uint_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong r
         return lmmp_odd_nPr_product_(dst, rn, n, r);
     } else{
         TEMP_B_DECL;
-        
+
         lmmp_prime_int_table_init_(n);
         uint nfactors = lmmp_prime_size_(n);
         fac_ptr restrict fac = BALLOC_TYPE(nfactors, fac_t);

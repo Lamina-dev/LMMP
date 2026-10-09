@@ -35,7 +35,7 @@
  1000个limb长度的随机大整数。其随机状态为一个长度为 k 的limb数组，初始状态由种子决定，每个limb代表一个64bit状态，
  初始状态会由种子和limb的位置通过复杂的hash算法确定，因此初始状态几乎完全不同，用以保证同一个大整数中的各个limb之
  间几乎没有相关性。
- 
+
  在生成单个随机大整数时，强随机生成器的总生成速度会显著慢于PCG-XSL-RR-128/64和xoshiro256++，与cpp标准库的
  梅森旋转法大致相当。这是由于初始化随机状态的巨大开销导致的。在多次生成固定长度的随机大整数序列时，强随机生成
  器的生成速度则比pcg-xsl-rr-128/64略慢，但仍然快于梅森旋转算法（Mersenne Twister）。
@@ -73,9 +73,9 @@ LMMP_API mp_size_t lmmp_seed_random_(mp_ptr dst, mp_size_t n, mp_limb_t seed, un
  * @brief 生成随机大整数（0 - B^n-1 均匀分布）
  * @param dst 随机数存储位置
  * @param n dst的 limb 长度
- * @warning 如果dst==NULL或n==0，则返回0，无其他操作。种子由 lmmp_global_rng_init() 设置，发生器类型由 
+ * @warning 如果dst==NULL或n==0，则返回0，无其他操作。种子由 lmmp_global_rng_init() 设置，发生器类型由
  *          lmmp_global_rng_init() 设置，如果没有进行全局初始化，则使用默认种子（默认等价设置全局种子为0，
- *          并不代表全局种子为0）和默认发生器类型（默认为xoshiro256++），即未设置全局种子，行为等价于 
+ *          并不代表全局种子为0）和默认发生器类型（默认为xoshiro256++），即未设置全局种子，行为等价于
  *          执行了 lmmp_global_rng_init_(0, 1)
  * @note 每调用一次此函数，种子将会进行一次更新，以确保多次调用时的种子不同，但是只要每次调用的方式
  *       和顺序相同，在同一个进程中，每次生成的随机数序列相同。
@@ -123,7 +123,7 @@ LMMP_API void lmmp_strong_rng_free_(lmmp_strong_rng_t* rng);
  * @param dst 随机数存储位置（长度为k个limb）
  * @param n dst的 limb 长度（n<=k）
  * @param rng 强随机数生成器指针，每生成一次，内部状态将会更新
- * @warning rng!=NULL, dst!=NULL, 0<n<=k, 
+ * @warning rng!=NULL, dst!=NULL, 0<n<=k,
  * @note rng为强随机数生成器指针，每调用一次此函数，内部状态将会更新，以进行重复生成长度相同的随机大整数序列
  *       此方法生成的随机数序列具有极好的k-维均匀性，单个随机大整数间的各个limb都是几乎完全独立的序列。
  * @return 随机数的 limb 长度（由于可能存在生成随机数为0的情况，所以返回值可能小于n，但不会大于n）

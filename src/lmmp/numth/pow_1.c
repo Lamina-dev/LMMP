@@ -52,8 +52,8 @@ static mp_size_t lmmp_8pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong exp) {
 static mp_size_t lmmp_3pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong exp) {
     TEMP_DECL;
     static const mp_limb_t tab[32] = {
-    1,           3,           9,            27,           81,            243,           729,            2187, 
-    6561,        19683,       59049,        177147,       531441,        1594323,       4782969,        14348907, 
+    1,           3,           9,            27,           81,            243,           729,            2187,
+    6561,        19683,       59049,        177147,       531441,        1594323,       4782969,        14348907,
     43046721,    129140163,   387420489,    1162261467,   3486784401,    10460353203,   31381059609,    94143178827,
     282429536481,847288609443,2541865828329,7625597484987,22876792454961,68630377364883,205891132094649,617673396283947,
     };
@@ -313,7 +313,7 @@ mp_size_t lmmp_u16_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
         mp_size_t tan = (tap[1] != 0) ? 2 : 1;
         if (rn >= tan)
             lmmp_mul_basecase_(dst, sq, rn, tap, tan);
-        else 
+        else
             lmmp_mul_basecase_(dst, tap, tan, sq, rn);
         rn += tan;
         rn -= (dst[rn - 1] == 0) ? 1 : 0;
@@ -350,7 +350,7 @@ mp_size_t lmmp_u32_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
 #define b1n 1
     mp_limb_t b2[1] = {base * base};
 #define b2n 1
-    
+
     mp_limb_t b3[2];
     lmmp_mullh_(b2[0], base, b3);
     mp_size_t b3n = b3[1] != 0 ? 2 : 1;
@@ -490,7 +490,7 @@ mp_size_t lmmp_u64_pow_1_(mp_ptr restrict dst, mp_size_t rn, ulong base, ulong e
                 mul_b(7);
                 break;
         }
-        
+
         if (i > 0) {
             lmmp_sqr_(sq, dst, rn);
             rn <<= 1;

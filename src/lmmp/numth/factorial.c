@@ -55,7 +55,7 @@ mp_size_t lmmp_factorial_size_(uint n, mp_bitcnt_t* restrict bits) {
 /*
      N                      N/2                              N
     +--+                /  +--+                  \ 2     /  +--+                     \
-    |  |  P_i ^ (e_i) = |  |  | P_i ^ (e_i / 2)  |    *  |  |  |  P_i ^ ( e_i mod 2) |  
+    |  |  P_i ^ (e_i) = |  |  | P_i ^ (e_i / 2)  |    *  |  |  |  P_i ^ ( e_i mod 2) |
     |  |                \  |  |                  /       \  |  |                     /
     i=0                    i=0                              i=0
 */

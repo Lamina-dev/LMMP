@@ -97,7 +97,7 @@ int tune_run_mul_fft_modf(void) {
     for (size_t s = 0; s < NS; ++s)
         fft_ctx_init(&ctx[s], (mp_size_t)sizes[s]);
 
-    printf("  online candidate scan over [%llu,%llu], sizes:", 
+    printf("  online candidate scan over [%llu,%llu], sizes:",
            (unsigned long long)lo, (unsigned long long)hi);
     for (size_t s = 0; s < NS; ++s)
         printf(" %llu", (unsigned long long)sizes[s]);

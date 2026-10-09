@@ -118,8 +118,8 @@ typedef struct {
 
 #define ALIGNMENT LMMP_MAX_ALIGN
 
-static inline size_t align_up(size_t size) { 
-    return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1); 
+static inline size_t align_up(size_t size) {
+    return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
 }
 
 /**

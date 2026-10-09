@@ -84,14 +84,14 @@ mp_limb_t lmmp_addshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t 
     mp_limb_t c = 0, mb = 0;
     mp_size_t i = 0;
 
-#define LMMP_ADDSHL1_STEP(k)                                    \
-    {                                                           \
-        mp_limb_t v = numb[i + (k)];                            \
-        mp_limb_t lo = (v << 1) | mb;                           \
-        mb = v >> (LIMB_BITS - 1);                              \
-        __uint128_t s = (__uint128_t)lo + numa[i + (k)] + c;    \
-        dst[i + (k)] = (mp_limb_t)s;                            \
-        c = (mp_limb_t)(s >> 64);                               \
+#define LMMP_ADDSHL1_STEP(k)                                 \
+    {                                                        \
+        mp_limb_t v = numb[i + (k)];                         \
+        mp_limb_t lo = (v << 1) | mb;                        \
+        mb = v >> (LIMB_BITS - 1);                           \
+        __uint128_t s = (__uint128_t)lo + numa[i + (k)] + c; \
+        dst[i + (k)] = (mp_limb_t)s;                         \
+        c = (mp_limb_t)(s >> 64);                            \
     }
 
     for (; i + 4 <= n; i += 4) {
@@ -111,16 +111,16 @@ mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t 
     mp_limb_t d = 0, mb = 0;
     mp_size_t i = 0;
 
-#define LMMP_SUBSHL1_STEP(k)                             \
-    {                                                    \
-        mp_limb_t v = numb[i + (k)];                     \
-        mp_limb_t lo = (v << 1) | mb;                    \
-        mb = v >> (LIMB_BITS - 1);                       \
-        mp_limb_t o = numa[i + (k)];                     \
-        mp_limb_t u = o - lo;                            \
-        mp_limb_t r = u - d;                             \
-        d = (u > o) + (r > u);                           \
-        dst[i + (k)] = r;                                \
+#define LMMP_SUBSHL1_STEP(k)          \
+    {                                 \
+        mp_limb_t v = numb[i + (k)];  \
+        mp_limb_t lo = (v << 1) | mb; \
+        mb = v >> (LIMB_BITS - 1);    \
+        mp_limb_t o = numa[i + (k)];  \
+        mp_limb_t u = o - lo;         \
+        mp_limb_t r = u - d;          \
+        d = (u > o) + (r > u);        \
+        dst[i + (k)] = r;             \
     }
 
     for (; i + 4 <= n; i += 4) {

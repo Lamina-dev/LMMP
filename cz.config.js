@@ -22,13 +22,13 @@ function shouldExclude(item) {
 // ========== 递归获取所有子文件夹 ==========
 function getAllDirs(dir) {
   const results = [];
-  
+
   if (!fs.existsSync(dir)) return results;
 
   const list = fs.readdirSync(dir);
   list.forEach((item) => {
     const fullPath = path.join(dir, item);
-    
+
     if (fs.statSync(fullPath).isDirectory()) {
       if (!shouldExclude(item)) {
         const relative = path.relative(__dirname, fullPath);
@@ -37,7 +37,7 @@ function getAllDirs(dir) {
       }
     }
   });
-  
+
   return results;
 }
 

@@ -247,28 +247,28 @@ mp_ptr pool_coprime_n(size_t n, mp_limb_t seed, int cnt) {
     static 实现，不再对外暴露，其单轮基准用例（原 ipn_sprp2_ 与 ipn_sprpg_ 两组）
     随之移除；强度档位与 Lucas 用例保持原样。
 */
-#define BENCH_IPN(limbs)                                                              \
-    BENCH_CASE("numth/prime", ipn_lucas_##limbs##_l) {                                \
-        const size_t n = (limbs);                                                     \
-        const int cnt = (limbs) <= 64 ? 32 : 8;                                       \
-        mp_ptr a = pool_coprime_n(n, 0x51ce77ac##limbs##ull, cnt);                    \
-        size_t idx = 0;                                                               \
-        auto m = measure([&] {                                                        \
-            lmmp_is_strong_lucas_(a + n * (idx++ % cnt), (mp_size_t)n);               \
-        });                                                                           \
-        report("strong_lucas coprime n=" #limbs, m);                                  \
-        lmmp_free(a);                                                                 \
-    }                                                                                 \
-    BENCH_CASE("numth/prime", ipn_s4_##limbs##_l) {                                   \
-        const size_t n = (limbs);                                                     \
-        const int cnt = (limbs) <= 64 ? 32 : 8;                                       \
-        mp_ptr a = pool_coprime_n(n, 0x51ce77ad##limbs##ull, cnt);                    \
-        size_t idx = 0;                                                               \
-        auto m = measure([&] {                                                        \
-            lmmp_is_prime_n_(a + n * (idx++ % cnt), (mp_size_t)n, 4);                 \
-        });                                                                           \
-        report("is_prime_n s4 coprime n=" #limbs, m);                                 \
-        lmmp_free(a);                                                                 \
+#define BENCH_IPN(limbs)                                                \
+    BENCH_CASE("numth/prime", ipn_lucas_##limbs##_l) {                  \
+        const size_t n = (limbs);                                       \
+        const int cnt = (limbs) <= 64 ? 32 : 8;                         \
+        mp_ptr a = pool_coprime_n(n, 0x51ce77ac##limbs##ull, cnt);      \
+        size_t idx = 0;                                                 \
+        auto m = measure([&] {                                          \
+            lmmp_is_strong_lucas_(a + n * (idx++ % cnt), (mp_size_t)n); \
+        });                                                             \
+        report("strong_lucas coprime n=" #limbs, m);                    \
+        lmmp_free(a);                                                   \
+    }                                                                   \
+    BENCH_CASE("numth/prime", ipn_s4_##limbs##_l) {                     \
+        const size_t n = (limbs);                                       \
+        const int cnt = (limbs) <= 64 ? 32 : 8;                         \
+        mp_ptr a = pool_coprime_n(n, 0x51ce77ad##limbs##ull, cnt);      \
+        size_t idx = 0;                                                 \
+        auto m = measure([&] {                                          \
+            lmmp_is_prime_n_(a + n * (idx++ % cnt), (mp_size_t)n, 4);   \
+        });                                                             \
+        report("is_prime_n s4 coprime n=" #limbs, m);                   \
+        lmmp_free(a);                                                   \
     }
 
 BENCH_IPN(3)
@@ -300,17 +300,17 @@ BENCH_CASE("numth/prime", ipn_s4_prime_64l) {
     lmmp_free(a);
 }
 
-#define BENCH_IPN_TIER(strength, tag)                                                 \
-    BENCH_CASE("numth/prime", ipn_s##tag##_prime_8l) {                                \
-        const size_t n = 8;                                                           \
-        const int cnt = 32;                                                           \
-        mp_ptr a = pool_prime_n(n, 0x99bb88cc##tag##ull, cnt);                        \
-        size_t idx = 0;                                                               \
-        auto m = measure([&] {                                                        \
-            lmmp_is_prime_n_(a + n * (idx++ % cnt), (mp_size_t)n, strength);          \
-        });                                                                           \
-        report("is_prime_n s" #tag " prime 8l", m);                                   \
-        lmmp_free(a);                                                                 \
+#define BENCH_IPN_TIER(strength, tag)                                        \
+    BENCH_CASE("numth/prime", ipn_s##tag##_prime_8l) {                       \
+        const size_t n = 8;                                                  \
+        const int cnt = 32;                                                  \
+        mp_ptr a = pool_prime_n(n, 0x99bb88cc##tag##ull, cnt);               \
+        size_t idx = 0;                                                      \
+        auto m = measure([&] {                                               \
+            lmmp_is_prime_n_(a + n * (idx++ % cnt), (mp_size_t)n, strength); \
+        });                                                                  \
+        report("is_prime_n s" #tag " prime 8l", m);                          \
+        lmmp_free(a);                                                        \
     }
 
 BENCH_IPN_TIER(0, 0)
