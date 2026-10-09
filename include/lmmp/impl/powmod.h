@@ -239,8 +239,8 @@ static inline void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp
  * @warning n>0, mp[0]%2==1, mp[n-1]>0, sep([prod|dst],mp)
  */
 static inline void lmmp_mont_redcify_(
-    mp_ptr    restrict  dst,
-    mp_srcptr restrict   xp,
+    mp_ptr              dst,
+    mp_srcptr            xp,
     mp_size_t             n,
     mp_ptr    restrict prod,
     mp_srcptr restrict   mp
