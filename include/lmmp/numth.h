@@ -565,6 +565,16 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
 LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
 
 /**
+ * @brief Proth 数 k*2^n+1 的素性判定（普罗斯定理）
+ * @param k 系数（k < 2^32）
+ * @param n 指数（2 的幂次）
+ * @warning k>0 且为奇数, n>0
+ * @return 0 = 合数；1 = 素数（确定性判据，本契约域可达）；
+ *         2 = 极大概率为素数（BPSW 型素数；回退路径，极少触发）
+ */
+LMMP_API int lmmp_is_prothprime_(uint k, mp_size_t n);
+
+/**
  * @brief 计算幂次方需要的limb缓冲区长度 [base,n] ^ exp
  * @param base 底数指针
  * @param n 底数 limb 长度

@@ -316,3 +316,148 @@ BENCH_CASE("numth/prime", ipn_s4_prime_64l) {
 BENCH_IPN_TIER(0, 0)
 BENCH_IPN_TIER(2, 2)
 BENCH_IPN_TIER(7, 7)
+
+/*
+    Proth 形状：lmmp_is_prothprime_ 单梯子定理判决 vs lmmp_is_prime_n_ 通用
+    分档（同输入对比）。
+
+    素数池：分档全轮完整执行的最坏情形（Proth 路径的定理判决收益所在），
+    以被测函数自身搜索构造（仅性能用途，单候选成本约为 is_prime_n_ 搜索
+    的 1/数；大尺寸下搜索仍昂贵，素数池仅取 <=16 limb）。
+    合数池：试除幸存者（无 <=1000 素因子），两路径都支付完整梯子（分档
+    的基底 2 轮与 Proth 梯子同为末端拒判），成本约同——对照组，用于
+    确认 Proth 路径在合数侧无回归。
+    t 的选取使 N 落在目标 limb 档（k <= 2^32）。
+*/
+
+namespace {
+
+mp_size_t proth_limbs(mp_ptr dst, uint k, int t) {
+    mp_size_t n = (mp_size_t)t / 64 + 2;
+    lmmp_zero(dst, n + 1);
+    unsigned __int128 v = (unsigned __int128)k << (t % 64);
+    dst[t / 64] |= (mp_limb_t)v;
+    dst[t / 64 + 1] |= (mp_limb_t)(v >> 64);
+    dst[0] |= 1;
+    while (n > 1 && dst[n - 1] == 0) n--;
+    return n;
+}
+
+struct ProthPool {
+    mp_ptr a;         /* cnt * stride，元素为 k*2^t+1 */
+    uint ks[8];       /* 各元素的 k */
+    mp_size_t nn[8];  /* 各元素规范化 limb 数 */
+    mp_size_t stride;
+    int cnt;
+};
+
+/* want_prime：Proth 素数池（被测函数搜索）；否则试除幸存合数池 */
+ProthPool pool_proth(int t, int cnt, bool want_prime) {
+    ProthPool p;
+    p.stride = t / 64 + 3;
+    p.cnt = cnt;
+    p.a = alloc_limbs((size_t)p.stride * cnt);
+    uint k = 3;
+    for (int i = 0; i < cnt; i++) {
+        for (;;) {
+            mp_size_t nn = proth_limbs(p.a + p.stride * i, k, t);
+            bool ok = want_prime ? lmmp_is_prothprime_(k, t)
+                                 : !lmmp_trialdiv_(p.a + p.stride * i, nn, 1000);
+            if (ok) break;
+            k += 2;
+        }
+        p.ks[i] = k;
+        p.nn[i] = proth_limbs(p.a + p.stride * i, k, t);
+        k += 2;
+    }
+    return p;
+}
+
+}  // namespace
+
+BENCH_CASE("numth/prime", proth_prime_8l) {
+    ProthPool p = pool_proth(480, 8, true);
+    size_t idx = 0;
+    auto m = measure([&] { lmmp_is_prothprime_(p.ks[idx++ % p.cnt], 480); });
+    report("is_prothprime prime t=480 (8l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_prime_s4_8l) {
+    ProthPool p = pool_proth(480, 8, true);
+    size_t idx = 0;
+    auto m = measure([&] {
+        lmmp_is_prime_n_(p.a + p.stride * (idx % p.cnt), p.nn[idx % p.cnt], 4);
+        idx++;
+    });
+    report("is_prime_n s4 proth-prime t=480 (8l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_prime_16l) {
+    ProthPool p = pool_proth(992, 8, true);
+    size_t idx = 0;
+    auto m = measure([&] { lmmp_is_prothprime_(p.ks[idx++ % p.cnt], 992); });
+    report("is_prothprime prime t=992 (16l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_prime_s4_16l) {
+    ProthPool p = pool_proth(992, 8, true);
+    size_t idx = 0;
+    auto m = measure([&] {
+        lmmp_is_prime_n_(p.a + p.stride * (idx % p.cnt), p.nn[idx % p.cnt], 4);
+        idx++;
+    });
+    report("is_prime_n s4 proth-prime t=992 (16l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_prime_s7_16l) {
+    ProthPool p = pool_proth(992, 8, true);
+    size_t idx = 0;
+    auto m = measure([&] {
+        lmmp_is_prime_n_(p.a + p.stride * (idx % p.cnt), p.nn[idx % p.cnt], 7);
+        idx++;
+    });
+    report("is_prime_n s7 proth-prime t=992 (16l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_composite_32l) {
+    ProthPool p = pool_proth(2016, 8, false);
+    size_t idx = 0;
+    auto m = measure([&] { lmmp_is_prothprime_(p.ks[idx++ % p.cnt], 2016); });
+    report("is_prothprime composite t=2016 (32l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_composite_s4_32l) {
+    ProthPool p = pool_proth(2016, 8, false);
+    size_t idx = 0;
+    auto m = measure([&] {
+        lmmp_is_prime_n_(p.a + p.stride * (idx % p.cnt), p.nn[idx % p.cnt], 4);
+        idx++;
+    });
+    report("is_prime_n s4 proth-composite t=2016 (32l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_composite_64l) {
+    ProthPool p = pool_proth(4032, 8, false);
+    size_t idx = 0;
+    auto m = measure([&] { lmmp_is_prothprime_(p.ks[idx++ % p.cnt], 4032); });
+    report("is_prothprime composite t=4032 (64l)", m);
+    lmmp_free(p.a);
+}
+
+BENCH_CASE("numth/prime", proth_composite_s4_64l) {
+    ProthPool p = pool_proth(4032, 8, false);
+    size_t idx = 0;
+    auto m = measure([&] {
+        lmmp_is_prime_n_(p.a + p.stride * (idx % p.cnt), p.nn[idx % p.cnt], 4);
+        idx++;
+    });
+    report("is_prime_n s4 proth-composite t=4032 (64l)", m);
+    lmmp_free(p.a);
+}

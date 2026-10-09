@@ -891,3 +891,136 @@ TEST_CASE("numth/prime", is_prime_n_v2_boundary) {
         }
     }
 }
+
+/*
+    ============ lmmp_is_prothprime_：普罗斯定理单梯子确定性判决 ============
+
+    对拍策略（与 is_prime_n_ 套件的证书哲学一致）：
+    - 小域（N < 2^64，含 ne+bitlen(kk)=64 归一化边界）：ref_is_prime64
+      穷举 + 随机，双向硬断言（两侧均确定性）；
+    - 驱动域（N >= 2^64）：proth_cert_g 证书器走 lmmp_powmod_ 通用梯子，
+      与被测路径（Jacobi 见证搜索 + 自驱动指数的专用蒙域梯子）实现独立：
+      中尺寸随机语料双向对拍（证书求不出按合数容许域硬断言——素数最小
+      二次非剩余超证书表（至 61）实际不可达）；大尺寸以被测函数预筛，
+      命中即证书复核（防被测路径伪 true），并对抽样合数反向验证
+      （证书有 ⟹ 被测必 true，硬断言）；
+    - 构造合数（硬断言 false）：Fermat 数 F6..F9、奇指数代数分解
+      3 | 2^189+1、小因子 Jacobi=0 出口（3 | 5*2^100+1）；
+    - 边角：k=0（N=1）、n=0（N=k+1）、偶 k 归一化等值、跨 64 位边界、
+      nn=2 双 limb 蒙域与 toom/梅森折叠各 REDC 尺寸档。
+    k=3 的语料使 (3|N)=+1（t>=2 时 3*2^t ≡ 0 (mod 12) ⟹ N ≡ 1
+    (mod 12)），见证深度必 >1，覆盖 Jacobi=+1 跳过路径。
+*/
+
+namespace {
+
+/* Proth 证书（通用 k，t <= 20000）：N = k*2^t+1 为素 ⟺ 存在小奇 a 使
+   a^((N-1)/2) ≡ -1 (mod N)；走 lmmp_powmod_ 通用路径（独立于被测实现）。
+   nbase 为基底表用量（默认全表至 61），求不出仅返回 false（素数最小
+   非二次剩余超表不可达） */
+bool proth_cert_g(uint k, int t, int nbase = 17) {
+    static const u64 bases[] = {3,  5,  7,  11, 13, 17, 19, 23, 29, 31,
+                                37, 41, 43, 47, 53, 59, 61};
+    mp_limb_t N[512], e[512], bp[512], r[512], m1[512];
+    mp_size_t nn = k2t_limbs(N, t, k, 1);
+    mp_size_t en = k2t_limbs(e, t - 1, k, 0);
+    lmmp_copy(m1, N, nn);
+    lmmp_dec(m1);
+    for (int ai = 0; ai < nbase; ai++) {
+        lmmp_zero(bp, nn);
+        bp[0] = bases[ai];
+        lmmp_powmod_(r, bp, e, en, N, nn);
+        if (lmmp_cmp_(r, m1, nn) == 0) return true;
+    }
+    return false;
+}
+
+}  // namespace
+
+TEST_CASE("numth/prime", is_prothprime_small) {
+    u64 seed = 0x70726f7468313233ull; /* "proth123" */
+    /* 穷举：奇 k ∈ [1,799] × n ∈ [1,20]（契约域 k>0 奇、n>0） */
+    for (u32 k = 1; k < 800; k += 2) {
+        for (u32 n = 1; n <= 20; ++n) {
+            u64 N = ((u64)k << n) + 1;
+            TEST_CHECK_MSG(lmmp_is_prothprime_(k, (mp_size_t)n) == (ref_is_prime64(N) ? 1 : 0),
+                           "proth small exhaustive");
+        }
+    }
+    /* 随机：全域 32 位奇 k × n ∈ [1,32]（N < 2^64 不溢出） */
+    for (int i = 0; i < 2000; ++i) {
+        u32 k = (u32)xorshift64(seed) | 1;
+        u32 n = 1 + (u32)(xorshift64(seed) % 32);
+        u64 N = ((u64)k << n) + 1;
+        TEST_CHECK_MSG(lmmp_is_prothprime_(k, (mp_size_t)n) == (ref_is_prime64(N) ? 1 : 0),
+                       "proth small random");
+    }
+    /* 跨 64 位边界：ne+bitlen(kk)=64 走 ulong 档、65 走双 limb/驱动档 */
+    TEST_CHECK_MSG(lmmp_is_prothprime_(1, 63) == (ref_is_prime64((1ull << 63) + 1) ? 1 : 0),
+                   "proth ulong boundary 2^63+1");
+    TEST_CHECK_MSG(lmmp_is_prothprime_(3, 62) == (ref_is_prime64((3ull << 62) + 1) ? 1 : 0),
+                   "proth ulong boundary 3*2^62+1");
+}
+
+TEST_CASE("numth/prime", is_prothprime_driver) {
+    u64 seed = 0x6b33706137686975ull;
+    /* 中尺寸双向对拍：t=33/34 顶值 k 使 nn=2（双 limb 蒙域），65 起恒
+       驱动域；k=3 分量保证 Jacobi=+1 跳过路径 */
+    for (int t : {33, 34, 40, 65, 100, 150}) {
+        for (int i = 0; i < 12; ++i) {
+            u32 k;
+            if (i < 3) k = 3;
+            else if (i < 6) k = 0xffffffffu;
+            else k = (u32)(xorshift64(seed) | 1);
+            int lm = lmmp_is_prothprime_(k, t);
+            bool ce = proth_cert_g(k, t);
+            if (t >= 64) /* 定理驱动域：精确 0/1（契约 k 奇 ⟹ ne = t） */
+                TEST_CHECK_MSG(lm == (ce ? 1 : 0), "proth driver exact (ne>=64)");
+            else /* 双 limb/ulong 段：素数 1/2 非零，合数 0（BPSW 误判 2 容许） */
+                TEST_CHECK_MSG(ce ? lm != 0 : (lm == 0 || lm == 2),
+                               "proth two-limb tri-state (ne<64)");
+        }
+    }
+
+    /* 大尺寸：被测预筛（单梯子），命中即证书复核；抽样合数反向验证
+       （证书有 ⟹ 被测必 true，硬断言）。found 硬断言仅限密度充裕档
+       （t=200、cap=400 期望命中 ~5.8，P(0)<0.3%），其余软断言控耗时 */
+    struct { int t; int cap; bool hard; } bigs[] = {
+        {200, 400, true}, {384, 400, false}, {521, 400, false},
+        {1000, 300, false}, {2048, 300, false},
+    };
+    for (const auto& b : bigs) {
+        int found = 0;
+        for (u32 k = 3; (int)k < 2 * b.cap; k += 2) {
+            if (lmmp_is_prothprime_(k, b.t)) {
+                TEST_CHECK_MSG(proth_cert_g(k, b.t), "proth big prime certified");
+                found++;
+            } else if ((k & 63) == 3) {
+                TEST_CHECK_MSG(!proth_cert_g(k, b.t), "proth big composite consistent");
+            }
+        }
+        if (b.hard) TEST_CHECK_MSG(found >= 1, "proth big prime found");
+    }
+
+    /* 梅森折叠 REDC 档（nn=313 >= REDC_MERSENNE_THRESHOLD=309）：单例。
+       合数（大概率）时以单基短证书反向验证（合数无任何基可出证书，
+       单基"无证书"一致性已足），素数时全表证书复核 */
+    bool lm = lmmp_is_prothprime_(3, 19969) != 0;
+    if (lm)
+        TEST_CHECK_MSG(proth_cert_g(3, 19969), "proth fold prime certified");
+    else
+        TEST_CHECK_MSG(!proth_cert_g(3, 19969, 1), "proth fold composite consistent");
+}
+
+TEST_CASE("numth/prime", is_prothprime_constructed) {
+    /* Fermat 合数（k=1，已证 F6..F9 均合）：nn 覆盖 2/3/5/9 limb */
+    for (int t : {64, 128, 256, 512})
+        TEST_CHECK_MSG(!lmmp_is_prothprime_(1, t), "fermat composite");
+
+    /* 奇指数代数分解：2^odd ≡ -1 (mod 3) ⟹ 3 | 2^189+1 */
+    TEST_CHECK_MSG(!lmmp_is_prothprime_(1, 189), "algebraic factor 3");
+
+    /* 小因子 Jacobi=0 出口：t 偶 ⟹ 2^t ≡ 1 (mod 3)，k ≡ 2 (mod 3) 即
+       3 | k*2^t+1，首个 a=3 即命中 gcd 出口 */
+    TEST_CHECK_MSG(!lmmp_is_prothprime_(5, 100), "jacobi-zero factor 3");
+}

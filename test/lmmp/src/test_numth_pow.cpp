@@ -15,6 +15,10 @@
 
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+/* impl/powmod.h 为 C 头（restrict 限定符），C++ TU 以 __restrict 适配后包含 */
+#define restrict __restrict
+#include "lmmp/impl/powmod.h"
+#undef restrict
 #include "lmmp_test.hpp"
 #include "lmmp_test_utils.hpp"
 
@@ -744,5 +748,100 @@ TEST_CASE("numth/powmod", powmod_even_large_fold) {
             lmmp_free(ep);
         }
         lmmp_free(m); lmmp_free(b); lmmp_free(dst);
+    }
+}
+
+/*
+    稀疏模数蒙域旁路 lmmp_mont_sp_redc_ 直测（含探测）：
+    - ±1 两形 × 簇偏移跨 limb 边界（e%64 ∈ {0,1,63}）× 1/2 limb 簇 ×
+      尺寸跨 REDC_BASECASE/MERSENNE 阈值（nn = 2..17、48、313）；
+    - 值域与同余经 BigInt 参考独立对拍：r < m 且 r·B^n ≡ t (mod m)，
+      t 取 < m·B^n 的随机 2n limb（顶半按 m 位长掩码后整块压制）；
+    - 探测否定侧：稠密（m[0]=3）、全 B−1（B^2−1 形）、3 limb 簇均返回 0。
+*/
+namespace {
+
+/* m = k*2^e + form（k <= 2^64，e >= 64）装配到 dst（容量 e/64+3），返回规范化长度 */
+mp_size_t sp_shape_limbs(mp_ptr dst, u64 k, int e, int form) {
+    size_t cap = (size_t)e / 64 + 3;
+    for (size_t i = 0; i < cap; i++) dst[i] = 0;
+    unsigned __int128 v = (unsigned __int128)k << (e % 64);
+    dst[e / 64] |= (mp_limb_t)v;
+    dst[e / 64 + 1] |= (mp_limb_t)(v >> 64);
+    if (form > 0) dst[0] += 1;
+    else lmmp_dec(dst);
+    mp_size_t n = (mp_size_t)cap;
+    while (n > 1 && dst[n - 1] == 0) n--;
+    return n;
+}
+
+}  // namespace
+
+TEST_CASE("numth/powmod", mont_sp_redc_value) {
+    u64 seed = 0x5ec0fefe1e55aa21ull;
+    struct { u64 k; int e; int form; } shapes[] = {
+        /* +1 形：c=1（s=0 / k 短）与 c=2（bitlen(k)+s > 64） */
+        {1, 64, 1}, {3, 64, 1}, {3, 65, 1}, {0xffffffffull, 127, 1},
+        {0xdeadbeefcafebull, 127, 1}, {0x123456789abcull, 129, 1},
+        {3, 300, 1}, {1, 1024, 1}, {3, 19969, 1},
+        /* −1 形：纯 Mersenne（k=1）与一般 Riesel 形 */
+        {1, 127, -1}, {3, 64, -1}, {0xdeadbeefcafebull, 127, -1},
+        {0x123456789abcull, 191, -1}, {3, 300, -1}, {1, 19937, -1},
+    };
+    for (const auto& sh : shapes) {
+        size_t cap = (size_t)sh.e / 64 + 3;
+        mp_ptr m = alloc_limbs(cap);
+        mp_ptr r = alloc_limbs(cap);
+        mp_ptr t = alloc_limbs(2 * cap);
+        mp_size_t n = sp_shape_limbs(m, sh.k, sh.e, sh.form);
+        BigInt mm(m, n);
+
+        lmmp_mont_sp_t mc;
+        int form = lmmp_mont_sp_init_(&mc, m, n);
+        TEST_CHECK_MSG(form == sh.form, "sp probe form");
+
+        int samples = n > 100 ? 2 : 4;
+        for (int it = 0; it < samples; ++it) {
+            random_limbs(t, 2 * (size_t)n, seed);
+            /* 顶半压制到 < m：顶 limb 掩码到 m 位长内，仍越则整体减 m */
+            u64 tb = 64 - __builtin_clzll(m[n - 1]);
+            t[2 * (size_t)n - 1] &= (tb == 64) ? ~(u64)0 : (((u64)1 << tb) - 1);
+            if (lmmp_cmp_(t + n, m, n) >= 0)
+                (void)lmmp_sub_n_(t + n, t + n, m, n);
+
+            lmmp_mont_sp_redc_(r, t, &mc);
+            TEST_CHECK_MSG(lmmp_cmp_(r, m, n) < 0, "sp redc < m");
+            BigInt un = BigInt::shl_bits(BigInt(r, n), (size_t)n * 64);
+            TEST_CHECK_MSG(mod_school(un, mm) == mod_school(BigInt(t, 2 * (size_t)n), mm),
+                           "sp redc congruence");
+        }
+        lmmp_free(m); lmmp_free(r); lmmp_free(t);
+    }
+
+    /* 探测否定侧 */
+    lmmp_mont_sp_t mc;
+    {
+        mp_ptr m = alloc_limbs(4);
+        mp_size_t n = sp_shape_limbs(m, 3, 100, 1);
+        m[0] += 2; /* 稠密：m[0] = 3，中间零带被 +2 破坏以外形也不再 ±1 */
+        TEST_CHECK_MSG(lmmp_mont_sp_init_(&mc, m, n) == 0, "sp probe dense");
+        lmmp_free(m);
+    }
+    {
+        mp_ptr m = alloc_limbs(2); /* B^2−1 全 B−1（= B^n−1 整密，无簇） */
+        m[0] = ~(u64)0;
+        m[1] = ~(u64)0;
+        TEST_CHECK_MSG(lmmp_mont_sp_init_(&mc, m, 2) == 0, "sp probe all-ones");
+        lmmp_free(m);
+    }
+    {
+        mp_ptr m = alloc_limbs(5); /* 3 limb 簇：m = 1 + K·B^2，K 三 limb */
+        for (int i = 0; i < 5; i++) m[i] = 0;
+        m[0] = 1;
+        m[2] = 0x13579bdf2468ace0ull;
+        m[3] = ~(u64)0;
+        m[4] = 1;
+        TEST_CHECK_MSG(lmmp_mont_sp_init_(&mc, m, 5) == 0, "sp probe 3-limb cluster");
+        lmmp_free(m);
     }
 }
