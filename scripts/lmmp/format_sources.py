@@ -20,7 +20,8 @@ Rules applied to every tracked/staged text file:
 
 Line endings are preserved per line (LF or CRLF), the encoding is
 round-tripped through utf-8 with surrogate escapes, and binary files
-(containing NUL bytes) are skipped.
+(containing NUL bytes) are skipped.  Files and directories listed in
+EXEMPT_PATHS (repository-relative, e.g. 'LICENSE') are never touched.
 
 Usage:
   python scripts/lmmp/format_sources.py                 # format all tracked
@@ -32,6 +33,7 @@ Usage:
                                                         # would change
 """
 
+import fnmatch
 import os
 import subprocess
 import sys
@@ -44,6 +46,15 @@ MACRO_EXTS = {'.c', '.h', '.cpp', '.hpp', '.cc', '.cxx', '.hh', '.inl'}
 TAB_EXEMPT_NAMES = {'makefile', 'gnumakefile'}
 TAB_EXEMPT_EXTS = {'.mk'}
 
+# Bypass list: repository-relative files or directories (always written
+# with forward slashes) that are never formatted.  A directory pattern
+# covers everything inside it, and glob patterns ('*.md', 'dist/*') work
+# as well.  Paths are matched relative to the repository root, e.g.
+# 'LICENSE', 'doc/', 'test/fixtures'.
+EXEMPT_PATHS = {
+    'LICENSE',
+}
+
 MAX_FILE_SIZE = 16 * 1024 * 1024
 
 
@@ -55,6 +66,33 @@ def is_tab_exempt(path):
     name = os.path.basename(path).lower()
     return (name in TAB_EXEMPT_NAMES
             or os.path.splitext(name)[1] in TAB_EXEMPT_EXTS)
+
+
+def is_exempt_path(path, root=None):
+    """True when ``path`` is bypassed by EXEMPT_PATHS.
+
+    ``path`` is matched as a repository-relative, forward-slash path when
+    ``root`` is given and the path lives under it; otherwise as given.
+    Entries without glob characters match a file exactly or a directory
+    and everything below it; glob entries use fnmatch semantics.
+    """
+    rel = path
+    if root:
+        try:
+            rel = os.path.relpath(path, root)
+        except ValueError:  # different drive (Windows)
+            rel = path
+    rel = rel.replace(os.sep, '/')
+    while rel.startswith('./'):
+        rel = rel[2:]
+    for pattern in EXEMPT_PATHS:
+        pattern = pattern.strip('/')
+        if fnmatch.fnmatchcase(rel, pattern):
+            return True
+        if (not any(c in pattern for c in '*?[')
+                and (rel == pattern or rel.startswith(pattern + '/'))):
+            return True
+    return False
 
 
 def scan_line(line, in_block):
@@ -280,11 +318,18 @@ def git_output(args):
     return out.stdout.decode('utf-8', errors='surrogateescape')
 
 
-def collect_files(mode):
-    """Return absolute paths of the files to format and chdir to the repo
-    root (so that git pathspec output resolves regardless of the caller's
-    working directory)."""
-    root = git_output(['git', 'rev-parse', '--show-toplevel']).strip()
+def repo_root():
+    """Return the absolute repository root, or None outside a repo."""
+    try:
+        return git_output(['git', 'rev-parse', '--show-toplevel']).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def collect_files(mode, root):
+    """Return absolute paths of the tracked/staged files under ``root``
+    and chdir to the repo root (so that git pathspec output resolves
+    regardless of the caller's working directory)."""
     listing = (['git', 'diff', '--cached', '--name-only',
                 '--diff-filter=ACM', '-z'] if mode == 'staged'
                else ['git', 'ls-files', '-z'])
@@ -301,21 +346,30 @@ def main(argv):
         print('error: --staged cannot be combined with file arguments',
               file=sys.stderr)
         return 2
+    root = repo_root()
     try:
-        files = (collect_files('staged') if staged
-                 else args if args else collect_files('all'))
+        if staged or not args:
+            if root is None:
+                raise OSError('git rev-parse failed')
+            files = collect_files('staged' if staged else 'all', root)
+        else:
+            files = args
     except (subprocess.CalledProcessError, OSError) as e:
         print('error: not a git repository ({})'.format(e), file=sys.stderr)
         return 2
 
-    changed = [p for p in files if format_file(p, dry_run)]
+    changed = []
+    for path in files:
+        if is_exempt_path(path, root):
+            continue
+        if format_file(path, dry_run):
+            changed.append(path)
     for p in changed:
         print('{}: {}'.format('would format' if dry_run else 'formatted', p))
     verb = 'would format' if dry_run else 'formatted'
     print('{} {} file(s)'.format(verb, len(changed)))
 
     if changed and staged and not dry_run:
-        root = os.getcwd()
         subprocess.run(['git', 'add', '--'] +
                        [os.path.relpath(p, root) for p in changed],
                        check=True)
