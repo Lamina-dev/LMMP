@@ -154,3 +154,37 @@ void lmmp_mullo_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcpt
 
     dst[0] = h;
 }
+
+/*
+    低位平方的三角分解：U^2 = 2*T + D (mod B^n)，其中
+        T = sum_{i<j} a_i*a_j*B^(i+j)  （上三角交叉积，每个无序对只乘一次）
+        D = sum_i a_i^2*B^2i           （对角线平方）
+    行 j 贡献 a_j*[a_{j+1},...,a_{n-1-j})*B^j，即 dst[2j+1..n-1] += a_j*a[j+1..n-1-j]，
+    每条乘加链恰好终止于第 n-1 列，链尾进位落在第 n 列直接丢弃。
+    乘法量约 n^2/4（mullo(a,a) 为 n^2/2），末尾一趟融合的 2*dst+D 收尾。
+*/
+void lmmp_sqrlo_basecase_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t n) {
+    lmmp_param_assert(n > 0);
+    mp_size_t j;
+
+    dst[0] = 0;
+    if (n > 1)
+        (void)lmmp_mul_1_(dst + 1, numa + 1, n - 1, numa[0]);
+    for (j = 1; 2 * j + 2 <= n; j++)
+        (void)lmmp_addmul_1_(dst + 2 * j + 1, numa + j + 1, n - 2 * j - 1, numa[j]);
+
+    // dst = 2*dst + 对角平方，截断于 n。分步累加防止 u128 回绕：
+    // a^2 + 2*d + cl 总和可达 B^2+B-1 > 2^128-1（a=d=B-1 极端值）
+    __uint128_t cl = 0;
+    for (j = 0; 2 * j < n; j++) {
+        __uint128_t p = (__uint128_t)numa[j] * numa[j];
+        __uint128_t v = (mp_limb_t)p + cl + ((__uint128_t)dst[2 * j] << 1);  // ≤ 4B 无回绕
+        dst[2 * j] = (mp_limb_t)v;
+        cl = (v >> 64) + (p >> 64);                                          // ≤ B+1
+        if (2 * j + 1 < n) {
+            v = ((__uint128_t)dst[2 * j + 1] << 1) + cl;
+            dst[2 * j + 1] = (mp_limb_t)v;
+            cl = v >> 64;                                                    // ≤ 2
+        }
+    }
+}

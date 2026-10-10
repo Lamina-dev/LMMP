@@ -649,6 +649,18 @@ LMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb
 LMMP_API void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
+ * @brief 基础低位平方 [dst,n] = [numa,n]^2 mod B^n
+ * @param dst 输出结果缓冲区，长度至少为 n
+ * @param numa 输入操作数，长度为 n
+ * @param n limb长度
+ * @warning n>0, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n]^2 mod B^n
+ * @note 三角分解：上三角交叉积每对只乘一次（约 n^2/4 次 limb 乘法，
+ *       为 mullo(a,a) 的一半），末尾一趟融合的倍增+对角平方收尾
+ */
+LMMP_API void lmmp_sqrlo_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
+
+/**
  * @brief 低位乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
  * @param dst 输出结果缓冲区，长度至少为 n
  * @param numa 第一个输入操作数，长度为 n

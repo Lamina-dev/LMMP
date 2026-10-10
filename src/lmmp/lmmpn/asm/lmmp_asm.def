@@ -3,6 +3,7 @@ EXPORTS
     lmmp_mul_1_
     lmmp_mul_basecase_
     lmmp_mullo_basecase_
+    lmmp_sqrlo_basecase_
     lmmp_sqr_basecase_
 
     lmmp_not_
