@@ -179,16 +179,18 @@ TEST_CASE("asm/boundary", shl_shr_overlap_family) {
             mp_limb_t ret_shl = k ? (ba.d[n - 1] >> (64 - k)) : 0;
             mp_limb_t ret_shr = k ? (ba.d[0] << (64 - k)) : 0;
 
-            const int ws[] = {100, 0, -1, -2, -3};
-            for (int w : ws) {
+            const int ws_shl[] = {100, 0};   // shl 纯 eqsep：部分重叠族契约外，不做断言
+            for (int w : ws_shl) {
                 ob.refill(ba, w);
                 mp_limb_t r = lmmp_shl_(ob.dst_of(w), ob.numa, n, k);
                 TEST_CHECK_EQ(r, ret_shl);
                 TEST_CHECK_MSG(limb_vec_eq(BigInt(eshl.d.data(), shl_len), ob.dst_of(w), n), "shl body");
                 ob.check_guard(w, "shl overlap family guard");
-
+            }
+            const int ws_shr[] = {100, 0, -1, -2, -3};
+            for (int w : ws_shr) {
                 ob.refill(ba, w);
-                r = lmmp_shr_(ob.dst_of(w), ob.numa, n, k);
+                mp_limb_t r = lmmp_shr_(ob.dst_of(w), ob.numa, n, k);
                 TEST_CHECK_EQ(r, ret_shr);
                 TEST_CHECK_MSG(limb_vec_eq(eshr, ob.dst_of(w), n), "shr body");
                 ob.check_guard(w, "shr overlap family guard");
@@ -217,16 +219,18 @@ TEST_CASE("asm/boundary", shl_shr_c_overlap_family) {
             mp_limb_t ret_shl = ba.d[n - 1] >> (64 - k);
             mp_limb_t ret_shr = ba.d[0] << (64 - k);
 
-            const int ws[] = {100, 0, -1, -2, -3};
-            for (int w : ws) {
+            const int ws_shl[] = {100, 0};   // shl_c 纯 eqsep，同 shl_
+            for (int w : ws_shl) {
                 ob.refill(ba, w);
                 mp_limb_t r = lmmp_shl_c_(ob.dst_of(w), ob.numa, n, k, cshl);
                 TEST_CHECK_EQ(r, ret_shl);
                 TEST_CHECK_MSG(limb_vec_eq(BigInt(eshl.d.data(), shl_len), ob.dst_of(w), n), "shl_c body");
                 ob.check_guard(w, "shl_c overlap family guard");
-
+            }
+            const int ws_shr[] = {100, 0, -1, -2, -3};
+            for (int w : ws_shr) {
                 ob.refill(ba, w);
-                r = lmmp_shr_c_(ob.dst_of(w), ob.numa, n, k, cshr);
+                mp_limb_t r = lmmp_shr_c_(ob.dst_of(w), ob.numa, n, k, cshr);
                 TEST_CHECK_EQ(r, ret_shr);
                 TEST_CHECK_MSG(limb_vec_eq(eshr, ob.dst_of(w), n), "shr_c body");
                 ob.check_guard(w, "shr_c overlap family guard");
