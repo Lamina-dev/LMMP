@@ -165,12 +165,8 @@ static void nthroot_top_limbs_(
         lmmp_zero(dst, nlimbs);
         mp_size_t m = na;
         if (m > nlimbs - loff) m = nlimbs - loff;
-        if (bit) {
-            mp_limb_t cy = lmmp_shl_(dst + loff, numa, m, bit);
-            if (loff + m < nlimbs) dst[loff + m] = cy;  // 进位必 0（bitlen 恒等）
-        } else {
-            lmmp_copy(dst + loff, numa, m);
-        }
+        mp_limb_t cy = lmmp_shl_(dst + loff, numa, m, bit);  // bit=0 时函数内即拷贝
+        if (loff + m < nlimbs) dst[loff + m] = cy;  // 进位必 0（bitlen 恒等）
     }
 }
 
@@ -520,14 +516,9 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
                 mp_size_t loff = (mp_size_t)((-X) >> 6);
                 unsigned bit = (unsigned)((-X) & 63);
                 lmmp_zero(Nseg, loff);
-                if (bit) {
-                    mp_limb_t cy3 = lmmp_shl_(Nseg + loff, t2, tl, bit);
-                    tl += loff;
-                    if (cy3) Nseg[tl++] = cy3;
-                } else {
-                    lmmp_copy(Nseg + loff, t2, tl);
-                    tl += loff;
-                }
+                mp_limb_t cy3 = lmmp_shl_(Nseg + loff, t2, tl, bit);  // bit=0 时函数内即拷贝
+                tl += loff;
+                if (cy3) Nseg[tl++] = cy3;
                 lmmp_debug_assert(tl <= NW);
                 tq = Nseg;
             } else {
@@ -602,8 +593,7 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
     if (shx < 0) {
         mp_size_t loff = (mp_size_t)((-shx) >> 6);
         unsigned bit = (unsigned)((-shx) & 63);
-        if (bit) lmmp_shr_(y, xb + loff, xn - loff, bit);
-        else     lmmp_copy(y, xb + loff, xn - loff);
+        lmmp_shr_(y, xb + loff, xn - loff, bit);  // bit=0 时函数内即拷贝
         yn = xn - loff;  // bitlen 恰 128+shx ≥ 2，顶 limb 非零
     } else {
         lmmp_debug_assert(shx == 0);
@@ -748,8 +738,7 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
         unsigned b2 = (unsigned)(c1 & 63);
         mp_size_t shn = ln - l2;
         mp_ptr Sh = qb;  // slack 已消费（M2 已物化于 t2）
-        if (b2) lmmp_shr_(Sh, L + l2, shn, b2);
-        else    lmmp_copy(Sh, L + l2, shn);
+        lmmp_shr_(Sh, L + l2, shn, b2);  // b2=0 时函数内即拷贝
         mp_limb_t acy = lmmp_add_(L, L, ln, Sh, shn);
         if (acy) {
             L[ln] = acy;

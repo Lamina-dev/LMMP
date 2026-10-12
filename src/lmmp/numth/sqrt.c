@@ -453,10 +453,7 @@ void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
 
         if (nf) {
             lmmp_zero(tmp, 2 * nf);
-            if (nsh)
-                lmmp_shl_(tmp + 2 * nf, numa, na, 2 * nsh);
-            else
-                lmmp_copy(tmp + 2 * nf, numa, na);
+            lmmp_shl_(tmp + 2 * nf, numa, na, 2 * nsh);  // nsh=0 时函数内即整段拷贝
             src = tmp;
         } else if (nsh) {
             lmmp_shl_(tmp, numa, na, 2 * nsh);
@@ -514,10 +511,7 @@ void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         mp_ptr restrict numa2 = TALLOC_TYPE(2 * ns, mp_limb_t);
         mp_ptr restrict tp = TALLOC_TYPE(3 * ns / 2 + 1, mp_limb_t);
         lmmp_zero(numa2, 2 * nf);
-        if (nsh)
-            lmmp_shl_(numa2 + 2 * ns - na, numa, na, nsh * 2);
-        else
-            lmmp_copy(numa2 + 2 * ns - na, numa, na);
+        lmmp_shl_(numa2 + 2 * ns - na, numa, na, nsh * 2);  // nsh=0 时函数内即整段拷贝
         if (nl & 1) {
             numa2[2 * nf] = 0;
             nsh += LIMB_BITS / 2;
@@ -552,10 +546,7 @@ void lmmp_sqrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
                 ++numa2;
             } else
                 ++ns;
-            if (nsh)
-                lmmp_shr_(dstr, numa2, ns, nsh);
-            else
-                lmmp_copy(dstr, numa2, ns);
+            lmmp_shr_(dstr, numa2, ns, nsh);  // nsh=0 时函数内即整段拷贝
         }
 
         TEMP_FREE;

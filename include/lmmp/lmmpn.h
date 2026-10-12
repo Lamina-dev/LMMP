@@ -219,7 +219,6 @@ LMMP_API mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size
  * @param na limb长度
  * @param shl 左移的位数 (0~63)
  * @warning na>0, 0<=shl<64, eqsep(dst,numa), dst!=NULL, numa!=NULL
- *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
 LMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
@@ -233,7 +232,6 @@ LMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t
  * @param c 进位值（其高(64-shl)位必须为0）
  * @warning na>0, 0<=shl<64, eqsep(dst,numa), dst!=NULL, numa!=NULL
  *          c的高(64-shl)位必须为0
- *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
 LMMP_API mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
