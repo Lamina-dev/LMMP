@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK(Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -18,13 +18,6 @@
 
 #include "../lmmpn.h"
 
-/*
-FIXME: 汇编化这些函数
-*/
-
-
-#define MODLIMB_INVERSE_3 ((mp_limb_t)0xAAAAAAAAAAAAAAAB)
-
 /**
  * @brief 精确除以3（[dst,na] = [numa,na] / 3）
  * @param dst 结果存储位置
@@ -32,24 +25,7 @@ FIXME: 汇编化这些函数
  * @param na 被除数长度
  * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
-static inline void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
-    mp_limb_t c = 0;
-    mp_limb_t l, q, s;
-    mp_size_t i = 0;
-    do {
-        s = numa[i];
-        l = s - c;
-        c = l > s;
-        q = l * MODLIMB_INVERSE_3;
-        dst[i] = q;
-        l = q + q;
-        c += l < q;
-        l += q;
-        c += l < q;
-    } while (++i < na);
-}
-
-#define MODLIMB_INVERSE_9 ((mp_limb_t)0x8E38E38E38E38E39)
+void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 精确除以9（[dst,na] = [numa,na] / 9）
@@ -58,24 +34,7 @@ static inline void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na) 
  * @param na 被除数长度
  * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
-static inline void lmmp_divexact_by9_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
-    mp_limb_t c = 0;
-    mp_limb_t l, q, s, t, carry;
-    mp_size_t i = 0;
-    do {
-        s = numa[i];
-        l = s - c;
-        c = l > s;
-        q = l * MODLIMB_INVERSE_9;
-        dst[i] = q;
-        // carry from 9*q = (q<<3) + q
-        t = q << 3;
-        carry = (q >> (LIMB_BITS - 3)) + ((t + q) < t);
-        c += carry;
-    } while (++i < na);
-}
-
-#define MODLIMB_INVERSE_15 ((mp_limb_t)0xEEEEEEEEEEEEEEEF)
+void lmmp_divexact_by9_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
  * @brief 精确除以15（[dst,na] = [numa,na] / 15）
@@ -84,21 +43,6 @@ static inline void lmmp_divexact_by9_(mp_ptr dst, mp_srcptr numa, mp_size_t na) 
  * @param na 被除数长度
  * @warning eqsep(dst,numa), na>0, dst!=NULL, numa!=NULL
  */
-static inline void lmmp_divexact_by15_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
-    mp_limb_t c = 0;
-    mp_limb_t l, q, s, t, carry;
-    mp_size_t i = 0;
-    do {
-        s = numa[i];
-        l = s - c;
-        c = l > s;
-        q = l * MODLIMB_INVERSE_15;
-        dst[i] = q;
-        // carry from 15*q = (q<<4) - q
-        t = q << 4;
-        carry = (q >> (LIMB_BITS - 4)) - (t < q);
-        c += carry;
-    } while (++i < na);
-}
+void lmmp_divexact_by15_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 #endif // __LMMP_DIVEXACT_H__
