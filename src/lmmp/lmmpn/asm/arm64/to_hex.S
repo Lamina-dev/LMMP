@@ -59,9 +59,10 @@ ASM_GSYM(lmmp_to_hex_):
     add          x12, x12, #3
     lsr          x9, x12, #2
 
-    // 大小写 LUT 基址 x10（连续双表，upper 取高 16B；顶残尾标量复用）
-    adrp         x10, .Lhex_lut@PAGE
-    add          x10, x10, .Lhex_lut@PAGEOFF
+    // 大小写 LUT 基址 x10（连续双表，upper 取高 16B；顶残尾标量复用）。
+    // adr 无修饰符形式 GAS/clang 双兼容（@PAGE 系 Darwin 语法，GNU as 于
+    // ELF 不认）；表驻 .text 同段保证 ±1MB 寻址范围（inv_1.S 同款约定）
+    adr          x10, .Lhex_lut
     add          x11, x10, #16
     cmp          w3, #0
     csel         x10, x11, x10, ne
@@ -133,12 +134,7 @@ ASM_GSYM(lmmp_to_hex_):
     mov          x0, #0
     ret
 
-#ifdef LMMP_MACOS
-.section __TEXT,__const
-#else
-.section .rodata
-#endif
 .p2align 4
-.Lhex_lut:
+.Lhex_lut:                                     // 驻 .text（adr 同段范围）
     .ascii "0123456789abcdef"
     .ascii "0123456789ABCDEF"
