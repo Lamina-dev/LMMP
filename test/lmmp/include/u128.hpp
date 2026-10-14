@@ -20,6 +20,264 @@
 #include <stdexcept>
 #include <type_traits>
 
+namespace u128_detail {
+
+inline int clz64(std::uint64_t x) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_clzll(x);
+#else
+    int n = 0;
+    if ((x >> 32) == 0) { n += 32; x <<= 32; }
+    if ((x >> 48) == 0) { n += 16; x <<= 16; }
+    if ((x >> 56) == 0) { n += 8; x <<= 8; }
+    if ((x >> 60) == 0) { n += 4; x <<= 4; }
+    if ((x >> 62) == 0) { n += 2; x <<= 2; }
+    if ((x >> 63) == 0) { n += 1; }
+    return n;
+#endif
+}
+
+}  // namespace u128_detail
+
+#if defined(__SIZEOF_INT128__)
+
+// 编译器内置 128 位整数（GCC/Clang，x64/arm64 原生）。
+// 加减乘移位比较直接映射硬件指令；除法/取模刻意不使用内置的 / 与 %
+// （那会展开为 __udivti3/__umodti3 编译器运行时库调用），统一走本类的
+// 软件除法：divmod_by_u64 半字 Knuth-D 核心 + 位级回退长除法。
+__extension__ typedef unsigned __int128 u128_native;
+
+class uint128_t {
+   private:
+    u128_native v;
+
+   public:
+    // 构造
+    uint128_t() noexcept : v(0) {}
+    uint128_t(u128_native x) noexcept : v(x) {}
+    uint128_t(std::uint64_t low) noexcept : v(low) {}
+    uint128_t(std::uint64_t high, std::uint64_t low) noexcept
+        : v(((u128_native)high << 64) | low) {}
+    // 限 <= 64 位整型：避免有符号 128 位落到此模板被截断为低 64 位
+    //（无符号 128 位由上面的非模板构造精确接住）。
+    template <typename T,
+              typename = std::enable_if_t<std::is_integral_v<T> && (sizeof(T) <= 8)>>
+    uint128_t(T val) noexcept : v((u128_native)(std::uint64_t)val) {}
+
+    // 显式转换
+    explicit operator std::uint64_t() const noexcept { return (std::uint64_t)v; }
+    explicit operator bool() const noexcept { return v != 0; }
+    explicit operator u128_native() const noexcept { return v; }
+
+    // 比较
+    bool operator==(const uint128_t& rhs) const noexcept { return v == rhs.v; }
+    bool operator!=(const uint128_t& rhs) const noexcept { return v != rhs.v; }
+    bool operator<(const uint128_t& rhs) const noexcept { return v < rhs.v; }
+    bool operator>(const uint128_t& rhs) const noexcept { return v > rhs.v; }
+    bool operator<=(const uint128_t& rhs) const noexcept { return v <= rhs.v; }
+    bool operator>=(const uint128_t& rhs) const noexcept { return v >= rhs.v; }
+
+    // 位运算
+    uint128_t operator~() const noexcept { return uint128_t(~v); }
+    uint128_t operator&(const uint128_t& rhs) const noexcept { return uint128_t(v & rhs.v); }
+    uint128_t operator|(const uint128_t& rhs) const noexcept { return uint128_t(v | rhs.v); }
+    uint128_t operator^(const uint128_t& rhs) const noexcept { return uint128_t(v ^ rhs.v); }
+    uint128_t& operator&=(const uint128_t& rhs) noexcept {
+        v &= rhs.v;
+        return *this;
+    }
+    uint128_t& operator|=(const uint128_t& rhs) noexcept {
+        v |= rhs.v;
+        return *this;
+    }
+    uint128_t& operator^=(const uint128_t& rhs) noexcept {
+        v ^= rhs.v;
+        return *this;
+    }
+
+    // 移位（逻辑）。内置 128 位对 >= 128 的移位计数是 UB，必须先拦截。
+    uint128_t operator<<(unsigned shift) const noexcept {
+        if (shift >= 128) return uint128_t(0);
+        return uint128_t(v << shift);
+    }
+    uint128_t operator>>(unsigned shift) const noexcept {
+        if (shift >= 128) return uint128_t(0);
+        return uint128_t(v >> shift);
+    }
+    uint128_t& operator<<=(unsigned shift) noexcept {
+        *this = *this << shift;
+        return *this;
+    }
+    uint128_t& operator>>=(unsigned shift) noexcept {
+        *this = *this >> shift;
+        return *this;
+    }
+
+    // 加减乘（原生）
+    uint128_t& operator+=(const uint128_t& rhs) noexcept {
+        v += rhs.v;
+        return *this;
+    }
+    uint128_t& operator-=(const uint128_t& rhs) noexcept {
+        v -= rhs.v;
+        return *this;
+    }
+    uint128_t& operator*=(const uint128_t& rhs) noexcept {
+        v *= rhs.v;
+        return *this;
+    }
+    friend uint128_t operator+(uint128_t a, const uint128_t& b) noexcept {
+        return uint128_t(a.v + b.v);
+    }
+    friend uint128_t operator-(uint128_t a, const uint128_t& b) noexcept {
+        return uint128_t(a.v - b.v);
+    }
+    friend uint128_t operator*(uint128_t a, const uint128_t& b) noexcept {
+        return uint128_t(a.v * b.v);
+    }
+
+    // 除法与取模：软件实现（不触内置 128 位 / 与 %）。
+    uint128_t& operator/=(const uint128_t& rhs) {
+        uint128_t q, r;
+        divmod(*this, rhs, q, r);
+        v = q.v;
+        return *this;
+    }
+    uint128_t& operator%=(const uint128_t& rhs) {
+        uint128_t q, r;
+        divmod(*this, rhs, q, r);
+        v = r.v;
+        return *this;
+    }
+    friend uint128_t operator/(uint128_t a, const uint128_t& b) {
+        a /= b;
+        return a;
+    }
+    friend uint128_t operator%(uint128_t a, const uint128_t& b) {
+        a %= b;
+        return a;
+    }
+
+    // 自增/自减
+    uint128_t operator++(int) noexcept {
+        uint128_t old = *this;
+        v += 1;
+        return old;
+    }
+    uint128_t operator--(int) noexcept {
+        uint128_t old = *this;
+        v -= 1;
+        return old;
+    }
+    uint128_t& operator++() noexcept {
+        v += 1;
+        return *this;
+    }
+    uint128_t& operator--() noexcept {
+        v -= 1;
+        return *this;
+    }
+
+    /**
+     * 128÷64 快速核心：求 (n1:n0) / d 与余数。
+     * 前置条件：d != 0 且 n1 < d（等价于商与余数都 < 2^64）。
+     *
+     * 半字（基 2^32）两步 Knuth-D 试商，仅使用 64 位硬件除法与乘法：
+     * 规格化后除数为 (v1:v0)（v1 最高位为 1），对 4 个半字被除数依次
+     * 求高、低 32 位商。试商 q = 高两部/v1，用 q*v0 > rh*2^32+w1 判定
+     * 需回退（与 BigInt::divmod_school 的 64 位 limb 版同构，正确性
+     * 论证同 Knuth Algorithm D）；每步修正至多 2 次。
+     */
+    static void divmod_by_u64(std::uint64_t n1, std::uint64_t n0, std::uint64_t d,
+                              std::uint64_t& q_out, std::uint64_t& r_out) noexcept {
+        const int s = u128_detail::clz64(d);
+        const std::uint64_t dv = d << s;
+        // n1 < d 保证 n < d*2^64，规格化左移后仍 < dv*2^64 <= 2^128，不回绕。
+        u128_native nn = (((u128_native)n1) << 64) | n0;
+        nn <<= (unsigned)s;
+        const std::uint64_t a1 = (std::uint64_t)(nn >> 64);  // < dv
+        const std::uint64_t a0 = (std::uint64_t)nn;
+        const std::uint64_t v1 = dv >> 32;  // >= 2^31
+        const std::uint64_t v0 = dv & 0xFFFFFFFFu;
+        const std::uint64_t w1 = a0 >> 32;
+        const std::uint64_t w0 = a0 & 0xFFFFFFFFu;
+
+        // 高 32 位商：估计 a1/v1，乘法下界检验回退。
+        // 循环顶部不变量 rh < 2^32，故 (rh<<32)+w1 与 qh*v0 均不回绕
+        //（qh > 0xFFFFFFFF 时短路，不取乘积）。
+        std::uint64_t qh = a1 / v1;
+        std::uint64_t rh = a1 % v1;
+        while (qh > 0xFFFFFFFFu || qh * v0 > (rh << 32) + w1) {
+            --qh;
+            rh += v1;
+            if (rh > 0xFFFFFFFFu) break;  // rh >= 2^32 时乘积比较必不成立
+        }
+        // t = (a1:w1) - qh*dv，退出条件保证 0 <= t < 2^64。
+        const std::uint64_t t =
+            (std::uint64_t)(((((u128_native)a1) << 32) | w1) - (u128_native)qh * dv);
+
+        // 低 32 位商：同构。t < dv 保证 t 的半字高位 <= v1，估计定理适用。
+        std::uint64_t ql = t / v1;
+        std::uint64_t rl = t % v1;
+        while (ql > 0xFFFFFFFFu || ql * v0 > (rl << 32) + w0) {
+            --ql;
+            rl += v1;
+            if (rl > 0xFFFFFFFFu) break;
+        }
+        const u128_native rem = ((((u128_native)t) << 32) | w0) - (u128_native)ql * dv;
+        r_out = (std::uint64_t)(rem >> s);
+        q_out = (qh << 32) | ql;
+    }
+
+    /**
+     * 通用 128÷128 除法。除数为 0 抛 domain_error。
+     * 除数 < 2^64 时走 divmod_by_u64（必要时先原生除高部拆两段），
+     * 否则商必 < 2^64，用位级长除法（冷路径）。
+     */
+    static void divmod(const uint128_t& dividend, const uint128_t& divisor,
+                       uint128_t& quotient, uint128_t& remainder) {
+        if (divisor.v == 0) throw std::domain_error("division by zero");
+        const u128_native n = dividend.v;
+        const u128_native d = divisor.v;
+        if ((std::uint64_t)(d >> 64) == 0) {
+            const std::uint64_t d64 = (std::uint64_t)d;
+            const std::uint64_t n1 = (std::uint64_t)(n >> 64);
+            const std::uint64_t n0 = (std::uint64_t)n;
+            std::uint64_t q, r;
+            if (n1 < d64) {
+                divmod_by_u64(n1, n0, d64, q, r);
+            } else {
+                // 商 >= 2^64：n1 = q1*d + rh 精确分解，余下 (rh:n0)/d 走核心。
+                const std::uint64_t q1 = n1 / d64;
+                const std::uint64_t rh = n1 % d64;
+                std::uint64_t q0;
+                divmod_by_u64(rh, n0, d64, q0, r);
+                quotient.v = ((u128_native)q1 << 64) | q0;
+                remainder.v = r;
+                return;
+            }
+            quotient.v = q;
+            remainder.v = r;
+            return;
+        }
+        // 除数 >= 2^64：位级长除法。
+        u128_native q = 0;
+        u128_native r = 0;
+        for (int i = 127; i >= 0; --i) {
+            r = (r << 1) | ((n >> i) & 1);
+            if (r >= d) {
+                r -= d;
+                q |= (u128_native)1 << i;
+            }
+        }
+        quotient.v = q;
+        remainder.v = r;
+    }
+};
+
+#else  // !defined(__SIZEOF_INT128__)
+
+// 纯软件 uint128（无编译器内置 128 位时的可移植回退）。
 class uint128_t {
    private:
     uint64_t lo;  // low 64 bits
@@ -276,7 +534,21 @@ class uint128_t {
         *this -= uint128_t(1);
         return *this;
     }
+
+    /**
+     * 128÷64 核心（与内置 128 位分支同名同契约）。
+     * 前置条件：d != 0 且 n1 < d（商与余数都 < 2^64）。
+     * 回退实现直接走通用 divmod（慢但独立于被测路径）。
+     */
+    static void divmod_by_u64(uint64_t n1, uint64_t n0, uint64_t d, uint64_t& q_out,
+                              uint64_t& r_out) {
+        uint128_t q, r;
+        divmod(uint128_t(n1, n0), uint128_t(d), q, r);
+        q_out = (uint64_t)q;
+        r_out = (uint64_t)r;
+    }
 };
 
+#endif  // defined(__SIZEOF_INT128__)
 
-#endif // U128_HPP
+#endif  // U128_HPP
