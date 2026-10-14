@@ -765,9 +765,9 @@ namespace {
 mp_size_t sp_shape_limbs(mp_ptr dst, u64 k, int e, int form) {
     size_t cap = (size_t)e / 64 + 3;
     for (size_t i = 0; i < cap; i++) dst[i] = 0;
-    unsigned __int128 v = (unsigned __int128)k << (e % 64);
-    dst[e / 64] |= (mp_limb_t)v;
-    dst[e / 64 + 1] |= (mp_limb_t)(v >> 64);
+    lmmp_test_utils::u128 v = (lmmp_test_utils::u128)k << (unsigned)(e % 64);
+    dst[e / 64] |= (mp_limb_t)(u64)v;
+    dst[e / 64 + 1] |= (mp_limb_t)(u64)(v >> 64);
     if (form > 0) dst[0] += 1;
     else lmmp_dec(dst);
     mp_size_t n = (mp_size_t)cap;

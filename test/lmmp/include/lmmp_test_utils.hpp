@@ -215,9 +215,9 @@ struct BigInt {
         q.d.assign(a.d.size(), 0);
         u64 r = 0;
         for (size_t i = a.d.size(); i-- > 0;) {
-            u128 cur = ((u128)r << 64) | a.d[i];
-            q.d[i] = (u64)(cur / v);
-            r = (u64)(cur % v);
+            // r 是上一步余数恒 < v，满足 divmod_by_u64 的前置条件，
+            // 商/余数一次取回（避免 / 与 % 各做一次完整除法）。
+            uint128_t::divmod_by_u64(r, a.d[i], v, q.d[i], r);
         }
         q.trim();
         rem = r;
@@ -272,9 +272,9 @@ struct BigInt {
                     goto skip_adjust;
                 }
             } else {
-                u128 top = ((u128)u.d[j + n] << 64) | u.d[j + n - 1];
-                qhat = (u64)(top / v1);
-                rhat = (u64)(top % v1);
+                // Knuth-D 不变量 u[j+n] <= v1，== 分支已被上面特判接走，
+                // 此处 u[j+n] < v1 满足 divmod_by_u64 的前置条件。
+                uint128_t::divmod_by_u64(u.d[j + n], u.d[j + n - 1], v1, qhat, rhat);
             }
 
             while (true) {

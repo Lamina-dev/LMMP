@@ -69,7 +69,7 @@ bool ref_is_prime32(u32 n) {
    模乘为二进制加倍（先比较后组合，无 129 位回绕），避免
    __int128 乘积截断
 */
-using r128 = unsigned __int128;
+using r128 = uint128_t;
 
 static r128 mulmod128(r128 a, r128 b, r128 m) {
     r128 r = 0;
