@@ -18,6 +18,8 @@
 #include "../../../include/lmmp/impl/toom_interp.h"
 #include "../../../include/lmmp/lmmpn.h"
 
+LMMP_VECT_CONSERVATIVE
+
 
 #define lmmp_mul_n_(dst, numa, numb, n)                    \
     if ((n) < MUL_TOOM22_THRESHOLD)                        \

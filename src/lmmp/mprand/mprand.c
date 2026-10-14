@@ -17,6 +17,8 @@
 #include "../../../include/lmmp/impl/rand_state.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 
+LMMP_VECT_CONSERVATIVE
+
 typedef struct {
     mp_limb_t state;
     int seed_type;

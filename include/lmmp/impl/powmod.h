@@ -169,61 +169,7 @@ static inline mp_limb_t lmmp_mont_redc_bc_(
  * @param mc 蒙域上下文（须已完成 lmmp_mont_init_）
  * @warning sep(dst,tp), dst 与 mc 内各缓冲区均分离
  */
-static inline void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_t* restrict mc) {
-    mp_size_t n = mc->n;
-    mp_ptr restrict hi;
-
-    if (n < REDC_BASECASE_THRESHOLD) {
-        mp_limb_t cy = lmmp_mont_redc_bc_(dst, tp, mc->m, n, mc->ninv1);
-        if (cy) {
-            /* 值 >= B^n > m，减 m 必然可行；借位恰好抵消进位 limb */
-            (void)lmmp_sub_n_(dst, dst, mc->m, n);
-        } else if (lmmp_cmp_(dst, mc->m, n) >= 0) {
-            lmmp_sub_n_(dst, dst, mc->m, n);
-        }
-        return;
-    }
-
-    mp_limb_t carry = !lmmp_zero_q_(tp, n);
-
-    if (n < MULLO_DC_THRESHOLD) {
-        lmmp_mullo_dc_(mc->q, tp, mc->ninv, mc->mscratch, n);
-    } else if (mc->ncache_on == 0) {
-        lmmp_mullo_fft_cache_init_(mc->q, tp, mc->ninv, n, mc->mscratch, &mc->ncache);
-        mc->ncache_on = 1;
-    } else {
-        lmmp_mullo_fft_cache_(mc->q, tp, mc->mscratch, &mc->ncache);
-    }
-
-    if (mc->fold == 0) {
-        lmmp_mul_n_(mc->mulhi, mc->q, mc->m, n);
-        hi = mc->mulhi + n;
-    } else {
-        if (mc->mcache_on == 0) {
-            lmmp_mul_mersenne_cache_init_(mc->V, mc->msz, mc->q, n, mc->m, n, &mc->mcache);
-            mc->mcache_on = 1;
-        } else {
-            lmmp_mul_mersenne_cache_(mc->V, mc->q, &mc->mcache);
-        }
-        if (carry) {
-            lmmp_not_(mc->Lbuf, tp, n);
-            lmmp_inc(mc->Lbuf);
-        } else {
-            lmmp_zero(mc->Lbuf, n);
-        }
-        lmmp_mont_fold_hi_(mc->hi, mc->V, mc->Lbuf, n, mc->msz);
-        hi = mc->hi;
-    }
-
-    /* u = t_hi + hi + carry，结果 carry_out:[dst,n] < 2m */
-    mp_limb_t cy = lmmp_add_nc_(dst, tp + n, hi, n, carry);
-    if (cy) {
-        /* 值 >= B^n > m，减 m 必然可行；n limb 减法的借位恰好抵消进位 limb */
-        (void)lmmp_sub_n_(dst, dst, mc->m, n);
-    } else if (lmmp_cmp_(dst, mc->m, n) >= 0) {
-        lmmp_sub_n_(dst, dst, mc->m, n);
-    }
-}
+void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_t* restrict mc);
 
 /**
  * @brief 进蒙域：[dst,n] = [xp,n]*B^n mod [mp,n]
