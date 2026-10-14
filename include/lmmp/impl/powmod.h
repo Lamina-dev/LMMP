@@ -23,10 +23,6 @@
 #include "mul_cache.h"
 
 /*
-    奇模数 Montgomery 域公共核心：powmod.c（模幂梯子）与 is_prime_n.c
-    （素性检验）共用（两处原为同源 static 拷贝，现收敛为本头文件单一定义，
-    以 static inline 保持原零调用开销特征）。
-
     记 R = B^n，m 为奇模数（n limb），ninv = -m^(-1) mod B^n。
     单步 REDC：给定 t = a*b < m*B^n（[tp,2n]），令
 
@@ -71,17 +67,17 @@ typedef struct {
     mp_size_t n;
     mp_srcptr m;     /* 模数 */
     mp_ptr ninv;     /* -m^(-1) mod B^n（basecase 层不使用，为 NULL） */
-    mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用） */
-    int fold;        /* n >= REDC_MERSENNE_THRESHOLD 时走梅森折叠 */
-    mp_size_t msz;   /* 折叠尺寸（fold 时有效） */
+    mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用）              */
+    int fold;        /* n >= REDC_MERSENNE_THRESHOLD 时走梅森折叠     */
+    mp_size_t msz;   /* 折叠尺寸（fold 时有效）                        */
     mp_ptr one;      /* [n] B^n mod m（蒙域 1，无 anchors 档为 NULL） */
-    mp_ptr m1;       /* [n] m - one（蒙域 -1，无 anchors 档为 NULL） */
-    mp_ptr q;        /* [n]        q = t_lo * ninv mod B^n */
-    mp_ptr Lbuf;     /* [n]        -t_lo mod B^n */
-    mp_ptr hi;       /* [n]        q*m 的高 n limb（折叠路径输出） */
-    mp_ptr mulhi;    /* [2n]       全积路径的 q*m（非折叠路径） */
-    mp_ptr V;        /* [msz]      折叠积 q*m mod B^msz-1 */
-    mp_ptr mscratch; /* [2n]       mullo scratch */
+    mp_ptr m1;       /* [n] m - one（蒙域 -1，无 anchors 档为 NULL）  */
+    mp_ptr q;        /* [n]        q = t_lo * ninv mod B^n           */
+    mp_ptr Lbuf;     /* [n]        -t_lo mod B^n                     */
+    mp_ptr hi;       /* [n]        q*m 的高 n limb（折叠路径输出）     */
+    mp_ptr mulhi;    /* [2n]       全积路径的 q*m（非折叠路径）        */
+    mp_ptr V;        /* [msz]      折叠积 q*m mod B^msz-1             */
+    mp_ptr mscratch; /* [2n]       mullo scratch                     */
     fft_gr_cache mcache;
     int mcache_on;
     fft_mullo_cache ncache;
@@ -328,8 +324,6 @@ static inline void lmmp_mont_free_(lmmp_mont_t* mc) {
     if (mc->ncache_on)
         lmmp_mullo_cache_free_(&mc->ncache);
 }
-
-/* ============ 稀疏模数蒙域旁路（lmmp_mont_sp_t，不接入 lmmp_mont_t） ============ */
 
 /*
     形状 m = ε + Kv·B^p（ε ∈ {+1,−1}，Kv ≤ 2 limb，p ≥ 1，n ≥ 2）：

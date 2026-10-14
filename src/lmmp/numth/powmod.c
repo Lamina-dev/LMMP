@@ -13,21 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/*
-    奇模数模幂：Montgomery 归约（REDC）+ 滑动窗口梯子。
-
-    Montgomery 域核心（三层 REDC 分派、蒙域上下文与进蒙域 redcify）的
-    单一定义见 include/lmmp/impl/powmod.h，由本文件与 is_prime_n.c 共用。
-    本文件提供：
-      - 1/2 limb 特化 lmmp_powmod_1_ / lmmp_powmod_2_（u128 标量蒙域梯子）；
-      - 蒙域梯子 lmmp_powmod_odd_mont_（滑动窗口，结果留在蒙域：同模数批量
-        幂/素性检验多轮经同一上下文复用 ninv 与 FFT 变换缓存，并免去出蒙域
-        REDC——蒙域内 ±1 探测等价性见 impl/powmod.h 头注）；
-      - 公开入口 lmmp_powmod_odd_（= 上下文 init + 蒙域梯子 + 出蒙域 REDC）；
-      - 任意模数 lmmp_powmod_（m 偶时 2-adic 分解 + CRT 合成）。
-      - 单步公开 REDC lmmp_redc_（tp 只读契约：basecase 层先复制再归约）。
-*/
-
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/inlines.h"
@@ -62,14 +47,6 @@ static inline mp_limb_t getbits(const mp_limb_t* p, mp_bitcnt_t bi, mp_bitcnt_t 
 static inline mp_bitcnt_t count_bits(mp_srcptr p, mp_size_t n) {
     return (n - 1) * LIMB_BITS + lmmp_limb_bits_(p[n - 1]);
 }
-
-/*
-    1/2 limb Montgomery 内联（惯例与正确性论证见 is_prime_ulong.c 的
-    mont64_reduce 与 is_prime_2.c 的 mul_128/sqr_128/mont2_redc，本文件
-    按需复制为 static）。全程 u128 标量表达：和的进位由回绕比较自然
-    产生，编译器融合为 add/adc 链；x64 下全积/平方借用 longlong.h
-    调优的 mulx/adcx 内联，其余平台为纯 C（mul/umulh 链）。
-*/
 
 /* 1 limb REDC：r = (T + k*m)/B mod m，k = T_lo*ninv mod B，ninv = -m^(-1) mod B。
    T < m*B 时结果 < 2m；k*m + T < 2^129，第 129 位 c 由 128 位回绕捕获，
@@ -567,9 +544,7 @@ void lmmp_powmod_odd_(
 }
 
 /*
-    任意模数模幂：m 偶时以 2-adic 分解 + CRT 合成
-
-    分解 m = 2^k * m_odd（gcd(2^k, m_odd) = 1），中国剩余定理给出唯一解：
+    分解 m = 2^k * m_odd（gcd(2^k, m_odd) = 1），CRT给出唯一解：
 
         r == r1 (mod m_odd),  r == r2 (mod 2^k),  r < m
 
