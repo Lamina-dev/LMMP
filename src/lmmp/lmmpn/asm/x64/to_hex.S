@@ -29,7 +29,9 @@
 // 走标量。游走指针直接推进 rx1，循环结束处 rx1 恰指向顶 limb。
 //
 // 寄存器约定（两 ABI 通用部分）：r10=LUT 基址，r11/digits 与 tail 计数
-// 经 push/pop 中转；rcx/rdx/r8/r9 仅在其参数职责耗尽后作暂存。
+// 经 push/pop 中转；rcx/rdx/r8/r9 仅在其参数职责耗尽后作暂存。向量侧
+// 只用 ymm0-ymm5——SysV 全部易失，Win64 亦全部易失（xmm6+ 被调保存，
+// 重排目标复用已消费完的 ymm2/ymm3，不得新占 ymm6+）。
 //
 
 #include "lmmp_asm.h"
@@ -97,10 +99,10 @@ ASM_GSYM(lmmp_to_hex_):
     vpshufb      ymm2, ymm0, ymm2            // hic
     vpunpcklbw   ymm4, ymm3, ymm2            // {limb i,   limb i+2}
     vpunpckhbw   ymm5, ymm3, ymm2            // {limb i+1, limb i+3}
-    vperm2i128   ymm6, ymm4, ymm5, 0x20      // {i,   i+1}
-    vmovdqu      [rx0], ymm6
-    vperm2i128   ymm6, ymm4, ymm5, 0x31      // {i+2, i+3}
-    vmovdqu      [rx0 + 32], ymm6
+    vperm2i128   ymm2, ymm4, ymm5, 0x20      // {i,   i+1}
+    vmovdqu      [rx0], ymm2
+    vperm2i128   ymm3, ymm4, ymm5, 0x31      // {i+2, i+3}
+    vmovdqu      [rx0 + 32], ymm3
     add          rx1, 32
     add          rx0, 64
     dec          r11

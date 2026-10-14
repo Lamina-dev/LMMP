@@ -17,15 +17,14 @@
 #include "../../../../include/lmmp/impl/mparam.h"
 #include "../../../../include/lmmp/lmmpn.h"
 
-#include <string.h>
 
-// LMMP_VECT_CONSERVATIVE：查表 memcpy 对为 gather 模式不可向量化；本文件
+// LMMP_VECT_CONSERVATIVE：查表取值为 gather 模式不可向量化；本文件
 // 仅作 GENERIC 构建的回退与 ASM 实现的参考（实测豁免与 dynamic 无速度差）
 
 /*
- * 字节对 -> 双字符打包表：ptab[i] 为字节 i 的两个 nibble 对应的十六进制字符，
- * 小端序下低字节即低 nibble 字符，memcpy 一次写入 2 个字符；
- * 亦可用 (char)ptab[nibble] 取单个 nibble 的字符。
+ * 字节对 -> 双字符打包表：ptab[i] 的值为字节 i 的两个 nibble 字符对
+ * (hi_char << 8) | lo_char（按值定义，不依赖 uint16_t 的内存布局）；
+ * 输出时低 nibble 字符在前，按字符逐个写出。
  */
 
 static const uint16_t lmmp_hex_pair_lower[256] = {
@@ -95,13 +94,17 @@ mp_size_t lmmp_to_hex_(char* dst, mp_srcptr numa, mp_size_t na, bool upper) {
     for (mp_size_t i = 0; i < na - 1; ++i) {
         mp_limb_t l = numa[i];
         for (int j = 0; j < 8; ++j) {
-            memcpy(wp, &ptab[l & 0xff], sizeof(uint16_t));
+            uint16_t p = ptab[l & 0xff];
+            wp[0] = (char)p;          // 低 nibble 字符在前
+            wp[1] = (char)(p >> 8);   // 高 nibble 字符
             wp += 2;
             l >>= 8;
         }
     }
     while (top >> 4) {  // 剩余至少 2 个 nibble
-        memcpy(wp, &ptab[top & 0xff], sizeof(uint16_t));
+        uint16_t p = ptab[top & 0xff];
+        wp[0] = (char)p;
+        wp[1] = (char)(p >> 8);
         wp += 2;
         top >>= 8;
     }
