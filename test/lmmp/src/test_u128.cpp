@@ -129,8 +129,7 @@ TEST_CASE("u128/div", general_vs_reference) {
     for (int i = 0; i < 30000; ++i) {
         u128 a = ((u128)xorshift64(seed) << 64) | xorshift64(seed);
         u128 b = ((u128)xorshift64(seed) << 64) | xorshift64(seed);
-        int bbits = (int)(xorshift64(seed) % 128);  // 控制除数位数 1..128
-        if (bbits == 0) bbits = 64;
+        int bbits = (int)(xorshift64(seed) % 128) + 1;  // 控制除数位数 1..128
         b >>= (unsigned)(128 - bbits);
         if (b == u128(0)) b = u128(1);
         u128 q, r, qr, rr;
