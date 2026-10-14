@@ -18,20 +18,30 @@
 //
 //   x0=dst, x1=numa, x2=na, w3=upper
 //
-// 简单标量实现（后续在 macOS 上以 NEON 优化）：输出低位在前，每字节
-// 低 nibble 字符在前，与 C 版一致。字符映射用算术（免常量表）：
-//   char = '0' + nib + (nib > 9 ? adj : 0), adj = 39(lower)/7(upper)
+// 输出为低位在前的十六进制串（与 C 版一致）：limb 0 的字符在最前，
+// 每字节的低 nibble 字符在前。主循环每次 4 limb（2×q 寄存器）出 64 字符：
+//   lo = v & 0x0F（and 掩码），hi = v >>u8 4（ushr 字节 lane 移位后天然 <=15）
+//   loc/hic = tbl(16B LUT, nib)          （NEON tbl 单表即查 16 字节）
+//   zip1/zip2(loc, hic) 低/高半交织      （8 字节边界恰为 limb 边界，
+//                                         zip1 出 limb i、zip2 出 limb i+1，
+//                                         无需 x64 的 perm2i128 二次重排）
+// 不足 4 的 limb 尾每 limb 走单 q 路径（ldr d 载入高 64 位清零，zip1 即
+// 全 16 字符），顶 limb 的残尾（0~15 nibble）走标量查表。游走指针直接
+// 推进 x1/x0，循环结束处 x1 恰指向顶 limb。
+//
+// 寄存器约定：x9=digits，x10=去零临时/LUT 基址，x2/x15 主/尾循环计数，
+// x11-x14 顶残尾标量临时；仅用 v0-v7（d8-d15 低 64 位被调保存），零栈帧。
 //
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 2
+.p2align 4
 
 .globl ASM_GSYM(lmmp_to_hex_)
 ASM_GSYM(lmmp_to_hex_):
-    // 去值前导零：x9 = na-1（最高非零 limb 下标）
+    // 去值前导零：x9 = na-1（最高非零 limb 下标），x10 兼作载入临时
     mov          x9, x2
 .Lstrip:
     cbz          x9, .Lret0
@@ -40,87 +50,95 @@ ASM_GSYM(lmmp_to_hex_):
     cbz          x10, .Lstrip
     add          x2, x9, #1                 // x2 = na（规范化）
 
-    // digits = ((na-1)*64 + bitlen(top) + 3) >> 2  -> x9
-    ldr          x10, [x1, x9, lsl #3]      // top
+    // digits = ((na-1)*64 + bitlen(top) + 3) >> 2  -> x9（x10 = top limb）
     clz          x11, x10
     mov          w12, #64
-    sub          w11, w12, w11              // bitlen
-    lsl          x9, x9, #6
-    add          x9, x9, x11
-    add          x9, x9, #3
-    lsr          x9, x9, #2
+    sub          w11, w12, w11              // bitlen(top)
+    lsl          x12, x9, #6
+    add          x12, x12, x11
+    add          x12, x12, #3
+    lsr          x9, x12, #2
 
-    // adj = upper ? 7 : 39 -> w13
+    // 大小写 LUT 基址 x10（连续双表，upper 取高 16B；顶残尾标量复用）
+    adrp         x10, .Lhex_lut@PAGE
+    add          x10, x10, .Lhex_lut@PAGEOFF
+    add          x11, x10, #16
     cmp          w3, #0
-    mov          w12, #39
-    mov          w13, #7
-    csel         w13, w13, w12, ne
+    csel         x10, x11, x10, ne
 
-    // 全 limb 段：x14 = i（0..nfull-1），x2 = nfull
+    // nfull = na-1；na==1 时仅剩顶 limb 残尾，跳过向量常量装载
     sub          x2, x2, #1
     cbz          x2, .Ltop
-    mov          x14, #0
-.Llimb:
-    ldr          x10, [x1, x14, lsl #3]
-    mov          w15, #8
-.Lbyte:                                        // 每字节出 2 字符：低 nibble 在前
-    and          w16, w10, #0xF
-    add          w17, w16, #48
-    cmp          w16, #9
-    b.ls         .Lb1
-    add          w17, w17, w13
-.Lb1:
-    strb         w17, [x0], #1
-    lsr          x10, x10, #4
-    and          w16, w10, #0xF
-    add          w17, w16, #48
-    cmp          w16, #9
-    b.ls         .Lb2
-    add          w17, w17, w13
-.Lb2:
-    strb         w17, [x0], #1
-    lsr          x10, x10, #4
-    subs         w15, w15, #1
-    b.ne         .Lbyte
-    add          x14, x14, #1
-    cmp          x14, x2
-    b.lo         .Llimb
+    ldr          q0, [x10]
+    movi         v1.16b, #15
+    and          x15, x2, #3                    // 尾 limb 数
+    lsr          x2, x2, #2                     // 主循环计数
+    cbz          x2, .Ltail
 
-.Ltop:                                         // 顶 limb 残尾（x10 重载）
-    ldr          x10, [x1, x2, lsl #3]
+.p2align 4
+.Lmain:                                        // 4 limb -> 64 chars
+    ldp          q2, q3, [x1], #32
+    and          v4.16b, v2.16b, v1.16b       // lo nibbles
+    and          v5.16b, v3.16b, v1.16b
+    ushr         v2.16b, v2.16b, #4           // hi nibbles（<=15 免掩码）
+    ushr         v3.16b, v3.16b, #4
+    tbl          v4.16b, {v0.16b}, v4.16b     // loc
+    tbl          v5.16b, {v0.16b}, v5.16b
+    tbl          v2.16b, {v0.16b}, v2.16b     // hic
+    tbl          v3.16b, {v0.16b}, v3.16b
+    zip1         v6.16b, v4.16b, v2.16b       // limb i   的 16 字符
+    zip2         v7.16b, v4.16b, v2.16b       // limb i+1 的 16 字符
+    stp          q6, q7, [x0], #32
+    zip1         v6.16b, v5.16b, v3.16b       // limb i+2
+    zip2         v7.16b, v5.16b, v3.16b       // limb i+3
+    stp          q6, q7, [x0], #32
+    subs         x2, x2, #1
+    b.ne         .Lmain
+
+.Ltail:                                        // 0~3 个整 limb，每次 1 limb
+    cbz          x15, .Ltop
+.Ltail_loop:
+    ldr          d2, [x1], #8                 // 高 64 位清零
+    and          v3.16b, v2.16b, v1.16b
+    ushr         v2.16b, v2.16b, #4
+    tbl          v3.16b, {v0.16b}, v3.16b
+    tbl          v2.16b, {v0.16b}, v2.16b
+    zip1         v4.16b, v3.16b, v2.16b       // 低半交织即全 16 字符
+    str          q4, [x0], #16
+    subs         x15, x15, #1
+    b.ne         .Ltail_loop
+
+.Ltop:                                         // 顶 limb 残尾（低 nibble 字符在前）
+    ldr          x11, [x1]                    // x1 已推进至 &numa[nfull]
 .Ltop_pair:
-    lsr          x11, x10, #4
-    cbz          x11, .Ltop_one
-    and          w16, w10, #0xF
-    add          w17, w16, #48
-    cmp          w16, #9
-    b.ls         .Lt1
-    add          w17, w17, w13
-.Lt1:
-    strb         w17, [x0], #1
-    lsr          x11, x10, #4
-    and          w16, w11, #0xF
-    add          w17, w16, #48
-    cmp          w16, #9
-    b.ls         .Lt2
-    add          w17, w17, w13
-.Lt2:
-    strb         w17, [x0], #1
-    lsr          x10, x10, #8
+    lsr          x12, x11, #4
+    cbz          x12, .Ltop_one               // 本字节仅剩低 nibble
+    and          x13, x11, #0xF
+    ldrb         w14, [x10, x13]              // 低 nibble 字符
+    and          x13, x12, #0xF               // x12 = x11>>4 仍在
+    ldrb         w15, [x10, x13]              // 高 nibble 字符
+    strb         w14, [x0], #1                // 低在前
+    strb         w15, [x0], #1
+    lsr          x11, x11, #8
     b            .Ltop_pair
-.Ltop_one:                                     // x10 ∈ [0,15]
-    cbz          x10, .Lret
-    and          w16, w10, #0xF
-    add          w17, w16, #48
-    cmp          w16, #9
-    b.ls         .Lt3
-    add          w17, w17, w13
-.Lt3:
-    strb         w17, [x0], #1
+.Ltop_one:                                     // x11 ∈ [0,15]
+    cbz          x11, .Lret
+    ldrb         w14, [x10, x11]
+    strb         w14, [x0]
 .Lret:
-    mov          x0, x9
+    mov          x0, x9                       // digits
     ret
 
 .Lret0:
     mov          x0, #0
     ret
+
+#ifdef LMMP_MACOS
+.section __TEXT,__const
+#else
+.section .rodata
+#endif
+.p2align 4
+.Lhex_lut:
+    .ascii "0123456789abcdef"
+    .ascii "0123456789ABCDEF"
