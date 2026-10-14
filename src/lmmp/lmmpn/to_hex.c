@@ -19,6 +19,9 @@
 
 #include <string.h>
 
+/* 投机向量化版本化无收益：十六进制转换为查表移位，热点在汇编 to_chars 路径；实测退回保守档 -0.9KB */
+LMMP_VECT_CONSERVATIVE
+
 /*
  * 字节对 -> 双字符打包表：ptab[i] 为字节 i 的两个 nibble 对应的十六进制字符，
  * 小端序下低字节即低 nibble 字符，memcpy 一次写入 2 个字符；

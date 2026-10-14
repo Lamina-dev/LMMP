@@ -17,6 +17,9 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/lmmpn.h"
 
+/* 投机向量化版本化无收益：十六进制转换为查表组装，热点在汇编路径；实测退回保守档 -0.5KB */
+LMMP_VECT_CONSERVATIVE
+
 
 // ASCII -> nibble 值表，非法字符映射为 0（契约要求输入全为合法十六进制数字）
 static const mp_byte_t lmmp_hex_val_tab[256] = {

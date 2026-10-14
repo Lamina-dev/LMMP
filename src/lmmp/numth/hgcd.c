@@ -136,6 +136,8 @@ apply_mod 约 30%，step 约 20%，adjust 约 3%。
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
 
+LMMP_VECT_CONSERVATIVE
+
 
 /* 递归阈值：公共长度超过该值时启用分治路径。待接入 tune 体系 */
 #define HGCD_RECURSE_THRESHOLD 64
@@ -147,7 +149,7 @@ static mp_size_t lmmp_hgcd_norm_(mp_srcptr p, mp_size_t n) {
     return n;
 }
 
-static mp_size_t lmmp_hgcd_matrix_maxlen_(const lmmp_hgcd_matrix_t* M) {
+static inline mp_size_t lmmp_hgcd_matrix_maxlen_(const lmmp_hgcd_matrix_t* M) {
     mp_size_t mx = 0;
     if (M->n[0][0] > mx)
         mx = M->n[0][0];
@@ -543,7 +545,7 @@ static void lmmp_hgcd_matrix_update_q_(
  * @param alloc 每元素容量（limb）
  * @warning M!=NULL, buf!=NULL, alloc>0
  */
-static void lmmp_hgcd_matrix_init_buf_(lmmp_hgcd_matrix_t* M, mp_ptr buf, mp_size_t alloc) {
+static inline void lmmp_hgcd_matrix_init_buf_(lmmp_hgcd_matrix_t* M, mp_ptr buf, mp_size_t alloc) {
     lmmp_debug_assert(M != NULL && buf != NULL && alloc > 0);
     M->m[0][0] = buf;
     M->m[0][1] = buf + alloc;

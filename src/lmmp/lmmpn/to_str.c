@@ -19,6 +19,8 @@
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
+LMMP_VECT_CONSERVATIVE
+
 
 mp_size_t lmmp_to_str_len_(mp_srcptr numa, mp_size_t na, int base) {
     lmmp_param_assert(base >= 2 && base <= 256);
