@@ -135,6 +135,6 @@ ASM_GSYM(lmmp_to_hex_):
     ret
 
 .p2align 4
-.Lhex_lut:                                     // 驻 .text（adr 同段范围）
+.Lhex_lut:
     .ascii "0123456789abcdef"
     .ascii "0123456789ABCDEF"

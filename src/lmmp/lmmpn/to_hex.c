@@ -17,8 +17,6 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/lmmpn.h"
 
-// 转换实体 lmmp_to_hex_ 在 ASM 构建下由 asm/{x64,arm64}/to_hex.S 同名替换，
-// C 参考实现移至 generic/to_hex.c；本文件保留长度查询接口。
 
 mp_size_t lmmp_to_hex_len_(mp_srcptr numa, mp_size_t na) {
     if (numa) {
