@@ -21,7 +21,7 @@
 //   Windows: dst=rcx, numa=rdx, na=r8, shl=r9, c=[rsp+40] (only c_)
 //   SysV:    dst=rdi, numa=rsi, na=rdx, shl=rcx, c=r8 (only c_)
 //   ret rax = numa[na-1] >> (64 - shl)
-//   cal: dst[i] = (numa[i] << shl) | (numa[i-1] >> (64-shl)), shld chain
+//   cal: dst[i] = (numa[i] << shl) | (numa[i-1] >> (64-shl))
 
 #include "lmmp_asm.h"
 
@@ -60,98 +60,156 @@ ASM_GSYM(lmmp_shl_):
     and     cl, 63                  // shl &= 63
     push    r12
     push    r13
-    push    rax                     // save c
-    xor     rax, rax
+    push    r14
+    jz      .Lcopy                  // shl == 0: 降序 copy（dst > numa 安全）
 
-    mov     r10, [rdx + r8*8 - 8]
-    shld    rax, r10, cl            // ret = numa[na-1] >> (64-shl)
+    mov     r10d, 64
+    sub     r10d, ecx               // r10 = s = 64 - shl
+    vmovq   xmm4, rcx               // 向量左移计数 k
+    vmovq   xmm5, r10               // 向量右移计数 s
 
-    test    r8b, 1
-    jnz     .Lodd                   // n mod 4 choose path
+    mov     r11, [rdx + r8*8 - 8]   // a[n-1]
+    xor     r12d, r12d
+    shld    r12, r11, cl            // r12 = ret = a[n-1] >> s（暂存他寄存器）
 
-.Leven:
-    test    r8b, 2
-    jnz     .Leven2
+    lea     rdx, [rdx + r8*8 - 8]   // rdx -> a[n-1]
+    lea     r9, [r9 + r8*8 - 8]     // r9  -> dst[n-1]
 
-.Leven0:                            // n mod 4 == 0
-    lea     rdx, [rdx + r8*8 - 32]
-    lea     r9, [r9 + r8*8]
-    mov     r12, r10
-    mov     r13, [rdx + 16]
-    jmp     .Lent0
+    cmp     r8, 512
+    jae     .Lpeel
+    lea     r10, [r8 - 1]           // n-1
+    xor     r14d, r14d              // P = 0：小 n 免剥底（省 ~14 条入口指令，
+    jmp     .Lcommon                //   FFT 高频温热小调用无拆分存储罚可免）
 
-.Leven2:                            // n mod 4 == 2
-    lea     rdx, [rdx + r8*8 - 16]
-    lea     r9, [r9 + r8*8 - 16]
-    mov     r11, [rdx]
-    jmp     .Lent2
+.Lpeel:                             // n >= 512：按 dst 相位剥 P 个 limb 使组存储 32B 对齐
+    mov     r10, r9                 // r9 -> dst[n-1]：剥去 n-1 limb 偏移还原基址相位
+    shr     r10, 3
+    neg     r10
+    lea     r11, [r10 + r8 + 2]     // P = (3 - ((r9>>3) - (n-1))) & 3
+    and     r11d, 3                 //   <= 3 < n-1，免 clamp
+    mov     r14, r11                // P 暂存（底链计数）
+    lea     r10, [r8 - 1]
+    sub     r10, r11                // M = n-1-P = 向量+顶尾 limb 数
 
-.Lodd:
-    test    r8b, 2
-    jnz     .Lodd3
+.Lcommon:
+    mov     r13, r10
+    and     r13d, 3                 // T = 顶部余 limb 数
+    shr     r10, 2                  // F = 向量组数
+    mov     r8, r10
+    test    r13, r13
+    jz      .Loff
 
-.Lodd1:                             // n mod 4 == 1
+.Ltail:                             // 顶部 T 个 limb，降序标量 shld 链
+    mov     r10, [rdx]
+    mov     r11, [rdx - 8]
+    shld    r10, r11, cl
+    mov     [r9], r10
+    sub     rdx, 8
+    sub     r9, 8
+    dec     r13
+    jnz     .Ltail
+
+.Loff:                              // 循环不变量对齐：rdx = &a[P+4F+1]
+    add     rdx, 8
+    add     r9, 8
+
+.Lvec:
+    test    r8, 1
+    jz      .Lpairs
+    vmovdqu ymm0, [rdx - 32]        // A = a[i+1..i+4]
+    vmovdqu ymm1, [rdx - 40]        // A' = a[i..i+3]
+    vpsllq  ymm2, ymm0, xmm4        // A << k
+    vpsrlq  ymm3, ymm1, xmm5        // A' >> s
+    vpor    ymm2, ymm2, ymm3
+    vmovdqu [r9 - 32], ymm2
+    sub     rdx, 32
+    sub     r9, 32
     dec     r8
-    jz      .Ltail1
-    lea     rdx, [rdx + r8*8 - 32]
-    lea     r9, [r9 + r8*8]
-    mov     r12, [rdx + 24]
-    mov     r13, [rdx + 16]
-    shld    r10, r12, cl            // t = (t << cl) | (t' >> 64-cl)
-    mov     [r9], r10
-    jmp     .Lent1
 
-.Ltail1:                            // n == 1
-    pop     r12
+.Lpairs:
+    shr     r8, 1                   // 组对数
+    jz      .Lbottom
+
+.p2align 4
+.Lloop:                             // 主循环：每组对 8 limb，降序
+    vmovdqu ymm0, [rdx - 32]        // 高组 A
+    vmovdqu ymm1, [rdx - 40]        // 高组 A'
+    vpsllq  ymm2, ymm0, xmm4
+    vpsrlq  ymm3, ymm1, xmm5
+    vmovdqu ymm0, [rdx - 64]        // 低组 A（载入提前发射）
+    vmovdqu ymm1, [rdx - 72]        // 低组 A'
+    vpor    ymm2, ymm2, ymm3
+    vmovdqu [r9 - 32], ymm2
+    vpsllq  ymm2, ymm0, xmm4
+    vpsrlq  ymm3, ymm1, xmm5
+    vpor    ymm2, ymm2, ymm3
+    vmovdqu [r9 - 64], ymm2
+    sub     rdx, 64
+    sub     r9, 64
+    dec     r8
+    jnz     .Lloop
+
+.Lbottom:                           // rdx = &a[P+1], r9 = &dst[P+1]
+    test    r14, r14
+    jz      .Lend
+
+.Lbottom_chain:                     // 剥出的 P 个 limb，降序标量 shld 链
+    mov     r10, [rdx - 8]          // a[i]
+    mov     r11, [rdx - 16]         // a[i-1]
+    shld    r10, r11, cl
+    mov     [r9 - 8], r10
+    sub     rdx, 8
+    sub     r9, 8
+    dec     r14
+    jnz     .Lbottom_chain
+
+.Lend:                              // rdx = &a[1], r9 = &dst[1]
+    mov     r10, [rdx - 8]
     shl     r10, cl
-    or      r10, r12                // (numa[0]<<shl) | c
-    mov     [r9], r10
+    or      r10, rax                // (a[0] << shl) | c
+    mov     [r9 - 8], r10
+    mov     rax, r12                // ret
+    vzeroupper
+    pop     r14
     pop     r13
     pop     r12
     ret
 
-.Lodd3:                             // n mod 4 == 3
-    mov     r13, r10
-    lea     rdx, [rdx + r8*8 - 24]
-    lea     r9, [r9 + r8*8 + 8]
-    mov     r10, [rdx + 8]
-    mov     r11, [rdx]
-    shld    r13, r10, cl
-    jmp     .Lent3
+.Lcopy:                             // shl == 0: 降序 copy, ret 0
+    xor     eax, eax
+    cmp     r9, rdx
+    je      .Lcopy_out
+    lea     rdx, [rdx + r8*8]
+    lea     r9, [r9 + r8*8]
+    mov     r13, r8
+    and     r13d, 3                 // 尾 limb 数
+    shr     r8, 2                   // 4-limb 组数
+    jz      .Lcopy_tail
 
 .p2align 4
-.Lloop:                             // main loop, high to low
-    mov     r12, [rdx - 8]
-    mov     r13, [rdx - 16]
-    lea     rdx, [rdx - 32]
-    shld    r10, r11, cl            // t = (t << cl) | (t' >> 64-cl)
-    shld    r11, r12, cl
-    mov     [r9 + 8], r10
-    mov     [r9], r11
+.Lcopy_loop:
+    vmovdqu ymm0, [rdx - 32]
+    vmovdqu [r9 - 32], ymm0
+    sub     rdx, 32
+    sub     r9, 32
+    dec     r8
+    jnz     .Lcopy_loop
 
-.Lent1:
-.Lent0:
-    mov     r10, [rdx + 8]
-    mov     r11, [rdx]
-    shld    r12, r13, cl
-    shld    r13, r10, cl
-    mov     [r9 - 8], r12
+.Lcopy_tail:
+    test    r13, r13
+    jz      .Lcopy_out
 
-.Lent3:
-    mov     [r9 - 16], r13
-    lea     r9, [r9 - 32]
+.Lcopy_tail_loop:
+    mov     r10, [rdx - 8]
+    mov     [r9 - 8], r10
+    sub     rdx, 8
+    sub     r9, 8
+    dec     r13
+    jnz     .Lcopy_tail_loop
 
-.Lent2:
-    sub     r8, 4
-    ja      .Lloop
-
-.Lend:                              // last 2 limbs, merge c
-    pop     r12
-    shld    r10, r11, cl
-    shl     r11, cl
-    or      r11, r12                // c into dst[0]
-    mov     [r9 + 8], r10
-    mov     [r9], r11
+.Lcopy_out:
+    vzeroupper
+    pop     r14
     pop     r13
     pop     r12
     ret

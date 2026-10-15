@@ -535,10 +535,7 @@ static inline mp_size_t lmmp_cbrt_cls_shift_(mp_size_t bl, int top2) {
 static inline void lmmp_cbrt_shapply_(mp_srcptr src, mp_size_t n, mp_size_t s, mp_ptr a2) {
     mp_size_t w = s / LIMB_BITS, b = s % LIMB_BITS;
     lmmp_zero(a2, w);
-    if (b)
-        a2[w + n] = lmmp_shl_(a2 + w, src, n, b);
-    else
-        lmmp_copy(a2 + w, src, n);
+    a2[w + n] = lmmp_shl_(a2 + w, src, n, b);  // b=0 时函数内即拷贝，返回 0 落入长度外 slack
 }
 
 static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_size_t* na2p, mp_limb_t* kp) {

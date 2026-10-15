@@ -150,14 +150,9 @@ mp_size_t lmmp_arith_seqprod_(mp_ptr restrict dst, mp_size_t rn, uint x, uint n,
     mp_ptr restrict b = TALLOC_TYPE(limbn * 2, mp_limb_t);
     mp_size_t bn = lmmp_elem_mul_ulong_(b, limbs, limbn, b + limbn);
     lmmp_zero(dst, shw);
-    if (bits > 0) {
-        dst[shw + bn] = lmmp_shl_(dst + shw, b, bn, bits);
-        rn = bn + shw + 1;
-        rn -= dst[rn - 1] == 0 ? 1 : 0;
-    } else {
-        lmmp_copy(dst + shw, b, bn);
-        rn = bn + shw;
-    }
+    dst[shw + bn] = lmmp_shl_(dst + shw, b, bn, bits);  // bits=0 时函数内拷贝且返回 0
+    rn = bn + shw + 1;
+    rn -= dst[rn - 1] == 0 ? 1 : 0;
     TEMP_FREE;
     return rn;
 }

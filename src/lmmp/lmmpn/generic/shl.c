@@ -23,27 +23,9 @@ mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl) {
     }
     const mp_size_t rshr = LIMB_BITS - shl;
     mp_limb_t retval = numa[na - 1] >> rshr;
-    if ((uintptr_t)dst < (uintptr_t)numa || (mp_size_t)(dst - numa) >= na) {
-        for (mp_size_t i = 1; i < na; i++) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
-        dst[0] = numa[0] << shl;
-    } else {
-        mp_limb_t high = numa[na - 1] << shl;
-        mp_size_t i = na - 1;
-        for (; i >= 4; i -= 4) {
-            mp_limb_t l0 = numa[i - 4], l1 = numa[i - 3], l2 = numa[i - 2], l3 = numa[i - 1];
-            dst[i] = high | (l3 >> rshr);
-            dst[i - 1] = (l3 << shl) | (l2 >> rshr);
-            dst[i - 2] = (l2 << shl) | (l1 >> rshr);
-            dst[i - 3] = (l1 << shl) | (l0 >> rshr);
-            high = l0 << shl;
-        }
-        for (; i >= 1; i--) {
-            mp_limb_t l = numa[i - 1];
-            dst[i] = high | (l >> rshr);
-            high = l << shl;
-        }
-        dst[0] = high;
-    }
+    // 降序：dst==numa 原地时每个 numa[i-1] 在被覆盖前读取
+    for (mp_size_t i = na - 1; i > 0; i--) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
+    dst[0] = numa[0] << shl;
     return retval;
 }
 
@@ -54,29 +36,10 @@ mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, m
     }
     const mp_size_t rshr = LIMB_BITS - shl;
     mp_limb_t retval = numa[na - 1] >> rshr;
-    if ((uintptr_t)dst < (uintptr_t)numa || (mp_size_t)(dst - numa) >= na) {
-        for (mp_size_t i = 1; i < na; i++) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
-        c &= ((mp_limb_t)1 << shl) - 1;
-        dst[0] = (numa[0] << shl) | c;
-    } else {
-        mp_limb_t high = numa[na - 1] << shl;
-        mp_size_t i = na - 1;
-        for (; i >= 4; i -= 4) {
-            mp_limb_t l0 = numa[i - 4], l1 = numa[i - 3], l2 = numa[i - 2], l3 = numa[i - 1];
-            dst[i] = high | (l3 >> rshr);
-            dst[i - 1] = (l3 << shl) | (l2 >> rshr);
-            dst[i - 2] = (l2 << shl) | (l1 >> rshr);
-            dst[i - 3] = (l1 << shl) | (l0 >> rshr);
-            high = l0 << shl;
-        }
-        for (; i >= 1; i--) {
-            mp_limb_t l = numa[i - 1];
-            dst[i] = high | (l >> rshr);
-            high = l << shl;
-        }
-        c &= ((mp_limb_t)1 << shl) - 1;
-        dst[0] = high | c;
-    }
+    c &= ((mp_limb_t)1 << shl) - 1;
+    // 同 lmmp_shl_：降序写入保证原地正确
+    for (mp_size_t i = na - 1; i > 0; i--) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
+    dst[0] = (numa[0] << shl) | c;
     return retval;
 }
 

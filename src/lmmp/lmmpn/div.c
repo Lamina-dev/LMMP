@@ -137,10 +137,7 @@ void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_srcptr
             }
 
             if (dstr) {
-                if (cnt)
-                    lmmp_shr_(dstr, numa2, nb, cnt);
-                else
-                    lmmp_copy(dstr, numa2, nb);
+                lmmp_shr_(dstr, numa2, nb, cnt);  // cnt=0 时函数内即整段拷贝
             }
         } else {
             // nq=na-nb+adj<nb

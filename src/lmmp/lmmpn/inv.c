@@ -174,10 +174,7 @@ void lmmp_inv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t nf) {
         nf += nsh != 0;
         mp_ptr restrict numa2 = TALLOC_TYPE(na + nf, mp_limb_t);
         lmmp_zero(numa2, nf);
-        if (nsh)
-            lmmp_shl_(numa2 + nf, numa, na, nsh);
-        else
-            lmmp_copy(numa2 + nf, numa, na);
+        lmmp_shl_(numa2 + nf, numa, na, nsh);  // nsh=0 时函数内即整段拷贝
         numa = numa2;
     }
     lmmp_invappr_(dst, numa, na + nf);

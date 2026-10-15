@@ -122,6 +122,123 @@ TEST_CASE("asm/boundary", shl_shr_inplace) {
     lmmp_free(a); lmmp_free(orig);
 }
 
+namespace {
+
+// 错位重叠族公共骨架：buf 内 [G, G+n) 为 numa，dst=numa+w（w=100 表示分离块
+// sep）。每次调用前重填随机源并快照，调用后校验 [dst,dst+n) 外哨兵不变。
+struct overlap_buf_t {
+    mp_ptr buf, snap, sep, numa;
+    size_t cap, g, n;
+
+    overlap_buf_t(mp_size_t n_, size_t g_)
+        : cap((size_t)n_ + 2 * g_), g(g_), n((size_t)n_) {
+        buf = alloc_limbs(cap);
+        snap = alloc_limbs(cap);
+        sep = alloc_limbs(n);
+        numa = buf + g;
+    }
+    ~overlap_buf_t() {
+        lmmp_free(buf); lmmp_free(snap); lmmp_free(sep);
+    }
+
+    void refill(const BigInt& ba, int w) {
+        for (size_t i = 0; i < cap; ++i) buf[i] = 0xA5A5DEADBEEF00F0ull ^ (i * 0x9e37u + (u64)w * 7u);
+        for (size_t i = 0; i < n; ++i) numa[i] = ba.d[i];
+        std::memcpy(snap, buf, cap * 8);
+    }
+    mp_ptr dst_of(int w) { return (w == 100) ? sep : numa + w; }
+    void check_guard(int w, const char* tag) {
+        mp_ptr d = dst_of(w);
+        for (size_t i = 0; i < cap; ++i) {
+            if (buf + i >= d && buf + i < d + n) continue;
+            if (buf[i] != snap[i]) {
+                TEST_CHECK_MSG(false, tag);
+                return;
+            }
+        }
+    }
+};
+
+}  // namespace
+
+TEST_CASE("asm/boundary", shl_shr_overlap_family) {
+    // 第五轮契约：shl 仅 eqsep（w 非 0/分离即契约外，不做断言）；shr 文档化
+    // 允许 dst<=numa（升序天然支持，nthroot 依赖），w>0 家族为契约外。
+    // w 为 dst-numa 的 limb 偏移。
+    u64 seed = 0xfeedbeefcafe1234ul;
+    for (mp_size_t n = 1; n <= 24; ++n) {
+        overlap_buf_t ob(n, 4);
+        for (mp_size_t i = 0; i < n; ++i) ob.numa[i] = xorshift64(seed);
+        ob.numa[n - 1] |= 0x8000000000000000ull;  // 防 BigInt trim 掉顶 limb
+        BigInt ba(ob.numa, n);
+
+        for (size_t k = 0; k < 64; ++k) {
+            BigInt eshl = BigInt::shl_bits(ba, k);
+            size_t shl_len = eshl.d.size() < (size_t)n ? eshl.d.size() : (size_t)n;
+            BigInt eshr = BigInt::shr_bits(ba, k);
+            mp_limb_t ret_shl = k ? (ba.d[n - 1] >> (64 - k)) : 0;
+            mp_limb_t ret_shr = k ? (ba.d[0] << (64 - k)) : 0;
+
+            const int ws_shl[] = {100, 0};   // shl 纯 eqsep：部分重叠族契约外，不做断言
+            for (int w : ws_shl) {
+                ob.refill(ba, w);
+                mp_limb_t r = lmmp_shl_(ob.dst_of(w), ob.numa, n, k);
+                TEST_CHECK_EQ(r, ret_shl);
+                TEST_CHECK_MSG(limb_vec_eq(BigInt(eshl.d.data(), shl_len), ob.dst_of(w), n), "shl body");
+                ob.check_guard(w, "shl overlap family guard");
+            }
+            const int ws_shr[] = {100, 0, -1, -2, -3};
+            for (int w : ws_shr) {
+                ob.refill(ba, w);
+                mp_limb_t r = lmmp_shr_(ob.dst_of(w), ob.numa, n, k);
+                TEST_CHECK_EQ(r, ret_shr);
+                TEST_CHECK_MSG(limb_vec_eq(eshr, ob.dst_of(w), n), "shr body");
+                ob.check_guard(w, "shr overlap family guard");
+            }
+        }
+    }
+}
+
+TEST_CASE("asm/boundary", shl_shr_c_overlap_family) {
+    // _c 变体的错位重叠族（c 满足契约：shl_c 的 c 高 64-k 位为 0，
+    // shr_c 的 c 低 64-k 位为 0）
+    u64 seed = 0xc0ffee1234567890ul;
+    for (mp_size_t n = 2; n <= 12; ++n) {
+        overlap_buf_t ob(n, 4);
+        for (mp_size_t i = 0; i < n; ++i) ob.numa[i] = xorshift64(seed);
+        ob.numa[n - 1] |= 0x8000000000000000ull;  // 防 BigInt trim 掉顶 limb
+        BigInt ba(ob.numa, n);
+
+        for (size_t k : {1, 5, 32, 63}) {
+            mp_limb_t cshl = xorshift64(seed) & (((mp_limb_t)1 << k) - 1);
+            mp_limb_t cshr = (xorshift64(seed) >> (64 - k)) << (64 - k);  // 仅保留顶 k 位
+            BigInt eshl = BigInt::add_abs(BigInt::shl_bits(ba, k), BigInt(cshl));
+            size_t shl_len = eshl.d.size() < (size_t)n ? eshl.d.size() : (size_t)n;
+            BigInt eshr = BigInt::shr_bits(ba, k);
+            eshr.d[n - 1] |= cshr;
+            mp_limb_t ret_shl = ba.d[n - 1] >> (64 - k);
+            mp_limb_t ret_shr = ba.d[0] << (64 - k);
+
+            const int ws_shl[] = {100, 0};   // shl_c 纯 eqsep，同 shl_
+            for (int w : ws_shl) {
+                ob.refill(ba, w);
+                mp_limb_t r = lmmp_shl_c_(ob.dst_of(w), ob.numa, n, k, cshl);
+                TEST_CHECK_EQ(r, ret_shl);
+                TEST_CHECK_MSG(limb_vec_eq(BigInt(eshl.d.data(), shl_len), ob.dst_of(w), n), "shl_c body");
+                ob.check_guard(w, "shl_c overlap family guard");
+            }
+            const int ws_shr[] = {100, 0, -1, -2, -3};
+            for (int w : ws_shr) {
+                ob.refill(ba, w);
+                mp_limb_t r = lmmp_shr_c_(ob.dst_of(w), ob.numa, n, k, cshr);
+                TEST_CHECK_EQ(r, ret_shr);
+                TEST_CHECK_MSG(limb_vec_eq(eshr, ob.dst_of(w), n), "shr_c body");
+                ob.check_guard(w, "shr_c overlap family guard");
+            }
+        }
+    }
+}
+
 TEST_CASE("asm/boundary", div_1_by_one_and_power_of_two) {
     u64 seed = 0xf00dface12345678ull;
     for (mp_size_t n : {1, 2, 5, 16}) {

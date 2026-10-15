@@ -181,10 +181,7 @@ void lmmp_fft_extract_coef_(mp_ptr dst, mp_srcptr numa, mp_size_t bitoffset, mp_
 
     mp_size_t lena = (bitoffset + bits - 1) / LIMB_BITS - offset + 1, endp = (bits - 1) / LIMB_BITS;
 
-    if (shr)
-        lmmp_shr_(dst, numa + offset, lena, shr);
-    else
-        lmmp_copy(dst, numa + offset, lena);
+    lmmp_shr_(dst, numa + offset, lena, shr);  // shr=0 时函数内即整段拷贝
 
     dst[endp] &= LIMB_MAX >> (-bits & (LIMB_BITS - 1));
 

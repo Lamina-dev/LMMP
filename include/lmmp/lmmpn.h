@@ -219,7 +219,6 @@ LMMP_API mp_limb_t lmmp_shr_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size
  * @param na limb长度
  * @param shl 左移的位数 (0~63)
  * @warning na>0, 0<=shl<64, eqsep(dst,numa), dst!=NULL, numa!=NULL
- *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
 LMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
@@ -233,7 +232,6 @@ LMMP_API mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t
  * @param c 进位值（其高(64-shl)位必须为0）
  * @warning na>0, 0<=shl<64, eqsep(dst,numa), dst!=NULL, numa!=NULL
  *          c的高(64-shl)位必须为0
- *          允许dst指针地址大于numa（即支持原地长移位操作）
  * @return 其最低shl个比特位填充[numa,na]被移出的shl个最高位，其余比特位为0
  */
 LMMP_API mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
@@ -647,6 +645,18 @@ LMMP_API void lmmp_mul_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb
  * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n] * [numb,n] mod B^n
  */
 LMMP_API void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+
+/**
+ * @brief 基础低位平方 [dst,n] = [numa,n]^2 mod B^n
+ * @param dst 输出结果缓冲区，长度至少为 n
+ * @param numa 输入操作数，长度为 n
+ * @param n limb长度
+ * @warning n>0, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @return 无返回值，结果存储在dst中，[dst,n]=[numa,n]^2 mod B^n
+ * @note 三角分解：上三角交叉积每对只乘一次（约 n^2/4 次 limb 乘法，
+ *       为 mullo(a,a) 的一半），末尾一趟融合的倍增+对角平方收尾
+ */
+LMMP_API void lmmp_sqrlo_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 
 /**
  * @brief 低位乘法 [dst,n] = [numa,n] * [numb,n] mod B^n
