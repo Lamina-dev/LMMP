@@ -52,3 +52,5 @@ EXPORTS
 
     lmmp_dec_to_chars_
     lmmp_b36_to_chars_
+    lmmp_to_hex_
+    lmmp_from_hex_

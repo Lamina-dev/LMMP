@@ -13,21 +13,6 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/*
-    奇模数模幂：Montgomery 归约（REDC）+ 滑动窗口梯子。
-
-    Montgomery 域核心（三层 REDC 分派、蒙域上下文与进蒙域 redcify）的
-    单一定义见 include/lmmp/impl/powmod.h，由本文件与 is_prime_n.c 共用。
-    本文件提供：
-      - 1/2 limb 特化 lmmp_powmod_1_ / lmmp_powmod_2_（u128 标量蒙域梯子）；
-      - 蒙域梯子 lmmp_powmod_odd_mont_（滑动窗口，结果留在蒙域：同模数批量
-        幂/素性检验多轮经同一上下文复用 ninv 与 FFT 变换缓存，并免去出蒙域
-        REDC——蒙域内 ±1 探测等价性见 impl/powmod.h 头注）；
-      - 公开入口 lmmp_powmod_odd_（= 上下文 init + 蒙域梯子 + 出蒙域 REDC）；
-      - 任意模数 lmmp_powmod_（m 偶时 2-adic 分解 + CRT 合成）。
-      - 单步公开 REDC lmmp_redc_（tp 只读契约：basecase 层先复制再归约）。
-*/
-
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/inlines.h"
@@ -62,14 +47,6 @@ static inline mp_limb_t getbits(const mp_limb_t* p, mp_bitcnt_t bi, mp_bitcnt_t 
 static inline mp_bitcnt_t count_bits(mp_srcptr p, mp_size_t n) {
     return (n - 1) * LIMB_BITS + lmmp_limb_bits_(p[n - 1]);
 }
-
-/*
-    1/2 limb Montgomery 内联（惯例与正确性论证见 is_prime_ulong.c 的
-    mont64_reduce 与 is_prime_2.c 的 mul_128/sqr_128/mont2_redc，本文件
-    按需复制为 static）。全程 u128 标量表达：和的进位由回绕比较自然
-    产生，编译器融合为 add/adc 链；x64 下全积/平方借用 longlong.h
-    调优的 mulx/adcx 内联，其余平台为纯 C（mul/umulh 链）。
-*/
 
 /* 1 limb REDC：r = (T + k*m)/B mod m，k = T_lo*ninv mod B，ninv = -m^(-1) mod B。
    T < m*B 时结果 < 2m；k*m + T < 2^129，第 129 位 c 由 128 位回绕捕获，
@@ -159,6 +136,62 @@ static inline u128 mont2_mul_2(u128 a, u128 b, u128 n, u128 ninv) {
     u128 h, l;
     mul_128(a, b, &h, &l);
     return mont2_redc(h, l, n, ninv);
+}
+
+void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_t* restrict mc) {
+    mp_size_t n = mc->n;
+    mp_ptr restrict hi;
+
+    if (n < REDC_BASECASE_THRESHOLD) {
+        mp_limb_t cy = lmmp_mont_redc_bc_(dst, tp, mc->m, n, mc->ninv1);
+        if (cy) {
+            /* 值 >= B^n > m，减 m 必然可行；借位恰好抵消进位 limb */
+            (void)lmmp_sub_n_(dst, dst, mc->m, n);
+        } else if (lmmp_cmp_(dst, mc->m, n) >= 0) {
+            lmmp_sub_n_(dst, dst, mc->m, n);
+        }
+        return;
+    }
+
+    mp_limb_t carry = !lmmp_zero_q_(tp, n);
+
+    if (n < MULLO_DC_THRESHOLD) {
+        lmmp_mullo_dc_(mc->q, tp, mc->ninv, mc->mscratch, n);
+    } else if (mc->ncache_on == 0) {
+        lmmp_mullo_fft_cache_init_(mc->q, tp, mc->ninv, n, mc->mscratch, &mc->ncache);
+        mc->ncache_on = 1;
+    } else {
+        lmmp_mullo_fft_cache_(mc->q, tp, mc->mscratch, &mc->ncache);
+    }
+
+    if (mc->fold == 0) {
+        lmmp_mul_n_(mc->mulhi, mc->q, mc->m, n);
+        hi = mc->mulhi + n;
+    } else {
+        if (mc->mcache_on == 0) {
+            lmmp_mul_mersenne_cache_init_(mc->V, mc->msz, mc->q, n, mc->m, n, &mc->mcache);
+            mc->mcache_on = 1;
+        } else {
+            lmmp_mul_mersenne_cache_(mc->V, mc->q, &mc->mcache);
+        }
+        if (carry) {
+            lmmp_not_(mc->Lbuf, tp, n);
+            lmmp_inc(mc->Lbuf);
+        } else {
+            lmmp_zero(mc->Lbuf, n);
+        }
+        lmmp_mont_fold_hi_(mc->hi, mc->V, mc->Lbuf, n, mc->msz);
+        hi = mc->hi;
+    }
+
+    /* u = t_hi + hi + carry，结果 carry_out:[dst,n] < 2m */
+    mp_limb_t cy = lmmp_add_nc_(dst, tp + n, hi, n, carry);
+    if (cy) {
+        /* 值 >= B^n > m，减 m 必然可行；n limb 减法的借位恰好抵消进位 limb */
+        (void)lmmp_sub_n_(dst, dst, mc->m, n);
+    } else if (lmmp_cmp_(dst, mc->m, n) >= 0) {
+        lmmp_sub_n_(dst, dst, mc->m, n);
+    }
 }
 
 mp_limb_t lmmp_redc_(
@@ -567,9 +600,7 @@ void lmmp_powmod_odd_(
 }
 
 /*
-    任意模数模幂：m 偶时以 2-adic 分解 + CRT 合成
-
-    分解 m = 2^k * m_odd（gcd(2^k, m_odd) = 1），中国剩余定理给出唯一解：
+    分解 m = 2^k * m_odd（gcd(2^k, m_odd) = 1），CRT给出唯一解：
 
         r == r1 (mod m_odd),  r == r2 (mod 2^k),  r < m
 

@@ -1014,48 +1014,36 @@ LMMP_API void lmmp_div_(mp_ptr dstq, mp_ptr dstr, mp_srcptr numa, mp_size_t na, 
     } while (0)
 
 /**
- * @brief 比较函数（内联）
+ * @brief 比较函数
  * @param numa 第一个指针，长度为n
  * @param numb 第二个指针，长度为n
  * @param n 比较两数的 limb 长度
  * @return 1(numa>numb) / 0(numa==numb) / -1(numa<numb)
  * @warning n>0, numa!=NULL, numb!=NULL
- * @note 从最高位开始逐位比较，直到找到不同位
+ * @note 从最高位开始逐位比较，直到找到不同位。
  */
-LMMP_INLINE int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
-    lmmp_param_assert(n > 0);
-    lmmp_param_assert(numa != NULL);
-    lmmp_param_assert(numb != NULL);
-    mp_ssize_t i = n;
-    mp_limb_t x, y;
-    while (--i >= 0) {
-        x = numa[i];
-        y = numb[i];
-        if (x != y)
-            return (x > y ? 1 : -1);
-    }
-    return 0;
-}
+LMMP_API int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
- * @brief 判零函数（内联）
+ * @brief 判零函数
  * @param p 指针
  * @param n 数的 limb 长度
  * @return 1(全零) / 0(非零)
  * @warning n>0, p!=NULL
- * @note 从最高位开始检查，只要有非零位则返回0
+ * @note 从最高位开始检查，只要有非零位则返回0。
  */
-LMMP_INLINE int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
-    do {
-        if (p[--n] != 0)
-            return 0;
-    } while (n != 0);
-    return 1;
-}
+LMMP_API int lmmp_zero_q_(mp_srcptr p, mp_size_t n);
+
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 15
+    #define LMMP_NOVECTOR _Pragma("GCC novector")
+#else
+    #define LMMP_NOVECTOR
+#endif
 
 #define LMMP_AORS_(FUNCTION, TEST)               \
     mp_limb_t _x_;                               \
     if (FUNCTION(dst, numa, numb, nb)) {         \
+        LMMP_NOVECTOR                            \
         do {                                     \
             if (nb >= na)                        \
                 return 1;                        \

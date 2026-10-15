@@ -14,39 +14,6 @@
  */
 
 /*
-    大整数素性检验（n > 2 limb）：单轮 Rabin-Miller 强伪素数测试（基底 2
-    特化、1 limb 基底短乘短除特化）、强 Lucas-Selfridge 测试（U 阶梯）与
-    强度分档入口 lmmp_is_prime_n_。单轮 MR 原语（ipn_sprp_base2_ 与
-    ipn_sprp_1_）均为本文件内部 static 实现，不对外暴露。
-
-    记 n = [np,nn]（奇，n > 2^128）。MR 单轮：n-1 = d*2^t（d 奇），梯子计算
-    蒙域 y = b^d，判 y ∈ {1,-1} 或 y^(2^j) = -1（0 < j < t）。基底形态：
-      - 基底 2：蒙域乘 2 即剩余加倍（2*R ≡ 倍加），逢 1 指数位以 O(n) 加法
-        替代一次 M(n) 蒙乘，单轮约省 1/4 ~ 1/3（ipn_sprp_base2_）；
-      - 1 limb 基底：乘底步走"短乘短除"内核（ipn_sprp_1_），利用蒙域表示
-        对裸标量的线性，以两趟 O(nn) 完成一次乘底，免 REDC 与基底入蒙域
-        的全宽预处理（见下方内核注释）；
-      - >=2 limb 基底：改调蒙域梯子 lmmp_powmod_odd_mont_（powmod.c 的
-        滑动窗口梯子，大尺寸省 ~30% 乘法；d 各轮固定）。
-    三条路径的梯子与二次探测全程留在蒙域：探测基准为 one = B^nn mod n 与
-    m1 = n - one——x -> x*B^nn mod n 为环同构（n 奇），b^d ≡ ±1 (mod n)
-    ⟺ 蒙域梯子终值 ∈ {one, m1}，平方链逐环保持，判定集与普通域 ±1 探测
-    严格一致；由此免每轮出蒙域 REDC 与探测尾部的全宽除法（旧 sqr_+div_），
-    探测尾部统一为 sqr_+REDC。
-
-    蒙域核心（lmmp_mont_t：三层 REDC、进蒙域 redcify、上下文）的单一定义
-    见 impl/powmod.h（与 powmod.c 共用）。上下文在入口处 init 一次，贯穿
-    基底 2 / 随机基底各轮 / 强 Lucas：各轮免 binvert、one/m1 的 redcify
-    预处理与 FFT 变换缓存的重建与释放（含折叠层 m 一侧变换、mullo 层
-    ninv 一侧变换的跨轮保活）。
-
-    强 Lucas（Selfridge 方法 A）：P = 1，Q = (1-D)/4，D 取 5,-7,9,-11,...
-    中首个 (D|n) = -1 者；判据与标准 U/V 强 Lucas 测试一致：
-      U_d = 0，或 V_{d*2^r} = 0（0 <= r < s），d*2^s = n+1
-    阶梯为 Hackman 平方型 U 递推（GMP 6.3 lucmod.c 同构，见 ipn_lucas_i_
-    注释），Q 仅以小标量进入运算，Q^d 于末尾经
-    V_d^2 - D*U_d^2 = 4Q^d 一次性恢复（模 n 两次折半代 GMP 的精确 /4）。
-
     强度分档（strength ∈ [0,7]，随机基底取自全局 RNG）。随机轮分两层：
     先跑至多 x 轮 1 limb 基底（a ∈ [3,B) 均匀，单轮最廉，尽早拒判），再跑
     至多 y 轮全域（n limb，[2,n-2] 均匀）基底：
@@ -54,7 +21,7 @@
         0  |    √     |     2     |     2     |    -     |    100
         1  |    √     |     3     |     2     |    -     |    300
         2  |    √     |     4     |     3     |    -     |   1000
-        3  |    √     |     5     |     4     |    -     |    3000
+        3  |    √     |     5     |     4     |    -     |   3000
         4  |    √     |     -     |     -     |    √     |   1000
         5  |    √     |     2     |     0     |    √     |   3000
         6  |    √     |     2     |     1     |    √     |   5000
@@ -68,10 +35,7 @@
     搭配定位于随机候选（keygen）场景。
 
     Proth 形状独立入口 lmmp_is_prothprime_(k, n)（判 k*2^n+1，k 奇 < 2^32，
-    契约 k>0 奇、n>0）：
-    普罗斯定理的单梯子双方向确定性判决，不经强度分档，也不接入
-    lmmp_is_prime_n_ 的通用分派（保持通用路径的形状无关性），设计见
-    文末 Proth 节注释。
+    契约 k>0 奇、n>0）
 */
 
 #include "../../../include/lmmp/impl/tmp_alloc.h"
@@ -83,7 +47,6 @@
 #include "../../../include/lmmp/mprand.h"
 #include "../../../include/lmmp/numth.h"
 
-/* ============ 强度分档参数 ============ */
 
 /* 1 limb 基底随机 MR 轮数上限（检出合数提前终止） */
 static const uchar ipn_r1_rounds[8] = {2, 3, 4, 5, 0, 2, 2, 3};
@@ -93,8 +56,6 @@ static const uchar ipn_rn_rounds[8] = {2, 2, 3, 4, 0, 0, 1, 2};
 
 /* 小素数试除上界（N 传给 lmmp_trialdiv_，即试除 <= N 的全部素数） */
 static const ushort ipn_trial_bound[8] = {100, 300, 1000, 3000, 1000, 3000, 5000, 10000};
-
-/* ============ 蒙域小运算（Lucas 阶梯专用，基数为模数 n） ============ */
 
 /* 蒙域加倍 x+x-m。值 < 2m：进位回绕（2x >= B^n）时 B^n 与 m 的差额由
    减法借位在 B^n 下恰巧抵消，回绕结果即 2x-m（见 is_prime_2.c mont2_dbl）*/
@@ -173,7 +134,6 @@ static inline mp_bitcnt_t ipn_ctz_(mp_srcptr dp) {
     return (mp_bitcnt_t)z * LIMB_BITS + lmmp_tailing_zeros_(dp[z]);
 }
 
-/* 规范化长度（自顶去零） */
 static inline mp_size_t ipn_norm_(mp_srcptr dp, mp_size_t dn) {
     while (dn > 0 && dp[dn - 1] == 0) dn--;
     return dn;
@@ -230,43 +190,6 @@ static int ipn_sprp_base2_(
     }
     return ret;
 }
-
-/* ============ 1 limb 基底 SPRP 特化：短乘短除内核 ============ */
-
-/*
-    蒙域表示对裸标量线性：x̃ ≡ x*B^nn (mod n)，两侧乘裸整数 a 得
-    x̃*a ≡ (a*x)*B^nn，即乘裸标量后仍是同一模数下的合法蒙域剩余。故乘底步
-    既不需要 REDC，也不需要把基底提升成蒙域形式 a*B^nn（提升即全宽，优势尽
-    失）；1 limb 基底用二进制梯子而非窗口表（窗口表条目 a^j 全宽，会把短乘
-    优势全部吃掉）。
-
-    1 limb 基底（ipn_sprp_1_）：t = x̃*a < n*B，故商 q = t div n 恰为
-    1 limb。归一化移位 sh = clz(n[nn-1])、归一化除数顶 2 limb (d1,d0) 及其
-    2/1 逆元于上下文初始化时一次算好；每步以 t<<sh 的顶 3 limb (u2,u1,u0)
-    对 (d1,d0) 作 3/2 除法（_udiv_qr_3by2）估商 q̂。由 t<<sh < (n<<sh)*B 知
-    q̂ 的顶 limb u2 <= d1：u2 == d1 时真商必为 B-1 或 B-2（取 q̂ = B-1，至多
-    回补一次）；u2 < d1 时（u2,u1,u0）< (d1,d0)*B 成立、3/2 除法契约满足，
-    截去 t 与 n 的低位分别使 q̂ >= q、q̂ <= q+1（实测回补率 ~0，2/1 估商则
-    高达 15%~34%，故取 3/2），乘减后回补 n 至多 1 次。除末尾回补外全程只有
-    mul_1 与 submul_1 两趟 O(nn)，无除法循环；平方步仍为全宽 sqr_ + REDC
-    （本测试的复杂度主导项，与基底宽无关，故不动）。
-
-    2 limb 及以上基底不再特化（裁定沿用 lmmp_powmod_odd_mont_ 窗口梯子）：
-    短乘短除的收益来自"以两趟 O(nn) 替代一次全宽乘"，在 nn=3（唯一可能
-    采样到 <=2 limb 基底的尺寸）全宽乘仅约 nn^2 = 9 次乘加，而 lmmp_div_
-    的固定开销（归一化、临时分配、部分除 + 修正）反超其节省——实测 2 limb
-    基底走"mul_1 + 移位 addmul_1 + lmmp_div_"内核比通用路径慢约 22%，
-    nn>=8 才反超（+11%~24%）；而 nn>=4 的均匀采样基底退化为 <=2 limb 的
-    概率仅 ~2^-64，分派无从生效。故宽度分派只保留宽度 1（见
-    lmmp_is_prime_n_ 内注释）。
-
-    实测（M5/arm64/Release/best-of-5，与 lmmp_powmod_odd_ 轮同 n、同 d、同
-    基底值域）：nn=16/32/64 时 is_sprp_1_ 单轮比通用随机轮快 10.9%/13.0%/
-    12.5%；而与"乘底步退化为 O(nn) 倍加"的基底 2 特化轮相比仅慢约 1%——
-    即乘底步已压到几乎可忽略，剩余差距全部来自窗口梯子自身的乘底份额
-    （64 limb 实测约 13%，而非设计预期的 1/6~1/3，故 17%~20% 的估计提速
-    不可达；本内核已达该思路的上限）。
-*/
 
 /* 短除上下文：归一化除数顶 2 limb 及其 2/1 逆元（1 limb 基底路径专用） */
 typedef struct {
@@ -717,8 +640,6 @@ composite:
     return 0;
 }
 
-/* ============ Proth 形状素性检验（lmmp_is_prothprime_） ============ */
-
 /*
     普罗斯定理：N = k*2^t+1（k 奇，k < 2^t）为素数 ⟺ 存在 a 使
     a^((N-1)/2) ≡ -1 (mod N)。正向（≡ -1 ⟹ N 素）为 Pocklington 型
@@ -753,12 +674,6 @@ composite:
     O(n)（伸缩恒等式坍缩，见 impl/powmod.h 稀疏节注释），梯子整体
     平方主导；m1（蒙域 -1）经一次 redcify 除法装配 one 后取 N − one，
     不经 lmmp_mont_t 的通用三层分派。
-*/
-
-/*
-    普罗斯定理驱动（N = kk*2^ne+1 已装配为 [np,nn]，kk 奇 < 2^32，
-    ne >= 64 ⟹ nn >= 2、limb0 恒纯 1（稀疏形状必命中）、kk < 2^ne 自动
-    成立）：首个 Jacobi = -1 的奇数 a 上跑 a^((N-1)/2) 蒙域梯子
 */
 
 /* 见证搜索上界（防御性）：域内非平方引理保证存在 Jacobi = -1 的奇素
@@ -830,7 +745,7 @@ static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
 
 int lmmp_is_prothprime_(uint k, mp_size_t n) {
     lmmp_param_assert(k > 0 && n > 0);
-    lmmp_param_assert(k & 1 == 1);
+    lmmp_param_assert((k & 1) == 1);
     /* 契约域：k 奇（无 2 因子归一化），ne := n 即 v2(N-1) */
     ulong kk = k;
     mp_bitcnt_t ne = (mp_bitcnt_t)n;

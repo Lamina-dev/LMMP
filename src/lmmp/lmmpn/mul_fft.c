@@ -20,6 +20,8 @@
 #include "../../../include/lmmp/impl/mul_cache.h"
 #include "../../../include/lmmp/lmmpn.h"
 
+LMMP_VECT_CONSERVATIVE
+
 
 /**
  * @brief 费马变换乘法递归函数（核心乘法逻辑）

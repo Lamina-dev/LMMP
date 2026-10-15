@@ -24,6 +24,7 @@ set(LMMP_TEST_SRCS
     src/test_mul.cpp
     src/test_div.cpp
     src/test_str.cpp
+    src/test_u128.cpp
     src/test_numth_gcd.cpp
     src/test_numth_pow.cpp
     src/test_numth_divexact.cpp

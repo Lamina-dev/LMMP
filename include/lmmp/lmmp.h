@@ -180,6 +180,22 @@ STATIC_ASSERT(sizeof(void*) == 8, "64-bit architecture required");
 #endif
 
 /*
+ 保守向量化豁免（用于源文件级体积控制）：GCC -O3 的 dynamic 向量化成本
+ 模型会对 limb 级 C 循环做投机向量化 + 运行时版本化——每个此类循环同时
+ 生成向量主循环与标量回退两份代码；对热点已由手写汇编承担、或主体为
+ 调用耗时较高的编译单元，版本化纯属体积膨胀而无运行收益。
+ 使用本宏的文件退回 very-cheap 档（即 -O2 的默认成本模型），仅保留
+ 明显受益的向量化。Clang 的 -O3 无此投机版本化行为，且不识别
+ #pragma GCC optimize，故对其静默跳过。
+*/
+#if defined(__GNUC__) && !defined(__clang__)
+    #define LMMP_VECT_CONSERVATIVE _Pragma("GCC optimize(\"vect-cost-model=very-cheap\")")
+#else
+    #define LMMP_VECT_CONSERVATIVE
+#endif
+
+
+/*
  LMMP 内存分配函数指针类型：
  1. heap_alloc : 堆内存分配器
  2. heap_free : 堆内存释放器
