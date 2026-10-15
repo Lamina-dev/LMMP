@@ -82,11 +82,11 @@ ASM_GSYM(lmmp_shl_):
     jmp     .Lcommon                //   FFT 高频温热小调用无拆分存储罚可免）
 
 .Lpeel:                             // n >= 512：按 dst 相位剥 P 个 limb 使组存储 32B 对齐
-    mov     r10, r9
+    mov     r10, r9                 // r9 -> dst[n-1]：剥去 n-1 limb 偏移还原基址相位
     shr     r10, 3
     neg     r10
-    lea     r11, [r10 + 3]
-    and     r11d, 3                 // P = (3 - (dst>>3)) & 3 <= 3 < n-1，免 clamp
+    lea     r11, [r10 + r8 + 2]     // P = (3 - ((r9>>3) - (n-1))) & 3
+    and     r11d, 3                 //   <= 3 < n-1，免 clamp
     mov     r14, r11                // P 暂存（底链计数）
     lea     r10, [r8 - 1]
     sub     r10, r11                // M = n-1-P = 向量+顶尾 limb 数

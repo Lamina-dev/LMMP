@@ -23,10 +23,9 @@ mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl) {
     }
     const mp_size_t rshr = LIMB_BITS - shl;
     mp_limb_t retval = numa[na - 1] >> rshr;
-    // dst[0] 先算后存（升序循环可能先写覆盖 numa[0] 的别名位置）
-    mp_limb_t lo0 = numa[0] << shl;
-    for (mp_size_t i = 1; i < na; i++) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
-    dst[0] = lo0;
+    // 降序：dst==numa 原地时每个 numa[i-1] 在被覆盖前读取
+    for (mp_size_t i = na - 1; i > 0; i--) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
+    dst[0] = numa[0] << shl;
     return retval;
 }
 
@@ -38,10 +37,9 @@ mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, m
     const mp_size_t rshr = LIMB_BITS - shl;
     mp_limb_t retval = numa[na - 1] >> rshr;
     c &= ((mp_limb_t)1 << shl) - 1;
-    // 同 lmmp_shl_：dst[0] 先算后存
-    mp_limb_t lo0 = (numa[0] << shl) | c;
-    for (mp_size_t i = 1; i < na; i++) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
-    dst[0] = lo0;
+    // 同 lmmp_shl_：降序写入保证原地正确
+    for (mp_size_t i = na - 1; i > 0; i--) dst[i] = (numa[i] << shl) | (numa[i - 1] >> rshr);
+    dst[0] = (numa[0] << shl) | c;
     return retval;
 }
 
