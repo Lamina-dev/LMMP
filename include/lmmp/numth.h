@@ -333,6 +333,147 @@ LMMP_API mp_size_t lmmp_gcd_hgcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_src
 LMMP_API mp_size_t lmmp_gcd_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
 
 /**
+ * @brief 扩展欧几里得（双 limb 标量）：g = gcd(u,v)，s*u + t*v = g
+ * @param u 第一个无符号整数
+ * @param v 第二个无符号整数
+ * @param s 输出 u 的贝祖系数（带符号）
+ * @param t 输出 v 的贝祖系数（带符号，可为 NULL 表示不需要）
+ * @warning u!=0, v!=0, s!=NULL
+ * @return 最大公约数 g
+ * @note 取极小系数：|s| <= v/(2g)、|t| <= u/(2g)（由此唯一）。v|u 时 s=0、t=1
+ */
+LMMP_API ulong lmmp_gcdext_11_(ulong u, ulong v, slong* s, slong* t);
+
+/**
+ * @brief 扩展欧几里得（任意长度对单 limb）：g = gcd([up,un],v)，s*u + t*v = g
+ * @param dstg 结果指针（长度为 1 个limb）
+ * @param dsts u 的贝祖系数幅度（长度为 1 个limb，s==0 时写 0）
+ * @param sn 输出 s 的带符号 limb 长度（[1|-1|0]）
+ * @param dstt v 的贝祖系数幅度（长度至少为 un 个limb，可为 NULL 表示不需要）
+ * @param tn 输出 t 的带符号 limb 长度（dstt==NULL 时忽略，可为 NULL）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param v 第二个无符号整数（单 limb）
+ * @warning up!=NULL, un>0, v!=0, dstg!=NULL, dsts!=NULL, sn!=NULL, sep([dsts|dstt],dstg)
+ * @return g 的 limb 长度（恒 1）
+ * @note 取极小系数 |s| <= v/(2g)（单 limb）、|t| <= u/(2g)。v|[up,un] 时 s=0、t=1。
+ *       dstg 允许与 up 别名（eqsep）；dsts/dstt 在 up 的所有读取完成后才写入
+ */
+LMMP_API mp_size_t lmmp_gcdext_1_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
+                                  mp_srcptr up, mp_size_t un, ulong v);
+
+/**
+ * @brief 扩展欧几里得（任意长度对双 limb）：g = gcd([up,un],[vp,2])，s*u + t*v = g
+ * @param dstg 结果指针（长度至少为 2 个limb）
+ * @param dsts u 的贝祖系数幅度（长度至少为 2 个limb，s==0 时写 0）
+ * @param sn 输出 s 的带符号 limb 长度
+ * @param dstt v 的贝祖系数幅度（长度至少为 un 个limb，可为 NULL）
+ * @param tn 输出 t 的带符号 limb 长度（dstt==NULL 时忽略）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数指针（长度为 2）
+ * @warning up!=NULL, un>2, vp!=NULL, vp[1]!=0, dstg!=NULL, dsts!=NULL, sn!=NULL,
+ *          sep([dsts|dstt],dstg)
+ * @return g 的实际 limb 长度
+ * @note 取极小系数（同 lmmp_gcdext_11_ 注）。经 lmmp_mod_2_ 预归约后转
+ *       lmmp_gcdext_lehmer_（无独立 2x2 核）。dstg 允许与 [up|vp] 别名
+ */
+LMMP_API mp_size_t lmmp_gcdext_2_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
+                                  mp_srcptr up, mp_size_t un, mp_srcptr vp);
+
+/**
+ * @brief 扩展欧几里得（Lehmer 算法）：g = gcd(u,v)，s*u + t*v = g
+ * @param dstg 结果指针（长度至少为 min(un,vn)）
+ * @param dsts u 的贝祖系数幅度（长度至少为 vn 个limb，s==0 时写 0）
+ * @param sn 输出 s 的带符号 limb 长度（[1|-1|0]）
+ * @param dstt v 的贝祖系数幅度（长度至少为 un 个limb，可为 NULL 表示不需要）
+ * @param tn 输出 t 的带符号 limb 长度（dstt==NULL 时忽略，可为 NULL）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数指针
+ * @param vn 第二个无符号整数的 limb 长度
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, dstg!=NULL, dsts!=NULL, sn!=NULL,
+ *          up[un-1]!=0, vp[vn-1]!=0, sep([dsts|dstt],dstg)
+ * @return g 的实际 limb 长度
+ * @note 取极小系数（同 lmmp_gcdext_11_ 注）。un/vn 任意大小关系（内部值序
+ *       归一化，系数按原参数序输出）。归约骨架与 gcd_lehmer.c 同构，共因子
+ *       走单行跟踪（GMP 行向量思想）：全程保持 V = u0*a + u1*b（行元素非负，
+ *       a;b 为当前数对），t 在输出相位经恒等式导出（dstt==NULL 时跳过）。
+ *       dstg 允许与 [up|vp] 别名（eqsep）；dsts/dstt 在 up/vp 的所有读取
+ *       完成后才写入
+ */
+LMMP_API mp_size_t lmmp_gcdext_lehmer_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
+                                       mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
+
+/**
+ * @brief 扩展欧几里得（hgcd 分治，长输入优选）：g = gcd(u,v)，s*u + t*v = g
+ * @param dstg 结果指针（长度至少为 min(un,vn)）
+ * @param dsts u 的贝祖系数幅度（长度至少为 vn 个limb，s==0 时写 0）
+ * @param sn 输出 s 的带符号 limb 长度（[1|-1|0]）
+ * @param dstt v 的贝祖系数幅度（长度至少为 un 个limb，可为 NULL）
+ * @param tn 输出 t 的带符号 limb 长度（dstt==NULL 时忽略）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数指针
+ * @param vn 第二个无符号整数的 limb 长度
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, dstg!=NULL, dsts!=NULL, sn!=NULL,
+ *          up[un-1]!=0, vp[vn-1]!=0, sep([dsts|dstt],dstg)
+ * @return g 的实际 limb 长度
+ * @note 取极小系数（同 lmmp_gcdext_11_ 注）。un/vn 任意大小关系（内部值序
+ *       归一化，系数按原参数序输出）。GMP mpn_gcdext 结构：初始一次取模
+ *       （商丢弃，共因子无损），主循环对高位片调库内 hgcd 核 + 低位修补，
+ *       单行 (u0,u1) 共因子跟踪（V = u0*a + u1*b，每轮 4 次行乘），降至
+ *       阈值下转 lmmp_gcdext_lehmer_；t 在输出相位经恒等式导出。
+ *       dstg 允许与 [up|vp] 别名（eqsep）
+ */
+LMMP_API mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
+                                     mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
+
+/**
+ * @brief 扩展欧几里得（通用分发入口）：g = gcd(u,v)，s*u + t*v = g
+ * @param dstg 结果指针（长度至少为 min(un,vn)）
+ * @param dsts u 的贝祖系数幅度（长度至少为 vn 个limb）
+ * @param sn 输出 s 的带符号 limb 长度
+ * @param dstt v 的贝祖系数幅度（长度至少为 un 个limb，可为 NULL）
+ * @param tn 输出 t 的带符号 limb 长度（dstt==NULL 时忽略）
+ * @param up 第一个无符号整数指针
+ * @param un 第一个无符号整数的 limb 长度
+ * @param vp 第二个无符号整数指针
+ * @param vn 第二个无符号整数的 limb 长度
+ * @warning up!=NULL, un>0, vp!=NULL, vn>0, dstg!=NULL, dsts!=NULL, sn!=NULL,
+ *          up[un-1]!=0, vp[vn-1]!=0, sep([dsts|dstt],dstg)
+ * @return g 的实际 limb 长度
+ * @note vn==1 转 lmmp_gcdext_1_、vn==2（un>2）转 lmmp_gcdext_2_，两侧均
+ *       超过 GCD_HGCD_THRESHOLD 转 lmmp_gcdext_hgcd_（分治），否则
+ *       lmmp_gcdext_lehmer_。dstg 允许与 [up|vp] 别名
+ */
+LMMP_API mp_size_t lmmp_gcdext_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
+                                mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn);
+
+/**
+ * @brief 模逆元（单 limb）：求 u^{-1} mod m
+ * @param u 被求逆元数
+ * @param m 模数
+ * @warning u!=0, m!=0
+ * @return 逆元（落在 [0,m)）；m>1 且 gcd(u,m)>1（不存在）时返回 0；m==1 时返回 0（模 1 下逆元为 0）
+ */
+LMMP_API ulong lmmp_modinv_ulong_(ulong u, ulong m);
+
+/**
+ * @brief 模逆元（任意长度）：求 [up,un]^{-1} mod [mp,mn]
+ * @param dst 结果指针（长度至少为 mn 个limb）
+ * @param up 被求逆元数指针
+ * @param un 被求逆元数的 limb 长度
+ * @param mp 模数指针
+ * @param mn 模数的 limb 长度
+ * @warning up!=NULL, un>0, mp!=NULL, mn>0, dst!=NULL, up[un-1]!=0, mp[mn-1]!=0,
+ *          sep(dst,[up|mp])
+ * @return dst 的实际 limb 长度；0 表示逆元不存在（gcd(u,m)>1）
+ * @note 结果落在 [0,m)。mn==1 时约化为标量路径。dst 允许与 up 别名（eqsep）
+ */
+LMMP_API mp_size_t lmmp_modinv_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr mp, mp_size_t mn);
+
+/**
  * @brief 计算两个无符号整数的乘积，对mod取模，商放入 q 中
  * @param a 第一个无符号整数
  * @param b 第二个无符号整数

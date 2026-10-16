@@ -15,77 +15,10 @@
 
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
+#include "../../../include/lmmp/impl/gcd.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
 
-typedef struct {
-    slong m11, m12;
-    slong m21, m22;
-} lmmp_gcd_lehmer_t;
-
-#define LEHMER_MIN_V 0x100000000ll
-#define LEHMER_EXACT_BITS 63
-
-static void lmmp_gcd_lehmer_step_(slong u, slong v, lmmp_gcd_lehmer_t* gcd) {
-#define A (gcd->m11)
-#define B (gcd->m12)
-#define C (gcd->m21)
-#define D (gcd->m22)
-
-    lmmp_debug_assert(u >= 0 && v >= 0);
-    lmmp_debug_assert(u >= v);
-    A = 1; B = 0;
-    C = 0; D = 1;
-
-    while (v != 0) {
-        slong q = u / v;
-        slong t = u % v;
-
-        u = v;
-        v = t;
-
-        t = A - q * C;
-        A = C;
-        C = t;
-        t = B - q * D;
-        B = D;
-        D = t;
-
-        if (v < (slong)LEHMER_MIN_V) break;
-    }
-
-    return;
-#undef A
-#undef B
-#undef C
-#undef D
-}
-
-static void lmmp_lehmer_extract_(mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn, slong* restrict a, slong* restrict b) {
-    lmmp_param_assert(un > 1 && vn > 1);
-    lmmp_param_assert(un >= vn);
-    lmmp_param_assert(up != NULL && vp != NULL);
-    lmmp_param_assert(a != NULL && b != NULL);
-
-    int kz = lmmp_limb_bits_(up[un - 1]);
-    if (kz >= LEHMER_EXACT_BITS) {
-        *a = up[un - 1] >> (kz - LEHMER_EXACT_BITS);
-        if (vn == un)
-            *b = vp[vn - 1] >> (kz - LEHMER_EXACT_BITS);
-        else
-            *b = 0;
-    } else {
-        *a = up[un - 1] << (LEHMER_EXACT_BITS - kz);
-        *a |= up[un - 2] >> (LIMB_BITS - (LEHMER_EXACT_BITS - kz));
-        if (un > vn + 1) {
-            *b = 0;
-        } else if (un == vn + 1) {
-            *b = vp[vn - 1] >> (LIMB_BITS - (LEHMER_EXACT_BITS - kz));
-        } else {
-            *b = vp[vn - 1] << (LEHMER_EXACT_BITS - kz);
-            *b |= vp[vn - 2] >> (LIMB_BITS - (LEHMER_EXACT_BITS - kz));
-        }
-    }
-}
+/* 步进矩阵与窗口提取见 impl/gcd.h（与 gcdext_lehmer.c 共享） */
 
 typedef struct {
     mp_ptr tp;
@@ -269,7 +202,7 @@ mp_size_t lmmp_gcd_lehmer_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr vp,
             return 1;
         }
         // a > b
-        lmmp_lehmer_extract_(a, an, b, bn, &x, &y);
+        lmmp_gcd_lehmer_extract_(a, an, b, bn, &x, &y);
         lmmp_gcd_lehmer_step_(x, y, &M);
 
         if (M.m21 == 0) {
