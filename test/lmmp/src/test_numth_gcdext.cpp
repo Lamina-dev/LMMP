@@ -211,7 +211,7 @@ TEST_CASE("numth/gcdext", gcdext_2) {
 namespace {
 
 // 对一对 limb 数组跑 lmmp_gcdext_ 并全检查（允许 un/vn 任意次序）
-void run_gcdext_pair(u64 seed, mp_size_t un, mp_size_t vn, int mode) {
+void run_gcdext_pair(u64& seed, mp_size_t un, mp_size_t vn, int mode) {
     mp_ptr u = alloc_limbs(un);
     mp_ptr v = alloc_limbs(vn);
     if (mode == 0) {  // 随机
@@ -232,6 +232,16 @@ void run_gcdext_pair(u64 seed, mp_size_t un, mp_size_t vn, int mode) {
         random_limbs(u, un, seed);
         BigInt bu2(u, un);
         BigInt bv2 = BigInt::sub_small(bu2, 1 + (xorshift64(seed) & 0xFF));
+        lmmp_free(v);
+        vn = (mp_size_t)bv2.d.size();
+        v = alloc_limbs(vn);
+        to_limbs(bv2, v, vn);
+    } else if (mode == 4) {  // 近邻极值 v = u - 1：gcd 恒 1（驱动除法步/失衡守卫回归）
+        random_limbs(u, un, seed);
+        if (u[0] == 0)
+            u[0] = 2; // 保证借位减 u-1 仍在 un limb 内
+        BigInt bu2(u, un);
+        BigInt bv2 = BigInt::sub_small(bu2, 1);
         lmmp_free(v);
         vn = (mp_size_t)bv2.d.size();
         v = alloc_limbs(vn);
@@ -261,14 +271,24 @@ void run_gcdext_pair(u64 seed, mp_size_t un, mp_size_t vn, int mode) {
         // 整除用例绕开 BigInt 欧几里得 oracle（divmod_school 在整除/移位型输入上的
         // 已知缺陷会卡死），直接对照已知答案 g = v、s = 0、t = 1
         TEST_CHECK_MSG(BigInt(g, (size_t)gn) == bv && sn == 0, "exact multiple gcd/s");
+    } else if (mode == 4) {
+        // 近邻极值已知答案：gcd(u, u-1) == 1，恒等式走轻量 BigInt 乘法检查
+        TEST_CHECK_MSG(gn == 1 && g[0] == 1, "neighbor-1 gcd");
+        BigInt s_abs(s, sn < 0 ? (size_t)-sn : (size_t)sn);
+        BigInt t_abs(t, tn < 0 ? (size_t)-tn : (size_t)tn);
+        TEST_CHECK_MSG(bezout_identity(bu, bv, BigInt(1), s_abs, sn < 0, t_abs, tn < 0),
+                       "neighbor-1 identity");
     } else {
         TEST_CHECK_MSG(check_gcdext(g, gn, s, sn, t, tn, bu, bv), "identity");
     }
     // 参数交换（s/t 角色互换）
     mp_ssize_t sn2, tn2;
     mp_size_t gn2 = lmmp_gcdext_(g, s, &sn2, t, &tn2, v, vn, u, un);
-    if (mode != 1)
+    if (mode == 4) {
+        TEST_CHECK_MSG(gn2 == 1 && g[0] == 1, "neighbor-1 swapped gcd");
+    } else if (mode != 1) {
         TEST_CHECK_MSG(check_gcdext(g, gn2, s, sn2, t, tn2, bv, bu), "swapped");
+    }
     // dstt=NULL
     mp_ssize_t sn3;
     lmmp_gcdext_(g, s, &sn3, NULL, NULL, u, un, v, vn);
@@ -277,8 +297,11 @@ void run_gcdext_pair(u64 seed, mp_size_t un, mp_size_t vn, int mode) {
     mp_ptr u2 = alloc_limbs(un);
     lmmp_copy(u2, u, un);
     lmmp_gcdext_(u2, s, &sn, NULL, NULL, u2, un, v, vn);
-    if (mode != 1)
+    if (mode == 4) {
+        TEST_CHECK_MSG(BigInt(u2, (size_t)gn) == BigInt(1), "neighbor-1 alias dstg=up");
+    } else if (mode != 1) {
         TEST_CHECK_MSG(BigInt(u2, (size_t)gn) == BigInt::gcd_euclid(bu, bv), "alias dstg=up");
+    }
     lmmp_free(u); lmmp_free(v); lmmp_free(g); lmmp_free(s); lmmp_free(t); lmmp_free(u2);
 }
 
@@ -295,7 +318,7 @@ TEST_CASE("numth/gcdext", gcdext_lehmer_and_dispatch) {
     };
     for (auto& sz : sizes) {
         int iters = sz.un > 60 ? 1 : 3; // 大尺寸 BigInt 欧几里得 oracle 代价高，减采样
-        for (int mode = 0; mode < 4; ++mode) {
+        for (int mode = 0; mode < 5; ++mode) {
             if (sz.un > 60 && mode == 2)
                 continue; // 近邻模式在 oracle 上退化为长欧几里得链，大尺寸跳过
             for (int iter = 0; iter < iters; ++iter) {
@@ -374,7 +397,7 @@ TEST_CASE("numth/gcdext", modinv_ulong) {
 TEST_CASE("numth/gcdext", modinv_big) {
     u64 seed = 0x2b44ae9d4d6c8f13ull;
     for (mp_size_t mn : {2, 3, 5, 9, 17, 33, 60}) {
-        for (int iter = 0; iter < 6; ++iter) {
+        for (int iter = 0; iter < 7; ++iter) {
             // 构造互素对：m 随机，u = m + 1 的倍数调整保证 gcd(u,m)=1 时逆存在
             mp_ptr m = alloc_limbs(mn);
             random_limbs(m, mn, seed);
@@ -383,7 +406,14 @@ TEST_CASE("numth/gcdext", modinv_big) {
             BigInt bu;
             mp_ptr u;
             mp_size_t un;
-            if (iter % 2 == 0) {
+            if (iter == 6) {
+                // un < mn：u 直接取短随机数（lmmp_div_ 要求 na>=nb，覆盖 modinv 短分支）
+                un = mn / 2 > 0 ? mn / 2 : 1;
+                u = alloc_limbs(un);
+                random_limbs(u, un, seed);
+                u[0] |= 1;
+                bu = BigInt(u, un);
+            } else if (iter % 2 == 0) {
                 // u = m + 1（与 m 互素）
                 bu = BigInt::add_small(bm, 1);
                 un = (mp_size_t)bu.d.size();
@@ -409,8 +439,8 @@ TEST_CASE("numth/gcdext", modinv_big) {
             } else {
                 TEST_CHECK_MSG(rn == 0, "non-invertible reported");
             }
-            // dst 与 u 别名（eqsep 契约）
-            mp_ptr u2 = alloc_limbs(un);
+            // dst 与 u 别名（eqsep 契约；dst 容量按契约取 mn，un<mn 时大于 un）
+            mp_ptr u2 = alloc_limbs(un > mn ? un : mn);
             lmmp_copy(u2, u, un);
             mp_size_t rn2 = lmmp_modinv_(u2, u2, un, m, mn);
             TEST_CHECK_MSG(rn2 == rn, "alias stable");

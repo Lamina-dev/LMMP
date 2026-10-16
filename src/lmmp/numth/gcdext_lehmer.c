@@ -455,7 +455,9 @@ mp_size_t lmmp_gcdext_lehmer_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr d
     }
 
     /* 发射：g 与 S 按 sw 映射 + 恒等式导出（与 hgcd 驱动共享，见 impl/gcd.h） */
-    lmmp_gcdext_emit_(dstg, dsts, sn, dstt, tn, gp, gn, sp, sun, suneg, sw, up, un, vp, vn, t2f, rt);
+    /* qt 复用 k1 行槽（容量 RSZ=un+2，循环已结束槽位死亡） */
+    lmmp_gcdext_emit_(dstg, dsts, sn, dstt, tn, gp, gn, sp, sun, suneg, sw, up, un, vp, vn, t2f, rt,
+                      k1.p);
     TEMP_B_FREE;
     return gn;
 }

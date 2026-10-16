@@ -95,6 +95,10 @@ static void gcdext_row_qscalar_(mp_ptr* u0p, mp_ptr* u1p, mp_size_t* u0n, mp_siz
         lmmp_zero(*u1p + *u1n, *u0n - *u1n);
     mp_limb_t cy = lmmp_addmul_1_(*u1p, *u0p, *u0n, q);
     mp_size_t un = *u0n > *u1n ? *u0n : *u1n;
+    if (*u1n > *u0n && cy != 0) {
+        /* u1 更长：进位属于 u0n 处，须经 u1 既有高位 [u0n,u1n) 传播后再入顶 */
+        cy = lmmp_add_1_(*u1p + *u0n, *u1p + *u0n, *u1n - *u0n, cy);
+    }
     (*u1p)[un] = cy;
     un += (cy != 0);
     while (un > 1 && (*u1p)[un - 1] == 0)
@@ -213,7 +217,7 @@ static mp_size_t gcdext_pick_s_(mp_ptr sp, int* sneg, mp_srcptr u0p, mp_size_t u
 
 mp_size_t lmmp_gcdext_derive_(mp_ptr dst, int* tneg, mp_srcptr gp, mp_size_t gn, mp_srcptr sp,
                               mp_size_t sn, int sneg, mp_srcptr xp, mp_size_t xn, mp_srcptr yp,
-                              mp_size_t yn, mp_ptr nb, mp_ptr yt) {
+                              mp_size_t yn, mp_ptr nb, mp_ptr yt, mp_ptr qt) {
     if (sn == 0) {
         dst[0] = 1; /* g == Y */
         *tneg = 0;
@@ -275,24 +279,30 @@ mp_size_t lmmp_gcdext_derive_(mp_ptr dst, int* tneg, mp_srcptr gp, mp_size_t gn,
     }
     lmmp_debug_assert(yn2 > 0 && (yt[0] & 1) == 1);
     lmmp_debug_assert(nn >= yn2);
-    /* tv = N/Y（|tv| >= 1 故 nn >= yn2） */
-    lmmp_divexact_(dst, np, nn, yt, yn2);
+    /*
+    tv = N/Y（|tv| >= 1 故 nn >= yn2）。lmmp_divexact_ 的写入长为 nn-yn2+1
+    （顶 limb 可为零），可能超出 dst 的公开容量契约（值 |tv| <= X/(2g) <=
+    xn limb，但写长至 xn+1）——先整商落内部暂存 qt，再按归一化 rn 拷出
+    */
+    lmmp_divexact_(qt, np, nn, yt, yn2);
     mp_size_t rn = nn - yn2 + 1;
-    while (rn > 0 && dst[rn - 1] == 0)
+    while (rn > 0 && qt[rn - 1] == 0)
         --rn;
     lmmp_debug_assert(rn > 0);
+    lmmp_copy(dst, qt, rn);
     return rn;
 }
 
 void lmmp_gcdext_emit_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
                        mp_srcptr gp, mp_size_t gn, mp_srcptr sp, mp_size_t sun, int suneg, int sw,
-                       mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn, mp_ptr nb, mp_ptr yt) {
+                       mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn, mp_ptr nb, mp_ptr yt,
+                       mp_ptr qt) {
     if (!sw) {
         /* s = S（up 为大者），t = (g - S*up)/vp */
         if (dstt != NULL) {
             int tneg;
             mp_size_t rn = lmmp_gcdext_derive_(dstt, &tneg, gp, gn, sp, sun, suneg, up, un, vp, vn,
-                                               nb, yt);
+                                               nb, yt, qt);
             if (rn == 0)
                 dstt[0] = 0;
             *tn = (rn != 0 && tneg) ? -(mp_ssize_t)rn : (mp_ssize_t)rn;
@@ -306,7 +316,7 @@ void lmmp_gcdext_emit_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp
         /* t = S（vp 为大者），s = (g - S*vp)/up（导出 X 用值序大者 up） */
         int tneg;
         mp_size_t rn = lmmp_gcdext_derive_(dsts, &tneg, gp, gn, sp, sun, suneg, up, un, vp, vn, nb,
-                                           yt);
+                                           yt, qt);
         lmmp_copy(dstg, gp, gn);
         if (dstt != NULL) {
             lmmp_copy(dstt, sp, sun);
@@ -439,13 +449,23 @@ mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dst
     int first = 1;
     int term_g0 = 0; /* (g;0) 终态（g 在 wa，长度 n） */
     while (n > HGCD_RECURSE_THRESHOLD) {
+        /*
+        失衡守卫（与 lmmp_gcd_hgcd_ 的预归约同策略）：b 归一化后不足公共长
+        的一半时，core 的高位片 (wa+p; wb+p) 中 b 部分全零，递归内部违反
+        a>b>0 前提——直接走除法步把 a 归约到 b 规模再平衡
+        */
+        mp_size_t nb_cur = lmmp_gcd_norm_(wb, n);
+        int degenerate = (2 * nb_cur <= n);
         mp_size_t p = first ? n / 2 : n / 3;
-        first = 0;
+        mp_size_t nn = 0;
         lmmp_hgcd_matrix_t M1;
-        lmmp_gcd_matrix_init_buf_(&M1, mbuf1, n - p + 2);
         int dsub = 1;
-        sc.used = 0;
-        mp_size_t nn = lmmp_hgcd_core_(&M1, wa + p, wb + p, n - p, &sc, &dsub, 0);
+        if (!degenerate) {
+            first = 0;
+            lmmp_gcd_matrix_init_buf_(&M1, mbuf1, n - p + 2);
+            sc.used = 0;
+            nn = lmmp_hgcd_core_(&M1, wa + p, wb + p, n - p, &sc, &dsub, 0);
+        }
         if (nn > 0) {
             sc.used = 0;
             mp_size_t blen = 0;
@@ -486,7 +506,6 @@ mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dst
         行 <- (q*u0 + u1, u0)，detsign 变号；余数为 0 即终态 (g;0)
         */
         {
-            mp_size_t nb_cur = lmmp_gcd_norm_(wb, n);
             mp_size_t mark = sc.used;
             /* 试减 r1 = a - b（a > b 无借位；r1 < b ⟺ 商为 1） */
             lmmp_sub_(sa, wa, n, wb, nb_cur);
@@ -573,7 +592,7 @@ mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dst
         gn = n;
         sun = gcdext_pick_s_(sp, &suneg, u0p, u0n, u1p, u1n, det, sa);
         lmmp_gcdext_emit_(dstg, dsts, sn, dstt, tn, wa, gn, sp, sun, suneg, sw, up, un, vp, vn, nb,
-                          yt);
+                          yt, p1b);
     } else {
         /* Lehmer 尾：当前对 (wa,wb) 取极小系数 (sigma,tau)，
            S = det*(sigma*u1 - tau*u0)（两次乘 + 符号-幅度组合） */
@@ -657,7 +676,7 @@ mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dst
             }
         }
         lmmp_gcdext_emit_(dstg, dsts, sn, dstt, tn, gb, gn, sp, sun, suneg, sw, up, un, vp, vn, nb,
-                          yt);
+                          yt, p1b);
     }
     lmmp_free(wbuf);
     return gn;
@@ -716,8 +735,15 @@ mp_size_t lmmp_modinv_(mp_ptr dst, mp_srcptr up, mp_size_t un, mp_srcptr mp, mp_
     mp_ptr r = BALLOC_TYPE(mn, mp_limb_t);
     mp_ptr g = BALLOC_TYPE(mn, mp_limb_t);
     mp_ptr s = BALLOC_TYPE(mn + 1, mp_limb_t);
-    lmmp_div_(NULL, r, up, un, mp, mn);
-    mp_size_t rn = mn;
+    /* lmmp_div_ 要求 na>=nb：un<mn 时 u<m，余数即 u 自身 */
+    mp_size_t rn;
+    if (un < mn) {
+        lmmp_copy(r, up, un);
+        rn = un;
+    } else {
+        lmmp_div_(NULL, r, up, un, mp, mn);
+        rn = mn;
+    }
     while (rn > 0 && r[rn - 1] == 0)
         --rn;
     if (rn == 0) {

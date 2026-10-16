@@ -283,15 +283,17 @@ mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n);
  * @param yn 其长度
  * @param nb 全乘积暂存（容量 >= xn+yn+2）
  * @param yt Y 奇化暂存（容量 >= yn+1）
+ * @param qt 整商暂存（容量 >= xn+2；lmmp_divexact_ 写入长 nn-yn2+1 可超
+ *           出 dst 公开容量，先落此处再按归一化长度拷出）
  * @return tv 写入长度（tv==0 理论不可达时返回 0）
- * @warning sep([dst|nb|yt],[gp|sp|xp|yp])，gn>0，sn<=xn
+ * @warning sep([dst|nb|yt|qt],[gp|sp|xp|yp])，gn>0，sn<=xn
  * @note S==0 时 Y|X 且 g==Y，tv=1。Y 偶时剥公因子 2^k 后走 lmmp_divexact_
  *       （要求奇除数；N = tv*Y 保证 N 的低 k 位为零）。S 与 tv 反号（极小
  *       系数性质，|S|*X >= X >= g 使 g 落在 0 与 |S|*X 之间）
  */
 mp_size_t lmmp_gcdext_derive_(mp_ptr dst, int* tneg, mp_srcptr gp, mp_size_t gn, mp_srcptr sp,
                               mp_size_t sn, int sneg, mp_srcptr xp, mp_size_t xn, mp_srcptr yp,
-                              mp_size_t yn, mp_ptr nb, mp_ptr yt);
+                              mp_size_t yn, mp_ptr nb, mp_ptr yt, mp_ptr qt);
 
 /**
  * @brief 发射：g 与 S（值序大者系数）按 sw 映射到 (dsts,dstt)，另一系数经恒等式导出
@@ -312,10 +314,12 @@ mp_size_t lmmp_gcdext_derive_(mp_ptr dst, int* tneg, mp_srcptr gp, mp_size_t gn,
  * @param vn 其长度
  * @param nb 导出全乘积暂存（容量 >= 2*max(un,vn)+4）
  * @param yt 导出奇化暂存（容量 >= max(un,vn)+2）
+ * @param qt 导出整商暂存（容量 >= max(un,vn)+2）
  * @warning sep([dsts|dstt],dstg)，对 up/vp 的全部读取（导出）先于输出写入
  */
 void lmmp_gcdext_emit_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dstt, mp_ssize_t* tn,
                        mp_srcptr gp, mp_size_t gn, mp_srcptr sp, mp_size_t sun, int suneg, int sw,
-                       mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn, mp_ptr nb, mp_ptr yt);
+                       mp_srcptr up, mp_size_t un, mp_srcptr vp, mp_size_t vn, mp_ptr nb, mp_ptr yt,
+                       mp_ptr qt);
 
 #endif /* __LMMP_IMPL_GCD_H__ */
