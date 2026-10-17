@@ -23,7 +23,7 @@
 /**
  * @brief 计算 [dst,n] = [xp,n]*[ap,n] div B^n
  * @param dst 结果指针
- * @param tp scratch space, need 2*n limbs
+ * @param tp 需要 max(2*n, fft_next_size(2*n)) 个 limb
  * @warning [xp,n] * [ap,n] mod B^n == 1
  */
 static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_size_t n, mp_ptr tp) {
@@ -31,27 +31,10 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_mul_n_(tp, xp, ap, n);
         lmmp_copy(dst, tp + n, n);
     } else {
-        mp_size_t m = lmmp_fft_next_size_((n * 2 + 1) >> 1);
-        lmmp_debug_assert(n * 2 > m && m >= n);
+        mp_size_t m = lmmp_fft_next_size_(2 * n);
+        lmmp_debug_assert(m >= 2 * n);
         lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
-        lmmp_dec(tp);
-        mp_size_t fn = m - n;   // 从 tp+n 开始的长度
-        mp_size_t sn = n - fn;  // 从 tp 开始的长度
-        lmmp_copy(dst, tp + n, fn);
-        lmmp_copy(dst + fn, tp, sn);
-    }
-}
-
-static inline void lmmp_sqrlo_n_(
-    mp_ptr    restrict  dst,
-    mp_srcptr restrict numa,
-    mp_size_t             n,
-    mp_ptr    restrict   tp
-) {
-    if (n < MULLO_DC_THRESHOLD) {
-        lmmp_sqrlo_dc_(dst, numa, tp, n);
-    } else {
-        lmmp_mullo_fft_(dst, numa, numa, n, tp);
+        lmmp_copy(dst, tp + n, n);
     }
 }
 
@@ -119,61 +102,45 @@ void lmmp_binvert_n_dc_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t 
     } else if (n % 2 == 0) {
         mp_size_t halfn = n / 2;
 
-#define k               (tp)              // [tp,          halfn]
-#define alo             (numa)            // [numa,        halfn]
-#define ahi             (numa + halfn)    // [numa+halfn,  halfn]
-#define xlo             (dst)             // [dst,         halfn]
-#define xhi             (dst + halfn)     // [dst+halfn,   halfn]
-#define xlo_sqr         (tp + halfn)      // [tp+halfn,    halfn]
-#define xlo_sqr_mul_ahi (tp + 2 * halfn)  // [tp+2*halfn,  halfn]
-#define scratch         (tp + 3 * halfn)  // [tp+3*halfn,2*halfn]
+#define xlo     (dst)             // [dst,           halfn]
+#define xhi     (dst + halfn)     // [dst+halfn,     halfn]
+#define prod    (tp)              // [tp,          3*halfn]
+#define scratch (tp + 3 * halfn)  // [tp+3*halfn,  2*halfn]
 //      ________________________________________________________________
 // tp : |_________________________5*(n+1)/2____________________________|
-//      |   k   | xlo_sqr | xlo_sqr_mul_ahi |   scratch   | remaining  |
-//      |_halfn_|__halfn__|______halfn______|___2*halfn___|            |
+//      |         prod (3*halfn)          |      scratch (2*halfn)     |
 
-        lmmp_binvert_n_dc_(xlo, alo, halfn, tp);
-        binvert_mulhi_(k, xlo, alo, halfn, tp + halfn);
-        lmmp_sqrlo_n_(xlo_sqr, xlo, halfn, scratch);
-        lmmp_mullo_n_(xlo_sqr_mul_ahi, ahi, xlo_sqr, halfn, scratch);
-        lmmp_mullo_n_(xhi, xlo, k, halfn, scratch);
-        lmmp_add_n_(xhi, xhi, xlo_sqr_mul_ahi, halfn);
+        lmmp_binvert_n_dc_(xlo, numa, halfn, tp);
+        lmmp_mul_(prod, numa, n, xlo, halfn);
+        lmmp_mullo_n_(xhi, xlo, prod + halfn, halfn, scratch);
         lmmp_not_(xhi, xhi, halfn);
         lmmp_inc(xhi);
+#undef xlo
+#undef xhi
+#undef prod
+#undef scratch
     } else {
         mp_size_t halfn = n / 2 + 1;
         mp_size_t ahin = n - halfn;
 
-#define k               (tp)              // [tp,          halfn]
-#define alo             (numa)            // [numa,        halfn]
-#define ahi             (numa + halfn)    // [numa+halfn,   ahin]
-#define xlo             (dst)             // [dst,         halfn]
-#define xhi             (dst + halfn)     // [dst+halfn,    ahin]
-#define xlo_sqr         (tp + halfn)      // [tp+halfn,     ahin]
-#define xlo_sqr_mul_ahi (tp + 2 * halfn)  // [tp+2*halfn,   ahin]
-#define scratch         (tp + 3 * halfn)  // [tp+3*halfn, 2*ahin]
+#define xlo     (dst)              // [dst,            halfn]
+#define xhi     (dst + halfn)      // [dst+halfn,       ahin]
+#define prod    (tp)               // [tp,           n+halfn]
+#define scratch (tp + n + halfn)   // [tp+n+halfn,    2*ahin]
 //      ________________________________________________________________
 // tp : |_________________________5*(n+1)/2____________________________|
-//      |    k    | xlo_sqr | xlo_sqr_mul_ahi |   scratch  | remaining |
-//      |__halfn__|__halfn__|______halfn______|___2*ahin___|           |
+//      |   prod (n+halfn)   |        scratch (2*ahin)     | remaining |
 
-        lmmp_binvert_n_dc_(xlo, alo, halfn, tp);
-        binvert_mulhi_(k, xlo, alo, halfn, tp + halfn);
-        lmmp_sqrlo_n_(xlo_sqr, xlo, ahin, scratch);
-        lmmp_mullo_n_(xlo_sqr_mul_ahi, ahi, xlo_sqr, ahin, scratch);
-        lmmp_mullo_n_(xhi, xlo, k, ahin, scratch);
-        lmmp_add_n_(xhi, xhi, xlo_sqr_mul_ahi, ahin);
+        lmmp_binvert_n_dc_(xlo, numa, halfn, tp);
+        lmmp_mul_(prod, numa, n, xlo, halfn);
+        lmmp_mullo_n_(xhi, xlo, prod + halfn, ahin, scratch);
         lmmp_not_(xhi, xhi, ahin);
         lmmp_inc(xhi);
-    }
-#undef k
-#undef alo
-#undef ahi
 #undef xlo
 #undef xhi
-#undef xlo_sqr
-#undef xlo_sqr_mul_ahi
+#undef prod
 #undef scratch
+    }
 }
 
 void lmmp_binvert_unbalance_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_size_t n, mp_ptr restrict tp) {
@@ -217,7 +184,7 @@ void lmmp_binvert_unbalance_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_si
         则 V ≡ k'*B^na (mod B^m-1)；将 k' 拆为低 fn=m-na 位与高位，
         k'*B^na mod (B^m-1) 恰为两者在 m 位中的错位拼接，旋转载出即得 k'
         */
-        if (na < MULHI_MERSENNE_THRESHOLD) {
+        if (na < BINVERT_UNBALANCE_MODM_THRESHOLD) {
             lmmp_mul_n_(scratch, dst + i, numa, na);
             // now [scratch,2*na] = a * p
             if (lmmp_add_n_(scratch, scratch, k, na)) {

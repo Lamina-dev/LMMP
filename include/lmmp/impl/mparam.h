@@ -314,6 +314,14 @@
 #define MULHI_MERSENNE_THRESHOLD LMMP_DEFAULT_MULHI_MERSENNE_THRESHOLD
 #endif
 
+// binvert_unbalance_ 主循环 k 更新改用（卷绕）梅森 cache 的阈值
+#define LMMP_DEFAULT_BINVERT_UNBALANCE_MODM_THRESHOLD 983
+#ifdef LMMP_TUNE
+#define BINVERT_UNBALANCE_MODM_THRESHOLD lmmp_tune_BINVERT_UNBALANCE_MODM_THRESHOLD
+#else
+#define BINVERT_UNBALANCE_MODM_THRESHOLD LMMP_DEFAULT_BINVERT_UNBALANCE_MODM_THRESHOLD
+#endif
+
 // REDC 归约的 basecase 阈值
 #define LMMP_DEFAULT_REDC_BASECASE_THRESHOLD 41
 #ifdef LMMP_TUNE
@@ -322,9 +330,8 @@
 #define REDC_BASECASE_THRESHOLD LMMP_DEFAULT_REDC_BASECASE_THRESHOLD
 #endif
 
-// REDC 归约中 q*m 高半积改用梅森折叠提取的阈值（与 MULHI_MERSENNE_THRESHOLD
-// 同构的低位已知折叠，但此处已知低位为 -t mod B^n，属 redc 专用路径，独立调优）
-#define LMMP_DEFAULT_REDC_MERSENNE_THRESHOLD 309
+// REDC 归约中 q*m 高半积改用梅森折叠提取的阈值
+#define LMMP_DEFAULT_REDC_MERSENNE_THRESHOLD 348
 #ifdef LMMP_TUNE
 #define REDC_MERSENNE_THRESHOLD lmmp_tune_REDC_MERSENNE_THRESHOLD
 #else
@@ -352,6 +359,19 @@
 #define DIVEXACT_NN_THRESHOLD lmmp_tune_DIVEXACT_NN_THRESHOLD
 #else
 #define DIVEXACT_NN_THRESHOLD LMMP_DEFAULT_DIVEXACT_NN_THRESHOLD
+#endif
+
+// divexact mu 主积改用梅森 cache 的阈值（dn 门控）。与 MULHI_MERSENNE_THRESHOLD
+// 算法不同：此处为 dn×in 主积 + dp 变换缓存（无卷绕模长 next_size(dn+in)），孤立
+// mulhi 函数调优不适用（2026-10-17 拆分时实测：孤立值 985，语境调优器 nn=4dn 形状
+// 得 2176 且 dn≥1081 区间两引擎逐点翻转——FFT 粒度噪声带；nn=16dn 多块形状最优
+// ≤1024）。取带内 1500：两侧形状族（少块 gcdext 型/多块 nCr 型）最坏代价最小
+// （少块 ≤5%，多块 ≤8%），单阈值是块数依赖交叉点的折中
+#define LMMP_DEFAULT_DIVEXACT_MERSENNE_THRESHOLD 1500
+#ifdef LMMP_TUNE
+#define DIVEXACT_MERSENNE_THRESHOLD lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD
+#else
+#define DIVEXACT_MERSENNE_THRESHOLD LMMP_DEFAULT_DIVEXACT_MERSENNE_THRESHOLD
 #endif
 
 #ifdef LMMP_TUNE
@@ -393,10 +413,12 @@ extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_BINVERT_UNBALANCE_MODM_THRESHOLD;
 extern uint64_t lmmp_tune_REDC_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_REDC_MERSENNE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD;
 extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
 #endif
 
