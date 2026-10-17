@@ -49,7 +49,9 @@ extern uint64_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
 extern uint64_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
 extern uint64_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
+extern uint64_t lmmp_tune_BINVERT_UNBALANCE_MODM_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_DIVEXACT_NN_THRESHOLD;
+extern uint64_t lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD;
 
 #endif /* LMMP_TUNE_H */
