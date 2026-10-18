@@ -114,48 +114,6 @@ static inline void lmmp_mullo_n_(
     }
 }
 
-#if 0
-/**
- * @brief 已知乘积的低位，计算乘积的高位
- * @param dst 乘积的高位，长度为 n
- * @param lop 乘积的低位，长度为 n
- * @param numa 乘数a
- * @param numb 乘数b
- * @param n 乘数a和乘数b的 limb 长度
- * @param tp 临时空间（应需要2*n个limb）
- * @warning eqsep(dst,tp)
- */
-static inline void lmmp_mulhi_n_(
-    mp_ptr              dst,
-    mp_srcptr restrict  lop,
-    mp_srcptr restrict numa,
-    mp_srcptr restrict numb,
-    mp_size_t             n,
-    mp_ptr               tp
-) {
-    if (n < MULHI_MERSENNE_THRESHOLD) {
-        lmmp_mul_n_(tp, numa, numb, n);
-        lmmp_copy(dst, tp + n, n);
-    } else {
-        mp_limb_t c;
-        mp_size_t m = lmmp_fft_next_size_((n * 2 + 1) >> 1);
-        lmmp_debug_assert(n * 2 > m && m >= n);
-        lmmp_mul_mersenne_(tp, m, numa, n, numb, n);
-        c = lmmp_sub_(tp, tp, m, lop, n);
-        if (c != 0)
-            lmmp_dec(tp);
-        if (m == n) {
-            lmmp_copy(dst, tp, n);
-        } else {
-            mp_size_t fn = m - n;
-            mp_size_t sn = n - fn;
-            lmmp_copy(dst, tp + n, fn);
-            lmmp_copy(dst + fn, tp, sn);
-        }
-    }
-}
-#endif // 0
-
 /*
     mu 主循环（GMP mpn_mu_bdiv_q 同构）：滚动余数 rp（dn limb，真值 =
     存储值 - cy·B^dn）按 in limb 块推进，每块 mullo 出商、主乘积
@@ -168,24 +126,18 @@ static inline void lmmp_mulhi_n_(
       输入下解卷差 ±1，不可用。
 */
 static void lmmp_divexact_mu_run_(
-    mp_ptr restrict       dst,
+    mp_ptr               dst,
     mp_srcptr             np,
     mp_size_t             nn,
     mp_srcptr restrict    dp,
     mp_size_t             dn,
-    mp_srcptr restrict    dinv,
+    mp_srcptr restrict  dinv,
     mp_size_t             in,
-    mp_ptr restrict       tp /* [0,dn)=rp 滚动余数, [dn,dn+2*(dn+in))=积/mullo scratch */
+    mp_ptr    restrict    tp /* [0,dn)=rp 滚动余数, [dn,dn+2*(dn+in))=积/mullo scratch */
 ) {
     mp_size_t qn = nn - dn + 1;
     mp_size_t pn = dn + in;
-    /*
-    固定操作数缓存（多块长输入时摊薄变换成本）：
-    - 主积：dp 不变 → dn 达阈值后走梅森 cache（模长 next_size(pn) >= pn 无卷绕，
-      V=P 精确，比 toom 每块全价省一次正变换）；dn 更小时 toom 阶梯更快不用缓存。
-    - 商块 mullo：dinv 不变 → in 达 MULLO_DC 阈值后走 mullo_fft cache（末块长度
-      不同不缓存，保持 lmmp_mullo_n_）。
-    */
+
     int use_ms = dn >= DIVEXACT_MERSENNE_THRESHOLD;
     mp_size_t m = use_ms ? lmmp_fft_next_size_(pn) : 0;
     int use_lcache = in >= MULLO_DC_THRESHOLD;

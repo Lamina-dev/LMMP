@@ -41,7 +41,7 @@ typedef struct {
 
 static void binv_ctx_init(binv_ctx* c, mp_size_t na) {
     c->na = na;
-    c->n = 5 * na / 4;
+    c->n = (5 * na + 3) / 4;
     c->a = (mp_ptr)lmmp_alloc((size_t)na * sizeof(mp_limb_t));
     c->dst = (mp_ptr)lmmp_alloc((size_t)(c->n + 2) * sizeof(mp_limb_t));
     tune_fill_limbs(c->a, na, UINT64_C(0x84c56a10b2f1132c));
