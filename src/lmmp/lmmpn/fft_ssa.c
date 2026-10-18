@@ -262,7 +262,8 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
 
     mp_slimb_t acyo = 0, scyo = 0;
     mp_limb_t shlcyo = 0, chp = 0, chn = 0;
-
+#ifdef LMMP_ASM_ARM64
+    /* arm64 暂无融合实现：退回三函数分块（与历史实现一致） */
     for (mp_size_t off = 0; off < l - w; off += PART_SIZE) {
         mp_size_t cursize = LMMP_MIN(l - w - off, PART_SIZE);
         scyo = lmmp_sub_nc_(numc + w + off, numa + off, numb + off, cursize, scyo);
@@ -270,7 +271,6 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
         if (shl)
             shlcyo = lmmp_shl_c_(numc + w + off, numc + w + off, cursize, shl, shlcyo);
     }
-
     {
         /* 等价于 ch = shlcyo - (scyo << shl)，使用无符号运算避免有符号左移 UB */
         mp_limb_t adj = (mp_limb_t)scyo << shl;
@@ -280,10 +280,8 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
             chn = adj - shlcyo;
         }
     }
-
     scyo = 0;
     shlcyo = 0;
-
     for (mp_size_t off = l - w; off < l; off += PART_SIZE) {
         mp_size_t cursize = LMMP_MIN(l - off, PART_SIZE);
         scyo = lmmp_sub_nc_(numc + off - (l - w), numb + off, numa + off, cursize, scyo);
@@ -291,6 +289,30 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w) 
         if (shl)
             shlcyo = lmmp_shl_c_(numc + off - (l - w), numc + off - (l - w), cursize, shl, shlcyo);
     }
+#else
+    mp_limb_t out[4];  // fft 融合内核出参 {chp, chn, shlcy2, (acyo<<1)|scyo}
+    if (shl) {
+        lmmp_fft_bfy_fused_(numc, numa, numb, l, w, shl, out);
+        chp = out[0];
+        chn = out[1];
+        shlcyo = out[2];
+        acyo = (mp_slimb_t)(out[3] >> 1);
+        scyo = (mp_slimb_t)(out[3] & 1);
+    } else {
+        for (mp_size_t off = 0; off < l - w; off += PART_SIZE) {
+            mp_size_t cursize = LMMP_MIN(l - w - off, PART_SIZE);
+            scyo = lmmp_sub_nc_(numc + w + off, numa + off, numb + off, cursize, scyo);
+            acyo = lmmp_add_nc_(numa + off, numa + off, numb + off, cursize, acyo);
+        }
+        chn = (mp_limb_t)scyo;  // shl=0: ch = 0 - scyo
+        scyo = 0;
+        for (mp_size_t off = l - w; off < l; off += PART_SIZE) {
+            mp_size_t cursize = LMMP_MIN(l - off, PART_SIZE);
+            scyo = lmmp_sub_nc_(numc + off - (l - w), numb + off, numa + off, cursize, scyo);
+            acyo = lmmp_add_nc_(numa + off, numa + off, numb + off, cursize, acyo);
+        }
+    }
+#endif
 
     numc[w] += shlcyo;                 // 左移进位加到numc[w]
     scyo = -scyo + numb[l] - numa[l];  // 调整借位（包含最高位）
@@ -334,7 +356,8 @@ void lmmp_ifft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w)
 
     mp_slimb_t bcyo = 0, acyo = 0, ah;
     mp_limb_t shrcyo = shr ? numb[0] << (LIMB_BITS - shr) : 0;
-
+#ifdef LMMP_ASM_ARM64
+    /* arm64 暂无融合实现：退回三函数分块（与历史实现一致） */
     for (mp_size_t off = l - w; off < l; off += PART_SIZE) {
         mp_size_t cursize = LMMP_MIN(l - off, PART_SIZE);
         if (shr)
@@ -343,7 +366,6 @@ void lmmp_ifft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w)
         bcyo = lmmp_add_nc_(numc + off, numa + off, numb + off - (l - w), cursize, bcyo);
         acyo = lmmp_sub_nc_(numa + off, numa + off, numb + off - (l - w), cursize, acyo);
     }
-
     for (mp_size_t off = 0; off < l - w; off += PART_SIZE) {
         mp_size_t cursize = LMMP_MIN(l - w - off, PART_SIZE);
         if (shr)
@@ -351,6 +373,25 @@ void lmmp_ifft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w)
         bcyo = lmmp_sub_nc_(numc + off, numa + off, numb + w + off, cursize, bcyo);
         acyo = lmmp_add_nc_(numa + off, numa + off, numb + w + off, cursize, acyo);
     }
+#else
+    mp_limb_t kc;  // ifft 融合内核的打包进位 (acyo<<1)|bcyo
+    if (shr) {
+        kc = lmmp_ifft_bfy_fused_(numc, numa, numb, l, w, shr);
+        acyo = (mp_slimb_t)(kc >> 1);
+        bcyo = (mp_slimb_t)(kc & 1);
+    } else {
+        for (mp_size_t off = l - w; off < l; off += PART_SIZE) {
+            mp_size_t cursize = LMMP_MIN(l - off, PART_SIZE);
+            bcyo = lmmp_add_nc_(numc + off, numa + off, numb + off - (l - w), cursize, bcyo);
+            acyo = lmmp_sub_nc_(numa + off, numa + off, numb + off - (l - w), cursize, acyo);
+        }
+        for (mp_size_t off = 0; off < l - w; off += PART_SIZE) {
+            mp_size_t cursize = LMMP_MIN(l - w - off, PART_SIZE);
+            bcyo = lmmp_sub_nc_(numc + off, numa + off, numb + w + off, cursize, bcyo);
+            acyo = lmmp_add_nc_(numa + off, numa + off, numb + w + off, cursize, acyo);
+        }
+    }
+#endif
 
     acyo += numb[l] >> shr;
     bcyo = -bcyo - (numb[l] >> shr);

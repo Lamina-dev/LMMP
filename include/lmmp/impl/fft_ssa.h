@@ -126,6 +126,52 @@ void lmmp_fft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w);
  */
 void lmmp_ifft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w);
 
+/**
+ * @brief ifft 蝶形数据面融合内核（两段扫描 + 连续进位链，单次调用完成）
+ *
+ * 以 t_i = [numb]>>shr 的逐 limb 流水线（numb 全程只读，不回写移位结果）：
+ *   扫描1（i∈[0,w)）：numc[l-w+i] = numa[l-w+i] + t_i (+bcy 链)
+ *                    numa[l-w+i] -= t_i (+acy 链)
+ *   扫描2（i∈[0,l-w)）：numc[i] = numa[i] - t'_i (+bcy 链续)
+ *                       numa[i] += t'_i (+acy 链续)，t'_i 从 numb[w] 起算
+ *   两段扫描的顶 limb 分别从 numb[w]、numb[l] 取高 shr 位（内核自行加载）
+ * @param numc 蝶形输出系数指针（temp_coef）
+ * @param numa 系数 a 指针（原地加减）
+ * @param numb 系数 b 指针（只读，须有 l+1 个 limb 可读）
+ * @param l 系数长度（ms->lenw）
+ * @param w 机器字级移位量（0<=w<=l）
+ * @param shr 比特级右移量
+ * @warning 0<shr<64, 0<=w<=l, sep(numc,[numa|numb]), l>0,
+ *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/x64/fft_fuse.S（x64）
+ * @return 打包进位 (acy_final << 1) | bcy_final（acy 为 numa 链，bcy 为 numc 链）
+ */
+mp_limb_t lmmp_ifft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb,
+                               mp_size_t l, mp_size_t w, mp_size_t shr);
+
+/**
+ * @brief fft 蝶形数据面融合内核（两段扫描 + 中点 ch 分解，单次调用完成）
+ *
+ *   扫描1（j∈[0,l-w)）：D = numa[j] - numb[j] (-scyo 链，起点0)
+ *                      numc[w+j] = (D << shl) 接 shl 移位链（起点0）
+ *                      numa[j] = numa[j] + numb[j] (+acyo 链，起点0)
+ *   中点：ch = shlcy1 - (scyo1 << shl) 分解为 chp/chn（scyo1/shlcy1 为扫描1终值）
+ *   扫描2（j∈[0,w)）：D2 = numb[l-w+j] - numa[l-w+j] (-scyo 链重置0)
+ *                    numc[j] = (D2 << shl) 接 shl 链（重置0）
+ *                    numa[l-w+j] += numb[l-w+j] (+acyo 链续)
+ * @param numc 蝶形输出系数指针（temp_coef）
+ * @param numa 系数 a 指针（原地加）
+ * @param numb 系数 b 指针（只读）
+ * @param l 系数长度（ms->lenw）
+ * @param w 机器字级移位量（0<=w<=l）
+ * @param shl 比特级左移量
+ * @param out 输出数组（至少 4 个 limb）：out[0]=chp, out[1]=chn,
+ *            out[2]=shlcy2（扫描2 shl 链移出位），out[3]=(acy_final<<1)|scyo_final
+ * @warning 0<shl<64, 0<=w<=l, sep(numc,[numa|numb]), l>0,
+ *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/x64/fft_fuse.S（x64）
+ */
+void lmmp_fft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb, mp_size_t l, mp_size_t w,
+                         mp_size_t shl, mp_limb_t* out);
+
 void lmmp_fft_(fft_memstack* ms, mp_ptr* coef, mp_size_t k, mp_size_t w);
 
 void lmmp_ifft_(fft_memstack* ms, mp_ptr* coef, mp_size_t k, mp_size_t w);
