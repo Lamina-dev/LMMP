@@ -15,9 +15,9 @@
 
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/mul_cache.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/tmp_alloc.h"
+#include "../../../include/lmmp/impl/mul_cache.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/numth.h"
 
@@ -114,47 +114,114 @@ static inline void lmmp_mullo_n_(
     }
 }
 
-#if 0
-/**
- * @brief 已知乘积的低位，计算乘积的高位
- * @param dst 乘积的高位，长度为 n
- * @param lop 乘积的低位，长度为 n
- * @param numa 乘数a
- * @param numb 乘数b
- * @param n 乘数a和乘数b的 limb 长度
- * @param tp 临时空间（应需要2*n个limb）
- * @warning eqsep(dst,tp)
- */
-static inline void lmmp_mulhi_n_(
-    mp_ptr              dst,
-    mp_srcptr restrict  lop,
-    mp_srcptr restrict numa,
-    mp_srcptr restrict numb,
-    mp_size_t             n,
-    mp_ptr               tp
+/*
+    mu 主循环（GMP mpn_mu_bdiv_q 同构）：滚动余数 rp（dn limb，真值 =
+    存储值 - cy·B^dn）按 in limb 块推进，每块 mullo 出商、主乘积
+    dp×q_block 减进余数、np 补充消费窗口。主乘积恒走 lmmp_mul_（toom
+    阶梯）：
+    - 无卷绕梅森（模长 next_size(dn+in)，P < B^m-1 恒成立、V=P 精确）
+      的 FFT 尺寸约为积的 1.02 倍，512-4096 limb 实测全尺寸劣于 toom；
+    - 半尺寸卷绕梅森虽快，但残差 B^m-1 会被 mul_mersenne_ 规范化为 0，
+      折叠计数外部不可恢复，全 1 除数（P = q·B^dn - q 恰触边界）等
+      输入下解卷差 ±1，不可用。
+*/
+static void lmmp_divexact_mu_run_(
+    mp_ptr               dst,
+    mp_srcptr             np,
+    mp_size_t             nn,
+    mp_srcptr restrict    dp,
+    mp_size_t             dn,
+    mp_srcptr restrict  dinv,
+    mp_size_t             in,
+    mp_ptr    restrict    tp /* [0,dn)=rp 滚动余数, [dn,dn+2*(dn+in))=积/mullo scratch */
 ) {
-    if (n < MULHI_MERSENNE_THRESHOLD) {
-        lmmp_mul_n_(tp, numa, numb, n);
-        lmmp_copy(dst, tp + n, n);
+    mp_size_t qn = nn - dn + 1;
+    mp_size_t pn = dn + in;
+
+    int use_ms = dn >= DIVEXACT_MERSENNE_THRESHOLD;
+    mp_size_t m = use_ms ? lmmp_fft_next_size_(pn) : 0;
+    int use_lcache = in >= MULLO_DC_THRESHOLD;
+    fft_gr_cache mctx;
+    int mflag = 0;
+    fft_mullo_cache lctx;
+    int lflag = 0;
+
+#define rp   (tp)
+#define prod (tp + dn)
+
+    mp_limb_t cy = 0;
+    mp_ptr qp = dst;
+
+    lmmp_copy(rp, np, dn);
+    np += dn;
+    if (use_lcache) {
+        lmmp_mullo_fft_cache_init_(qp, rp, dinv, in, prod, &lctx);
+        lflag = 1;
     } else {
-        mp_limb_t c;
-        mp_size_t m = lmmp_fft_next_size_((n * 2 + 1) >> 1);
-        lmmp_debug_assert(n * 2 > m && m >= n);
-        lmmp_mul_mersenne_(tp, m, numa, n, numb, n);
-        c = lmmp_sub_(tp, tp, m, lop, n);
-        if (c != 0)
-            lmmp_dec(tp);
-        if (m == n) {
-            lmmp_copy(dst, tp, n);
+        lmmp_mullo_n_(qp, rp, dinv, in, prod);
+    }
+    qn -= in;
+
+    while (qn > in) {
+        /* prod[0..pn) = dp × qp 块 */
+        if (use_ms) {
+            if (mflag == 0) {
+                lmmp_mul_mersenne_cache_init_(prod, m, qp, in, dp, dn, &mctx);
+                mflag = 1;
+            } else {
+                lmmp_mul_mersenne_cache_(prod, qp, &mctx);
+            }
         } else {
-            mp_size_t fn = m - n;
-            mp_size_t sn = n - fn;
-            lmmp_copy(dst, tp + n, fn);
-            lmmp_copy(dst + fn, tp, sn);
+            lmmp_mul_(prod, dp, dn, qp, in);
+        }
+        qp += in;
+        if (dn != in) {
+            cy += lmmp_sub_n_(rp, rp + in, prod + in, dn - in);
+            if (cy == 2) {
+                lmmp_inc(prod + dn);
+                cy = 1;
+            }
+        }
+        cy = lmmp_sub_nc_(rp + dn - in, np, prod + dn, in, cy);
+        np += in;
+        if (use_lcache) {
+            lmmp_mullo_fft_cache_(qp, rp, prod, &lctx);
+        } else {
+            lmmp_mullo_n_(qp, rp, dinv, in, prod);
+        }
+        qn -= in;
+    }
+
+    /* 末块：余 qn<=in 位商；np 只剩 qn-(dn-in) limb 消费额度 */
+    if (use_ms) {
+        if (mflag == 0) {
+            lmmp_mul_mersenne_cache_init_(prod, m, qp, in, dp, dn, &mctx);
+            mflag = 1;
+        } else {
+            lmmp_mul_mersenne_cache_(prod, qp, &mctx);
+        }
+    } else {
+        lmmp_mul_(prod, dp, dn, qp, in);
+    }
+    qp += in;
+    if (dn != in) {
+        cy += lmmp_sub_n_(rp, rp + in, prod + in, dn - in);
+        if (cy == 2) {
+            lmmp_inc(prod + dn);
+            cy = 1;
         }
     }
+    lmmp_sub_nc_(rp + dn - in, np, prod + dn, qn - (dn - in), cy);
+    lmmp_mullo_n_(qp, rp, dinv, qn, prod);
+
+    if (mflag == 1)
+        lmmp_fft_gr_cache_free_(&mctx);
+    if (lflag == 1)
+        lmmp_mullo_cache_free_(&lctx);
+
+#undef rp
+#undef prod
 }
-#endif // 0
 
 void lmmp_divexact_unbalance_(
     mp_ptr              dst,
@@ -170,85 +237,33 @@ void lmmp_divexact_unbalance_(
     lmmp_param_assert((dp[0] & 1) != 0);
 
     TEMP_DECL;
-    fft_gr_cache mersenne_ctx;
-    fft_cache fft_ctx;
-    int mersenne_flag = 0, fft_flag = 0;
-    mp_ptr restrict tp = TALLOC_TYPE(4 * dn, mp_limb_t);
-    if (dinv == NULL) {
-        dinv = TALLOC_TYPE(dn, mp_limb_t);
-        lmmp_binvert_n_dc_(dinv, dp, dn, tp);
-    }
+    mp_size_t qn = nn - dn + 1;
 
-#define c       (tp)          // [tp, dn]
-#define l       (tp + dn)     // [tp + dn, dn]
-#define scratch (tp + 2 * dn) // [tp + 2 * dn, 2*dn]
-
-    mp_size_t i = 0, qn = nn - dn + 1;
-    mp_limb_t ca;
-    lmmp_zero(c, dn);
-    if (qn > dn) {
-        for (; i < qn - dn; i += dn) {
-            lmmp_sub_n_(l, np + i, c, dn);
-            ca = lmmp_cmp_(l, np + i, dn) == 1 ? 1 : 0;
-
-            // lmmp_mullo_n_(dst + i, l, dinv, dn, scratch);
-            if (dn < MULLO_DC_THRESHOLD)
-                lmmp_mullo_dc_(dst + i, l, dinv, scratch, dn);
-            else {
-                if (fft_flag == 0) {
-                    mp_size_t hn = lmmp_fft_next_size_((dn * 2 + 1) >> 1);
-                    lmmp_mul_fft_cache_init_(scratch, hn, l, dn, dinv, dn, &fft_ctx);
-                    fft_flag = 1;
-                } else {
-                    lmmp_mul_fft_cache_(scratch, l, &fft_ctx);
-                }
-                lmmp_copy(dst + i, scratch, dn);
-            }
-
-            // lmmp_mulhi_n_(scratch + dn, l, dst + i, dp, dn, scratch);
-            if (dn < MULHI_MERSENNE_THRESHOLD) {
-                lmmp_mul_n_(scratch, dst + i, dp, dn);
-            } else {
-                mp_limb_t cy;
-                mp_size_t m = lmmp_fft_next_size_((dn * 2 + 1) >> 1);
-                if (mersenne_flag == 0) {
-                    lmmp_mul_mersenne_cache_init_(scratch, m, dst + i, dn, dp, dn, &mersenne_ctx);
-                    mersenne_flag = 1;
-                } else {
-                    lmmp_mul_mersenne_cache_(scratch, dst + i, &mersenne_ctx);
-                }
-                cy = lmmp_sub_(scratch, scratch, m, l, dn);
-                if (cy != 0)
-                    lmmp_dec(scratch);
-                if (m == dn) {
-                    lmmp_copy(scratch + dn, scratch, dn);
-                } else {
-                    mp_size_t fn = m - dn;
-                    mp_size_t sn = dn - fn;
-                    //lmmp_copy(scratch + dn, scratch + dn, fn);
-                    lmmp_copy(scratch + dn + fn, scratch, sn);
-                }
-            }
-
-            if (ca) {
-                lmmp_add_1_(c, scratch + dn, dn, 1);
-            } else {
-                lmmp_copy(c, scratch + dn, dn);
-            }
+    if (qn <= dn) {
+        mp_ptr restrict l = TALLOC_TYPE(qn, mp_limb_t);
+        mp_ptr restrict t2 = TALLOC_TYPE(3 * qn, mp_limb_t);
+        if (dinv == NULL) {
+            dinv = TALLOC_TYPE(qn, mp_limb_t);
+            lmmp_binvert_n_dc_(dinv, dp, qn, t2);
         }
+        lmmp_copy(l, np, qn);
+        lmmp_mullo_n_(dst, l, dinv, qn, t2);
+        TEMP_FREE;
+        return;
     }
-    lmmp_sub_n_(l, np + i, c, dn);
-    lmmp_mullo_n_(dst + i, l, dinv, qn - i, scratch);
+    mp_size_t b = (qn - 1) / dn + 1;
+    mp_size_t in = (qn - 1) / b + 1;
+    mp_size_t pn = dn + in;
 
-    if (mersenne_flag == 1)
-        lmmp_fft_gr_cache_free_(&mersenne_ctx);
-    if (fft_flag == 1)
-        lmmp_fft_cache_free_(&fft_ctx);
+    mp_ptr restrict tp = TALLOC_TYPE(dn + 2 * pn, mp_limb_t);
+    if (dinv == NULL) {
+        dinv = TALLOC_TYPE(in, mp_limb_t);
+        lmmp_binvert_n_dc_(dinv, dp, in, tp);
+    }
+
+    lmmp_divexact_mu_run_(dst, np, nn, dp, dn, dinv, in, tp);
 
     TEMP_FREE;
-#undef c
-#undef l
-#undef scratch
 }
 
 void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr restrict dp, mp_size_t dn, mp_limb_t dinv) {

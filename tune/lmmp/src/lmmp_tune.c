@@ -50,6 +50,7 @@ int tune_run_div_divide(void);
 int tune_run_bninv_newton(void);
 int tune_run_mul_fft_modf(void);
 int tune_run_mulhi_mersenne(void);
+int tune_run_binv_unbal_modm(void);
 int tune_run_redc_mersenne(void);
 int tune_run_redc_basecase(void);
 int tune_run_to_str_basepow(void);
@@ -71,6 +72,7 @@ int tune_run_sqrt_invnewton(void);
 int tune_run_cbrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_divexact_mersenne(void);
 int tune_run_gcd_hgcd(void);
 int tune_run_fft_table(void);
 
@@ -90,6 +92,7 @@ static const tune_module_t g_modules[] = {
     {"bninv_newton", "bninv,BNINV_NEWTON_THRESHOLD", "BNINV_NEWTON_THRESHOLD", tune_run_bninv_newton},
     {"mul_fft_modf", "MUL_FFT_MODF_THRESHOLD", "MUL_FFT_MODF_THRESHOLD", tune_run_mul_fft_modf},
     {"mulhi_mersenne", "MULHI_MERSENNE_THRESHOLD", "MULHI_MERSENNE_THRESHOLD", tune_run_mulhi_mersenne},
+    {"binv_unbal_modm", "binv_unbal_modm,BINVERT_UNBALANCE_MODM_THRESHOLD", "BINVERT_UNBALANCE_MODM_THRESHOLD", tune_run_binv_unbal_modm},
     {"redc_mersenne", "REDC_MERSENNE_THRESHOLD", "REDC_MERSENNE_THRESHOLD", tune_run_redc_mersenne},
     {"redc_basecase", "REDC_BASECASE_THRESHOLD", "REDC_BASECASE_THRESHOLD", tune_run_redc_basecase},
     {"to_str_basepow", "TO_STR_BASEPOW_THRESHOLD", "TO_STR_BASEPOW_THRESHOLD", tune_run_to_str_basepow},
@@ -111,6 +114,7 @@ static const tune_module_t g_modules[] = {
     {"cbrt_invnewton", "CBRT_INVNEWTON_K/NF_MIN", "CBRT_INVNEWTON_K_THRESHOLD+CBRT_INVNEWTON_NF_MIN", tune_run_cbrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
+    {"divexact_mersenne", "divexact_mersenne,DIVEXACT_MERSENNE_THRESHOLD", "DIVEXACT_MERSENNE_THRESHOLD", tune_run_divexact_mersenne},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
     {"fft_table", "fft,FFT_TABLE", "lmmp_fft_table_", tune_run_fft_table},
 };

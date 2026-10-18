@@ -39,7 +39,7 @@ static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
     c->dp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->xp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->ap = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(2 * n * sizeof(mp_limb_t)));
+    c->tp = (mp_ptr)lmmp_alloc((size_t)(3 * n * sizeof(mp_limb_t)));
     tune_fill_limbs(c->xp, n, UINT64_C(0x84c56a10b2f1132c));
     tune_fill_limbs(c->ap, n, UINT64_C(0x137cbe91211dea3c));
 }
@@ -55,13 +55,10 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_mul_n_(tp, xp, ap, n);
         lmmp_copy(dst, tp + n, n);
     } else {
-        mp_size_t m = lmmp_fft_next_size_((n * 2 + 1) >> 1);
+        /* 与 src/lmmp/numth/binvert.c 现行实现同步：无卷绕模长 next_size(2n) */
+        mp_size_t m = lmmp_fft_next_size_(2 * n);
         lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
-        lmmp_dec(tp);
-        mp_size_t fn = m - n;   // 从 tp+n 开始的长度
-        mp_size_t sn = n - fn;  // 从 tp 开始的长度
-        lmmp_copy(dst, tp + n, fn);
-        lmmp_copy(dst + fn, tp, sn);
+        lmmp_copy(dst, tp + n, n);
     }
 }
 
