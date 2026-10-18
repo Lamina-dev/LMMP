@@ -142,7 +142,7 @@ void lmmp_ifft_bfy_(fft_memstack* ms, mp_ptr* coef, mp_size_t wing, mp_size_t w)
  * @param w 机器字级移位量（0<=w<=l）
  * @param shr 比特级右移量
  * @warning 0<shr<64, 0<=w<=l, sep(numc,[numa|numb]), l>0,
- *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/x64/fft_fuse.S（x64）
+ *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/{x64,arm64}/fft_fuse.S
  * @return 打包进位 (acy_final << 1) | bcy_final（acy 为 numa 链，bcy 为 numc 链）
  */
 mp_limb_t lmmp_ifft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb,
@@ -167,7 +167,7 @@ mp_limb_t lmmp_ifft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb,
  * @param out 输出数组（至少 4 个 limb）：out[0]=chp, out[1]=chn,
  *            out[2]=shlcy2（扫描2 shl 链移出位），out[3]=(acy_final<<1)|scyo_final
  * @warning 0<shl<64, 0<=w<=l, sep(numc,[numa|numb]), l>0,
- *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/x64/fft_fuse.S（x64）
+ *          各指针非空；实现见 lmmpn/generic/fft_fuse.c（C）与 asm/{x64,arm64}/fft_fuse.S
  */
 void lmmp_fft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb, mp_size_t l, mp_size_t w,
                          mp_size_t shl, mp_limb_t* out);
