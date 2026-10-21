@@ -57,7 +57,7 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
     } else {
         /* 与 src/lmmp/numth/binvert.c 现行实现同步：无卷绕模长 next_size(2n) */
         mp_size_t m = lmmp_fft_next_size_(2 * n);
-        lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
+        lmmp_mul_mersenne_fft_(tp, m, xp, n, ap, n);
         lmmp_copy(dst, tp + n, n);
     }
 }

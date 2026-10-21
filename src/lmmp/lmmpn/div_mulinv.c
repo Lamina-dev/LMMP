@@ -115,7 +115,7 @@ mp_limb_t lmmp_div_mulinv_(
             // x=b*q
             // tp=x mod 2^mn-1
             if (small_flag == 1)
-                lmmp_mul_mersenne_(tp, mn, dstq, ni, numb, nb);
+                lmmp_mul_mersenne_fft_(tp, mn, dstq, ni, numb, nb);
             else {
                 if (mersenne_flag == 0) {
                     lmmp_mul_mersenne_cache_init_(tp, mn, dstq, ni, numb, nb, &mersenne_ctx);

@@ -33,7 +33,7 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
     } else {
         mp_size_t m = lmmp_fft_next_size_(2 * n);
         lmmp_debug_assert(m >= 2 * n);
-        lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
+        lmmp_mul_mersenne_fft_(tp, m, xp, n, ap, n);
         lmmp_copy(dst, tp + n, n);
     }
 }

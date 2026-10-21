@@ -748,7 +748,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
                 lmmp_sqr_(t2, dstis - nr, nr + 1);
                 nsqr = 2 * nr + 2;
             } else {
-                lmmp_sqr_mersenne_(t2, mn, dstis - nr, nr + 1);
+                lmmp_sqr_mersenne_fft_(t2, mn, dstis - nr, nr + 1);
                 nsqr = mn;
             }
 
@@ -760,11 +760,11 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
                         lmmp_inc(w1);
                 }
             } else {
-                lmmp_mul_mersenne_(w1, mn, t2, nsqr, numa - naz, naz);
+                lmmp_mul_mersenne_fft_(w1, mn, t2, nsqr, numa - naz, naz);
             }
 
             // dp = w1*ir mod M,  naz+nr < mn <= naz+3*nr
-            lmmp_mul_mersenne_(dp, mn, w1, mn, dstis - nr, nr + 1);
+            lmmp_mul_mersenne_fft_(dp, mn, w1, mn, dstis - nr, nr + 1);
             //[dp,mn] -= B^(naz+3*nr) mod (B^mn-1)
             dp[mn] = 1;
             lmmp_dec(dp + naz + 3 * nr - mn);

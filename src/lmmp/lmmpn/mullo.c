@@ -65,10 +65,10 @@ void lmmp_mullo_fft_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp
     mp_ptr tp = ALLOC_TYPE(hn + 1, mp_limb_t);
 
     if (numa == numb) {
-        lmmp_sqr_mersenne_(scratch, hn, numa, n);
+        lmmp_sqr_mersenne_fft_(scratch, hn, numa, n);
         lmmp_sqr_fermat_(tp, hn, numa, n);
     } else {
-        lmmp_mul_mersenne_(scratch, hn, numa, n, numb, n);
+        lmmp_mul_mersenne_fft_(scratch, hn, numa, n, numb, n);
         lmmp_mul_fermat_(tp, hn, numa, n, numb, n);
     }
 

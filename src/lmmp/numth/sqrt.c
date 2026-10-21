@@ -294,7 +294,7 @@ void lmmp_invsqrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
             nsqr = 2 * nr + 1;
         } else {
             cmod = 1;
-            lmmp_sqr_mersenne_(xp, mn, dstis - nr, nr + 1);
+            lmmp_sqr_mersenne_fft_(xp, mn, dstis - nr, nr + 1);
             nsqr = mn;
         }
 
@@ -312,7 +312,7 @@ void lmmp_invsqrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
                 if (lmmp_add_(xp, xp, mn, xp + mn, nsqr - mn))
                     lmmp_inc(xp);
             }
-            lmmp_mul_mersenne_(dp, mn, xp, nsqr, numa - naz, naz);
+            lmmp_mul_mersenne_fft_(dp, mn, xp, nsqr, numa - naz, naz);
             cmod = 1;
         }
 

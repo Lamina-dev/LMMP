@@ -238,7 +238,7 @@ mp_limb_t lmmp_redc_(
         mp_ptr restrict V = TALLOC_TYPE(msz, mp_limb_t);
         mp_ptr restrict L = TALLOC_TYPE(n, mp_limb_t);
         hi = TALLOC_TYPE(n, mp_limb_t);
-        lmmp_mul_mersenne_(V, msz, q, n, mp, n);
+        lmmp_mul_mersenne_fft_(V, msz, q, n, mp, n);
         if (carry) {
             lmmp_not_(L, tp, n);
             lmmp_inc(L); /* t_lo != 0，取反加一不会越界 */
