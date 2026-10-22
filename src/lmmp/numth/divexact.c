@@ -114,17 +114,6 @@ static inline void lmmp_mullo_n_(
     }
 }
 
-/*
-    mu 主循环（GMP mpn_mu_bdiv_q 同构）：滚动余数 rp（dn limb，真值 =
-    存储值 - cy·B^dn）按 in limb 块推进，每块 mullo 出商、主乘积
-    dp×q_block 减进余数、np 补充消费窗口。主乘积恒走 lmmp_mul_（toom
-    阶梯）：
-    - 无卷绕梅森（模长 next_size(dn+in)，P < B^m-1 恒成立、V=P 精确）
-      的 FFT 尺寸约为积的 1.02 倍，512-4096 limb 实测全尺寸劣于 toom；
-    - 半尺寸卷绕梅森虽快，但残差 B^m-1 会被 mul_mersenne_ 规范化为 0，
-      折叠计数外部不可恢复，全 1 除数（P = q·B^dn - q 恰触边界）等
-      输入下解卷差 ±1，不可用。
-*/
 static void lmmp_divexact_mu_run_(
     mp_ptr               dst,
     mp_srcptr             np,
@@ -138,8 +127,10 @@ static void lmmp_divexact_mu_run_(
     mp_size_t qn = nn - dn + 1;
     mp_size_t pn = dn + in;
 
-    int use_ms = dn >= DIVEXACT_MERSENNE_THRESHOLD;
-    mp_size_t m = use_ms ? lmmp_fft_next_size_(pn) : 0;
+    /* 主积三档：朴素 | 梅森分发（不缓存）| 梅森缓存（仅 fft） */
+    int ms_mode = dn >= DIVEXACT_MERSENNE_CACHE_THRESHOLD ? 2 : (dn >= DIVEXACT_MERSENNE_THRESHOLD ? 1 : 0);
+    /* 缓存档取 fft 可行尺寸（缓存仅 fft），朴素/分发档取梅森细粒度（低 padding） */
+    mp_size_t m = ms_mode == 2 ? lmmp_fft_next_size_(pn) : (ms_mode == 1 ? lmmp_mersenne_next_size_(pn) : 0);
     int use_lcache = in >= MULLO_DC_THRESHOLD;
     fft_gr_cache mctx;
     int mflag = 0;
@@ -164,13 +155,15 @@ static void lmmp_divexact_mu_run_(
 
     while (qn > in) {
         /* prod[0..pn) = dp × qp 块 */
-        if (use_ms) {
+        if (ms_mode == 2) {
             if (mflag == 0) {
                 lmmp_mul_mersenne_cache_init_(prod, m, qp, in, dp, dn, &mctx);
                 mflag = 1;
             } else {
                 lmmp_mul_mersenne_cache_(prod, qp, &mctx);
             }
+        } else if (ms_mode == 1) {
+            lmmp_mul_mersenne_(prod, m, qp, in, dp, dn);
         } else {
             lmmp_mul_(prod, dp, dn, qp, in);
         }
@@ -193,13 +186,15 @@ static void lmmp_divexact_mu_run_(
     }
 
     /* 末块：余 qn<=in 位商；np 只剩 qn-(dn-in) limb 消费额度 */
-    if (use_ms) {
+    if (ms_mode == 2) {
         if (mflag == 0) {
             lmmp_mul_mersenne_cache_init_(prod, m, qp, in, dp, dn, &mctx);
             mflag = 1;
         } else {
             lmmp_mul_mersenne_cache_(prod, qp, &mctx);
         }
+    } else if (ms_mode == 1) {
+        lmmp_mul_mersenne_(prod, m, qp, in, dp, dn);
     } else {
         lmmp_mul_(prod, dp, dn, qp, in);
     }

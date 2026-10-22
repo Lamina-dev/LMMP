@@ -281,10 +281,6 @@ TEST_CASE("mul/mersenne_dc", mersenne_dc_vs_oracle) {
                 mersenne_oracle(ro, rn, a, na, b, nb, full);
                 TEST_CHECK(limbs_same(ro, r, rn));
 
-                /* eqsep：dst==numa 别名 */
-                lmmp_copy(r, a, na);
-                lmmp_mul_mersenne_dc_(r, rn, a, na, b, nb);
-                TEST_CHECK(limbs_same(ro, r, rn));
                 lmmp_free(a); lmmp_free(b); lmmp_free(r); lmmp_free(ro); lmmp_free(full);
             }
         }

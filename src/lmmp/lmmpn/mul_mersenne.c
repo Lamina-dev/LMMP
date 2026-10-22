@@ -381,27 +381,10 @@ void lmmp_mul_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t n
     lmmp_param_assert(dst != NULL && numa != NULL && numb != NULL);
     lmmp_debug_assert(na + nb > rn / 2);
 
-    // eqsep 脱别名：单块打包 [tp 2rn+4][numa 副本 rn][numb 副本 rn]，仅别名段填充
-    int eq_ab = numa == numb;
-    mp_size_t ca = (dst == numa) ? rn : 0;
-    mp_size_t cb = (dst == numb && !eq_ab) ? rn : 0;
-    mp_ptr base = ALLOC_TYPE(2 * rn + 4 + ca + cb, mp_limb_t);
-    mp_ptr tp = base, seg = base + 2 * rn + 4;
-
-    if (ca) {
-        lmmp_copy(seg, numa, na);
-        if (eq_ab) numb = seg;  // 两操作数共用同一副本
-        numa = seg;
-        seg += ca;
-    }
-    if (cb) {
-        lmmp_copy(seg, numb, nb);
-        numb = seg;
-    }
-
+    mp_ptr tp = ALLOC_TYPE(2 * rn + 4, mp_limb_t);
     mrs_mul_core_(dst, rn, numa, na, numb, nb, tp);
     mrs_norm_zero_(dst, rn);
-    lmmp_free(base);
+    lmmp_free(tp);
 }
 
 void lmmp_sqr_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
@@ -409,18 +392,10 @@ void lmmp_sqr_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t n
     lmmp_param_assert(dst != NULL && numa != NULL);
     lmmp_debug_assert(4 * na > rn);
 
-    // eqsep 脱别名（dst==numa 时操作数搬入尾部段）
-    mp_ptr base = ALLOC_TYPE(2 * rn + 4 + (dst == numa ? rn : 0), mp_limb_t);
-    mp_ptr tp = base, seg = base + 2 * rn + 4;
-
-    if (dst == numa) {
-        lmmp_copy(seg, numa, na);
-        numa = seg;
-    }
-
+    mp_ptr tp = ALLOC_TYPE(2 * rn + 4, mp_limb_t);
     mrs_sqr_core_(dst, rn, numa, na, tp);
     mrs_norm_zero_(dst, rn);
-    lmmp_free(base);
+    lmmp_free(tp);
 }
 
 mp_size_t lmmp_mersenne_next_size_(mp_size_t n) {
@@ -433,15 +408,25 @@ mp_size_t lmmp_mersenne_next_size_(mp_size_t n) {
 }
 
 void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
-    if (rn < MUL_MERSENNE_FFT_THRESHOLD)
-        lmmp_mul_mersenne_dc_(dst, rn, numa, na, numb, nb);
-    else
+    if (na < nb) {
+        mp_srcptr tp = numa;
+        mp_size_t tn = na;
+        numa = numb;
+        na = nb;
+        numb = tp;
+        nb = tn;
+    }
+    /* fft 分支要求 rn 为 fft 可行尺寸（缓存结构与 mersenne_next_size 的粗粒度
+       输出均不保证），未对齐时回落 dc（任意 rn 合法） */
+    if (rn >= MUL_MERSENNE_FFT_THRESHOLD && lmmp_fft_next_size_(rn) == rn)
         lmmp_mul_mersenne_fft_(dst, rn, numa, na, numb, nb);
+    else
+        lmmp_mul_mersenne_dc_(dst, rn, numa, na, numb, nb);
 }
 
 void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
-    if (rn < SQR_MERSENNE_FFT_THRESHOLD)
-        lmmp_sqr_mersenne_dc_(dst, rn, numa, na);
-    else
+    if (rn >= SQR_MERSENNE_FFT_THRESHOLD && lmmp_fft_next_size_(rn) == rn)
         lmmp_sqr_mersenne_fft_(dst, rn, numa, na);
+    else
+        lmmp_sqr_mersenne_dc_(dst, rn, numa, na);
 }

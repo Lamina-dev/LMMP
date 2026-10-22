@@ -31,9 +31,9 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_mul_n_(tp, xp, ap, n);
         lmmp_copy(dst, tp + n, n);
     } else {
-        mp_size_t m = lmmp_fft_next_size_(2 * n);
+        mp_size_t m = lmmp_mersenne_next_size_(2 * n);
         lmmp_debug_assert(m >= 2 * n);
-        lmmp_mul_mersenne_fft_(tp, m, xp, n, ap, n);
+        lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
         lmmp_copy(dst, tp + n, n);
     }
 }
@@ -192,11 +192,16 @@ void lmmp_binvert_unbalance_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_si
             }
             lmmp_copy(k, scratch + na, na);
         } else {
-            mp_size_t m = lmmp_fft_next_size_((na * 2 + 1) >> 1);
+            mp_size_t m = na >= BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD
+                              ? lmmp_fft_next_size_((na * 2 + 1) >> 1)      /* 缓存档：仅 fft 尺寸可用 */
+                              : lmmp_mersenne_next_size_((na * 2 + 1) >> 1); /* 分发档：细粒度低 padding */
             mp_size_t fn = m - na;
             mp_size_t sn = na - fn;
             mp_limb_t cy;
-            if (hcflag == 0) {
+            if (na < BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD) {
+                /* 中档：分发入口不缓存（小尺寸 dc 主导） */
+                lmmp_mul_mersenne_(scratch, m, dst + i, na, numa, na);
+            } else if (hcflag == 0) {
                 lmmp_mul_mersenne_cache_init_(scratch, m, dst + i, na, numa, na, &hctx);
                 hcflag = 1;
             } else {

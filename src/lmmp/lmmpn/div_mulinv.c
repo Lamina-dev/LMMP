@@ -106,16 +106,19 @@ mp_limb_t lmmp_div_mulinv_(
         cy = lmmp_add_n_(dstq, tp + ni, numa + nb, ni);
         lmmp_assert(cy == 0);
 
-        if (nb < DIV_MULINV_MODM_THRESHOLD || (mn = lmmp_fft_next_size_(nb + 1)) >= nb + ni) {
+        /* 档位先行：缓存档取 fft 可行尺寸（缓存仅 fft），分发档取梅森细粒度 */
+        mn = nb >= DIV_MULINV_MODM_CACHE_THRESHOLD ? lmmp_fft_next_size_(nb + 1)
+                                                   : lmmp_mersenne_next_size_(nb + 1);
+        if (nb < DIV_MULINV_MODM_THRESHOLD || mn >= nb + ni) {
             lmmp_mul_(tp, numb, nb, dstq, ni);  // nb+ni limbs, high 'ni' cancels
         } else {
             // 0<wn<ni<=nb<mn<nb+ni
             wn = nb + ni - mn;
 
             // x=b*q
-            // tp=x mod 2^mn-1
-            if (small_flag == 1)
-                lmmp_mul_mersenne_fft_(tp, mn, dstq, ni, numb, nb);
+            // tp=x mod 2^mn-1（中档/尾块走分发入口不缓存，循环体缓存仅 fft）
+            if (small_flag == 1 || nb < DIV_MULINV_MODM_CACHE_THRESHOLD)
+                lmmp_mul_mersenne_(tp, mn, dstq, ni, numb, nb);
             else {
                 if (mersenne_flag == 0) {
                     lmmp_mul_mersenne_cache_init_(tp, mn, dstq, ni, numb, nb, &mersenne_ctx);

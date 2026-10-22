@@ -81,14 +81,14 @@ void lmmp_invappr_newton_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_
         //-2*B^na < rem < 2*B^na
 
         //[xp] = rem
-        if (na < INV_MODM_THRESHOLD || (mn = lmmp_fft_next_size_(na + 1)) >= na + nr) {
+        if (na < INV_MODM_THRESHOLD || (mn = lmmp_mersenne_next_size_(na + 1)) >= na + nr) {
             lmmp_mul_(xp, numa - na, na, dst - nr, nr);
             lmmp_add_n_(xp + nr, xp + nr, numa - na, na + 1 - nr);
             cy = 1;  // for mod B^(na+1)
         } else {     // nr < na < mn < na+nr
 
             //[xp,mn] = [dst,nr] * [numa,na] mod (B^mn-1)
-            lmmp_mul_mersenne_fft_(xp, mn, numa - na, na, dst - nr, nr);
+            lmmp_mul_mersenne_(xp, mn, numa - na, na, dst - nr, nr);
 
             //[xp,mn] += [numa,na]*B^nr mod (B^mn-1)
             cy = lmmp_add_n_(xp + nr, xp + nr, numa - na, mn - nr);

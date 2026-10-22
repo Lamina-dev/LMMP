@@ -109,11 +109,11 @@ basecase（8 乘）或 Winograd-Strassen（7 乘；FFT 缓存乘法路径曾实�
 以 4 次 mod B^rn-1 的梅森模乘精确重构 M1^{-1}*(a; b)（真值为正且
 < B^nn <= B^(rn-1) 时模结果即真值）。数对折叠至 rn limb，矩阵元素以
 原始长度（M1->n，必小于 rn）直接参与模乘，无需填充。fa/fb 各被两个
-矩阵元素相乘，经 lmmp_mul_mersenne_cache_ 系列缓存其前向 FFT 变换，
-第二次模乘省一次全尺寸前向变换。注意梅森乘对短操作数仍做全尺寸 FFT
-（零填充无节省），其相对 lmmp_mul_ 的优势仅在平衡形状下显著，故阈值
-取值需实测标定。由 HGCD_MODMUL_THRESHOLD 控制启用规模，正确性已经
-与 Lehmer 的批量交叉验证，性能由 LmmpMeasure 的 numth/gcd 测量组标定。
+矩阵元素相乘。模乘走梅森分发入口（dc 按操作数实际长度计价，不平衡
+形状亦有收益）；达到 HGCD_MODMUL_CACHE_THRESHOLD 后改用 lmmp_mul_mersenne_cache_
+系列缓存 fa/fb 的前向变换，第二次模乘省一次全尺寸前向变换。朴素修补
+与模乘的分界由 HGCD_MODMUL_THRESHOLD 控制，正确性已经与 Lehmer 的
+批量交叉验证，性能由 LmmpMeasure 的 numth/gcd 测量组标定。
 
 七、复杂度
 
@@ -838,15 +838,6 @@ static mp_size_t lmmp_hgcd_step_(
     return nn;
 }
 
-/*
-模乘合并阈值：公共长度达到该值时，递归合并走 lmmp_hgcd_apply_mod_（梅森
-模乘），否则走 lmmp_hgcd_adjust_（普通乘修补）。
-注意梅森乘法对短操作数仍做全尺寸 FFT（零填充无节省），其相对 lmmp_mul_
-的优势仅在平衡形状显著；在 hgcd 的不平衡形状（p × M1->n 与 rn × M1->n）
-下两者耗时接近
- */
-#define HGCD_MODMUL_THRESHOLD 2500
-
 /**
  * @brief 将 [src,sn] 折叠为模 B^rn-1 的表示：写入 [dst,rn)
  * @param dst 输出数组（长度为 rn 个limb）
@@ -899,6 +890,7 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     mp_srcptr            ap,
     mp_srcptr            bp,
     mp_size_t            n,
+    int                  use_cache,
     lmmp_hgcd_scratch_t* sc
 ) {
     mp_size_t mark = sc->used;
@@ -919,7 +911,8 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     mp_size_t nn = un > vn ? un : vn;
     ++nn;
 
-    mp_size_t rn = lmmp_fft_next_size_(nn + 1);
+    mp_size_t rn = use_cache ? lmmp_fft_next_size_(nn + 1)      /* 缓存档：仅 fft 尺寸可用 */
+                             : lmmp_mersenne_next_size_(nn + 1); /* 分发档：细粒度低 padding */
     if (rn <= lmmp_gcd_matrix_maxlen_(M1) || rn > n + 1) {
         *blen = 0;
         sc->used = mark;
@@ -937,10 +930,9 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     mp_ptr t00 = lmmp_hgcd_salloc_(sc, rn);
     mp_ptr t10 = lmmp_hgcd_salloc_(sc, rn);
     /*
-    fa 与 fb 各参与两次模乘（分别乘两个矩阵元素），用缓存版梅森乘法
-    复用其前向变换，第二次模乘省去一次全尺寸前向变换。cache 契约
-    要求后续调用与 init 的操作数等长，而逐元素长度可能相差（矩阵元素
-    平衡，通常 0~2 limb）：显式补零对齐到 ml
+    逐元素长度可能相差且可为 0（矩阵元素平衡，通常 0~2 limb），显式补零
+    对齐到 ml（行列式非零保证 ml1/ml2 >= 1）：缓存版须等长操作数，
+    分发版亦须 nb>=1
     */
     mp_size_t ml1 = LMMP_MAX(m00, m01);
     mp_size_t ml2 = LMMP_MAX(m10, m11);
@@ -948,13 +940,22 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     lmmp_zero(M1->m[0][1] + m01, ml1 - m01);
     lmmp_zero(M1->m[1][0] + m10, ml2 - m10);
     lmmp_zero(M1->m[1][1] + m11, ml2 - m11);
-    fft_gr_cache ca, cb;
-    lmmp_mul_mersenne_cache_init_(t11, rn, M1->m[1][1], ml2, fa, rn, &ca);
-    lmmp_mul_mersenne_cache_(t10, M1->m[1][0], &ca);
-    lmmp_mul_mersenne_cache_init_(t01, rn, M1->m[0][1], ml1, fb, rn, &cb);
-    lmmp_mul_mersenne_cache_(t00, M1->m[0][0], &cb);
-    lmmp_fft_gr_cache_free_(&ca);
-    lmmp_fft_gr_cache_free_(&cb);
+    if (use_cache) {
+        /* fa/fb 前向变换缓存，第二次模乘省去一次全尺寸前向变换 */
+        fft_gr_cache ca, cb;
+        lmmp_mul_mersenne_cache_init_(t11, rn, M1->m[1][1], ml2, fa, rn, &ca);
+        lmmp_mul_mersenne_cache_(t10, M1->m[1][0], &ca);
+        lmmp_mul_mersenne_cache_init_(t01, rn, M1->m[0][1], ml1, fb, rn, &cb);
+        lmmp_mul_mersenne_cache_(t00, M1->m[0][0], &cb);
+        lmmp_fft_gr_cache_free_(&ca);
+        lmmp_fft_gr_cache_free_(&cb);
+    } else {
+        /* 分发入口不缓存（长操作数 fa/fb 置于 numa 满足 nb<=na 契约） */
+        lmmp_mul_mersenne_(t11, rn, fa, rn, M1->m[1][1], ml2);
+        lmmp_mul_mersenne_(t10, rn, fa, rn, M1->m[1][0], ml2);
+        lmmp_mul_mersenne_(t01, rn, fb, rn, M1->m[0][1], ml1);
+        lmmp_mul_mersenne_(t00, rn, fb, rn, M1->m[0][0], ml1);
+    }
 
     /* 模减：x - y (mod B^rn-1)；借位回绕 +1 */
     mp_ptr va, vb;
@@ -1055,7 +1056,8 @@ mp_size_t lmmp_hgcd_core_(
                 mp_size_t rn;
                 mp_size_t blen;
                 if (use_mod) {
-                    rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n0, sc);
+                    rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n0,
+                                              n0 >= HGCD_MODMUL_CACHE_THRESHOLD, sc);
                 } else {
                     rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, &blen, ha, hb, nn, ap, bp, n0, p, sc);
                 }
@@ -1132,7 +1134,8 @@ mp_size_t lmmp_hgcd_core_(
                         mp_size_t rn;
                         mp_size_t blen;
                         if (n >= HGCD_MODMUL_THRESHOLD) {
-                            rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n, sc);
+                            rn = lmmp_hgcd_apply_mod_(&M1, dsub, sa, sb, &blen, ap, bp, n,
+                                                      n >= HGCD_MODMUL_CACHE_THRESHOLD, sc);
                         } else {
                             rn = lmmp_hgcd_adjust_(&M1, dsub, sa, sb, &blen, ha, hb, nn, ap, bp, n, p2, sc);
                         }
