@@ -50,8 +50,8 @@ int tune_run_div_divide(void);
 int tune_run_bninv_newton(void);
 int tune_run_mul_fft_modf(void);
 int tune_run_mulhi_mersenne(void);
-int tune_run_binv_unbal_modm(void);
-int tune_run_redc_mersenne(void);
+int tune_run_binv_unbal_modm_cache(void);
+int tune_run_redc_mersenne_cache(void);
 int tune_run_redc_basecase(void);
 int tune_run_to_str_basepow(void);
 int tune_run_to_str_divide(void);
@@ -72,7 +72,7 @@ int tune_run_sqrt_invnewton(void);
 int tune_run_cbrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
-int tune_run_divexact_mersenne(void);
+int tune_run_divexact_mersenne_cache(void);
 int tune_run_gcd_hgcd(void);
 int tune_run_fft_table(void);
 
@@ -92,8 +92,16 @@ static const tune_module_t g_modules[] = {
     {"bninv_newton", "bninv,BNINV_NEWTON_THRESHOLD", "BNINV_NEWTON_THRESHOLD", tune_run_bninv_newton},
     {"mul_fft_modf", "MUL_FFT_MODF_THRESHOLD", "MUL_FFT_MODF_THRESHOLD", tune_run_mul_fft_modf},
     {"mulhi_mersenne", "MULHI_MERSENNE_THRESHOLD", "MULHI_MERSENNE_THRESHOLD", tune_run_mulhi_mersenne},
-    {"binv_unbal_modm", "binv_unbal_modm,BINVERT_UNBALANCE_MODM_THRESHOLD", "BINVERT_UNBALANCE_MODM_THRESHOLD", tune_run_binv_unbal_modm},
-    {"redc_mersenne", "REDC_MERSENNE_THRESHOLD", "REDC_MERSENNE_THRESHOLD", tune_run_redc_mersenne},
+    {"mul_mersenne_dc", "MUL_MERSENNE_DC_THRESHOLD", "MUL_MERSENNE_DC_THRESHOLD", tune_run_mul_mersenne_dc},
+    {"sqr_mersenne_dc", "SQR_MERSENNE_DC_THRESHOLD", "SQR_MERSENNE_DC_THRESHOLD", tune_run_sqr_mersenne_dc},
+    {"mul_mersenne_fft", "MUL_MERSENNE_FFT_THRESHOLD", "MUL_MERSENNE_FFT_THRESHOLD", tune_run_mul_mersenne_fft},
+    {"sqr_mersenne_fft", "SQR_MERSENNE_FFT_THRESHOLD", "SQR_MERSENNE_FFT_THRESHOLD", tune_run_sqr_mersenne_fft},
+    {"mul_mersenne_fermat", "MUL_MERSENNE_FERMAT_THRESHOLD", "MUL_MERSENNE_FERMAT_THRESHOLD", tune_run_mul_mersenne_fermat},
+    {"sqr_mersenne_fermat", "SQR_MERSENNE_FERMAT_THRESHOLD", "SQR_MERSENNE_FERMAT_THRESHOLD", tune_run_sqr_mersenne_fermat},
+    {"binv_unbal_modm_cache", "binv_unbal_modm,BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD", "BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD", tune_run_binv_unbal_modm_cache},
+    {"binv_unbal_modm_fold", "BINVERT_UNBALANCE_MODM_THRESHOLD", "BINVERT_UNBALANCE_MODM_THRESHOLD", tune_run_binv_unbal_modm_fold},
+    {"redc_mersenne_cache", "REDC_MERSENNE_CACHE_THRESHOLD", "REDC_MERSENNE_CACHE_THRESHOLD", tune_run_redc_mersenne_cache},
+    {"redc_mersenne_fold", "REDC_MERSENNE_THRESHOLD", "REDC_MERSENNE_THRESHOLD", tune_run_redc_mersenne_fold},
     {"redc_basecase", "REDC_BASECASE_THRESHOLD", "REDC_BASECASE_THRESHOLD", tune_run_redc_basecase},
     {"to_str_basepow", "TO_STR_BASEPOW_THRESHOLD", "TO_STR_BASEPOW_THRESHOLD", tune_run_to_str_basepow},
     {"to_str_divide", "TO_STR_DIVIDE_THRESHOLD", "TO_STR_DIVIDE_THRESHOLD", tune_run_to_str_divide},
@@ -114,8 +122,10 @@ static const tune_module_t g_modules[] = {
     {"cbrt_invnewton", "CBRT_INVNEWTON_K/NF_MIN", "CBRT_INVNEWTON_K_THRESHOLD+CBRT_INVNEWTON_NF_MIN", tune_run_cbrt_invnewton},
     {"divexact_basecase", "DIVEXACT_BASECASE_THRESHOLD", "DIVEXACT_BASECASE_THRESHOLD", tune_run_divexact_basecase},
     {"divexact_nn", "DIVEXACT_NN_THRESHOLD", "DIVEXACT_NN_THRESHOLD", tune_run_divexact_nn},
-    {"divexact_mersenne", "divexact_mersenne,DIVEXACT_MERSENNE_THRESHOLD", "DIVEXACT_MERSENNE_THRESHOLD", tune_run_divexact_mersenne},
+    {"divexact_mersenne_cache", "divexact_mersenne,DIVEXACT_MERSENNE_CACHE_THRESHOLD", "DIVEXACT_MERSENNE_CACHE_THRESHOLD", tune_run_divexact_mersenne_cache},
+    {"divexact_mersenne_fold", "DIVEXACT_MERSENNE_THRESHOLD", "DIVEXACT_MERSENNE_THRESHOLD", tune_run_divexact_mersenne_fold},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
+    {"hgcd_modmul_cache", "HGCD_MODMUL_CACHE_THRESHOLD", "HGCD_MODMUL_CACHE_THRESHOLD", tune_run_hgcd_modmul_cache},
     {"fft_table", "fft,FFT_TABLE", "lmmp_fft_table_", tune_run_fft_table},
 };
 

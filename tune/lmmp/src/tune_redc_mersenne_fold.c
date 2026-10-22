@@ -13,7 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 阈值调优：REDC_MERSENNE_THRESHOLD */
+/* 阈值调优：REDC_MERSENNE_THRESHOLD（REDC q*m 高半积：朴素全积 vs 梅森折叠）
+ * 以 lmmp_powmod_odd_ 黑盒测量；钉死 REDC_MERSENNE 使缓存不介入 */
 
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
@@ -54,7 +55,7 @@ static void powmod_ctx_init(powmod_ctx* c, mp_size_t n) {
 }
 
 /*
- * powmod_odd 内部经 REDC_MERSENNE_THRESHOLD 在每步归约的 q*m 高半积上
+ * powmod_odd 内部经 REDC_MERSENNE_CACHE_THRESHOLD 在每步归约的 q*m 高半积上
  * 选择全积取高半或梅森折叠（m 侧变换缓存）。以完整函数为黑盒测量，
  * 与真实调用路径完全一致；指数取 2 limb，使梯子归约步主导总耗时。
  */
@@ -84,18 +85,18 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    (void)size;
-    set_threshold(use_high ? size : (UINT64_C(1) << 20));
+    lmmp_tune_REDC_MERSENNE_CACHE_THRESHOLD = UINT64_C(1) << 20; /* 缓存不介入 */
+    set_threshold(use_high ? size : size + 1);
 }
 
-int tune_run_redc_mersenne(void) {
+int tune_run_redc_mersenne_fold(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "REDC_MERSENNE_THRESHOLD";
     spec.low_name = "redc_mul_n";
-    spec.high_name = "redc_mersenne";
-    spec.lo = 64;
-    spec.hi = 1500;
+    spec.high_name = "redc_mers_dc";
+    spec.lo = 32;
+    spec.hi = 1024;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

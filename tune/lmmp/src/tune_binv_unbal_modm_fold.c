@@ -13,7 +13,7 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 阈值调优：BINVERT_UNBALANCE_MODM_THRESHOLD
+/* 阈值调优：BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD
  *
  * 语境调优器：binvert_unbalance_ 主循环 k 更新的 mul_n vs 卷绕梅森 cache
  * （模长 next_size((2na+1)/2)≈na + 旋转载出）。k 更新每 na 块执行一次、
@@ -41,7 +41,9 @@ typedef struct {
 
 static void binv_ctx_init(binv_ctx* c, mp_size_t na) {
     c->na = na;
-    c->n = (5 * na + 3) / 4;
+    /* k 更新循环（i < n-na）需 n > 2na 才执行：n=4na 得 2 次迭代。
+       原 (5na+3)/4 形状下循环零迭代，被调路径从未执行（测得边界为噪声） */
+    c->n = 4 * na;
     c->a = (mp_ptr)lmmp_alloc((size_t)na * sizeof(mp_limb_t));
     c->dst = (mp_ptr)lmmp_alloc((size_t)(c->n + 2) * sizeof(mp_limb_t));
     tune_fill_limbs(c->a, na, UINT64_C(0x84c56a10b2f1132c));
@@ -72,18 +74,19 @@ static void* make_ctx(uint64_t size, int use_high) {
     return c;
 }
 
-/* 真实选择：na >= 阈值 → 卷绕梅森。测量点 size=na：低路 size+1，高路 size。 */
+/* 钉死 BINVERT_UNBALANCE_MODM 使缓存不介入，量朴素 vs dc */
 static void apply_path(uint64_t size, int use_high) {
+    lmmp_tune_BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD = UINT64_C(1) << 20; /* 缓存不介入 */
     set_threshold(use_high ? size : size + 1);
 }
 
-int tune_run_binv_unbal_modm(void) {
+int tune_run_binv_unbal_modm_fold(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "BINVERT_UNBALANCE_MODM_THRESHOLD";
     spec.low_name = "binv_k_mul_n";
     spec.high_name = "binv_k_mersenne";
-    spec.lo = 100;
+    spec.lo = 32;
     spec.hi = 2048;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
