@@ -85,13 +85,9 @@ static void free_ctx(void* v) {
 }
 
 static void apply_path(uint64_t size, int use_high) {
-    if (use_high) {
-        lmmp_tune_REDC_MERSENNE_THRESHOLD = 1; /* 朴素档不介入，高路=缓存 */
-        set_threshold(size);
-    } else {
-        lmmp_tune_REDC_MERSENNE_THRESHOLD = size + 1; /* 低路=朴素 */
-        set_threshold(size + 1);
-    }
+    /* fold 档恒启用：本驱动量 fold（非缓存梅森）vs cache，与 low_name 语义一致 */
+    lmmp_tune_REDC_MERSENNE_THRESHOLD = 1;
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_redc_mersenne_cache(void) {

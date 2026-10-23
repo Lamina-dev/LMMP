@@ -57,14 +57,20 @@ static void free_ctx(void* v) {
     }
 }
 
+/* 递归入口仅对偶数 rn 生效（奇数 rn 恒走基例，两路同码无区分度），样本向上取偶 */
+static uint64_t map_size(uint64_t raw) { return raw + (raw & 1u); }
+
 static void* make_ctx(uint64_t size, int use_high) {
     (void)use_high;
     mulm_ctx* c = (mulm_ctx*)lmmp_alloc(sizeof(mulm_ctx));
-    if (c != NULL) mulm_ctx_init(c, (mp_size_t)size);
+    if (c != NULL) mulm_ctx_init(c, (mp_size_t)map_size(size));
     return c;
 }
 
-static void apply_path(uint64_t size, int use_high) { set_threshold(use_high ? size : size + 1); }
+static void apply_path(uint64_t size, int use_high) {
+    uint64_t rn = map_size(size);
+    set_threshold(use_high ? rn : rn + 1);
+}
 
 int tune_run_mul_mersenne_dc(void) {
     tune_1d_spec_t spec;
@@ -81,5 +87,6 @@ int tune_run_mul_mersenne_dc(void) {
     spec.make_ctx = make_ctx;
     spec.free_ctx = free_ctx;
     spec.bench = bench_mers;
+    spec.map_size = map_size;
     return tune_run_1d(&spec);
 }

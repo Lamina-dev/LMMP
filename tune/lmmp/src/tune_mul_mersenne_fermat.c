@@ -61,11 +61,17 @@ static void free_ctx(void* v) {
 static void* make_ctx(uint64_t size, int use_high) {
     (void)use_high;
     mulm_ctx* c = (mulm_ctx*)lmmp_alloc(sizeof(mulm_ctx));
-    if (c != NULL) mulm_ctx_init(c, 2 * (mp_size_t)size);
+    if (c != NULL) mulm_ctx_init(c, 2 * lmmp_fft_next_size_((mp_size_t)size));
     return c;
 }
 
-static void apply_path(uint64_t size, int use_high) { set_threshold(use_high ? size : size + 1); }
+/* 半尺寸吸附 fft 可行尺寸：未对齐的 n 高路会静默回落 subfold，测不到 fermat */
+static uint64_t map_size(uint64_t raw) { return (uint64_t)lmmp_fft_next_size_((mp_size_t)raw); }
+
+static void apply_path(uint64_t size, int use_high) {
+    uint64_t n = map_size(size);
+    set_threshold(use_high ? n : n + 1);
+}
 
 int tune_run_mul_mersenne_fermat(void) {
     tune_1d_spec_t spec;
@@ -82,5 +88,6 @@ int tune_run_mul_mersenne_fermat(void) {
     spec.make_ctx = make_ctx;
     spec.free_ctx = free_ctx;
     spec.bench = bench_mers;
+    spec.map_size = map_size;
     return tune_run_1d(&spec);
 }

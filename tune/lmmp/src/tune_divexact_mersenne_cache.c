@@ -85,13 +85,9 @@ static void* make_ctx(uint64_t size, int use_high) {
 /* 真实选择：dn >= 阈值 → 梅森 cache。测量点 size=dn：
  * 低路（toom）设 size+1，高路（梅森）设 size。 */
 static void apply_path(uint64_t size, int use_high) {
-    if (use_high) {
-        lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD = 1; /* 朴素档不介入，高路=缓存 */
-        set_threshold(size);
-    } else {
-        lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD = size + 1; /* 低路=朴素 */
-        set_threshold(size + 1);
-    }
+    /* fold 档恒启用：本驱动量 fold（非缓存梅森）vs cache，与 low_name 语义一致 */
+    lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD = 1;
+    set_threshold(use_high ? size : size + 1);
 }
 
 int tune_run_divexact_mersenne_cache(void) {
