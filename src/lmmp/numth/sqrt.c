@@ -285,7 +285,7 @@ void lmmp_invsqrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
         mp_ptr dp = xp + 2 * nr + 1, dip = xp + nr + 1;
         int cmod;  // 1=mod b^mn-1, 0=mod b^(naz+nr+1)
         int sign;  // 1:d<0, 0:d>=0
-        mn = lmmp_fft_next_size_(nres);
+        mn = lmmp_mersenne_next_size_(nres);
 
         // ir^2
         if (2 * SQRT_NEWTON_MODM_THRESHOLD + mn >= nr * 2 + 1) {

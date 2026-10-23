@@ -38,7 +38,7 @@
          n 次 addmul_1 逐 limb 消零（q_j = up[0]*ninv1 mod B），成本约一次
          basecase 乘法，且只需单 limb 逆元（其 clobber 输入的特性见各调用点）；
       2. 全积取高半：lmmp_mul_n_ 后读高 n limb（中尺寸段）；
-      3. 梅森折叠（n >= REDC_MERSENNE_THRESHOLD）：由于 (q*m) mod B^n
+      3. 梅森折叠（n >= REDC_MERSENNE_CACHE_THRESHOLD）：由于 (q*m) mod B^n
          = -t_lo mod B^n 是已知量 L，与 binvert_mulhi_ 同构——先算 V = q*m
          mod (B^msz-1)（msz 为 admissible 尺寸，模数 m 一侧的变换全程缓存
          复用），从 V 中减去 L 后旋转载出高半。两操作数均 < B^n 保证
@@ -68,7 +68,8 @@ typedef struct {
     mp_srcptr m;     /* 模数 */
     mp_ptr ninv;     /* -m^(-1) mod B^n（basecase 层不使用，为 NULL） */
     mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用）              */
-    int fold;        /* n >= REDC_MERSENNE_THRESHOLD 时走梅森折叠     */
+    int fold;        /* 折叠模式：2=梅森缓存(fft)，1=梅森分发(不缓存)，0=朴素全积 */
+
     mp_size_t msz;   /* 折叠尺寸（fold 时有效）                        */
     mp_ptr one;      /* [n] B^n mod m（蒙域 1，无 anchors 档为 NULL） */
     mp_ptr m1;       /* [n] m - one（蒙域 -1，无 anchors 档为 NULL）  */
@@ -92,7 +93,12 @@ typedef struct {
  */
 static inline mp_size_t lmmp_mont_need_(mp_size_t n, int anchors) {
     if (n < REDC_BASECASE_THRESHOLD) return anchors ? 2 * n : 0;
-    if (n >= REDC_MERSENNE_THRESHOLD) return 6 * n + lmmp_fft_next_size_((2 * n + 1) >> 1) + (anchors ? 2 * n : 0);
+    if (n >= REDC_MERSENNE_THRESHOLD) {
+        mp_size_t msz = n >= REDC_MERSENNE_CACHE_THRESHOLD
+                      ? lmmp_fft_next_size_((2 * n + 1) >> 1)      /* 缓存档：仅 fft 尺寸可用 */
+                      : lmmp_mersenne_next_size_((2 * n + 1) >> 1); /* 分发档：细粒度低 padding */
+        return 6 * n + msz + (anchors ? 2 * n : 0);
+    }
     return 6 * n + (anchors ? 2 * n : 0);
 }
 
@@ -214,8 +220,9 @@ static inline void lmmp_mont_init_(
 ) {
     mc->n = n;
     mc->m = mp;
-    mc->fold = n >= REDC_MERSENNE_THRESHOLD;
-    mc->msz = mc->fold ? lmmp_fft_next_size_((2 * n + 1) >> 1) : 0;
+    mc->fold = n >= REDC_MERSENNE_CACHE_THRESHOLD ? 2 : (n >= REDC_MERSENNE_THRESHOLD ? 1 : 0);
+    mc->msz = mc->fold == 2 ? lmmp_fft_next_size_((2 * n + 1) >> 1)
+            : mc->fold == 1 ? lmmp_mersenne_next_size_((2 * n + 1) >> 1) : 0;
     mc->mcache_on = 0;
     mc->ncache_on = 0;
     if (mc->fold)

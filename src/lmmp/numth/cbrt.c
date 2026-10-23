@@ -643,7 +643,7 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
         i' 的低位 [dstis-na, dstis-nr) <- dip[4*nr-na, 3*nr)，
         边界 limb dip[3*nr] 经 inc_1/dec_1 并入 [dstis-nr] 处。
 
-    梅森变换（mod B^mn-1, mn = lmmp_fft_next_size_(nres), nres = naz+2*nr+2）：
+    梅森变换（mod B^mn-1, mn = lmmp_mersenne_next_size_(nres), nres = naz+2*nr+2）：
         ir^3*an 高于 B^mn 的部分对 i' 无影响（|d| < 16*B^(naz+2*nr) << B^mn，
         残差信息全部保存在模的低 nres 个 limb 内），故 an*ir^3 的三次乘链
         （ir^2 -> *an -> *ir）均可用模乘截断计算。dp 折叠回 -d (mod B^mn-1)
@@ -730,7 +730,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
         mp_size_t naz = LMMP_MIN(na, namax);
         mp_size_t nres = naz + 2 * nr + 2;
         mp_size_t nsqr;
-        mn = lmmp_fft_next_size_(nres);
+        mn = lmmp_mersenne_next_size_(nres);
 
         // 梅森链需 mn 显著小于精确链的最大中间尺寸 3*nr+2（节省立方的完整
         // 展开），且模折叠加法偏移 naz+3*nr-mn >= 0

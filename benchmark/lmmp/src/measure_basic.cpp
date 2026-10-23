@@ -76,7 +76,26 @@ MEASURE_CASE("lmmpn/mul", mul_mersenne) {
     File f("mul_mersenne");
     for (mp_size_t i = 10; i <= n; i += 2) {
         rn = lmmp_fft_next_size_(i);
-        auto m = measure([&] { lmmp_mul_mersenne_(d, rn, a, i, b, i); }, i, 8);
+        auto m = measure([&] { lmmp_mul_mersenne_fft_(d, rn, a, i, b, i); }, i, 8);
+        write(f, m);
+        progress_bar(i, n, 40, "    Measuring");
+    }
+    printf("    Done\n");
+    lmmp_free(a); lmmp_free(b); lmmp_free(d);
+}
+
+MEASURE_CASE("lmmpn/mul", mul_mersenne_dc) {
+    const mp_size_t n = 2000;
+    mp_size_t rn = lmmp_mersenne_next_size_(n);
+    mp_ptr a = alloc_limbs(n);
+    mp_ptr b = alloc_limbs(n);
+    mp_ptr d = alloc_limbs(rn);
+    fill_random(a, n, 0x120e3489bceull);
+    fill_random(b, n, 0x92cab543221ull);
+    File f("mul_mersenne_dc");
+    for (mp_size_t i = 10; i <= n; i += 2) {
+        rn = lmmp_mersenne_next_size_(i);
+        auto m = measure([&] { lmmp_mul_mersenne_dc_(d, rn, a, i, b, i); }, i, 8);
         write(f, m);
         progress_bar(i, n, 40, "    Measuring");
     }

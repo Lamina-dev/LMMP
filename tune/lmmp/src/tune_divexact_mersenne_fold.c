@@ -13,12 +13,8 @@
  *  See <https://www.gnu.org/licenses/>.
  */
 
-/* 阈值调优：DIVEXACT_MERSENNE_THRESHOLD
- *
- * 语境调优器：mu 主积的 toom 阶梯 vs 无卷绕梅森 cache（dp 变换缓存）之争
- * 依赖块结构（缓存摊薄），孤立乘积函数测量不适用，故直接以多块
- * lmmp_divexact_ 黑盒为被测对象，固定 nn = 4*dn+1（约 3-4 块）扫描 dn。
- */
+/* 阈值调优：DIVEXACT_MERSENNE_THRESHOLD（mu 主积：朴素直乘 vs 梅森分发不缓存）
+ * 以 lmmp_divexact_ nn=4dn+1 黑盒测量；钉死 DIVEXACT_MERSENNE 使缓存不介入 */
 
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
@@ -85,16 +81,17 @@ static void* make_ctx(uint64_t size, int use_high) {
 /* 真实选择：dn >= 阈值 → 梅森 cache。测量点 size=dn：
  * 低路（toom）设 size+1，高路（梅森）设 size。 */
 static void apply_path(uint64_t size, int use_high) {
+    lmmp_tune_DIVEXACT_MERSENNE_CACHE_THRESHOLD = UINT64_C(1) << 20; /* 缓存不介入 */
     set_threshold(use_high ? size : size + 1);
 }
 
-int tune_run_divexact_mersenne(void) {
+int tune_run_divexact_mersenne_fold(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "DIVEXACT_MERSENNE_THRESHOLD";
     spec.low_name = "divexact_mu_toom";
     spec.high_name = "divexact_mu_mersenne";
-    spec.lo = 300;
+    spec.lo = 32;
     spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;

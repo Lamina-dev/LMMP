@@ -129,7 +129,7 @@ void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
     lmmp_fft_memstack_(&msr, 0);
 }
 
-void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
+void lmmp_sqr_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
     mp_size_t N = rn * LIMB_BITS;
     mp_size_t k = lmmp_fft_best_k_(rn);
     mp_size_t K = ((mp_size_t)1) << k;
@@ -213,7 +213,7 @@ void lmmp_sqr_fft_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {
     lmmp_debug_assert(na <= hn);
     mp_ptr tp = ALLOC_TYPE(hn + 1, mp_limb_t);
 
-    lmmp_sqr_mersenne_(dst, hn, numa, na);
+    lmmp_sqr_mersenne_fft_(dst, hn, numa, na);
     lmmp_sqr_fermat_(tp, hn, numa, na);
 
     mp_limb_t cy = lmmp_shr1add_nc_(dst, dst, tp, hn, tp[hn]);

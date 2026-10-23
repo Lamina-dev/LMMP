@@ -174,7 +174,7 @@ void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp
     lmmp_fft_memstack_(&msr, 0);
 }
 
-void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
+void lmmp_mul_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb) {
     const int nsqr = 1;
     mp_size_t N = rn * LIMB_BITS;         // 结果总比特数
     mp_size_t k = lmmp_fft_best_k_(rn);   // 最优FFT层数
@@ -620,7 +620,7 @@ static void lmmp_mul_fft_mods_(
         amodm = dst;
         nam = hn;
     }
-    lmmp_mul_mersenne_(dst, hn, amodm, nam, numb, nb);
+    lmmp_mul_mersenne_fft_(dst, hn, amodm, nam, numb, nb);
 
     mp_srcptr amodp = numa;
     mp_size_t nap = na;

@@ -168,7 +168,10 @@ void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_t* restr
         lmmp_mul_n_(mc->mulhi, mc->q, mc->m, n);
         hi = mc->mulhi + n;
     } else {
-        if (mc->mcache_on == 0) {
+        if (mc->fold == 1) {
+            /* 中档：分发入口不缓存（小尺寸 dc 主导） */
+            lmmp_mul_mersenne_(mc->V, mc->msz, mc->q, n, mc->m, n);
+        } else if (mc->mcache_on == 0) {
             lmmp_mul_mersenne_cache_init_(mc->V, mc->msz, mc->q, n, mc->m, n, &mc->mcache);
             mc->mcache_on = 1;
         } else {
@@ -233,7 +236,7 @@ mp_limb_t lmmp_redc_(
         lmmp_mul_n_(prod, q, mp, n);
         hi = prod + n;
     } else {
-        mp_size_t msz = lmmp_fft_next_size_((2 * n + 1) >> 1);
+        mp_size_t msz = lmmp_mersenne_next_size_((2 * n + 1) >> 1);
         lmmp_debug_assert(2 * n > msz && msz >= n);
         mp_ptr restrict V = TALLOC_TYPE(msz, mp_limb_t);
         mp_ptr restrict L = TALLOC_TYPE(n, mp_limb_t);
