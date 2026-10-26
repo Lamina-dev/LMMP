@@ -85,7 +85,8 @@ ctest --test-dir build --output-on-failure
 
 ```
 LMMP/                       # 项目根目录
-├── LICENSE                 # 许可证文件
+├── COPYING                 # GPL-3.0 许可证全文
+├── COPYING.LESSER          # LGPL-3.0 许可证全文
 ├── README.md               # README
 ├── CMakeLists.txt          # 根目录CMake（全局配置：构建类型、C/C++标准、输出目录等）
 ├── dist/                   # 编译产物根目录（自动生成，存放所有库和可执行文件）

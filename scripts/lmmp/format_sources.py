@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+#  Copyright (C) 2026 HJimmyK (Jericho Knox)
+#
+#  This file is part of LMMP.
+#
+#  LMMP is free software: you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as
+#  published by the Free Software Foundation; either version 3 of
+#  the License, or (at your option) any later version.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, see
+#  <https://www.gnu.org/licenses/>.
+#
+#  SPDX-License-Identifier: LGPL-3.0-or-later
 """LMMP source formatter.
 
 Rules applied to every tracked/staged text file:
@@ -21,7 +40,7 @@ Rules applied to every tracked/staged text file:
 Line endings are preserved per line (LF or CRLF), the encoding is
 round-tripped through utf-8 with surrogate escapes, and binary files
 (containing NUL bytes) are skipped.  Files and directories listed in
-EXEMPT_PATHS (repository-relative, e.g. 'LICENSE') are never touched.
+EXEMPT_PATHS (repository-relative, e.g. 'COPYING') are never touched.
 
 Usage:
   python scripts/lmmp/format_sources.py                 # format all tracked
@@ -50,9 +69,10 @@ TAB_EXEMPT_EXTS = {'.mk'}
 # with forward slashes) that are never formatted.  A directory pattern
 # covers everything inside it, and glob patterns ('*.md', 'dist/*') work
 # as well.  Paths are matched relative to the repository root, e.g.
-# 'LICENSE', 'doc/', 'test/fixtures'.
+# 'COPYING', 'doc/', 'test/fixtures'.
 EXEMPT_PATHS = {
-    'LICENSE',
+    'COPYING',
+    'COPYING.LESSER',
 }
 
 MAX_FILE_SIZE = 16 * 1024 * 1024
