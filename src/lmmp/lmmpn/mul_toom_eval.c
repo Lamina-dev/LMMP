@@ -171,3 +171,86 @@ int lmmp_toom_eval_pm2_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_siz
 }
 
 #undef DO_addlsh2
+
+int lmmp_toom_eval_pm2exp_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_size_t n, mp_size_t hn, unsigned shift, mp_ptr tp) {
+    unsigned i;
+    int neg;
+    mp_limb_t cy;
+
+    lmmp_param_assert(k >= 3);
+    lmmp_param_assert(k * shift < LIMB_BITS);
+    lmmp_param_assert(hn > 0);
+    lmmp_param_assert(hn <= n);
+
+    /* k 次多项式（k 个完整段 + hn 长尾段）在 x = ±2^shift 处求值：
+     * 偶下标系数和进 xp2（k 偶时含尾段），奇下标进 tp（k 奇时含尾段），
+     * 点值和/差经 add_n_sub_n 一次分离，返回差半边的符号。 */
+
+    lmmp_copy(xp2, xp, n);
+    xp2[n] = 0;
+    for (i = 2; i < k; i += 2)
+        xp2[n] += lmmp_addmul_1_(xp2, xp + i * n, n, (mp_limb_t)1 << (i * shift));
+    if ((k & 1) == 0) {
+        cy = lmmp_addmul_1_(xp2, xp + k * n, hn, (mp_limb_t)1 << (k * shift));
+        lmmp_inc_1(xp2 + hn, cy);
+    }
+
+    tp[n] = lmmp_shl_(tp, xp + n, n, shift);
+    for (i = 3; i < k; i += 2)
+        tp[n] += lmmp_addmul_1_(tp, xp + i * n, n, (mp_limb_t)1 << (i * shift));
+    if (k & 1) {
+        cy = lmmp_addmul_1_(tp, xp + k * n, hn, (mp_limb_t)1 << (k * shift));
+        lmmp_inc_1(tp + hn, cy);
+    }
+
+    lmmp_debug_assert((k + 1) * shift >= LIMB_BITS || xp2[n] < (((mp_limb_t)1 << ((k + 1) * shift)) - 1) / (((mp_limb_t)1 << shift) - 1));
+
+    neg = (lmmp_cmp_(xp2, tp, n + 1) < 0) ? ~0 : 0;
+
+    if (neg)
+        lmmp_add_n_sub_n_(xp2, xm2, tp, xp2, n + 1);
+    else
+        lmmp_add_n_sub_n_(xp2, xm2, xp2, tp, n + 1);
+
+    return neg;
+}
+
+int lmmp_toom_eval_pm2rexp_(mp_ptr rp, mp_ptr rm, unsigned q, mp_srcptr ap, mp_size_t n, mp_size_t t, unsigned s, mp_ptr ws) {
+    unsigned i;
+    int neg;
+    mp_limb_t cy;
+
+    lmmp_param_assert(n >= t);
+    lmmp_param_assert(t > 0);
+    lmmp_param_assert(s != 0); /* s==0 时应改用 eval_pm1 */
+    lmmp_param_assert(q > 1);
+    lmmp_param_assert(q * s < LIMB_BITS);
+
+    /* q 次多项式（q 个完整段 + t 长尾段）在 x = ±1/2^s 处求值，结果放大
+     * 2^(s*q)：第 i 段权重 2^(s*(q-i))，即倒序多项式在 2^s 处的点值。
+     * 偶下标和进 rp（q 偶时含尾段），奇下标进 ws（q 奇时含尾段）。 */
+
+    rp[n] = lmmp_shl_(rp, ap, n, s * q);
+    ws[n] = lmmp_shl_(ws, ap + n, n, s * (q - 1));
+    if (q & 1) {
+        cy = lmmp_add_(ws, ws, n + 1, ap + n * q, t);
+        lmmp_debug_assert(cy == 0);
+        rp[n] += lmmp_addmul_1_(rp, ap + n * (q - 1), n, (mp_limb_t)1 << s);
+    } else {
+        cy = lmmp_add_(rp, rp, n + 1, ap + n * q, t);
+        lmmp_debug_assert(cy == 0);
+    }
+    for (i = 2; i + 1 < q; i += 2) {
+        rp[n] += lmmp_addmul_1_(rp, ap + n * i, n, (mp_limb_t)1 << (s * (q - i)));
+        ws[n] += lmmp_addmul_1_(ws, ap + n * (i + 1), n, (mp_limb_t)1 << (s * (q - i - 1)));
+    }
+
+    neg = (lmmp_cmp_(rp, ws, n + 1) < 0) ? ~0 : 0;
+
+    if (neg)
+        lmmp_add_n_sub_n_(rp, rm, ws, rp, n + 1);
+    else
+        lmmp_add_n_sub_n_(rp, rm, rp, ws, n + 1);
+
+    return neg;
+}

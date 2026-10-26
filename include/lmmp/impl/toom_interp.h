@@ -133,4 +133,95 @@ int lmmp_toom_eval_pm1_(mp_ptr xp1, mp_ptr xm1, unsigned k, mp_srcptr xp, mp_siz
  */
 int lmmp_toom_eval_pm2_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_size_t n, mp_size_t hn, mp_ptr tp);
 
+/**
+ * @brief 通用高阶 Toom 求值：k次多项式在 x = +2^shift 和 x = -2^shift 处求值
+ *        （toom6h 的 ±4 / toom8h 的 ±4、±8 点）
+ * @param xp2 输出：P(+2^shift) 的结果（n+1 limbs）
+ * @param xm2 输出：P(-2^shift) 的结果（n+1 limbs）；求值过程中亦作暂存
+ * @param k 输入：多项式次数（完整段数）
+ * @param xp 输入：多项式系数数组（k 个 n 长段 + 1 个 hn 长尾段）
+ * @param n 输入：每段完整系数的 limb 长度
+ * @param hn 输入：最后一段系数的实际长度
+ * @param shift 输入：2 的幂指数（1<=shift，且 k*shift < LIMB_BITS）
+ * @param tp 临时缓存空间（n+1 limbs）
+ * @warning 0<hn<=n, 3<=k, k*shift<LIMB_BITS, sep(xp2,[xp|tp]), sep(xm2,[xp|tp])
+ * @return 符号位：0=正，~0=负（对应 P(-2^shift)）
+ */
+int lmmp_toom_eval_pm2exp_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_size_t n, mp_size_t hn, unsigned shift, mp_ptr tp);
+
+/**
+ * @brief 通用高阶 Toom 求值：q次多项式在 x = +1/2^s 和 x = -1/2^s 处求值，
+ *        结果放大 2^(s*q)（toom6h 的 ±1/2、±1/4 / toom8h 的 ±1/2、±1/4、±1/8 点）
+ * @param rp 输出：2^(s*q)*P(+1/2^s) 的结果（n+1 limbs）
+ * @param rm 输出：2^(s*q)*P(-1/2^s) 的结果（n+1 limbs）
+ * @param q 输入：多项式次数（完整段数）
+ * @param ap 输入：多项式系数数组（q 个 n 长段 + 1 个 t 长尾段）
+ * @param n 输入：每段完整系数的 limb 长度
+ * @param t 输入：最后一段系数的实际长度
+ * @param s 输入：2 的幂指数（s!=0，且 q*s < LIMB_BITS）
+ * @param ws 临时缓存空间（n+1 limbs）
+ * @warning 0<t<=n, 1<q, sep(rp,[ap|ws]), sep(rm,[ap|ws])
+ * @return 符号位：0=正，~0=负（对应 P(-1/2^s)）
+ */
+int lmmp_toom_eval_pm2rexp_(mp_ptr rp, mp_ptr rm, unsigned q, mp_srcptr ap, mp_size_t n, mp_size_t t, unsigned s, mp_ptr ws);
+
+/**
+ * @brief Toom ± 点对配对混合：一次完成和/差半边的右移缩放与重叠拼回
+ *        （toom6h/8h 各评估点对的两个 (n+1) 位乘积的后处理）
+ * 输入 {pp,n} 与 (nsign ? -{np,n} : {np,n})，计算：
+ *   {np,n} <- ({pp,n}+{np,n})/2^(ns+1)（和半边，供奇系数插值）
+ *   {pp,n} <- ({pp,n}-{np,n})/2^(ps+1)（差半边，供偶系数）
+ * 最后 {pp,n+off} <- {pp,n} + {np,n}*B^off
+ * @param pp 输入/输出：正点值乘积（容量 n+off+1 limbs）
+ * @param n 有效数据长度
+ * @param np 输入/输出：负点值乘积（容量 n limbs）
+ * @param nsign np 的符号（非 0 表示 np 存的是负值）
+ * @param off 拼回偏移（limb 数，0<=off<n）
+ * @param ps 和半边附加右移位数
+ * @param ns 差半边附加右移位数
+ * @warning 0<=off<n, ps>=0, ns>=0, pp/np 数据低 ps+1/ns+1 位保证为 0
+ */
+void lmmp_toom_couple_handling_(mp_ptr pp, mp_size_t n, mp_ptr np, int nsign, mp_size_t off, int ps, int ns);
+
+/**
+ * @brief Toom插值计算（12点插值）：用于 Toom-6.5（toom6h/toom6 平方）乘法
+ *        评估点：inf(仅 half), ±4, ±2, ±1, ±1/2, ±1/4, 0
+ * @param dst 结果缓冲区（half ? 11n+spt : 10n+spt limbs）
+ *            r8=f(0) 在 [dst,2n]，r6 在 [dst+3n,3n+1]，
+ *            r4 在 [dst+7n,3n+1]，r0 在 [dst+11n,spt]
+ * @param r1 输入/临时：±8...±4 点对混合后的奇系数（3n+1 limbs）
+ * @param r3 输入/临时：±1 点对（3n+1 limbs）
+ * @param r5 输入/临时：±1/2 点对（3n+1 limbs）
+ * @param n 每段标准 limb 长度
+ * @param spt 顶部系数 r0 的长度（0<spt<=2n）
+ * @param half 非零表示乘积多项式次数为奇（需要 inf 点，r0 有效）
+ * @param tp 临时缓存（3n+1 limbs）
+ * @note r1=f(±4), r2=f(±2), r3=f(±1), r4=f(±1/4), r5=f(±1/2)；
+ *       各 ± 点对须先经 lmmp_toom_couple_handling_ 混合；负中间值以
+ *       补码存放，输入被破坏
+ * @warning n>0, 0<spt<=2n, sep(tp,[dst|r1|r3|r5])
+ */
+void lmmp_toom_interp12_(mp_ptr dst, mp_ptr r1, mp_ptr r3, mp_ptr r5, mp_size_t n, mp_size_t spt, int half, mp_ptr tp);
+
+/**
+ * @brief Toom插值计算（16点插值）：用于 Toom-8.5（toom8h/toom8 平方）乘法
+ *        评估点：inf(仅 half), ±8, ±4, ±2, ±1, ±1/2, ±1/4, ±1/8, 0
+ * @param dst 结果缓冲区（half ? 15n+spt : 14n+spt limbs）
+ *            r8=f(0) 在 [dst,2n]，r6 在 [dst+3n,3n+1]，r4 在 [dst+7n,3n+1]，
+ *            r2 在 [dst+11n,3n+1]，r0 在 [dst+15n,spt]
+ * @param r1 输入/临时：±8 点对混合后的奇系数（3n+1 limbs）
+ * @param r3 输入/临时：±2 点对（3n+1 limbs）
+ * @param r5 输入/临时：±1/4 点对（3n+1 limbs）
+ * @param r7 输入/临时：±1/8 点对（3n+1 limbs）
+ * @param n 每段标准 limb 长度
+ * @param spt 顶部系数 r0 的长度（0<spt<=2n）
+ * @param half 非零表示乘积多项式次数为奇（需要 inf 点，r0 有效）
+ * @param tp 临时缓存（3n+1 limbs）
+ * @note r1=f(±8), r2=f(±4), r3=f(±2), r4=f(±1), r5=f(±1/4), r6=f(±1/2),
+ *       r7=f(±1/8)；各 ± 点对须先经 lmmp_toom_couple_handling_ 混合；
+ *       负中间值以补码存放，输入被破坏
+ * @warning n>0, 0<spt<=2n, sep(tp,[dst|r1|r3|r5|r7])
+ */
+void lmmp_toom_interp16_(mp_ptr dst, mp_ptr r1, mp_ptr r3, mp_ptr r5, mp_ptr r7, mp_size_t n, mp_size_t spt, int half, mp_ptr tp);
+
 #endif // __LMMP_TOOM_INTERP_H__

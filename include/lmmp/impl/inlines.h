@@ -132,8 +132,12 @@ static inline void __lmmp_mul_n_(mp_ptr restrict dst, mp_srcptr restrict numa, m
         lmmp_mul_toom22_(dst, numa, n, numb, n);
     else if (n < MUL_TOOM44_THRESHOLD)
         lmmp_mul_toom33_(dst, numa, n, numb, n);
-    else if (n < MUL_FFT_THRESHOLD)
+    else if (n < MUL_TOOM6H_THRESHOLD)
         lmmp_mul_toom44_(dst, numa, n, numb, n);
+    else if (n < MUL_TOOM8H_THRESHOLD)
+        lmmp_mul_toom6h_(dst, numa, n, numb, n);
+    else if (n < MUL_FFT_THRESHOLD)
+        lmmp_mul_toom8h_(dst, numa, n, numb, n);
     else
         lmmp_mul_fft_(dst, numa, n, numb, n);
 }
@@ -145,8 +149,12 @@ static inline void __lmmp_sqr_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_
         lmmp_sqr_toom2_(dst, numa, na);
     else if (na < SQR_TOOM44_THRESHOLD)
         lmmp_sqr_toom3_(dst, numa, na);
-    else if (na < SQR_FFT_THRESHOLD)
+    else if (na < SQR_TOOM6_THRESHOLD)
         lmmp_sqr_toom4_(dst, numa, na);
+    else if (na < SQR_TOOM8_THRESHOLD)
+        lmmp_sqr_toom6_(dst, numa, na);
+    else if (na < SQR_FFT_THRESHOLD)
+        lmmp_sqr_toom8_(dst, numa, na);
     else
         lmmp_sqr_fft_(dst, numa, na);
 }

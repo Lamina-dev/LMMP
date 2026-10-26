@@ -359,6 +359,28 @@ LMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 LMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
 
 /**
+ * @brief Toom-6平方运算 [dst,2*na] = [numa,na]^2
+ *        （评估点 ±4,±2,±1,±1/2,±1/4,0，无inf点）
+ * @param dst 输出结果缓冲区，长度至少为2*na
+ * @param numa 输入操作数，长度为na
+ * @param na 输入操作数的单精度数(limb)长度
+ * @warning 26<=na, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_sqr_toom6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+
+/**
+ * @brief Toom-8平方运算 [dst,2*na] = [numa,na]^2
+ *        （评估点 ±8,±4,±2,±1,±1/2,±1/4,±1/8,0，无inf点）
+ * @param dst 输出结果缓冲区，长度至少为2*na
+ * @param numa 输入操作数，长度为na
+ * @param na 输入操作数的单精度数(limb)长度
+ * @warning 50<=na, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_sqr_toom8_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
+
+/**
  * @brief 基础乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
  * @param dst 输出结果缓冲区，长度至少为 na+nb
  * @param numa 第一个输入操作数，长度为 na
@@ -465,6 +487,34 @@ LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+
+/**
+ * @brief Toom-6.5乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
+ *        （非对称切分+条件inf点，原生支持不平衡；评估点
+ *         inf,±4,±2,±1,±1/2,±1/4,0）
+ * @param dst 输出结果缓冲区，长度至少为 na+nb
+ * @param numa 第一个输入操作数，长度为 na
+ * @param na 第一个操作数的 limb 长度
+ * @param numb 第二个输入操作数，长度为 nb
+ * @param nb 第二个操作数的 limb 长度
+ * @warning 42<=nb<=na, na*6<nb*17, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_mul_toom6h_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+
+/**
+ * @brief Toom-8.5乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
+ *        （非对称切分+条件inf点，原生支持不平衡；评估点
+ *         inf,±8,±4,±2,±1,±1/2,±1/4,±1/8,0）
+ * @param dst 输出结果缓冲区，长度至少为 na+nb
+ * @param numa 第一个输入操作数，长度为 na
+ * @param na 第一个操作数的 limb 长度
+ * @param numb 第二个输入操作数，长度为 nb
+ * @param nb 第二个操作数的 limb 长度
+ * @warning 86<=nb<=na, na<=4*nb, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_mul_toom8h_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief Toom-52乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
