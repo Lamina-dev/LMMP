@@ -34,12 +34,12 @@
 #define MAYBE_mul_toom33 (MUL_TOOM44_THRESHOLD >= 3 * MUL_TOOM33_THRESHOLD)
 #endif
 
-#define lmmp_mul_n_(dst, numa, numb, n)                     \
-    if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)    \
-        lmmp_mul_hard_n_((dst), (numa), (numb), (n));        \
+#define lmmp_mul_n_(dst, numa, numb, n)                       \
+    if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)     \
+        lmmp_mul_hard_n_((dst), (numa), (numb), (n));         \
     else if (!MAYBE_mul_toom33 || (n) < MUL_TOOM33_THRESHOLD) \
         lmmp_mul_toom22_((dst), (numa), (n), (numb), (n));    \
-    else                                                     \
+    else                                                      \
         lmmp_mul_toom33_((dst), (numa), (n), (numb), (n))
 
 /*

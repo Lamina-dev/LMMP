@@ -24,12 +24,12 @@
 #include "../../../include/lmmp/impl/toom_interp.h"
 
 
-#define DO_subrsh(dst, nd, src, ns, s)                       \
-    do {                                                     \
-        mp_limb_t __cy;                                      \
-        lmmp_dec_1((dst), (src)[0] >> (s));                  \
+#define DO_subrsh(dst, nd, src, ns, s)                                                        \
+    do {                                                                                      \
+        mp_limb_t __cy;                                                                       \
+        lmmp_dec_1((dst), (src)[0] >> (s));                                                   \
         __cy = lmmp_submul_1_((dst), (src) + 1, (ns) - 1, (mp_limb_t)1 << (LIMB_BITS - (s))); \
-        lmmp_dec_1((dst) + (ns) - 1, __cy);                  \
+        lmmp_dec_1((dst) + (ns) - 1, __cy);                                                   \
     } while (0)
 
 #define BINVERT_9_ ((mp_limb_t)0x8E38E38E38E38E39)

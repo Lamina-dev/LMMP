@@ -39,18 +39,18 @@
 #define MAYBE_mul_toom8h (MUL_FFT_THRESHOLD >= 8 * MUL_TOOM8H_THRESHOLD)
 #endif
 
-#define lmmp_mul_n_(dst, numa, numb, n)                  \
-    if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD) \
-        lmmp_mul_hard_n_((dst), (numa), (numb), (n));      \
-    else if (MAYBE_mul_toom22 && (n) < MUL_TOOM33_THRESHOLD)          \
-        lmmp_mul_toom22_((dst), (numa), (n), (numb), (n));             \
-    else if (MAYBE_mul_toom33 && (n) < MUL_TOOM44_THRESHOLD)          \
-        lmmp_mul_toom33_((dst), (numa), (n), (numb), (n));             \
-    else if (MAYBE_mul_toom44 && (n) < MUL_TOOM6H_THRESHOLD)          \
-        lmmp_mul_toom44_((dst), (numa), (n), (numb), (n));             \
-    else if (!MAYBE_mul_toom8h || (n) < MUL_TOOM8H_THRESHOLD)         \
-        lmmp_mul_toom6h_((dst), (numa), (n), (numb), (n));             \
-    else                                                              \
+#define lmmp_mul_n_(dst, numa, numb, n)                       \
+    if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)     \
+        lmmp_mul_hard_n_((dst), (numa), (numb), (n));         \
+    else if (MAYBE_mul_toom22 && (n) < MUL_TOOM33_THRESHOLD)  \
+        lmmp_mul_toom22_((dst), (numa), (n), (numb), (n));    \
+    else if (MAYBE_mul_toom33 && (n) < MUL_TOOM44_THRESHOLD)  \
+        lmmp_mul_toom33_((dst), (numa), (n), (numb), (n));    \
+    else if (MAYBE_mul_toom44 && (n) < MUL_TOOM6H_THRESHOLD)  \
+        lmmp_mul_toom44_((dst), (numa), (n), (numb), (n));    \
+    else if (!MAYBE_mul_toom8h || (n) < MUL_TOOM8H_THRESHOLD) \
+        lmmp_mul_toom6h_((dst), (numa), (n), (numb), (n));    \
+    else                                                      \
         lmmp_mul_toom8h_((dst), (numa), (n), (numb), (n))
 
 /*
