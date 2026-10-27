@@ -289,7 +289,7 @@
 #endif
 
 // 幂运算中，指数大于此值可能使用win2算法
-#define LMMP_DEFAULT_POW_WIN2_EXP_THRESHOLD 24
+#define LMMP_DEFAULT_POW_WIN2_EXP_THRESHOLD 128
 #ifdef LMMP_TUNE
 #define POW_WIN2_EXP_THRESHOLD lmmp_tune_POW_WIN2_EXP_THRESHOLD
 #else
@@ -462,8 +462,6 @@
 #define DIVEXACT_MERSENNE_THRESHOLD LMMP_DEFAULT_DIVEXACT_MERSENNE_THRESHOLD
 #endif
 // divexact mu 主循环中，使用梅森缓存变换的阈值
-// 注意：cache 驱动量的是 fold<->cache 边界（426），但本消费方 fold 档被
-// plain 支配（无卷绕模长≈积长），绑定边界为 plain<->cache 直测值
 #define LMMP_DEFAULT_DIVEXACT_MERSENNE_CACHE_THRESHOLD 1540
 #ifdef LMMP_TUNE
 #define DIVEXACT_MERSENNE_CACHE_THRESHOLD lmmp_tune_DIVEXACT_MERSENNE_CACHE_THRESHOLD
@@ -479,7 +477,7 @@
 #define MUL_MERSENNE_DC_THRESHOLD LMMP_DEFAULT_MUL_MERSENNE_DC_THRESHOLD
 #endif
 
-// 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值（GMP SQRMOD_BNM1_THRESHOLD 对应物）
+// 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值
 #define LMMP_DEFAULT_SQR_MERSENNE_DC_THRESHOLD 12
 #ifdef LMMP_TUNE
 #define SQR_MERSENNE_DC_THRESHOLD lmmp_tune_SQR_MERSENNE_DC_THRESHOLD

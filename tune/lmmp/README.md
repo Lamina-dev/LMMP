@@ -82,12 +82,14 @@ cmake --build build-tune --parallel 8
    low/high 两条路径的重复次数，再按 `A,B,A,B,...` 交替采样；每次校准批次
    和采样批次开始前都会重新执行 `apply_path(size, low/high)`，确保 A 样本
    只测 A 分支、B 样本只测 B 分支。后台负载漂移和 CPU 温漂也会同时作用于
-   两条曲线。
+   两条曲线。破坏输入的被测函数（`lmmp_div_s_`、`lmmp_factors_mul_` 等）
+   在 bench 内部每次调用前重建输入：重建费在两条路径上完全对称，
+   badness 为相对量，不影响交叉点判别。
 2. **递归叶阈值采用“单层 high”测量**：对会递归调用自身的叶阈值
-   （`MUL_TOOM22/33/44`、`MULLO_BASECASE`、`ELEM_MUL`、`DIV_DIVIDE`、
-   `BNINV_NEWTON`、`MULHI_MERSENNE`），low 设为 `size+1`，high 只设为
-   `size`。这样 high 仅强制根层进入新算法，递归子问题仍回落到旧算法，
-   避免把 high 曲线测成“无限深层递归”并系统性推大阈值。
+   （`MUL_TOOM22/33/44/6H/8H`、`SQR_TOOM22/33/44/6/8`、`MULLO_BASECASE`、
+   `ELEM_MUL`、`DIV_DIVIDE`、`BNINV_NEWTON`、`MULHI_MERSENNE`），low 设为
+   `size+1`，high 只设为 `size`。这样 high 仅强制根层进入新算法，递归子问题
+   仍回落到旧算法，避免把 high 曲线测成“无限深层递归”并系统性推大阈值。
 3. **中位数 + MAD 复核**：每个采样点默认 7 或 9 次重复，排序后取中位数；
    若 `MAD/median` 超过阈值则整轮重测。中位数本身不受少数极慢/极快样本主导。
 4. **密集样本点**：小范围逐整数，大范围按 1.06 几何步进，并在旧默认值附近
@@ -113,35 +115,56 @@ cmake --build build-tune --parallel 8
    `2^(k_i-6)` 的倍数）→ 以“总相对耗时 + 跳跃惩罚”做边界局部搜索；
    最后新旧表全网格交替测量，输出可直接粘贴回 `fft_ssa.c` 的 C 表。
    结果不写回源文件（表位于 `fft_ssa.c` 而非 `mparam.h`），需人工应用。
+9. **模块间阈值隔离**：模块的 `apply_path`/`bench` 常为强制路径改写兄弟
+   阈值（如把缓存阈值钉到 `1<<20`）且大多不自行恢复。驱动在每个模块
+   结束后按 `lmmp_tune_params.c` 的登记表回滚全部阈值变量，仅保留该模块
+   记录为调优结果的宏，杜绝泄漏值污染后续模块的测量。
+10. **嵌套梯子的 cache 边界**：`DIVEXACT_MERSENNE_CACHE`、
+    `BINVERT_UNBALANCE_MODM_CACHE`、`REDC_MERSENNE_CACHE` 的低路不再强制
+    fold 档，而是把 cache 阈值钉到不可达、让真实梯子（plain|fold 按当前
+    运行时值分发）参赛——部署中 cache 阈值之下走的就是这条梯子，强制
+    fold 会把交叉点系统性测低（fold↔cache 早于 min(plain,fold)↔cache）。
 
 ## 当前接入的阈值
 
 `--list` 输出全部模块。旧名称仍作为别名保留：`mul22`、`mul33`、`mul44`、
 `mullo`、`npr_ushort`、`npr_uint`、`ncr`、`pow1`、`elem`、`bninv`。
 
-覆盖范围为 `mparam.h` 中全部 39 个 `LMMP_TUNE` 运行时阈值：
+覆盖 `mparam.h` 中 63 个 `LMMP_TUNE` 运行阈值中的 57 个（54 个模块，
+其中 fft_table 为表驱动；permutation/binomial_div/cbrt 模块各覆盖 2 个阈值）：
 
-- 乘法/低位乘法：`MUL_TOOM22/33/44`、`SQR_TOOM22/33/44`、`MUL_FFT`、`SQR_FFT`、
-  `MUL_UNBALANCED_HARD`、`MULLO_BASECASE`、`MULLO_DC`、`MUL_FFT_MODF`、`MULHI_MERSENNE`
+- 乘法/平方梯子：`MUL_TOOM22/33/44/6H/8H`、`SQR_TOOM22/33/44/6/8`、
+  `MUL_FFT`、`SQR_FFT`（相邻层 lo/hi 互夹，保证梯子严格有序）
+- 不平衡/低位乘法：`MUL_UNBALANCED_HARD`、`MULLO_BASECASE`、`MULLO_DC`、
+  `MUL_FFT_MODF`、`MULHI_MERSENNE`
+- 梅森族：`MUL/SQR_MERSENNE_DC`、`MUL/SQR_MERSENNE_FFT`、
+  `MUL/SQR_MERSENNE_FERMAT`、`DIVEXACT_MERSENNE(_CACHE)`、
+  `BINVERT_UNBALANCE_MODM(_CACHE)`、`REDC_MERSENNE(_CACHE)`、
+  `HGCD_MODMUL_CACHE`
 - 除法/逆元/开方：`DIV_DIVIDE`、`BNINV_NEWTON`、`SQRT_INVNEWTON_K`、
-  `CBRT_INVNEWTON_K`、`CBRT_INVNEWTON_NF_MIN`（后者为 AND 复合切换的
-  nf 下限，与 K 在同一 `cbrt_invnewton` 模块内分段隔离调优）
+  `CBRT_INVNEWTON_K`、`CBRT_INVNEWTON_NF_MIN`（AND 复合切换，同模块分段
+  隔离调优）
 - 字符串转换：`TO_STR_DIVIDE/BASEPOW`、`FROM_STR_DIVIDE/BASEPOW`
-- 数论组合：`PERMUTATION_USHORT_K/B`、`PERMUTATION_UINT_K/B`、
-  `BINOMIAL_RN_BASECASE`、`BINOMIAL_DIV_K/B`、`ELEM_MUL_BASECASE`、
-  `FACTORS_MUL_N`
+- 数论组合：`PERMUTATION_USHORT/UINT_K/B`、`BINOMIAL_RN_BASECASE`、
+  `BINOMIAL_DIV_K/B`、`ELEM_MUL_BASECASE`、`FACTORS_MUL_N`
 - 幂：`POW_1_EXP`、`POW_WIN2_EXP`、`POW_WIN2_N`
 - 精确除法：`DIVEXACT_BASECASE`、`DIVEXACT_NN`
-- 2x2 矩阵：`MAT22_MUL_STRASSEN`、`MAT22_SQR_STRASSEN`
+- 2x2 矩阵：`MAT22_MUL/SQR_STRASSEN`
+- 其他：`GCD_HGCD`
 - 表驱动：`fft_table`（`lmmp_fft_table_`，FFT 分裂层数 k 的规模查找表）
+
+尚未接入模块的 6 个阈值：`INV_MODM`、`DIV_MULINV_MODM(_CACHE)`、
+`SQRT/CBRT_NEWTON_MODM`、`HGCD_MODMUL`（与守卫/下游形状耦合，默认值
+由专用探针标定，见 mparam.h 各自注释）。
 
 ## 注意事项
 
 - 调优结果与 CPU、OS、编译器、后台负载有关，仅对本机/同类机型有效。
-- 完整模式耗时较长（本机约数十分钟），运行期间应尽量关闭重负载任务。
-- `mparam.h` 中 `MUL_TOOM22 < MUL_TOOM33 < MUL_TOOM44 < MUL_FFT` 的静态
-  断言与 `LMMP_DEFAULT_*` 保持一致；如最终写入值破坏顺序，相关 `#if` 会以
-  默认顺序为准。建议写回前检查结果文件。
+- 完整模式耗时较长（约数十分钟），运行期间应尽量关闭重负载任务。
+- toom 梯子的有序性（`MUL_TOOM22 < 33 < 44 < 6H < 8H < MUL_FFT`、
+  `SQR_TOOM22 < 33 < 44 < 6 < 8 < SQR_FFT`）没有静态断言兜底，靠各模块
+  的 lo/hi 相互钳位维持：下层模块先调、其结果作为上层模块的 lo，上层
+  hi 夹在更高一层之下。新增梯层时须同步相邻模块的边界。
 - `--write` 是可选的。默认只生成 `bin/lmmp_tune_results.*`，不会修改任何
   库源码；显式 `--write` 只替换 `LMMP_DEFAULT_*` 字面量宏。
 - 建议在调优时仔细查看调优结果，并根据需要手动调整阈值。

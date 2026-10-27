@@ -46,7 +46,11 @@ static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
     c->dp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->xp = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
     c->ap = (mp_ptr)lmmp_alloc((size_t)n * sizeof(mp_limb_t));
-    c->tp = (mp_ptr)lmmp_alloc((size_t)(3 * n * sizeof(mp_limb_t)));
+    /* 与 src/lmmp/numth/binvert.c 的 binvert_mulhi_ 契约一致：
+       scratch 需 max(2n, mersenne_next_size(2n)) limbs */
+    const mp_size_t m = lmmp_mersenne_next_size_(2 * n);
+    const mp_size_t scratch = m > 2 * n ? m : 2 * n;
+    c->tp = (mp_ptr)lmmp_alloc((size_t)scratch * sizeof(mp_limb_t));
     tune_fill_limbs(c->xp, n, UINT64_C(0x84c56a10b2f1132c));
     tune_fill_limbs(c->ap, n, UINT64_C(0x137cbe91211dea3c));
 }
@@ -54,7 +58,7 @@ static void mulhi_ctx_init(mulhi_ctx* c, mp_size_t n) {
 /**
  * @brief 计算 [dst,n] = [xp,n]*[ap,n] div B^n
  * @param dst 结果指针
- * @param tp scratch space, need 2*n limbs
+ * @param tp scratch space, need max(2*n, mersenne_next_size(2*n)) limbs
  * @warning [xp,n] * [ap,n] mod B^n == 1
  */
 static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_size_t n, mp_ptr tp) {
@@ -62,8 +66,9 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_mul_n_(tp, xp, ap, n);
         lmmp_copy(dst, tp + n, n);
     } else {
-        /* 与 src/lmmp/numth/binvert.c 现行实现同步：无卷绕模长 next_size(2n) */
-        mp_size_t m = lmmp_fft_next_size_(2 * n);
+        /* 与 src/lmmp/numth/binvert.c 现行实现同步：无卷绕模长
+           mersenne_next_size(2n)（勿改成 fft_next_size，两者粒度不同） */
+        mp_size_t m = lmmp_mersenne_next_size_(2 * n);
         lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
         lmmp_copy(dst, tp + n, n);
     }
@@ -110,7 +115,9 @@ int tune_run_mulhi_mersenne(void) {
     spec.low_name = "mulhi_mul_n";
     spec.high_name = "mulhi_mersenne";
     spec.lo = 128;
-    spec.hi = 1024;
+    /* 上界须留足余量：本机曾出现交叉点越界（选择饱和在 hi），梅森分支内部
+       dc→fft 的分发点远高于普乘的 toom 梯子，交叉点随机器漂移大 */
+    spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

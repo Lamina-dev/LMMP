@@ -102,7 +102,9 @@ int tune_run_redc_mersenne_fold(void) {
     spec.macro_name = "REDC_MERSENNE_THRESHOLD";
     spec.low_name = "redc_mul_n";
     spec.high_name = "redc_mers_dc";
-    spec.lo = 32;
+    /* 样本必须越过 REDC_BASECASE 才能到达 fold 分支（n < REDC_BASECASE 恒走
+       basecase 归约，低/高两路同码，测出的点只有噪声） */
+    spec.lo = lmmp_tune_REDC_BASECASE_THRESHOLD > 32 ? lmmp_tune_REDC_BASECASE_THRESHOLD : 32;
     spec.hi = 1024;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;

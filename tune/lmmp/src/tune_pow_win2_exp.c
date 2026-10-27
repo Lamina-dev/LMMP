@@ -61,7 +61,9 @@ static void powwin_ctx_free(powwin_ctx* c) {
 }
 
 static void apply_exp(uint64_t exp, int use_high) {
-    lmmp_tune_POW_WIN2_N_THRESHOLD = TUNE_POW_WIN2_FIXED_N;
+    /* 库谓词为 n > POW_WIN2_N_THRESHOLD（严格大于）：固定 n=512 时须把
+       N 阈值钉在 511，否则 512 > 512 恒假，win2 高路永远不可达 */
+    lmmp_tune_POW_WIN2_N_THRESHOLD = TUNE_POW_WIN2_FIXED_N - 1;
     lmmp_tune_POW_WIN2_EXP_THRESHOLD =
         use_high ? (exp > 0 ? exp - 1 : 0) : exp;
 }

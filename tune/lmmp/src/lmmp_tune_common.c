@@ -21,6 +21,7 @@
  */
 
 #include "lmmp_tune_internal.h"
+#include "lmmp_tune.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -340,6 +341,26 @@ static int uses_high(tune_pred_t pred, uint64_t size, uint64_t threshold) {
     return pred == TUNE_HIGH_WHEN_GT ? size > threshold : size >= threshold;
 }
 
+/*
+ * 一次性计算候选阈值区间 [lo,hi] 上每个整数的总 badness。
+ * best/plateau/second-best 均由该表派生，避免对同一 (points x range)
+ * 三重重复求和。返回 NULL 表示内存不足，调用方按退化结果处理。
+ */
+static double* badness_table(const tune_point_t* points, size_t npoints,
+                             uint64_t lo, uint64_t hi, tune_pred_t pred) {
+    const size_t span = (size_t)(hi - lo) + 1;
+    double* table = (double*)malloc(span * sizeof(double));
+    if (table == NULL)
+        return NULL;
+    for (uint64_t t = lo; t <= hi; ++t) {
+        double badness = 0.0;
+        for (size_t i = 0; i < npoints; ++i)
+            badness += point_badness(&points[i], uses_high(pred, points[i].size, t));
+        table[(size_t)(t - lo)] = badness;
+    }
+    return table;
+}
+
 tune_choice_t tune_choose_1d(const tune_point_t* points, size_t npoints,
                              uint64_t lo, uint64_t hi, uint64_t hint,
                              tune_pred_t pred) {
@@ -357,26 +378,26 @@ tune_choice_t tune_choose_1d(const tune_point_t* points, size_t npoints,
     if (hint < lo) hint = lo;
     if (hint > hi) hint = hi;
 
-    double best_badness = 1e300;
-    for (uint64_t t = lo; t <= hi; ++t) {
-        double badness = 0.0;
-        for (size_t i = 0; i < npoints; ++i) {
-            const int use_high = uses_high(pred, points[i].size, t);
-            badness += point_badness(&points[i], use_high);
-        }
-        if (badness < best_badness)
-            best_badness = badness;
+    double* table = badness_table(points, npoints, lo, hi, pred);
+    if (table == NULL) {
+        result.badness = 1e300;
+        result.total_ns = 1e300;
+        return result;
     }
+    const size_t span = (size_t)(hi - lo) + 1;
+
+    double best_badness = 1e300;
+    for (size_t i = 0; i < span; ++i)
+        if (table[i] < best_badness)
+            best_badness = table[i];
 
     /* 平坦区间判定。容差既覆盖 0 badness，也允许极小浮点漂移。 */
     const double tol = 0.01 * (best_badness > 1.0 ? best_badness : 1.0) + 1e-12;
     uint64_t plateau_lo = hi;
     uint64_t plateau_hi = lo;
-    for (uint64_t t = lo; t <= hi; ++t) {
-        double badness = 0.0;
-        for (size_t i = 0; i < npoints; ++i)
-            badness += point_badness(&points[i], uses_high(pred, points[i].size, t));
-        if (badness <= best_badness + tol) {
+    for (size_t i = 0; i < span; ++i) {
+        if (table[i] <= best_badness + tol) {
+            const uint64_t t = lo + (uint64_t)i;
             if (t < plateau_lo) plateau_lo = t;
             if (t > plateau_hi) plateau_hi = t;
         }
@@ -398,14 +419,12 @@ tune_choice_t tune_choose_1d(const tune_point_t* points, size_t npoints,
     }
 
     double second_badness = 1e300;
-    for (uint64_t t = lo; t <= hi; ++t) {
+    for (size_t i = 0; i < span; ++i) {
+        const uint64_t t = lo + (uint64_t)i;
         if (t >= plateau_lo && t <= plateau_hi)
             continue;
-        double badness = 0.0;
-        for (size_t i = 0; i < npoints; ++i)
-            badness += point_badness(&points[i], uses_high(pred, points[i].size, t));
-        if (badness < second_badness)
-            second_badness = badness;
+        if (table[i] < second_badness)
+            second_badness = table[i];
     }
 
     double total_ns = 0.0;
@@ -414,6 +433,7 @@ tune_choice_t tune_choose_1d(const tune_point_t* points, size_t npoints,
         total_ns += use_high ? points[i].high_ns : points[i].low_ns;
     }
 
+    free(table);
     result.threshold = best;
     result.badness = best_badness;
     result.total_ns = total_ns;
@@ -485,11 +505,13 @@ static void tune_apply_path_for_size(const tune_1d_spec_t* spec,
     if (spec->apply_path != NULL) {
         spec->apply_path(size, use_high);
     } else if (spec->pred == TUNE_HIGH_WHEN_GT) {
+        /* size > T 走 high：T = size-1；size == 0 时 high 不可达，退化为 lo */
         if (use_high)
-            spec->set(size > spec->lo ? size - 1 : spec->lo);
+            spec->set(size > 0 ? size - 1 : spec->lo);
         else
             spec->set(size);
     } else {
+        /* size >= T 走 high：T = lo；low 用 T = size+1 */
         if (use_high)
             spec->set(spec->lo);
         else
@@ -818,8 +840,19 @@ int tune_record_write_files(const char* txt_path, const char* h_path) {
     if (g_record_count == 0)
         return 0;
 
+    FILE* fh = NULL;
+    if (h_path != NULL) {
+        fh = fopen(h_path, "w");
+        if (fh == NULL) {
+            fprintf(stderr, "Warning: cannot open result header %s\n", h_path);
+            return -1;
+        }
+    }
+
     FILE* ftxt = txt_path != NULL ? fopen(txt_path, "w") : NULL;
     if (ftxt == NULL) {
+        if (fh != NULL)
+            fclose(fh);
         fprintf(stderr, "Warning: cannot open result file %s\n",
                 txt_path != NULL ? txt_path : "(null)");
         return -1;
@@ -836,12 +869,8 @@ int tune_record_write_files(const char* txt_path, const char* h_path) {
     }
     fclose(ftxt);
 
-    FILE* fh = h_path != NULL ? fopen(h_path, "w") : NULL;
-    if (fh == NULL) {
-        fprintf(stderr, "Warning: cannot open result header %s\n",
-                h_path != NULL ? h_path : "(null)");
-        return -1;
-    }
+    if (fh == NULL)
+        return 0;
     fprintf(fh, "/* Generated by lmmp_tune.  Machine specific; review before use. */\n");
     fprintf(fh, "#ifndef LMMP_TUNE_RESULTS_H\n#define LMMP_TUNE_RESULTS_H\n\n");
     for (size_t i = 0; i < g_record_count; ++i) {
@@ -980,9 +1009,37 @@ static int token_wanted(const char* only, const tune_module_t* module) {
     return 0;
 }
 
+/*
+ * 模块隔离：模块的 apply_path/bench 常为强制路径改写兄弟阈值（钉 1<<20、
+ * 置 1 等）且大多不恢复。若不回滚，泄漏值会污染后续模块的测量（例如
+ * redc_cache 遗留 REDC_MERSENNE=1、fold 遗留 CACHE=1<<20 给 basecase）。
+ * 每个模块结束后回滚全部阈值变量，仅保留本模块记录为调优结果的宏——
+ * 模块自身产出的 spec->set(choice) 正是这些结果值。
+ */
+static void restore_module_thresholds(size_t first_record,
+                                      const uint64_t* snapshot,
+                                      const lmmp_tune_param_t* table,
+                                      size_t nparams) {
+    for (size_t i = 0; i < nparams; ++i) {
+        int is_result = 0;
+        for (size_t r = first_record; r < g_record_count; ++r) {
+            if (strcmp(g_records[r].macro_name, table[i].name) == 0) {
+                is_result = 1;
+                break;
+            }
+        }
+        if (!is_result)
+            *table[i].addr = snapshot[i];
+    }
+}
+
 int tune_module_run(const tune_module_t* modules, size_t count,
                     const char* only) {
+    size_t nparams = 0;
+    const lmmp_tune_param_t* table = lmmp_tune_param_table(&nparams);
+    uint64_t* snapshot = (uint64_t*)malloc(nparams * sizeof(uint64_t));
     int ran_any = 0;
+
     for (size_t i = 0; i < count; ++i) {
         if (!token_wanted(only, &modules[i]))
             continue;
@@ -990,12 +1047,22 @@ int tune_module_run(const tune_module_t* modules, size_t count,
         printf("[tune] %s (%s)\n", modules[i].id, modules[i].title);
         printf("============================================================\n");
         fflush(stdout);
+
+        const size_t first_record = g_record_count;
+        if (snapshot != NULL)
+            for (size_t k = 0; k < nparams; ++k)
+                snapshot[k] = *table[k].addr;
+
         const int rc = modules[i].run();
+        if (snapshot != NULL)
+            restore_module_thresholds(first_record, snapshot, table, nparams);
         if (rc != 0) {
             fprintf(stderr, "tune module %s failed (rc=%d)\n", modules[i].id, rc);
+            free(snapshot);
             return rc;
         }
         ran_any = 1;
     }
+    free(snapshot);
     return ran_any ? 0 : 1;
 }

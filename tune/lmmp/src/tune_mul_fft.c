@@ -88,7 +88,7 @@ int tune_run_mul_fft(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "MUL_FFT_THRESHOLD";
-    spec.low_name = "mul_toom44";
+    spec.low_name = "mul_toom_ladder"; /* T 之下按当前梯子落到 44/6h/8h */
     spec.high_name = "mul_fft";
     spec.lo = lmmp_tune_MUL_TOOM44_THRESHOLD > 64 ? lmmp_tune_MUL_TOOM44_THRESHOLD : 256;
     spec.sample_lo = spec.lo;

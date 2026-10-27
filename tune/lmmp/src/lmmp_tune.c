@@ -42,51 +42,6 @@
 #define LMMP_SOURCE_DIR "."
 #endif
 
-int tune_run_mul_toom22(void);
-int tune_run_sqr_toom22(void);
-int tune_run_mul_toom33(void);
-int tune_run_sqr_toom33(void);
-int tune_run_mul_toom44(void);
-int tune_run_sqr_toom44(void);
-int tune_run_mul_toom6h(void);
-int tune_run_sqr_toom6(void);
-int tune_run_mul_toom8h(void);
-int tune_run_sqr_toom8(void);
-int tune_run_mul_fft(void);
-int tune_run_sqr_fft(void);
-int tune_run_mul_unbalanced_hard(void);
-int tune_run_mullo_basecase(void);
-int tune_run_mullo_dc(void);
-int tune_run_div_divide(void);
-int tune_run_bninv_newton(void);
-int tune_run_mul_fft_modf(void);
-int tune_run_mulhi_mersenne(void);
-int tune_run_binv_unbal_modm_cache(void);
-int tune_run_redc_mersenne_cache(void);
-int tune_run_redc_basecase(void);
-int tune_run_to_str_basepow(void);
-int tune_run_to_str_divide(void);
-int tune_run_from_str_basepow(void);
-int tune_run_from_str_divide(void);
-int tune_run_pow_1_exp(void);
-int tune_run_pow_win2_exp(void);
-int tune_run_pow_win2_n(void);
-int tune_run_factors_mul_n(void);
-int tune_run_permutation_ushort(void);
-int tune_run_permutation_uint(void);
-int tune_run_binomial_rn(void);
-int tune_run_binomial_div(void);
-int tune_run_elem_mul(void);
-int tune_run_mat22_mul(void);
-int tune_run_mat22_sqr(void);
-int tune_run_sqrt_invnewton(void);
-int tune_run_cbrt_invnewton(void);
-int tune_run_divexact_basecase(void);
-int tune_run_divexact_nn(void);
-int tune_run_divexact_mersenne_cache(void);
-int tune_run_gcd_hgcd(void);
-int tune_run_fft_table(void);
-
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
     {"sqr_toom22", "sqr22,SQR_TOOM22_THRESHOLD", "SQR_TOOM22_THRESHOLD", tune_run_sqr_toom22},
