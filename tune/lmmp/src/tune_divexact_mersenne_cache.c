@@ -20,13 +20,6 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* 阈值调优：DIVEXACT_MERSENNE_CACHE_THRESHOLD
- *
- * 语境调优器：mu 主积的 toom 阶梯 vs 无卷绕梅森 cache（dp 变换缓存）之争
- * 依赖块结构（缓存摊薄），孤立乘积函数测量不适用，故直接以多块
- * lmmp_divexact_ 黑盒为被测对象，固定 nn = 4*dn+1（约 3-4 块）扫描 dn。
- */
-
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
 
@@ -48,8 +41,8 @@ typedef struct {
 } divexact_ctx;
 
 static void divexact_ctx_init(divexact_ctx* c, mp_size_t dn) {
-    const mp_size_t nn = 4 * dn + 1;
-    const mp_size_t qn = nn - dn + 1;
+    const mp_size_t nn = 8 * dn + 1;
+    const mp_size_t qn = nn - dn;
     c->nn = nn;
     c->dn = dn;
     c->q = (mp_ptr)lmmp_alloc((size_t)qn * sizeof(mp_limb_t));
@@ -90,18 +83,22 @@ static void* make_ctx(uint64_t size, int use_high) {
 }
 
 /* 真实选择：dn >= 阈值 → 梅森 cache。测量点 size=dn：
- * 低路（toom）设 size+1，高路（梅森）设 size。 */
+ * 高路（缓存）设 size；低路把缓存钉到不可达，走真实梯子
+ * （dn >= DIVEXACT_MERSENNE 时 fold，否则 plain 乘法）。 */
 static void apply_path(uint64_t size, int use_high) {
-    /* fold 档恒启用：本驱动量 fold（非缓存梅森）vs cache，与 low_name 语义一致 */
-    lmmp_tune_DIVEXACT_MERSENNE_THRESHOLD = 1;
-    set_threshold(use_high ? size : size + 1);
+    /* 不再强制 fold 档：部署中 T 之下的实际路径是 min(plain, fold)。
+       本消费方 fold 档被 plain 支配（无卷绕收益，模长≈积长，见
+       mparam.h 注释），绑定边界为 plain<->cache；强制 fold 会把交叉点
+       系统性测低（fold↔cache 早于 plain↔cache），写出后 plain 反而更优
+       的区间被错误切到 cache。DIVEXACT_MERSENNE 保持当前运行时值。 */
+    set_threshold(use_high ? size : (UINT64_C(1) << 20));
 }
 
 int tune_run_divexact_mersenne_cache(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "DIVEXACT_MERSENNE_CACHE_THRESHOLD";
-    spec.low_name = "divexact_mu_fold";
+    spec.low_name = "divexact_mu_ladder";
     spec.high_name = "divexact_mu_cache";
     spec.lo = 300;
     spec.hi = 4096;

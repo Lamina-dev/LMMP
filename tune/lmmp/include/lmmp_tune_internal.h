@@ -212,6 +212,10 @@ int tune_run_mul_toom33(void);
 int tune_run_sqr_toom33(void);
 int tune_run_mul_toom44(void);
 int tune_run_sqr_toom44(void);
+int tune_run_mul_toom6h(void);
+int tune_run_sqr_toom6(void);
+int tune_run_mul_toom8h(void);
+int tune_run_sqr_toom8(void);
 int tune_run_mul_fft(void);
 int tune_run_sqr_fft(void);
 int tune_run_mul_unbalanced_hard(void);
@@ -230,6 +234,7 @@ int tune_run_sqr_mersenne_fermat(void);
 int tune_run_redc_mersenne_fold(void);
 int tune_run_divexact_mersenne_fold(void);
 int tune_run_binv_unbal_modm_fold(void);
+int tune_run_binv_unbal_modm_cache(void);
 int tune_run_hgcd_modmul_cache(void);
 int tune_run_redc_mersenne_cache(void);
 int tune_run_redc_basecase(void);
@@ -253,9 +258,11 @@ int tune_run_sqrt_invnewton(void);
 int tune_run_cbrt_invnewton(void);
 int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
+int tune_run_divexact_mersenne_cache(void);
 int tune_run_fft_table(void);
 
-/* 每个调优文件的统一入口；实现位于 src/tune_<name>.c。 */
+/* 模块描述与批量执行。tune_module_run 保证模块间阈值隔离：
+   每个模块结束后回滚全部阈值变量，仅保留该模块产出的调优结果。 */
 typedef struct {
     const char* id;
     const char* aliases; /* 逗号分隔的兼容名，可为 NULL */

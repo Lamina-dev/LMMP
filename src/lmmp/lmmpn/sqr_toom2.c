@@ -26,10 +26,16 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#define lmmp_sqr_(dst, numa, n)               \
-    if ((n) < SQR_TOOM22_THRESHOLD)           \
-        lmmp_sqr_hard_n_((dst), (numa), (n)); \
-    else                                      \
+#ifdef LMMP_TUNE
+#define MAYBE_sqr_toom2 1
+#else
+#define MAYBE_sqr_toom2 (SQR_TOOM33_THRESHOLD >= 2 * SQR_TOOM22_THRESHOLD)
+#endif
+
+#define lmmp_sqr_(dst, numa, n)                         \
+    if (!MAYBE_sqr_toom2 || (n) < SQR_TOOM22_THRESHOLD) \
+        lmmp_sqr_hard_n_((dst), (numa), (n));           \
+    else                                                \
         lmmp_sqr_toom2_((dst), (numa), (n))
 
 /*

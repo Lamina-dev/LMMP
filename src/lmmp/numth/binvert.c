@@ -30,7 +30,7 @@
 /**
  * @brief 计算 [dst,n] = [xp,n]*[ap,n] div B^n
  * @param dst 结果指针
- * @param tp 需要 max(2*n, fft_next_size(2*n)) 个 limb
+ * @param tp 需要 max(2*n, mersenne_next_size(2*n)) 个 limb
  * @warning [xp,n] * [ap,n] mod B^n == 1
  */
 static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_size_t n, mp_ptr tp) {

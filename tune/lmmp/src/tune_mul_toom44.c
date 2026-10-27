@@ -92,7 +92,9 @@ int tune_run_mul_toom44(void) {
     spec.low_name = "mul_toom33";
     spec.high_name = "mul_toom44";
     spec.lo = lmmp_tune_MUL_TOOM33_THRESHOLD > 64 ? lmmp_tune_MUL_TOOM33_THRESHOLD : 64;
-    spec.hi = lmmp_tune_MUL_FFT_THRESHOLD > 65 ? lmmp_tune_MUL_FFT_THRESHOLD - 1 : 1200;
+    /* 上界必须夹在下一层（toom6h）之下：梯子要求 22<33<44<6h<8h<fft 严格有序，
+       hi 越过 6h 会使搜索产生乱序候选（写出后 toom6h/8h 层被跳过） */
+    spec.hi = lmmp_tune_MUL_TOOM6H_THRESHOLD > 65 ? lmmp_tune_MUL_TOOM6H_THRESHOLD - 1 : 1200;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

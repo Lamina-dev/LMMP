@@ -26,10 +26,16 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#define lmmp_mul_n_(dst, numa, numb, n)               \
-    if ((n) < MUL_TOOM22_THRESHOLD)                   \
-        lmmp_mul_hard_n_((dst), (numa), (numb), (n)); \
-    else                                              \
+#ifdef LMMP_TUNE
+#define MAYBE_mul_toom22 1
+#else
+#define MAYBE_mul_toom22 (MUL_TOOM33_THRESHOLD >= 2 * MUL_TOOM22_THRESHOLD)
+#endif
+
+#define lmmp_mul_n_(dst, numa, numb, n)                  \
+    if (!MAYBE_mul_toom22 || (n) < MUL_TOOM22_THRESHOLD) \
+        lmmp_mul_hard_n_((dst), (numa), (numb), (n));    \
+    else                                                 \
         lmmp_mul_toom22_((dst), (numa), (n), (numb), (n))
 
 /*

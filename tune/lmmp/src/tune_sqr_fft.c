@@ -84,9 +84,9 @@ int tune_run_sqr_fft(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "SQR_FFT_THRESHOLD";
-    spec.low_name = "sqr_toom4";
+    spec.low_name = "sqr_toom_ladder"; /* T 之下按当前梯子落到 4/6/8 */
     spec.high_name = "sqr_fft";
-    spec.lo = lmmp_tune_SQR_TOOM44_THRESHOLD > 64 ? lmmp_tune_SQR_TOOM44_THRESHOLD : 256;
+    spec.lo = lmmp_tune_SQR_TOOM8_THRESHOLD > 64 ? lmmp_tune_SQR_TOOM8_THRESHOLD : 256;
     spec.sample_lo = spec.lo;
     spec.hi = 4096;
     spec.pred = TUNE_HIGH_WHEN_GE;

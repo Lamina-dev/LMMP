@@ -26,12 +26,20 @@
 #include "../../../include/lmmp/lmmpn.h"
 
 
-#define lmmp_sqr_(dst, numa, n)               \
-    if ((n) < SQR_TOOM22_THRESHOLD)           \
-        lmmp_sqr_hard_n_((dst), (numa), (n)); \
-    else if ((n) < SQR_TOOM33_THRESHOLD)      \
-        lmmp_sqr_toom2_((dst), (numa), (n));  \
-    else                                      \
+#ifdef LMMP_TUNE
+#define MAYBE_sqr_basecase 1
+#define MAYBE_sqr_toom3 1
+#else
+#define MAYBE_sqr_basecase (SQR_TOOM33_THRESHOLD < 3 * SQR_TOOM22_THRESHOLD)
+#define MAYBE_sqr_toom3 (SQR_TOOM44_THRESHOLD >= 3 * SQR_TOOM33_THRESHOLD)
+#endif
+
+#define lmmp_sqr_(dst, numa, n)                              \
+    if (MAYBE_sqr_basecase && (n) < SQR_TOOM22_THRESHOLD)    \
+        lmmp_sqr_hard_n_((dst), (numa), (n));                \
+    else if (!MAYBE_sqr_toom3 || (n) < SQR_TOOM33_THRESHOLD) \
+        lmmp_sqr_toom2_((dst), (numa), (n));                 \
+    else                                                     \
         lmmp_sqr_toom3_((dst), (numa), (n))
 
 /*

@@ -42,47 +42,6 @@
 #define LMMP_SOURCE_DIR "."
 #endif
 
-int tune_run_mul_toom22(void);
-int tune_run_sqr_toom22(void);
-int tune_run_mul_toom33(void);
-int tune_run_sqr_toom33(void);
-int tune_run_mul_toom44(void);
-int tune_run_sqr_toom44(void);
-int tune_run_mul_fft(void);
-int tune_run_sqr_fft(void);
-int tune_run_mul_unbalanced_hard(void);
-int tune_run_mullo_basecase(void);
-int tune_run_mullo_dc(void);
-int tune_run_div_divide(void);
-int tune_run_bninv_newton(void);
-int tune_run_mul_fft_modf(void);
-int tune_run_mulhi_mersenne(void);
-int tune_run_binv_unbal_modm_cache(void);
-int tune_run_redc_mersenne_cache(void);
-int tune_run_redc_basecase(void);
-int tune_run_to_str_basepow(void);
-int tune_run_to_str_divide(void);
-int tune_run_from_str_basepow(void);
-int tune_run_from_str_divide(void);
-int tune_run_pow_1_exp(void);
-int tune_run_pow_win2_exp(void);
-int tune_run_pow_win2_n(void);
-int tune_run_factors_mul_n(void);
-int tune_run_permutation_ushort(void);
-int tune_run_permutation_uint(void);
-int tune_run_binomial_rn(void);
-int tune_run_binomial_div(void);
-int tune_run_elem_mul(void);
-int tune_run_mat22_mul(void);
-int tune_run_mat22_sqr(void);
-int tune_run_sqrt_invnewton(void);
-int tune_run_cbrt_invnewton(void);
-int tune_run_divexact_basecase(void);
-int tune_run_divexact_nn(void);
-int tune_run_divexact_mersenne_cache(void);
-int tune_run_gcd_hgcd(void);
-int tune_run_fft_table(void);
-
 static const tune_module_t g_modules[] = {
     {"mul_toom22", "mul22,MUL_TOOM22_THRESHOLD", "MUL_TOOM22_THRESHOLD", tune_run_mul_toom22},
     {"sqr_toom22", "sqr22,SQR_TOOM22_THRESHOLD", "SQR_TOOM22_THRESHOLD", tune_run_sqr_toom22},
@@ -90,6 +49,10 @@ static const tune_module_t g_modules[] = {
     {"sqr_toom33", "sqr33,SQR_TOOM33_THRESHOLD", "SQR_TOOM33_THRESHOLD", tune_run_sqr_toom33},
     {"mul_toom44", "mul44,MUL_TOOM44_THRESHOLD", "MUL_TOOM44_THRESHOLD", tune_run_mul_toom44},
     {"sqr_toom44", "sqr44,SQR_TOOM44_THRESHOLD", "SQR_TOOM44_THRESHOLD", tune_run_sqr_toom44},
+    {"mul_toom6h", "mul6h,MUL_TOOM6H_THRESHOLD", "MUL_TOOM6H_THRESHOLD", tune_run_mul_toom6h},
+    {"sqr_toom6", "sqr6,SQR_TOOM6_THRESHOLD", "SQR_TOOM6_THRESHOLD", tune_run_sqr_toom6},
+    {"mul_toom8h", "mul8h,MUL_TOOM8H_THRESHOLD", "MUL_TOOM8H_THRESHOLD", tune_run_mul_toom8h},
+    {"sqr_toom8", "sqr8,SQR_TOOM8_THRESHOLD", "SQR_TOOM8_THRESHOLD", tune_run_sqr_toom8},
     {"mul_fft", "MUL_FFT_THRESHOLD", "MUL_FFT_THRESHOLD", tune_run_mul_fft},
     {"sqr_fft", "SQR_FFT_THRESHOLD", "SQR_FFT_THRESHOLD", tune_run_sqr_fft},
     {"mul_unbalanced_hard", "mul_hard_unb,MUL_UNBALANCED_HARD_THRESHOLD", "MUL_UNBALANCED_HARD_THRESHOLD", tune_run_mul_unbalanced_hard},

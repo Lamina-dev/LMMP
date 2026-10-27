@@ -28,6 +28,7 @@ set(LMMP_TEST_SRCS
     src/test_memory_layout.cpp
     src/test_threshold_boundaries.cpp
     src/test_mul.cpp
+    src/test_mul_toom68.cpp
     src/test_div.cpp
     src/test_str.cpp
     src/test_u128.cpp

@@ -147,9 +147,6 @@ void lmmp_mullo_fft_cache_(mp_ptr dst, mp_srcptr numa, mp_ptr scratch, fft_mullo
  e=log(15)/log(8) [Toom-8] -> a ~= 0.899
 */
 
-#define MUL_TOOM66_THRESHOLD MUL_FFT_THRESHOLD
-#define MUL_TOOM88_THRESHOLD 2921
-
 void lmmp_mullo_dc_(
     mp_ptr    restrict  dst,
     mp_srcptr restrict numa,
@@ -166,9 +163,9 @@ void lmmp_mullo_dc_(
             m = 25 * n / 36;
         } else if (n < MUL_TOOM44_THRESHOLD) {
             m = 31 * n / 40;
-        } else if (n < MUL_TOOM66_THRESHOLD) {
+        } else if (n < MUL_TOOM6H_THRESHOLD) {
             m = 32 * n / 39;
-        } else if (n < MUL_TOOM88_THRESHOLD) {
+        } else if (n < MUL_TOOM8H_THRESHOLD) {
             m = 27 * n / 31;
         } else {
             m = 9 * n / 10;
@@ -214,9 +211,9 @@ void lmmp_sqrlo_dc_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_ptr restric
             m = 25 * n / 36;
         } else if (n < MUL_TOOM44_THRESHOLD) {
             m = 31 * n / 40;
-        } else if (n < MUL_TOOM66_THRESHOLD) {
+        } else if (n < MUL_TOOM6H_THRESHOLD) {
             m = 32 * n / 39;
-        } else if (n < MUL_TOOM88_THRESHOLD) {
+        } else if (n < MUL_TOOM8H_THRESHOLD) {
             m = 27 * n / 31;
         } else {
             m = 9 * n / 10;

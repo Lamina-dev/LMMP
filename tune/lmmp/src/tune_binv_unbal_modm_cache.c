@@ -81,18 +81,22 @@ static void* make_ctx(uint64_t size, int use_high) {
     return c;
 }
 
-/* 真实选择：na >= 阈值 → 卷绕梅森。测量点 size=na：低路 size+1，高路 size。 */
+/* 真实选择：na >= 阈值 → 梅森 cache。测量点 size=na：
+ * 高路（缓存）设 size；低路把缓存钉到不可达，走真实梯子
+ * （na >= BINVERT_UNBALANCE_MODM 时 fold，否则 plain mul_n）。 */
 static void apply_path(uint64_t size, int use_high) {
-    /* fold 档恒启用：本驱动量 fold（非缓存梅森）vs cache，与 low_name 语义一致 */
-    lmmp_tune_BINVERT_UNBALANCE_MODM_THRESHOLD = 1;
-    set_threshold(use_high ? size : size + 1);
+    /* 不再强制 fold 档：部署中 T 之下的实际路径是 min(plain, fold)，
+       按当前 BINVERT_UNBALANCE_MODM 运行时值分发。强制 fold 会把交叉点
+       测成 fold<->cache；若 fold 被 plain 支配（divexact 消费方即如此），
+       该值系统性偏低，plain 更优的区间被错误切到 cache。 */
+    set_threshold(use_high ? size : (UINT64_C(1) << 20));
 }
 
 int tune_run_binv_unbal_modm_cache(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
     spec.macro_name = "BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD";
-    spec.low_name = "binv_k_fold";
+    spec.low_name = "binv_k_ladder";
     spec.high_name = "binv_k_cache";
     spec.lo = 100;
     spec.hi = 2048;

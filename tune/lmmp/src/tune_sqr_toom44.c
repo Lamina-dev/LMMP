@@ -87,7 +87,9 @@ int tune_run_sqr_toom44(void) {
     spec.low_name = "sqr_toom3";
     spec.high_name = "sqr_toom4";
     spec.lo = lmmp_tune_SQR_TOOM33_THRESHOLD > 64 ? lmmp_tune_SQR_TOOM33_THRESHOLD : 64;
-    spec.hi = lmmp_tune_SQR_FFT_THRESHOLD > 65 ? lmmp_tune_SQR_FFT_THRESHOLD - 1 : 1200;
+    /* 上界必须夹在下一层（sqr_toom6）之下：梯子要求 22<33<44<6<8<fft 严格有序，
+       hi 越过 sqr6 会使搜索产生乱序候选（写出后 toom6/8 层被跳过） */
+    spec.hi = lmmp_tune_SQR_TOOM6_THRESHOLD > 65 ? lmmp_tune_SQR_TOOM6_THRESHOLD - 1 : 1200;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;
     spec.set = set_threshold;

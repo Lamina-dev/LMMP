@@ -25,14 +25,24 @@
 #include "../../../include/lmmp/impl/toom_interp.h"
 
 
-#define lmmp_mul_n_(dst, numa, numb, n)                    \
-    if ((n) < MUL_TOOM22_THRESHOLD)                        \
-        lmmp_mul_hard_n_((dst), (numa), (numb), (n));      \
-    else if ((n) < MUL_TOOM33_THRESHOLD)                   \
-        lmmp_mul_toom22_((dst), (numa), (n), (numb), (n)); \
-    else if ((n) < MUL_TOOM44_THRESHOLD)                   \
-        lmmp_mul_toom33_((dst), (numa), (n), (numb), (n)); \
-    else                                                   \
+#ifdef LMMP_TUNE
+#define MAYBE_mul_basecase 1
+#define MAYBE_mul_toom22 1
+#define MAYBE_mul_toom44 1
+#else
+#define MAYBE_mul_basecase (MUL_TOOM44_THRESHOLD < 4 * MUL_TOOM22_THRESHOLD)
+#define MAYBE_mul_toom22 (MUL_TOOM44_THRESHOLD < 4 * MUL_TOOM33_THRESHOLD)
+#define MAYBE_mul_toom44 (MUL_TOOM6H_THRESHOLD >= 4 * MUL_TOOM44_THRESHOLD)
+#endif
+
+#define lmmp_mul_n_(dst, numa, numb, n)                       \
+    if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)     \
+        lmmp_mul_hard_n_((dst), (numa), (numb), (n));         \
+    else if (MAYBE_mul_toom22 && (n) < MUL_TOOM33_THRESHOLD)  \
+        lmmp_mul_toom22_((dst), (numa), (n), (numb), (n));    \
+    else if (!MAYBE_mul_toom44 || (n) < MUL_TOOM44_THRESHOLD) \
+        lmmp_mul_toom33_((dst), (numa), (n), (numb), (n));    \
+    else                                                      \
         lmmp_mul_toom44_((dst), (numa), (n), (numb), (n))
 
 /*
