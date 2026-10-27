@@ -20,13 +20,6 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* 阈值调优：DIVEXACT_MERSENNE_CACHE_THRESHOLD
- *
- * 语境调优器：mu 主积的 toom 阶梯 vs 无卷绕梅森 cache（dp 变换缓存）之争
- * 依赖块结构（缓存摊薄），孤立乘积函数测量不适用，故直接以多块
- * lmmp_divexact_ 黑盒为被测对象，固定 nn = 4*dn+1（约 3-4 块）扫描 dn。
- */
-
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
 

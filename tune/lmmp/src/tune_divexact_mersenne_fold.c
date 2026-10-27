@@ -20,9 +20,6 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* 阈值调优：DIVEXACT_MERSENNE_THRESHOLD（mu 主积：朴素直乘 vs 梅森分发不缓存）
- * 以 lmmp_divexact_ nn=4dn+1 黑盒测量；钉死 DIVEXACT_MERSENNE 使缓存不介入 */
-
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
 
