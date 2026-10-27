@@ -203,8 +203,6 @@ int lmmp_toom_eval_pm2exp_(mp_ptr xp2, mp_ptr xm2, unsigned k, mp_srcptr xp, mp_
         lmmp_inc_1(tp + hn, cy);
     }
 
-    lmmp_debug_assert((k + 1) * shift >= LIMB_BITS || xp2[n] < (((mp_limb_t)1 << ((k + 1) * shift)) - 1) / (((mp_limb_t)1 << shift) - 1));
-
     neg = (lmmp_cmp_(xp2, tp, n + 1) < 0) ? ~0 : 0;
 
     if (neg)

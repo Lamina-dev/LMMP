@@ -135,7 +135,7 @@ void lmmp_mul_toom8h_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 
     lmmp_debug_assert(0 < s && s <= n);
     lmmp_debug_assert(0 < t && t <= n);
-    lmmp_debug_assert(half || s + t > 3);
+    lmmp_debug_assert(s + t + 3 * (mp_size_t)half > 3);
     lmmp_debug_assert(n > 2);
 
 #define r6 (dst + 3 * n)           /* 3n+1 */
