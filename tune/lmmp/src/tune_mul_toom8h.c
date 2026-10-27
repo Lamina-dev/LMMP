@@ -80,7 +80,7 @@ static void free_ctx(void* v) {
 
 static void apply_path(uint64_t size, int use_high) {
     if (use_high)
-        set_threshold(size); /* 仅强制根层进入 toom8h，递归子问题按以下阈值回退 */
+        set_threshold(size);
     else
         set_threshold(size + 1);
 }
@@ -91,7 +91,7 @@ int tune_run_mul_toom8h(void) {
     spec.macro_name = "MUL_TOOM8H_THRESHOLD";
     spec.low_name = "mul_toom6h";
     spec.high_name = "mul_toom8h";
-    spec.lo = lmmp_tune_MUL_TOOM6H_THRESHOLD > 64 ? lmmp_tune_MUL_TOOM6H_THRESHOLD : 64;
+    spec.lo = lmmp_tune_MUL_TOOM6H_THRESHOLD > 86 ? lmmp_tune_MUL_TOOM6H_THRESHOLD : 86;
     spec.hi = lmmp_tune_MUL_FFT_THRESHOLD > 65 ? lmmp_tune_MUL_FFT_THRESHOLD - 1 : 1200;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = get_threshold;

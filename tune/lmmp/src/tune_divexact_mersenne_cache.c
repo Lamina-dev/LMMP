@@ -48,8 +48,8 @@ typedef struct {
 } divexact_ctx;
 
 static void divexact_ctx_init(divexact_ctx* c, mp_size_t dn) {
-    const mp_size_t nn = 4 * dn + 1;
-    const mp_size_t qn = nn - dn + 1;
+    const mp_size_t nn = 8 * dn + 1;
+    const mp_size_t qn = nn - dn;
     c->nn = nn;
     c->dn = dn;
     c->q = (mp_ptr)lmmp_alloc((size_t)qn * sizeof(mp_limb_t));

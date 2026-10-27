@@ -111,7 +111,7 @@ TEST_CASE("mul/toom68", toom6h_kernel_full_range) {
 TEST_CASE("mul/toom68", toom8h_kernel_full_range) {
     u64 seed = 0x8a8f686967687475ull;
     int checked = 0;
-    for (mp_size_t nb = 87; nb <= 140; ++nb) {
+    for (mp_size_t nb = 86; nb <= 140; ++nb) { /* 86=契约下界 */
         for (double r : kRatios8) {
             mp_size_t na = (mp_size_t)(nb * r);
             if (na < nb || na > 4 * nb) continue;
