@@ -497,7 +497,7 @@ LMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 42<=nb<=na, na*6<nb*17, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 46<=nb<=na, na*6<nb*17, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom6h_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);

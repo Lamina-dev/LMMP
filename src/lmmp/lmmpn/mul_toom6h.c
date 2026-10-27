@@ -68,7 +68,7 @@ Evaluate in: infinity, +4, -4, +2, -2, +1, -1, +1/2, -1/2, +1/4, -1/4, 0
 
 void lmmp_mul_toom6h_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(na >= nb);
-    lmmp_param_assert(nb >= 42);
+    lmmp_param_assert(nb >= 46);
     lmmp_param_assert(6 * na < 17 * nb);
     mp_size_t n, s, t;
     int p, q, half;
