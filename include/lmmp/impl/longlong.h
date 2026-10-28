@@ -201,6 +201,37 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
     rr[1] = r1;
     rr[2] = r2;
     rr[3] = r3;
+#elif defined(LMMP_ASM_ARM64) && (defined(__GNUC__) || defined(__clang__))
+    /* 8×(mul|umulh) + adds/adcs 标志链收尾，共 14 条：C 语句间无法保活
+       NZCV 进位，纯 C 形态最少 21 条（进位须 cset 物化）。关键次序：
+       p11h 在 CF=tc（交叉和 129 位顶）后立即 adc xzr 吸收进位（免 cset
+       与额外寄存器），随后 r1/r2/r3 三连以 adds/adcs/adc 单进位链收拢
+       （列和第三项恒 <=1，进位至多 1）。r1/r2 输出寄存器兼作交叉积
+       暂存（写终值前死亡），边界足迹 4 输出 + 4 暂存。 */
+    uint64_t r0, r1, r2, r3, t4, t5, t6, t7;
+    __asm__(
+        "mul   %[r0], %[al], %[bl]      \n\t"  /* p00l -> r0 终值 */
+        "umulh %[r1], %[al], %[bl]      \n\t"  /* p00h */
+        "mul   %[r2], %[al], %[bh]      \n\t"  /* p01l */
+        "umulh %[r3], %[al], %[bh]      \n\t"  /* p01h */
+        "mul   %[t4], %[ah], %[bl]      \n\t"  /* p10l */
+        "umulh %[t5], %[ah], %[bl]      \n\t"  /* p10h */
+        "mul   %[t6], %[ah], %[bh]      \n\t"  /* p11l */
+        "umulh %[t7], %[ah], %[bh]      \n\t"  /* p11h */
+        "adds  %[r2], %[r2], %[t4]      \n\t"  /* tl = p01l+p10l, CF=tc0 */
+        "adcs  %[r3], %[r3], %[t5]      \n\t"  /* th = p01h+p10h+tc0, CF=tc */
+        "adc   %[t7], %[t7], xzr        \n\t"  /* p11h += tc（立即吃 CF） */
+        "adds  %[r1], %[r1], %[r2]      \n\t"  /* r1 = p00h+tl, CF=c1 */
+        "adcs  %[r2], %[t6], %[r3]      \n\t"  /* r2 = p11l+th+c1, CF=ch */
+        "adc   %[r3], %[t7], xzr        \n\t"  /* r3 = p11h+tc+ch */
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [r2] "=&r"(r2), [r3] "=&r"(r3),
+          [t4] "=&r"(t4), [t5] "=&r"(t5), [t6] "=&r"(t6), [t7] "=&r"(t7)
+        : [ah] "r"(a_high), [al] "r"(a_low), [bh] "r"(b_high), [bl] "r"(b_low)
+        : "cc");
+    rr[0] = r0;
+    rr[1] = r1;
+    rr[2] = r2;
+    rr[3] = r3;
 #else
     /* 纯 C 路径：__uint128_t 组合写法在 GCC 下生成代码反而劣于显式
        limb 进位链（128 位中间值引发寄存器溢出与额外 mov），保留朴素结构。 */
@@ -262,6 +293,33 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
         : [ah] "rm"(a_high), [al] "rm"(a_low)
         : "cc", "rdx");
     rr[0] = p0l;
+    rr[1] = r1;
+    rr[2] = r2;
+    rr[3] = r3;
+#elif defined(LMMP_ASM_ARM64) && (defined(__GNUC__) || defined(__clang__))
+    /* 6×(mul|umulh) + lsr/extr 拆交叉积加倍 + 三连标志链，共 11 条。
+       加倍的 129 位拆法：tc = 交叉 hi >> 63（顶位，属 res3 段），
+       extr 一条取 (hi:lo)>>63 即加倍后的 res2 段，低 limb 以
+       adds 的 lsl #1 移位操作数直接并入 p0h（移出的位已由 extr 收取）。
+       tc 以寄存器进入收尾 adc（CF 链被 r1 的 adds 重置，不可滞留标志）。 */
+    uint64_t r0, r1, r2, r3, t5, t6, t7;
+    __asm__(
+        "mul   %[r0], %[al], %[al]        \n\t"  /* p0l -> r0 终值 */
+        "umulh %[r1], %[al], %[al]        \n\t"  /* p0h */
+        "mul   %[r2], %[al], %[ah]        \n\t"  /* 交叉 lo */
+        "umulh %[r3], %[al], %[ah]        \n\t"  /* 交叉 hi */
+        "lsr   %[t7], %[r3], 63           \n\t"  /* tc = 加倍后第 129 位 */
+        "extr  %[r3], %[r3], %[r2], 63    \n\t"  /* th2 = (交叉hi:交叉lo)>>63 */
+        "mul   %[t5], %[ah], %[ah]        \n\t"  /* p1l */
+        "umulh %[t6], %[ah], %[ah]        \n\t"  /* p1h */
+        "adds  %[r1], %[r1], %[r2], lsl 1 \n\t"  /* r1 = p0h+2*交叉lo, CF=c1 */
+        "adcs  %[r2], %[t5], %[r3]        \n\t"  /* r2 = p1l+th2+c1, CF=ch */
+        "adc   %[r3], %[t6], %[t7]        \n\t"  /* r3 = p1h+tc+ch */
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [r2] "=&r"(r2), [r3] "=&r"(r3),
+          [t5] "=&r"(t5), [t6] "=&r"(t6), [t7] "=&r"(t7)
+        : [ah] "r"(a_high), [al] "r"(a_low)
+        : "cc");
+    rr[0] = r0;
     rr[1] = r1;
     rr[2] = r2;
     rr[3] = r3;

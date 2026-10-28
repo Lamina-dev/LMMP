@@ -77,7 +77,7 @@ static inline int ll_le(u128 a, u128 b) {
 }
 
 static inline void mul_128(u128 a, u128 b, u128 *hi, u128 *lo) {
-#if defined(__clang__)
+#if defined(__clang__) && !defined(LMMP_ASM_ARM64)
     ulong a0 = _u128low(a), a1 = _u128high(a);
     ulong b0 = _u128low(b), b1 = _u128high(b);
     u128 p00 = (u128)a0 * b0;
@@ -100,7 +100,7 @@ static inline void mul_128(u128 a, u128 b, u128 *hi, u128 *lo) {
 
 /* a^2 -> (hi, lo)：交叉积单次乘法后整体加倍（3 乘法平方） */
 static inline void sqr_128(u128 a, u128 *hi, u128 *lo) {
-#if defined(__clang__)
+#if defined(__clang__) && !defined(LMMP_ASM_ARM64)
     ulong a0 = _u128low(a), a1 = _u128high(a);
     u128 p0 = (u128)a0 * a0;
     u128 m = (u128)a0 * a1; /* 交叉积，加倍后 129 位 */
@@ -122,6 +122,33 @@ static inline void sqr_128(u128 a, u128 *hi, u128 *lo) {
 /* REDC：r = (T + q*n)/B^2，T = thi*B^2 + tlo < n*B^2。n 接近 B^2 时和
    可达 129 位，回绕进位下按模 2^128 回绕减 n 恰为真值且已 < n */
 static inline u128 mont2_redc(u128 thi, u128 tlo, u128 n, u128 ninv) {
+#if defined(LMMP_ASM_ARM64)
+    u128 q = tlo * ninv; /* u128 截断乘即 mod B^2 */
+    u128 qh, ql;
+    mul_128(q, n, &qh, &ql);
+    ulong t0 = _u128low(tlo), t1 = _u128high(tlo);
+    ulong p0 = _u128low(ql), p1 = _u128high(ql);
+    ulong k0 = (t0 + p0) < t0; /* lo 低 limb 进位（lo 值本身无消费者） */
+    ulong l1 = t1 + p1;
+    ulong k1 = l1 < t1;
+    l1 += k0;
+    k1 |= l1 < k0;
+    ulong h0 = _u128low(thi) + _u128low(qh);
+    ulong j0 = h0 < _u128low(qh);
+    h0 += k1;
+    j0 |= h0 < k1;
+    ulong h1 = _u128high(thi) + _u128high(qh);
+    ulong j1 = h1 < _u128high(qh);
+    h1 += j0;
+    j1 |= h1 < j0;
+    ulong n0 = _u128low(n), n1 = _u128high(n);
+    if (j1 || (h1 > n1) || (h1 == n1 && h0 >= n0)) {
+        ulong bw = h0 < n0; /* 借位跨 limb 传播 */
+        h0 -= n0;
+        h1 -= n1 + bw; /* j1 分支下回绕即真值 */
+    }
+    return ((u128)h1 << 64) | h0;
+#else
     u128 q = tlo * ninv; /* u128 截断乘即 mod B^2 */
     u128 qh, ql, lo, hi, c, c1, c2;
     mul_128(q, n, &qh, &ql);
@@ -136,6 +163,7 @@ static inline u128 mont2_redc(u128 thi, u128 tlo, u128 n, u128 ninv) {
     else if (hi >= n)
         hi -= n;
     return hi;
+#endif
 }
 
 static inline u128 mont2_sqr(u128 a, u128 n, u128 ninv) {
