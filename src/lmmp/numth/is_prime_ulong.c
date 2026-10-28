@@ -319,33 +319,6 @@ static void powmod_win3_63(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulo
     *pv = v;
 }
 
-static void powmod_win3_64(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulong m_inv) {
-    ulong w[8], v = bm;
-    int bit = ebits - 2;
-    w[1] = bm;
-    w[2] = mont64_mul(bm, bm, m, m_inv);
-    w[3] = mont64_mul(w[2], bm, m, m_inv);
-    w[4] = mont64_mul(w[2], w[2], m, m_inv);
-    w[5] = mont64_mul(w[4], bm, m, m_inv);
-    w[6] = mont64_mul(w[3], w[3], m, m_inv);
-    w[7] = mont64_mul(w[6], bm, m, m_inv);
-    while (bit >= 2) {
-        v = mont64_mul(v, v, m, m_inv);
-        v = mont64_mul(v, v, m, m_inv);
-        v = mont64_mul(v, v, m, m_inv);
-        {
-            uint idx = (uint)(d >> (bit - 2)) & 7;
-            if (idx) v = mont64_mul(v, w[idx], m, m_inv);
-        }
-        bit -= 3;
-    }
-    for (; bit >= 0; bit--) {
-        v = mont64_mul(v, v, m, m_inv);
-        if ((d >> bit) & 1) v = mont64_mul(v, bm, m, m_inv);
-    }
-    *pv = v;
-}
-
 static void powmod2_win3_63(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits,
                             ulong m, ulong m_inv) {
     ulong w1[8], w2[8], v1 = bm1, v2 = bm2;

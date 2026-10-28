@@ -172,30 +172,32 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
                |      |  p3l |  p3h |
     */
 #if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
-    /* 4×mulx 独立发射；交叉积之和 t = p1+p2 为 129 位（b 为溢出位，
-       由 setc 提取到已死亡的 p2l 寄存器），链尾 res3 = p3h + b + c2 收拢。 */
-    uint64_t p0l, t_l, t_h, p3l, p2l, p2h, r1, r2, r3;
+    /* 4×mulx + 运行累加：p1/p2/p3 依次流入 r8/r9 暂存（以 clobber 声明，
+       乱序重命名消除 WAR），每个部分积以 add/adcx/adc 三连加进累加器
+       （进位至多 1，res3 侧经 adc $0 传播）。相对九输出分解式，asm
+       边界同时保活的寄存器由 9 输出 + rdx 压缩为 4 输出 + r8/r9/rdx */
+    uint64_t r0, r1, r2, r3;
     __asm__(
         "movq   %[al], %%rdx            \n\t"
-        "mulxq  %[bl], %[p0l], %[r1]    \n\t"  // p0 = al*bl, r1 = p0h
-        "mulxq  %[bh], %[t_l], %[t_h]   \n\t"  // p1 = al*bh
+        "mulxq  %[bl], %[r0], %[r1]     \n\t"  // p0 = al*bl
+        "xorq   %[r2], %[r2]            \n\t"
+        "xorq   %[r3], %[r3]            \n\t"
+        "mulxq  %[bh], %%r8, %%r9       \n\t"  // p1 = al*bh
         "movq   %[ah], %%rdx            \n\t"
-        "mulxq  %[bl], %[p2l], %[p2h]   \n\t"  // p2 = ah*bl
-        "mulxq  %[bh], %[p3l], %[r3]    \n\t"  // p3 = ah*bh, r3 = p3h
-        "addq   %[p2l], %[t_l]          \n\t"  // t_l = p1l + p2l, CF = a
-        "adcxq  %[p2h], %[t_h]          \n\t"  // t_h = p1h + p2h + a, CF = b
-        "movl   $0, %k[p2l]             \n\t"  // 不动标志，清零待 setc
-        "setcb  %b[p2l]                 \n\t"  // p2l = b
-        "addq   %[t_l], %[r1]           \n\t"  // r1 = p0h + t_l = res1, CF = c1
-        "movq   %[t_h], %[r2]           \n\t"
-        "adcxq  %[p3l], %[r2]           \n\t"  // r2 = t_h + p3l + c1 = res2, CF = c2
-        "adcxq  %[p2l], %[r3]           \n\t"  // r3 = p3h + b + c2 = res3
-        : [p0l] "=&r"(p0l), [t_l] "=&r"(t_l), [t_h] "=&r"(t_h), [p3l] "=&r"(p3l),
-          [p2l] "=&r"(p2l), [p2h] "=&r"(p2h), [r1] "=&r"(r1), [r2] "=&r"(r2),
-          [r3] "=&r"(r3)
+        "addq   %%r8, %[r1]             \n\t"  // res1 += p1l
+        "adcxq  %%r9, %[r2]             \n\t"  // res2 += p1h + c
+        "adcq   $0, %[r3]               \n\t"
+        "mulxq  %[bl], %%r8, %%r9       \n\t"  // p2 = ah*bl
+        "addq   %%r8, %[r1]             \n\t"
+        "adcxq  %%r9, %[r2]             \n\t"
+        "adcq   $0, %[r3]               \n\t"
+        "mulxq  %[bh], %%r8, %%r9       \n\t"  // p3 = ah*bh
+        "addq   %%r8, %[r2]             \n\t"  // res2 += p3l
+        "adcxq  %%r9, %[r3]             \n\t"  // res3 += p3h + c
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [r2] "=&r"(r2), [r3] "=&r"(r3)
         : [ah] "rm"(a_high), [al] "rm"(a_low), [bh] "rm"(b_high), [bl] "rm"(b_low)
-        : "cc", "rdx");
-    rr[0] = p0l;
+        : "cc", "rdx", "r8", "r9");
+    rr[0] = r0;
     rr[1] = r1;
     rr[2] = r2;
     rr[3] = r3;

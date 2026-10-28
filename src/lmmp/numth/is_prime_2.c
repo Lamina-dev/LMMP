@@ -76,26 +76,8 @@ static inline int ll_le(u128 a, u128 b) {
     return a <= b;
 }
 
-/*
-    ============ 双 limb Montgomery 核心（R = B^2，u128 标量风格） ============
-
-    模数 n（奇，B <= n < B^2），ninv = -n^(-1) mod B^2，操作数为 < n 的
-    蒙域剩余。REDC：T < n*B^2 时 r = (T + q*n)/B^2 < 2n，其中
-    q = T_lo * ninv mod B^2（u128 截断乘恰为其低 128 位），至多一次
-    条件减法得规范剩余。
-
-    全程以 u128 标量表达（假定 __uint128_t 可用）：和的进位由回绕
-    比较自然产生，由编译器融合为 add/adc 链；x64 下乘法借用库内调优的
-    mulx/adcx 内联汇编助手，其余平台为纯 C（编译器生成 mul/umulh 链）。
-*/
-
 static inline void mul_128(u128 a, u128 b, u128 *hi, u128 *lo) {
-#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
-    ulong u[4];
-    _umul128to256_(_u128high(a), _u128low(a), _u128high(b), _u128low(b), u);
-    *lo = ((u128)u[1] << 64) | u[0];
-    *hi = ((u128)u[3] << 64) | u[2];
-#else
+#if defined(__clang__)
     ulong a0 = _u128low(a), a1 = _u128high(a);
     ulong b0 = _u128low(b), b1 = _u128high(b);
     u128 p00 = (u128)a0 * b0;
@@ -108,17 +90,17 @@ static inline void mul_128(u128 a, u128 b, u128 *hi, u128 *lo) {
     u128 cl = l < p00; /* 进位属 hi 的第 0 位 */
     *lo = l;
     *hi = p11 + (mid >> 64) + cl + (cm << 64);
+#else
+    ulong u[4];
+    _umul128to256_(_u128high(a), _u128low(a), _u128high(b), _u128low(b), u);
+    *lo = ((u128)u[1] << 64) | u[0];
+    *hi = ((u128)u[3] << 64) | u[2];
 #endif
 }
 
 /* a^2 -> (hi, lo)：交叉积单次乘法后整体加倍（3 乘法平方） */
 static inline void sqr_128(u128 a, u128 *hi, u128 *lo) {
-#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
-    ulong u[4];
-    _usqr128to256_(_u128high(a), _u128low(a), u);
-    *lo = ((u128)u[1] << 64) | u[0];
-    *hi = ((u128)u[3] << 64) | u[2];
-#else
+#if defined(__clang__)
     ulong a0 = _u128low(a), a1 = _u128high(a);
     u128 p0 = (u128)a0 * a0;
     u128 m = (u128)a0 * a1; /* 交叉积，加倍后 129 位 */
@@ -129,6 +111,11 @@ static inline void sqr_128(u128 a, u128 *hi, u128 *lo) {
     u128 cl = l < p0;
     *lo = l;
     *hi = p1 + (ml >> 64) + cl + (mh << 64);
+#else
+    ulong u[4];
+    _usqr128to256_(_u128high(a), _u128low(a), u);
+    *lo = ((u128)u[1] << 64) | u[0];
+    *hi = ((u128)u[3] << 64) | u[2];
 #endif
 }
 
