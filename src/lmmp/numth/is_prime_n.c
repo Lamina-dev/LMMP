@@ -288,14 +288,14 @@ static inline void ipn_sdiv_mul1_(mp_ptr x, mp_limb_t a, const ipn_sdiv_t* sd) {
  * @note SPRP 判据与基底 2 轮一致：u ∈ {one,m1} 或 u^(2^j) 命中 m1
  */
 static int ipn_sprp_1_(
-    lmmp_mont_t* restrict   mc,
-    const ipn_sdiv_t*       sd,
-    mp_limb_t                a,
-    mp_srcptr                d,
-    mp_bitcnt_t          dbits,
+    lmmp_mont_t* restrict    mc,
+    const ipn_sdiv_t*        sd,
+    mp_limb_t                 a,
+    mp_srcptr                 d,
+    mp_bitcnt_t           dbits,
     mp_bitcnt_t               t,
-    mp_ptr                   u,
-    mp_ptr restrict       prod
+    mp_ptr                    u,
+    mp_ptr       restrict  prod
 ) {
     mp_size_t nn = mc->n;
 
@@ -304,7 +304,6 @@ static int ipn_sprp_1_(
     lmmp_copy(u, mc->one, nn);
     ipn_sdiv_mul1_(u, a, sd);
 
-    /* 二进制 L2R 梯子：逐位平方 + bit=1 乘底 */
     for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
         lmmp_sqr_(prod, u, nn);
         lmmp_mont_redc_(u, prod, mc);
@@ -369,9 +368,8 @@ static int ipn_jacobi_D_(uint Dabs, int Dneg, mp_srcptr np, mp_size_t nn) {
 }
 
 /*
-    强 Lucas-Selfridge 测试（U 阶梯，Hackman 平方型公式，P=1 特化，
-    结构移植自 GMP 6.3 mpz/lucmod.c）。阶梯递推（蒙域，Q 仅以小标量
-    出现，Q^k 链整体取消，Q^d 于末尾一次性恢复）：
+    强 Lucas-Selfridge 测试（U 阶梯，Hackman 平方型公式，P=1 特化）。
+    阶梯递推（蒙域，Q 仅以小标量出现，Q^k 链整体取消，Q^d 于末尾一次性恢复）：
       U_{2k}   = U_{k+1}^2 - (U_{k+1}-U_k)^2
       U_{2k+1} = U_{k+1}^2 - Q*U_k^2
       U_{2k+2} = U_{2k+1} - Q*U_{2k}（bit=1 时经递推免去第三次平方）
@@ -379,13 +377,13 @@ static int ipn_jacobi_D_(uint Dabs, int Dneg, mp_srcptr np, mp_size_t nn) {
     4 次乘族 + 4 次 REDC）。D 搜索：非完全平方的 n 其 Jacobi 特征
     非平凡，序列中必存在 (D|n) = -1，搜索必然终止；完全平方是唯一
     不终止情形，经 Dabs==17 处的延迟检测排除（lmmp_perfsqr_，不进
-    常见路径；固定小上界不可行，见 is_prime_2.c 同段注释）
+    常见路径；固定小上界不可行）
 */
 static int ipn_lucas_i_(
-    mp_srcptr          np,
-    mp_size_t          nn,
-    lmmp_mont_t* restrict mc,
-    mp_ptr restrict   prod
+    mp_srcptr               np,
+    mp_size_t               nn,
+    lmmp_mont_t* restrict   mc,
+    mp_ptr       restrict prod
 ) {
     uint Dabs = 5;
     int Dneg = 0;
@@ -404,7 +402,6 @@ static int ipn_lucas_i_(
     TEMP_DECL;
 
     /*
-       蒙域段由调用者提供（共享上下文），本函数仅分配阶梯段（嵌套 TEMP）：
          [prod(2n)]   平方全积（REDC 被归约数，调用者段）
          [np1(n+1)]   n+1（防全 1 顶进位越顶）→ d 所在段
          [Uk|Uk1(2n)] U 阶梯状态对 (U_k, U_{k+1})
@@ -430,20 +427,20 @@ static int ipn_lucas_i_(
 
     mp_bitcnt_t dbits = (dn - 1) * LIMB_BITS + lmmp_limb_bits_(d[dn - 1]);
     for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
-        ipn_mont_sub_(T1, Uk1, Uk, mc);         /* (U_{k+1}-U_k)R */
+        ipn_mont_sub_(T1, Uk1, Uk, mc);                   /* (U_{k+1}-U_k)R */
         lmmp_sqr_(prod, Uk1, nn);
-        lmmp_mont_redc_(T2, prod, mc);          /* A = U_{k+1}^2 R */
+        lmmp_mont_redc_(T2, prod, mc);                    /* A = U_{k+1}^2 R */
         lmmp_sqr_(prod, Uk, nn);
-        lmmp_mont_redc_(T3, prod, mc);          /* B = U_k^2 R */
+        lmmp_mont_redc_(T3, prod, mc);                    /* B = U_k^2 R */
         lmmp_sqr_(prod, T1, nn);
-        lmmp_mont_redc_(T1, prod, mc);          /* D = (U_{k+1}-U_k)^2 R */
-        ipn_mont_mul_small_(Uk, T3, Qabs, !Dneg, mc); /* Q*U_k^2 R */
-        ipn_mont_sub_(Uk1, T2, Uk, mc);         /* U_{2k+1} = A - Q*B */
-        ipn_mont_sub_(Uk, T2, T1, mc);          /* U_{2k}   = A - D */
+        lmmp_mont_redc_(T1, prod, mc);                    /* D = (U_{k+1}-U_k)^2 R */
+        ipn_mont_mul_small_(Uk, T3, Qabs, !Dneg, mc);     /* Q*U_k^2 R */
+        ipn_mont_sub_(Uk1, T2, Uk, mc);                   /* U_{2k+1} = A - Q*B */
+        ipn_mont_sub_(Uk, T2, T1, mc);                    /* U_{2k}   = A - D */
         if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1) {
             ipn_mont_mul_small_(T3, Uk, Qabs, !Dneg, mc); /* Q*U_{2k} R */
-            mp_ptr sw = Uk; Uk = Uk1; Uk1 = sw;  /* (U_{2k+1}, _) */
-            ipn_mont_sub_(Uk1, Uk, T3, mc);     /* U_{2k+2} = U_{2k+1} - Q*U_{2k} */
+            mp_ptr sw = Uk; Uk = Uk1; Uk1 = sw;           /* (U_{2k+1}, _) */
+            ipn_mont_sub_(Uk1, Uk, T3, mc);               /* U_{2k+2} = U_{2k+1} - Q*U_{2k} */
         }
     }
 
@@ -454,50 +451,62 @@ static int ipn_lucas_i_(
        V_d = 2U_{d+1} - U_d（联立 U_{d+1} = U_d - Q*U_{d-1} 与
        V_d = U_{d+1} - Q*U_{d-1}，阶梯末态恰为 (U_d, U_{d+1})，免 Q
        参与；GMP 同式而阶梯终点为 (U_{d-1},U_d)，故其写成
-       U_d - 2Q*U_{d-1}）。Q^d = (V_d^2 - D*U_d^2)/4 */
-    int ret = 0;
-    if (lmmp_zero_q_(Uk, nn)) {
-        ret = 1;
-        goto done;
-    }
+       U_d - 2Q*U_{d-1}）。Q^d = (V_d^2 - D*U_d^2)/4。
+       BFW 强化（Baillie-Fiori-Wagstaff 2021，同 is_prime_2.c）：判据
+       命中不早退，链尾统一追加 vpsp（V_{n+1} ≡ 2Q）与 Q-Euler
+       （Q^{(n+1)/2} ≡ ±Q）检查，素数必然全过、合数严格多拒。代价：
+       s>=2（n ≡ 3 mod 4）命中者本付 Q^d 重建，仅 +1 平方 REDC；s=1
+       （n ≡ 1 mod 4）素数必经入口命中，新付整套重建与检查（约
+       3.5 个 REDC + O(n) 标量，占 192n/每bit3REDC 的 U 阶梯 <0.5%） */
+    int hit = lmmp_zero_q_(Uk, nn);
     ipn_mont_dbl_(T1, Uk1, mc);
-    ipn_mont_sub_(T1, T1, Uk, mc); /* V_d = 2U_{d+1} - U_d */
-    if (lmmp_zero_q_(T1, nn)) {
-        ret = 1;
-        goto done;
-    }
-    if (s > 1) {
+    ipn_mont_sub_(T1, T1, Uk, mc);         /* V_d = 2U_{d+1} - U_d */
+    hit |= lmmp_zero_q_(T1, nn);
+    if (hit || s > 1) {
         /* Q^d R = (V_d^2 - D*U_d^2)R/4：两平方 REDC，D 以小标量合成，
            再模 n 两次折半（GMP 在普通域有精确整除 /4 便车，蒙域以
            折半替代，O(n)） */
         lmmp_sqr_(prod, T1, nn);
-        lmmp_mont_redc_(T2, prod, mc); /* V_d^2 R */
+        lmmp_mont_redc_(T2, prod, mc);     /* V_d^2 R */
         lmmp_sqr_(prod, Uk, nn);
-        lmmp_mont_redc_(Uk, prod, mc); /* U_d^2 R（U_d 槽至此耗尽） */
+        lmmp_mont_redc_(Uk, prod, mc);     /* U_d^2 R（U_d 槽至此耗尽） */
         ipn_mont_mul_small_(T3, Uk, Dabs, 0, mc);
         if (!Dneg)
             ipn_mont_sub_(T2, T2, T3, mc); /* D>0：V_d^2 - D*U_d^2 */
         else
             ipn_mont_add_(T2, T2, T3, mc); /* D<0：V_d^2 + |D|*U_d^2 */
-        ipn_mont_half_(T2, mc); /* (V^2 - D U^2) = 4Q^d → 2Q^d */
-        ipn_mont_half_(T2, mc); /* → Q^d（阶为蒙域剩余） */
+        ipn_mont_half_(T2, mc);            /* (V^2 - D U^2) = 4Q^d → 2Q^d */
+        ipn_mont_half_(T2, mc);            /* → Q^d（阶为蒙域剩余） */
         for (; s > 1; s--) {
-            ipn_mont_dbl_(T3, T2, mc); /* 2Q^m R */
+            ipn_mont_dbl_(T3, T2, mc);     /* 2Q^m R */
             lmmp_sqr_(prod, T1, nn);
             lmmp_mont_redc_(Uk, prod, mc); /* V_m^2 R */
             lmmp_sqr_(prod, T2, nn);
             lmmp_mont_redc_(T2, prod, mc); /* Q^{2m} R（旧值已被消费） */
             ipn_mont_sub_(T1, Uk, T3, mc); /* V_{2m} = V_m^2 - 2Q^m */
-            if (lmmp_zero_q_(T1, nn)) {
-                ret = 1;
-                goto done;
+            hit |= lmmp_zero_q_(T1, nn);
+        }
+        if (hit) {
+            /* 末态 T1 = V_{(n+1)/2}，T2 = Q^{(n+1)/2}（s=1 时为 V_d/Q^d
+               同型）。vpsp 补一次平方 REDC 得 V_{n+1}；Q-Euler 以蒙域
+               Qm = Q*one 做双值比较 */
+            lmmp_sqr_(prod, T1, nn);
+            lmmp_mont_redc_(Uk, prod, mc);                     /* V_{(n+1)/2}^2 R */
+            ipn_mont_dbl_(T3, T2, mc);                         /* 2Q^{(n+1)/2} R */
+            ipn_mont_sub_(T1, Uk, T3, mc);                     /* V_{n+1} R */
+            ipn_mont_mul_small_(Uk, mc->one, Qabs, !Dneg, mc); /* Q R */
+            ipn_mont_dbl_(T3, Uk, mc);                         /* 2Q R */
+            if (lmmp_cmp_(T1, T3, nn) != 0)
+                hit = 0;
+            else if (lmmp_cmp_(T2, Uk, nn) != 0) {
+                ipn_mont_neg_(T3, Uk, mc);
+                if (lmmp_cmp_(T2, T3, nn) != 0) hit = 0;
             }
         }
     }
 
-done:
     TEMP_FREE;
-    return ret;
+    return hit;
 }
 
 int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
@@ -660,15 +669,13 @@ composite:
     +1，(a|p^2) = (a|p)^2 且 a^((p^2-1)/2) = (±1)^(p+1) = +1，两侧
     不可区分），直接跳过。
 
-    见证搜索沿奇数 a = 3,5,7,... 至防御上界 IPN_PROTH_WITNESS_MAX（与
-    ipn_lucas_i_ 的 D 搜索同哲学：非平凡特征必存在见证，可证的小上界
-    不存在）。终止性：唯一无
-    -1 见证的情形是 N 为完全平方，而本域（N >= 2^64，kk < 2^32，
-    ne = t >= 64）内平方不可能——若 N = p^2 且 (p-1)(p+1) = kk*2^t，
-    记 p-1 = 2^a*u、p+1 = 2^b*v（u,v 奇，{a,b} 含 1），p >= 2^32 与
-    uv = kk < 2^32 联立迫使小 v2 侧奇部 >= 2^31、另一侧奇部 = 1，
-    只剩 p ∈ {2^32-1, 2^33-1, 2^32+1}，均非素——故 (·|N) 非平凡，
-    必有奇素数见证 < N，搜索有限步终止（实际首见证个位数到几十）。
+    见证搜索沿奇数 a = 3,5,7,... 至防御上界 IPN_PROTH_WITNESS_MAX。
+    终止性：唯一无 -1 见证的情形是 N 为完全平方，而本域（N >= 2^64，
+    kk < 2^32，ne = t >= 64）内平方不可能——若 N = p^2 且
+    (p-1)(p+1) = kk*2^t，记 p-1 = 2^a*u、p+1 = 2^b*v（u,v 奇，{a,b} 含 1），
+    p >= 2^32 与 uv = kk < 2^32 联立迫使小 v2 侧奇部 >= 2^31、
+    另一侧奇部 = 1，只剩 p ∈ {2^32-1, 2^33-1, 2^32+1}，均非素——
+    故 (·|N) 非平凡，必有奇素数见证 < N，搜索有限步终止（实际首见证个位数到几十）。
 
     梯子结构：指数 (N-1)/2 = k*2^(t-1) 低 t-1 位全零——k 部分（<= 32
     位）走 L2R 二进制梯（乘底至多 31 次全宽乘，占梯子份额可忽略，故
@@ -683,22 +690,18 @@ composite:
     不经 lmmp_mont_t 的通用三层分派。
 */
 
-/* 见证搜索上界（防御性）：域内非平方引理保证存在 Jacobi = -1 的奇素
-   见证（实际最小见证个位数到几十），上界仅为拦截不可达的异常情形
-   （形状前提被破坏/宇宙射线）——越界回退强度分档检验（概率性），
-   保持判决正确性而非悬挂 */
 #define IPN_PROTH_WITNESS_MAX 65535u
 
 static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
     /* 见证搜索（纯 Jacobi，无分配）：首个 Jacobi != +1 者即决 */
     ulong a;
-    int j = 1; /* 初值 1：上界耗尽/空转均归入防御回退分支 */
+    int j = 1;
     for (a = 3; a <= IPN_PROTH_WITNESS_MAX; a += 2) {
         j = ipn_jacobi_D_((uint)a, 0, np, nn);
         if (j != 1) break;
     }
     if (j == 0) return 0; /* gcd(a,N) > 1 且 a < N（N > 2^64 > a）*/
-    if (j == 1) return lmmp_is_prime_n_(np, nn, 4); /* 上界耗尽（不可达）：防御回退，值透传 */
+    if (j == 1) return lmmp_is_prime_n_(np, nn, 4);
 
     TEMP_DECL;
     lmmp_mont_sp_t mc;
@@ -737,7 +740,6 @@ static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
         }
     }
 
-    /* 尾部 t-1 次纯平方：u = u^(2^(ne-1)) */
     for (mp_bitcnt_t i = ne - 1; i-- > 0;) {
         lmmp_sqr_(prod, u, nn);
         lmmp_mont_sp_redc_(u, prod, &mc);
@@ -753,7 +755,6 @@ static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
 int lmmp_is_prothprime_(uint k, mp_size_t n) {
     lmmp_param_assert(k > 0 && n > 0);
     lmmp_param_assert((k & 1) == 1);
-    /* 契约域：k 奇（无 2 因子归一化），ne := n 即 v2(N-1) */
     ulong kk = k;
     mp_bitcnt_t ne = (mp_bitcnt_t)n;
     uint bk = (uint)lmmp_limb_bits_(kk);

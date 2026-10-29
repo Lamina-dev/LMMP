@@ -664,8 +664,10 @@ LMMP_API bool lmmp_is_prime_notrial_(ulong n);
  * @note B <= n < SWbound = 3317044064679887385961981（约
  *       2^81.5）时为确定性判据（前 13 个素数基底的 Rabin-Miller，
  *       Sorenson-Webster），返回 1；更大时为 BPSW 型判据（基底 2 强伪素数
- *       测试叠加强 Lucas-Selfridge 测试的 V 阶梯实现），无已知反例，返回 2。
- * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（BPSW 型非确定性判据）
+ *       测试叠加强 Lucas-Selfridge 测试的 V 阶梯实现，Lucas 参数含 A*
+ *       脆弱区绕行（(5|n)=-1 时 Q 取 1/5 的归一化形），另含 BFW vpsp 与
+ *       Q-Euler 两项强化检查，素数必然全过），学界无已知反例，返回 2。
+ * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（强 BPSW 型非确定性判据）
  */
 LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
 
@@ -676,7 +678,9 @@ LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
  * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1
  * @note Selfridge 方法 A：P=1，Q=(1-D)/4，D 取 5,-7,9,-11,... 中首个
  *       (D|n)=-1 者；V-only 阶梯实现，判据与标准 U/V 强 Lucas 测试精确一致
- *       （U_d=0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 以 2V_{d+1}=V_d 检出）。
+ *       （U_d=0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 以 2V_{d+1}=V_d 检出），
+ *       判据命中后叠加 BFW vpsp（V_{n+1}=2Q）与 Q-Euler（Q^{(n+1)/2}=+-Q）
+ *       两项强化检查（Baillie-Fiori-Wagstaff 2021，素数必然全过）。
  *       判定合数的情形含 gcd(|D|,n)>1 与 n 为完全平方数。
  *       单轮成本约为单轮 MR 的 1.6~2 倍
  * @return 1 = 通过强 Lucas 测试；0 = 合数
@@ -691,7 +695,7 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  *        x 轮 1 limb 基底（a in [3,B) 均匀，最廉价，尽早拒判）再跑至多 y 轮
  *        全域（n limb，[2,n-2] 均匀）基底。各层均为"至多"轮数，任一轮检出
  *        合数即提前终止：
- *        | 强度 | 基底2 MR | 1 limb 基底 MR | n limb 基底 MR | 强 Lucas |
+ *        | 强度| 基底2 MR | 1 limb 基底 MR | n limb 基底 MR | 强 Lucas |
  *        | --- | ------- | -------------- | -------------- | -------- |
  *        |  0  |   √     |       2        |       2        |    -     |
  *        |  1  |   √     |       3        |       2        |    -     |
@@ -702,8 +706,8 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  *        |  6  |   √     |       2        |       1        |    √     |
  *        |  7  |   √     |       3        |       2        |    √     |
  * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
- * @note 契约域 n > 2^128 超过一切已实用化的确定性 MR 基组界（psi_13 约 3.3e24 < 2^82），
-         故实际不会返回 1，语义保留与 lmmp_is_prime_2_ 一致。
+ * @note 建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
+ *       且可以更快的过滤伪素数。理论误判率比 BPSW 测试（学界无已知反例）误判率强得多。
  * @attention 1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
  *            > (log n)^(1/3)）知窄基底类在最坏/对抗情形弱于全宽随机轮：本"1+n"
  *            搭配定位于随机候选（keygen）场景，不承诺对抗性输入下的强度保证。

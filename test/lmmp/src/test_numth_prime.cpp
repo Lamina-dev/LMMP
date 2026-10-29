@@ -359,6 +359,9 @@ TEST_CASE("numth/prime", is_prime_2) {
         {0x0000000000000001ull, 0x0000000000000001ull, false, "2^64+1 Fermat"},
         {0xffffffffffffffffull, 0xffffffffffffffffull, false, "2^128-1 (3 divides)"},
         {0x000000000000437aull, 0xe92817f9fc85b7e5ull, false, "psi_12 SPSP(2..37)"},
+        {0x000000000000437aull, 0xe92817f9fc85b7e4ull, false, "psi_12-1 even"},
+        {0x000000000000437aull, 0xe92817f9fc85b7d1ull, true, "first prime < psi_12"},
+        {0x000000000000437aull, 0xe92817f9fc85b7fbull, true, "first prime > psi_12"},
         {0x000000000002be69ull, 0x51adc5b22410a5fdull, false, "psi_13 = SWbound"},
         {0x000000000002be69ull, 0x51adc5b22410a68bull, true, "first prime > SWbound"},
         {0x0000000000000001ull, 0x0000000000000000ull, false, "2^64 even"},
@@ -411,6 +414,23 @@ TEST_CASE("numth/prime", is_prime_2_more) {
                 bool ref = ref_is_prime128(n);
                 int expect = ref ? (n < SW ? 1 : 2) : 0;
                 TEST_CHECK_MSG(r == expect, "SW neighborhood tri-state");
+            }
+        }
+    }
+
+    /* 1b. ψ₁₂ 邻域程序化扫描：12/13 确定性基底档位切换点两侧（返回值
+          语义两侧均为 1/0），下沿含 SPSP(2..37) 首例 ψ₁₂ 本体（合数） */
+    {
+        const r128 P12 = (((r128)0x437a) << 64) | 0xe92817f9fc85b7e5ull;
+        int cnt = 0;
+        for (r128 off = 1; off <= 201 && cnt < 100; off += 2) {
+            r128 nn[2] = {P12 - off, P12 + off};
+            for (int k = 0; k < 2; k++, cnt++) {
+                r128 n = nn[k];
+                int r = lmmp_is_prime_2_((u64)n, (u64)(n >> 64));
+                bool ref = ref_is_prime128(n);
+                int expect = ref ? 1 : 0;
+                TEST_CHECK_MSG(r == expect, "psi_12 neighborhood deterministic");
             }
         }
     }

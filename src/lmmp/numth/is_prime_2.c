@@ -332,21 +332,47 @@ static void mont2_powmod_3_(u128 *y1, u128 *y2, u128 *y3, ulong b1, ulong b2, ul
     *y3 = w;
 }
 
-/*
-    12 个奇基底 Rabin-Miller（基底 3..41，3 路交错）
-*/
-static int mont2_is_prime_mr13(u128 n, u128 ninv, u128 R2, u128 d, int ebits, slong t, u128 one,
-                               u128 m_1) {
+/* 双基底交错幂 y1 = b1^d, y2 = b2^d（蒙域）：三链变体减一链，
+   末轮恰剩两基底时用之（勿以重复基底凑三链——重复链吃回台阶收益） */
+static void mont2_powmod_2ch_(u128* y1, u128* y2, ulong b1, ulong b2, u128 d, int ebits, u128 R2,
+                              u128 n, u128 ninv) {
+    u128 x, v, bm1, bm2;
+    int bit;
+
+    x = mont2_to_mont1(b1, R2, n, ninv);
+    v = mont2_to_mont1(b2, R2, n, ninv);
+    bm1 = x;
+    bm2 = v;
+
+    for (bit = ebits - 2; bit >= 0; bit--) {
+        x = mont2_sqr(x, n, ninv);
+        v = mont2_sqr(v, n, ninv);
+        if ((d >> bit) & 1) {
+            x = mont2_mul_2(x, bm1, n, ninv);
+            v = mont2_mul_2(v, bm2, n, ninv);
+        }
+    }
+    *y1 = x;
+    *y2 = v;
+}
+
+static int mont2_is_prime_mr_(u128 n, u128 ninv, u128 R2, u128 d, int ebits, slong t, u128 one,
+                              u128 m_1, int nb) {
     u128 y1, y2, y3;
     static const uchar bases[12] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
     int j;
 
-    for (j = 0; j < 12; j += 3) {
+    for (j = 0; j + 3 <= nb; j += 3) {
         mont2_powmod_3_(&y1, &y2, &y3, bases[j], bases[j + 1], bases[j + 2], d, ebits, R2, n,
                         ninv);
         if (!mont2_sprp_stage2(y1, t, one, m_1, n, ninv)) return 0;
         if (!mont2_sprp_stage2(y2, t, one, m_1, n, ninv)) return 0;
         if (!mont2_sprp_stage2(y3, t, one, m_1, n, ninv)) return 0;
+    }
+    if (nb == 11) {
+        mont2_powmod_2ch_(&y1, &y2, bases[9], bases[10], d, ebits, R2, n, ninv);
+        if (!mont2_sprp_stage2(y1, t, one, m_1, n, ninv)) return 0;
+        if (!mont2_sprp_stage2(y2, t, one, m_1, n, ninv)) return 0;
     }
     return 1;
 }
@@ -371,7 +397,9 @@ static inline int is_square_2(u128 n) {
     ============ 强 Lucas-Selfridge 测试（V-only 阶梯） ============
 
     Selfridge 方法 A：P = 1，Q = (1-D)/4，D 取 5, -7, 9, -11, ... 中
-    首个 (D|n) = -1 者。V 阶梯递推（蒙域）：
+    首个 (D|n) = -1 者；A* 脆弱区绕行——首候选 D=5 命中时改参数化
+    (P,Q)=(1,1/5)（(5,5) 的 V/P^m 归一化像），使全部输入脱离 Q≡±1
+    脆弱区（见下方 Qm 构造处注释）。V 阶梯递推（蒙域）：
       V_{2k}   = V_k^2 - 2Q^k
       V_{2k+1} = V_k*V_{k+1} - Q^k
       V_{2k+2} = V_{k+1}^2 - 2Q^{k+1}
@@ -382,7 +410,8 @@ static inline int is_square_2(u128 n) {
     U_d = 0 经 P=1 恒等式 D*U_d = 2V_{d+1} - V_d 转为 2V_{d+1} = V_d 检出
     （阶梯末态 Vk1 = V_{d+1}；D 搜索保证 gcd(D,n)=1，等价精确成立，含平方
     因子的 n 亦然；旧判据 V_d^2 = 4Q^d 仅在 n 无平方因子时等价，对
-    p^2*q 型 n 会多接受）。通过返回 1；判定合数（含 gcd(|D|,n)>1）返回 0
+    p^2*q 型 n 会多接受）。判据命中后再叠加 BFW 两项强化检查（见尾注），
+    素数接受集不变、合数严格多拒。通过返回 1；判定合数（含 gcd(|D|,n)>1）返回 0
 */
 static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
     u128 one, Qm, Qk, Qk1, Vk, Vk1, d, u, w, r;
@@ -414,8 +443,25 @@ static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
     d = factor_2adic(n + 1, &s);
 
     one = mont2_to_mont1(1, R2, n, ninv);
-    Qm = mont2_to_mont1(Qabs, R2, n, ninv);
-    if (!Dneg) Qm = mont2_neg(Qm, n);
+    if (Dabs == 5 && !Dneg) {
+        /* A* 脆弱区绕行（归一化形）：首候选 D=5 命中 (5|n)=-1 时
+           Selfridge 参数 (P,Q)=(1,-1) 落 BFW 实证 Q≡±1 脆弱区（伪素数
+           过代表，且 Q-Euler 检查 Q^{(n+1)/2}=±Q 恒真空转），改用等价
+           参数化 (P',Q')=(1,1/5)：V'_m = V_m/P^m 把 A* 的 (5,5) 等距
+           映射到 P=1 形（D' = 1-4Q' = 1/5，(D'|n) = (5|n) = -1 仍
+           合法），阶梯/stage2/末检全部公式零改动。q = 5^{-1} mod n
+           闭式：k*(n mod 5) = 4 (mod 5) 使 k*n+1 被 5 整除、真商 < n，
+           商经 mod 2^128 乘 5 的 2^128 幂逆恢复（2^64 ≡ 1 (mod 5)） */
+        static const uchar kt[5] = {0, 4, 2, 3, 1};
+        static const u128 inv5 =
+            (((u128)0xcccccccccccccccc) << 64) | 0xcccccccccccccccd; /* 5^{-1} mod 2^128 */
+        ulong r5 = (_u128low(n) % 5 + _u128high(n) % 5) % 5;
+        u128 q = (((u128)kt[r5]) * n + 1) * inv5;
+        Qm = mont2_to_mont2(q, R2, n, ninv);
+    } else {
+        Qm = mont2_to_mont1(Qabs, R2, n, ninv);
+        if (!Dneg) Qm = mont2_neg(Qm, n);
+    }
 
     /* 阶梯初态 k=1：(V_1, V_2, Q^1, Q^2) = (1, 1-2Q, Q, Q^2) */
     Vk = one;
@@ -445,18 +491,27 @@ static int mont2_lucas_strong_(u128 n, u128 ninv, u128 R2) {
     }
 
     /* 判据：V_d = 0（r=0），或 U_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
-       U_d = 0 经 D*U_d = 2V_{d+1} - V_d 检出（末态 Vk1 = V_{d+1}） */
-    if (Vk == 0) return 1;
-    if (mont2_dbl(Vk1, n) == Vk) return 1;
+       U_d = 0 经 D*U_d = 2V_{d+1} - V_d 检出（末态 Vk1 = V_{d+1}）。
+       BFW 强化（Baillie-Fiori-Wagstaff 2021）：命中不早退，链尾统一
+       追加 vpsp 与 Q-Euler 两检查——素数经 Frobenius（α^{n+1}=αβ=Q）
+       与 Euler 判据必然全过（vpsp@10^15 仅 5 个反例且与 spsp(2)/slpsp
+       全不相交，只拦假想的 BPSW 反例），正常完成路径零额外 REDC，
+       早退路径平均多 ~1-2 次链尾 sqr */
+    int hit = (Vk == 0) | (mont2_dbl(Vk1, n) == Vk);
     u = mont2_sqr(Vk, n, ninv);
     for (s--; s > 0; s--) {
         r = mont2_dbl(Qk, n);
         Vk = mont2_sub(u, r, n); /* V_{2d} = V_d^2 - 2Q^d（复用 u = V_d^2） */
         Qk = mont2_sqr(Qk, n, ninv);
         u = mont2_sqr(Vk, n, ninv);
-        if (Vk == 0) return 1;
+        if (Vk == 0) hit = 1;
     }
-    return 0;
+    if (!hit) return 0;
+    /* 末态 u = V_{(n+1)/2}^2，Qk = Q^{(n+1)/2}（s=1 时阶梯末态同型）。
+       vpsp：V_{n+1} = u - 2Qk ≡ 2Q；Q-Euler：Qk = Q*(Q|n) ∈ {Qm,-Qm} */
+    if (mont2_sub(u, mont2_dbl(Qk, n), n) != mont2_dbl(Qm, n)) return 0;
+    if (Qk != Qm && Qk != mont2_neg(Qm, n)) return 0;
+    return 1;
 }
 
 /* 蒙域参数预计算：ninv = -n^(-1) mod B^2，R2 = B^4 mod n
@@ -532,7 +587,10 @@ int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
     y = mont2_powmod_2_(d, ebits, R2, n, ninv);
     if (!mont2_sprp_stage2(y, t, one, m_1, n, ninv)) return 0;
 
-    if (full) return mont2_is_prime_mr13(n, ninv, R2, d, ebits, t, one, m_1) ? 1 : 0;
+    if (full) {
+        int nb = n >= ((((u128)0x437a) << 64) | 0xe92817f9fc85b7e5) ? 12 : 11;
+        return mont2_is_prime_mr_(n, ninv, R2, d, ebits, t, one, m_1, nb) ? 1 : 0;
+    }
 
     return mont2_lucas_strong_(n, ninv, R2) ? 2 : 0;
 }
