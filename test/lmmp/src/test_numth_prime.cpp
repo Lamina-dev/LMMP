@@ -402,10 +402,11 @@ TEST_CASE("numth/prime", is_prime_2_more) {
     u64 seed = 0xa5a5137f9e3779b9ull;
 
     /* 1. SWbound 邻域程序化扫描：确定性(1)/BPSW(2) 切换点两侧，
-          每个奇数均与参考对拍（含切点下沿确定性路径与上沿 Lucas 路径） */
+          每个奇数均与参考对拍（含切点下沿确定性路径与上沿 Lucas 路径；
+          偶偏移保证 SW ± off 为奇数——奇偏移全为偶数，空转） */
     {
         int cnt = 0;
-        for (r128 off = 1; off <= 801 && cnt < 400; off += 2) {
+        for (r128 off = 2; off <= 800 && cnt < 400; off += 2) {
             r128 nn[2] = {SW - off, SW + off};
             for (int k = 0; k < 2; k++, cnt++) {
                 r128 n = nn[k];
@@ -419,11 +420,13 @@ TEST_CASE("numth/prime", is_prime_2_more) {
     }
 
     /* 1b. ψ₁₂ 邻域程序化扫描：12/13 确定性基底档位切换点两侧（返回值
-          语义两侧均为 1/0），下沿含 SPSP(2..37) 首例 ψ₁₂ 本体（合数） */
+          语义两侧均为 1/0），下沿含 SPSP(2..37) 首例 ψ₁₂ 本体（合数）。
+          偶偏移保证 P12 ± off 为奇数（奇偏移会得到偶数，全部被
+          lo&1 出口平凡拒判，扫描空转） */
     {
         const r128 P12 = (((r128)0x437a) << 64) | 0xe92817f9fc85b7e5ull;
         int cnt = 0;
-        for (r128 off = 1; off <= 201 && cnt < 100; off += 2) {
+        for (r128 off = 2; off <= 202 && cnt < 100; off += 2) {
             r128 nn[2] = {P12 - off, P12 + off};
             for (int k = 0; k < 2; k++, cnt++) {
                 r128 n = nn[k];

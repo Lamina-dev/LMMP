@@ -707,7 +707,10 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  *        |  7  |   √     |       3        |       2        |    √     |
  * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
  * @note 建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
- *       且可以更快的过滤伪素数。理论误判率比 BPSW 测试（学界无已知反例）误判率强得多。
+ *       且可以更快的过滤伪素数。该档为 BPSW 型判据（基底 2 MR 叠加强 Lucas）之上增加 2 轮
+ *       1 limb 随机基底 MR；其中 Lucas 半部含 BFW vpsp 与 Q-Euler 两项强化检查
+ *       （Baillie-Fiori-Wagstaff 2021，素数必然全过），故接受集为标准 BPSW
+ *       接受集的子集（合数只可能多拒、不可能少拒）；文档不提供误判率的定量界。
  * @attention 1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
  *            > (log n)^(1/3)）知窄基底类在最坏/对抗情形弱于全宽随机轮：本"1+n"
  *            搭配定位于随机候选（keygen）场景，不承诺对抗性输入下的强度保证。
