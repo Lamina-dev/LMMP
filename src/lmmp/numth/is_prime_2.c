@@ -302,77 +302,229 @@ static u128 mont2_powmod_2_(u128 d, int ebits, u128 R2, u128 n, u128 ninv) {
     return v;
 }
 
-/* 三基底交错幂 y1 = b1^d, y2 = b2^d, y3 = b3^d（蒙域）：
-   3 条独立平方链掩盖模乘延迟；乘基底须用蒙域值 bm*，普通域小数
-   直接参与 REDC 会把链拉出蒙域 */
-static void mont2_powmod_3_(u128 *y1, u128 *y2, u128 *y3, ulong b1, ulong b2, ulong b3, u128 d,
-                            int ebits, u128 R2, u128 n, u128 ninv) {
-    u128 x, v, w, bm1, bm2, bm3;
-    int bit;
+/*
+    模 n in (B, phi13] 的非蒙域 sloppy 算术：minv = floor(B^3/n)，3-limb
+    中间积 x 的近似商
 
-    x = mont2_to_mont1(b1, R2, n, ninv);
-    v = mont2_to_mont1(b2, R2, n, ninv);
-    w = mont2_to_mont1(b3, R2, n, ninv);
-    bm1 = x;
-    bm2 = v;
-    bm3 = w;
+      q' = mulhi_sloppy(floor(x/B), minv)    满足    q - 5 <= q' <= q
 
-    for (bit = ebits - 2; bit >= 0; bit--) {
-        x = mont2_sqr(x, n, ninv);
-        v = mont2_sqr(v, n, ninv);
-        w = mont2_sqr(w, n, ninv);
-        if ((d >> bit) & 1) {
-            x = mont2_mul_2(x, bm1, n, ninv);
-            v = mont2_mul_2(v, bm2, n, ninv);
-            w = mont2_mul_2(w, bm3, n, ninv);
-        }
-    }
-    *y1 = x;
-    *y2 = v;
-    *y3 = w;
+    （q = floor(x/n)：截断倒数欠 4 + mulhi 丢交叉低位欠 1；上侧
+    X*minv <= x*B^2/n 保证），故 0 <= x - q'*n < 6n 为非规范剩余：
+      - 双 limb 截断算术对它精确（真值非负且 6n < 2^128，回绕减丢的
+        借位恰好无影响）；q'*n 的高半整体丢弃同理；
+      - bit=1 的小基底乘完全免约简：y*b < 6n*41 = 246n < 2^128 装下，
+        下一平方 (246n)^2 < 2^182 < B^3 仍在 3-limb 窗内
+        （_usqr128to192_ 契约 a < 2^96：246n < 2^91 满足）；
+      - 基底 2 逢 1 双倍：2y < 12n < 2^128 无回绕。
+    链尾经 reduce2_precise 规范化后 stage2 在普通域比较 1 / n-1。
+*/
+
+/* minv = floor(B^3/n)：2^192 除以 n 的商（lmmp_div_2_ 自带归一化，
+   numb 出参收余数弃用） */
+static void ll_small_preinv(u128 *minv, u128 n) {
+    ulong q[2], nn[4] = {0, 0, 0, 1}, d[2];
+
+    _u128store(d, n);
+    lmmp_div_2_(q, nn, 4, d);
+    *minv = ((u128)q[1] << 64) | q[0];
 }
 
-/* 双基底交错幂 y1 = b1^d, y2 = b2^d（蒙域）：三链变体减一链，
-   末轮恰剩两基底时用之（勿以重复基底凑三链——重复链吃回台阶收益） */
-static void mont2_powmod_2ch_(u128* y1, u128* y2, ulong b1, ulong b2, u128 d, int ebits, u128 R2,
-                              u128 n, u128 ninv) {
-    u128 x, v, bm1, bm2;
-    int bit;
+/* 平方 + sloppy 归约到非规范剩余 < 6n */
+static inline void ll_small_sqrmod_sloppy(
+    ulong *r1, ulong *r0, ulong a1, ulong a0,
+    ulong n1, ulong n0, ulong minv1, ulong minv0
+) {
+    ulong s[3], q[2];
+    u128 t;
 
-    x = mont2_to_mont1(b1, R2, n, ninv);
-    v = mont2_to_mont1(b2, R2, n, ninv);
-    bm1 = x;
-    bm2 = v;
-
-    for (bit = ebits - 2; bit >= 0; bit--) {
-        x = mont2_sqr(x, n, ninv);
-        v = mont2_sqr(v, n, ninv);
-        if ((d >> bit) & 1) {
-            x = mont2_mul_2(x, bm1, n, ninv);
-            v = mont2_mul_2(v, bm2, n, ninv);
-        }
-    }
-    *y1 = x;
-    *y2 = v;
+    _usqr128to192_(a1, a0, s);
+    _umulhi128_sloppy_(s[2], s[1], minv1, minv0, q);
+    t = _umul128to128_(q[1], q[0], n1, n0);
+    _sub_ddmmss(*r1, *r0, s[1], s[0], _u128high(t), _u128low(t));
 }
 
-static int mont2_is_prime_mr_(u128 n, u128 ninv, u128 R2, u128 d, int ebits, slong t, u128 one,
-                              u128 m_1, int nb) {
-    u128 y1, y2, y3;
+/* 平方 + 归约到规范剩余 [0,n)（stage2 等值比较用）：sloppy 后条件减
+   收尾，剩余 < 6n 至多 5 次 */
+static inline void ll_small_sqrmod(
+    ulong *r1, ulong *r0, ulong a1, ulong a0,
+    ulong n1, ulong n0, ulong minv1, ulong minv0
+) {
+    ll_small_sqrmod_sloppy(r1, r0, a1, a0, n1, n0, minv1, minv0);
+    while (*r1 > n1 || (*r1 == n1 && *r0 >= n0))
+        _sub_ddmmss(*r1, *r0, *r1, *r0, n1, n0);
+}
+
+/* 2-limb 值规范化到 [0,n)：q0 = hi(x1*minv1) 是 floor(x/n) 的下偏
+   近似（q0 <= q 保证减法非负；欠至多 2 使条件减至多 2 次），
+   q0*n < 246n < 2^128 截断积即真值 */
+static inline void ll_small_reduce2_precise(ulong *r1, ulong *r0, ulong x1, ulong x0, ulong n1, ulong n0, ulong minv1) {
+    ulong t[2];
+
+    _umullo128x64_(n1, n0, _umul64to64hi_(x1, minv1), t);
+    _sub_ddmmss(x1, x0, x1, x0, t[1], t[0]);
+    while (x1 > n1 || (x1 == n1 && x0 >= n0))
+        _sub_ddmmss(x1, x0, x1, x0, n1, n0);
+    *r0 = x0;
+    *r1 = x1;
+}
+
+/* r = a*b 截断（小基底免约简乘，< 246n 装下即真值） */
+static inline void ll_small_mul1_(ulong *r1, ulong *r0, ulong a1, ulong a0, ulong b) {
+    ulong t[2];
+
+    _umullo128x64_(a1, a0, b, t);
+    *r0 = t[0];
+    *r1 = t[1];
+}
+
+static void ll_small_2_powmod(ulong y[2], u128 d, int ebits, ulong n1, ulong n0, ulong minv1, ulong minv0) {
+    int k = ebits > 6 ? 6 : ebits;
+    int bit;
+    ulong r1 = 0, r0 = (ulong)1 << (ulong)(d >> (ebits - k));
+
+    for (bit = ebits - k - 1; bit >= 0; bit--) {
+        ll_small_sqrmod_sloppy(&r1, &r0, r1, r0, n1, n0, minv1, minv0);
+        if ((d >> bit) & 1) _add_ssaaaa(r1, r0, r1, r0, r1, r0);
+    }
+    ll_small_reduce2_precise(&y[1], &y[0], r1, r0, n1, n0, minv1);
+}
+
+/* 二次探测第二阶段（普通域规范剩余比较）：y = b^d 已规范化 */
+static inline int ll_small_sprp_stage2(
+    ulong y1, ulong y0, slong     t, ulong nm1_1, ulong nm1_0,
+    ulong n1, ulong n0, ulong minv1, ulong minv0
+) {
+    if ((y1 == 0 && y0 == 1) || (y1 == nm1_1 && y0 == nm1_0)) return 1;
+    for (t--; t > 0; t--) {
+        ll_small_sqrmod(&y1, &y0, y1, y0, n1, n0, minv1, minv0);
+        if (y1 == nm1_1 && y0 == nm1_0) return 1;
+    }
+    return 0;
+}
+
+/*
+    三基底交错幂 y1 = b1^d, y2 = b2^d, y3 = b3^d（非规范）：指数顶部
+   3 bit 在普通域免归约计算 b^(1 b1 b2)（b <= 41，b^7 < 2^38 单
+   limb），其后逐位 sloppy 平方，逢 1 小基底免约简乘，链尾规范化。
+   ebits < 3（n-1 = 2^s 时 d = 1）退化为直接以 b 起步
+*/
+static void ll_small_powmod_3_(
+    ulong y1[2], ulong y2[2], ulong y3[2],
+    ulong    b1, ulong    b2, ulong    b3, u128      d, int ebits,
+    ulong    n1, ulong    n0, ulong minv1, ulong minv0
+) {
+    ulong xr1 = 0, xr0, yr1 = 0, yr0, zr1 = 0, zr0;
+    int bit;
+
+    if (ebits >= 3) {
+        ulong bit1 = (ulong)(d >> (ebits - 2)) & 1;
+        ulong bit2 = (ulong)(d >> (ebits - 3)) & 1;
+
+        xr0 = b1 * b1;
+        yr0 = b2 * b2;
+        zr0 = b3 * b3;
+        if (bit1) {
+            xr0 *= b1;
+            yr0 *= b2;
+            zr0 *= b3;
+        }
+        xr0 = xr0 * xr0;
+        yr0 = yr0 * yr0;
+        zr0 = zr0 * zr0;
+        if (bit2) {
+            xr0 *= b1;
+            yr0 *= b2;
+            zr0 *= b3;
+        }
+        bit = ebits - 4;
+    } else {
+        xr0 = b1;
+        yr0 = b2;
+        zr0 = b3;
+        bit = ebits - 2;
+    }
+
+    for (; bit >= 0; bit--) {
+        ll_small_sqrmod_sloppy(&xr1, &xr0, xr1, xr0, n1, n0, minv1, minv0);
+        ll_small_sqrmod_sloppy(&yr1, &yr0, yr1, yr0, n1, n0, minv1, minv0);
+        ll_small_sqrmod_sloppy(&zr1, &zr0, zr1, zr0, n1, n0, minv1, minv0);
+        if ((d >> bit) & 1) {
+            ll_small_mul1_(&xr1, &xr0, xr1, xr0, b1);
+            ll_small_mul1_(&yr1, &yr0, yr1, yr0, b2);
+            ll_small_mul1_(&zr1, &zr0, zr1, zr0, b3);
+        }
+    }
+    ll_small_reduce2_precise(&y1[1], &y1[0], xr1, xr0, n1, n0, minv1);
+    ll_small_reduce2_precise(&y2[1], &y2[0], yr1, yr0, n1, n0, minv1);
+    ll_small_reduce2_precise(&y3[1], &y3[0], zr1, zr0, n1, n0, minv1);
+}
+
+/* 双基底交错幂（三链变体减一链，末轮恰剩两基底时用之——勿以重复
+   基底凑三链，重复链吃回台阶收益） */
+static void ll_small_powmod_2ch_(
+    ulong y1[2], ulong y2[2], ulong    b1, ulong    b2, u128 d, int ebits,
+    ulong    n1, ulong    n0, ulong minv1, ulong minv0
+) {
+    ulong xr1 = 0, xr0, yr1 = 0, yr0;
+    int bit;
+
+    if (ebits >= 3) {
+        ulong bit1 = (ulong)(d >> (ebits - 2)) & 1;
+        ulong bit2 = (ulong)(d >> (ebits - 3)) & 1;
+
+        xr0 = b1 * b1;
+        yr0 = b2 * b2;
+        if (bit1) {
+            xr0 *= b1;
+            yr0 *= b2;
+        }
+        xr0 = xr0 * xr0;
+        yr0 = yr0 * yr0;
+        if (bit2) {
+            xr0 *= b1;
+            yr0 *= b2;
+        }
+        bit = ebits - 4;
+    } else {
+        xr0 = b1;
+        yr0 = b2;
+        bit = ebits - 2;
+    }
+
+    for (; bit >= 0; bit--) {
+        ll_small_sqrmod_sloppy(&xr1, &xr0, xr1, xr0, n1, n0, minv1, minv0);
+        ll_small_sqrmod_sloppy(&yr1, &yr0, yr1, yr0, n1, n0, minv1, minv0);
+        if ((d >> bit) & 1) {
+            ll_small_mul1_(&xr1, &xr0, xr1, xr0, b1);
+            ll_small_mul1_(&yr1, &yr0, yr1, yr0, b2);
+        }
+    }
+    ll_small_reduce2_precise(&y1[1], &y1[0], xr1, xr0, n1, n0, minv1);
+    ll_small_reduce2_precise(&y2[1], &y2[0], yr1, yr0, n1, n0, minv1);
+}
+
+/* 确定性奇基底 MR（1.5-limb，基底 2 已由调用方做完）：nb 个基底
+   {3,5,...} 三链交错。全部通过返回 1 */
+static int ll_small_is_prime_mr(u128 n, u128 minv, u128 d, int ebits, slong t, int nb) {
     static const uchar bases[12] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+    ulong n1 = _u128high(n), n0 = _u128low(n);
+    ulong minv1 = _u128high(minv), minv0 = _u128low(minv);
+    ulong nm1[2], y1[2], y2[2], y3[2];
     int j;
 
+    _sub_ddmmss(nm1[1], nm1[0], n1, n0, 0, 1);
+
     for (j = 0; j + 3 <= nb; j += 3) {
-        mont2_powmod_3_(&y1, &y2, &y3, bases[j], bases[j + 1], bases[j + 2], d, ebits, R2, n,
-                        ninv);
-        if (!mont2_sprp_stage2(y1, t, one, m_1, n, ninv)) return 0;
-        if (!mont2_sprp_stage2(y2, t, one, m_1, n, ninv)) return 0;
-        if (!mont2_sprp_stage2(y3, t, one, m_1, n, ninv)) return 0;
+        ll_small_powmod_3_(y1, y2, y3, bases[j], bases[j + 1], bases[j + 2], d, ebits,
+                           n1, n0, minv1, minv0);
+        if (!ll_small_sprp_stage2(y1[1], y1[0], t, nm1[1], nm1[0], n1, n0, minv1, minv0)) return 0;
+        if (!ll_small_sprp_stage2(y2[1], y2[0], t, nm1[1], nm1[0], n1, n0, minv1, minv0)) return 0;
+        if (!ll_small_sprp_stage2(y3[1], y3[0], t, nm1[1], nm1[0], n1, n0, minv1, minv0)) return 0;
     }
     if (nb == 11) {
-        mont2_powmod_2ch_(&y1, &y2, bases[9], bases[10], d, ebits, R2, n, ninv);
-        if (!mont2_sprp_stage2(y1, t, one, m_1, n, ninv)) return 0;
-        if (!mont2_sprp_stage2(y2, t, one, m_1, n, ninv)) return 0;
+        ll_small_powmod_2ch_(y1, y2, bases[9], bases[10], d, ebits, n1, n0, minv1, minv0);
+        if (!ll_small_sprp_stage2(y1[1], y1[0], t, nm1[1], nm1[0], n1, n0, minv1, minv0)) return 0;
+        if (!ll_small_sprp_stage2(y2[1], y2[0], t, nm1[1], nm1[0], n1, n0, minv1, minv0)) return 0;
     }
     return 1;
 }
@@ -534,9 +686,9 @@ static void mont2_preinv(u128 *ninv, u128 *R2, u128 n) {
 
 int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
     lmmp_param_assert(hi > 0);
-    u128 n, ninv, R2, nm1, d, one, m_1, y;
+    u128 n, nm1, d;
     slong t, i;
-    int ebits, full;
+    int ebits;
 
     if ((lo & 1) == 0) return 0;
 
@@ -573,24 +725,42 @@ int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
 #undef bbound1
 
     n = ((u128)hi << 64) | lo;
-    mont2_preinv(&ninv, &R2, n);
-
-    /* SWbound = psi_13 (Sorenson-Webster)*/
-    full = n < ((((u128)0x2be69) << 64) | 0x51adc5b22410a5fd);
-
     nm1 = n - 1;
     d = factor_2adic(nm1, &t);
     ebits = bitlen_2(d);
-    one = mont2_to_mont1(1, R2, n, ninv);
-    m_1 = mont2_to_mont2(nm1, R2, n, ninv);
 
-    y = mont2_powmod_2_(d, ebits, R2, n, ninv);
-    if (!mont2_sprp_stage2(y, t, one, m_1, n, ninv)) return 0;
+    /* SWbound = psi_13 (Sorenson-Webster)：确定性基底档走 1.5-limb
+       sloppy 算术（返回 1 = 确定素数） */
+    if (n < ((((u128)0x2be69) << 64) | 0x51adc5b22410a5fd)) {
+        ulong minv1, minv0, nm1_1, nm1_0, y[2];
+        u128 minv;
 
-    if (full) {
-        int nb = n >= ((((u128)0x437a) << 64) | 0xe92817f9fc85b7e5) ? 12 : 11;
-        return mont2_is_prime_mr_(n, ninv, R2, d, ebits, t, one, m_1, nb) ? 1 : 0;
+        ll_small_preinv(&minv, n);
+        minv0 = _u128low(minv);
+        minv1 = _u128high(minv);
+        _sub_ddmmss(nm1_1, nm1_0, hi, lo, 0, 1);
+
+        ll_small_2_powmod(y, d, ebits, hi, lo, minv1, minv0);
+        if (!ll_small_sprp_stage2(y[1], y[0], t, nm1_1, nm1_0, hi, lo, minv1, minv0)) return 0;
+
+        /* psi_12 台阶：n < psi_12 时 12 基底（2 + {3..37}）已确定 */
+        {
+            int nb = n >= ((((u128)0x437a) << 64) | 0xe92817f9fc85b7e5) ? 12 : 11;
+            return ll_small_is_prime_mr(n, minv, d, ebits, t, nb) ? 1 : 0;
+        }
     }
 
-    return mont2_lucas_strong_(n, ninv, R2) ? 2 : 0;
+    /* BPSW 档（n >= psi_13，蒙域：V·V 与 Q 链全宽乘无 1.5-limb 窗口） */
+    {
+        u128 ninv, R2, one, m_1, y;
+
+        mont2_preinv(&ninv, &R2, n);
+        one = mont2_to_mont1(1, R2, n, ninv);
+        m_1 = mont2_to_mont2(nm1, R2, n, ninv);
+
+        y = mont2_powmod_2_(d, ebits, R2, n, ninv);
+        if (!mont2_sprp_stage2(y, t, one, m_1, n, ninv)) return 0;
+
+        return mont2_lucas_strong_(n, ninv, R2) ? 2 : 0;
+    }
 }

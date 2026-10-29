@@ -474,6 +474,91 @@ static inline void _u128store(uint64_t* p, __uint128_t x) {
         (sl) = _x_;                         \
     } while (0)
 
+// [rr,2] = hi(a0*b1) + hi(a1*b0) + a1*b1
+static inline void _umulhi128_sloppy_(uint64_t a_high, uint64_t a_low, uint64_t b_high, uint64_t b_low, uint64_t rr[2]) {
+#if defined(LMMP_ASM_X64) && defined(__GNUC__) && !defined(__clang__)
+    /* 3×mulx + 2×(add/adc)：交叉积取高 limb 只需 mulx 高输出，低输出
+       写入同一废弃寄存器 */
+    uint64_t r0, r1, s, u, j;
+    __asm__(
+        "movq   %[ah], %%rdx            \n\t"
+        "mulxq  %[bl], %[j], %[u]       \n\t"  // u = hi(a1*b0)
+        "mulxq  %[bh], %[r0], %[r1]     \n\t"  // a1*b1, rdx = a1
+        "movq   %[al], %%rdx            \n\t"
+        "mulxq  %[bh], %[j], %[s]       \n\t"  // s = hi(a0*b1)
+        "addq   %[s], %[r0]             \n\t"
+        "adcq   $0, %[r1]               \n\t"
+        "addq   %[u], %[r0]             \n\t"
+        "adcq   $0, %[r1]               \n\t"
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [s] "=&r"(s), [u] "=&r"(u), [j] "=&r"(j)
+        : [ah] "rm"(a_high), [al] "rm"(a_low), [bh] "rm"(b_high), [bl] "rm"(b_low)
+        : "cc", "rdx");
+    rr[0] = r0;
+    rr[1] = r1;
+#else
+    u128 r = (((u128)a_low * b_high) >> 64) + (((u128)a_high * b_low) >> 64) + (u128)a_high * b_high;
+    rr[0] = _u128low(r);
+    rr[1] = _u128high(r);
+#endif
+}
+
+// [rr,3] = a^2 mod B^3, while a < 2^96
+static inline void _usqr128to192_(uint64_t a_high, uint64_t a_low, uint64_t rr[3]) {
+#if defined(LMMP_ASM_X64) && defined(__GNUC__) && !defined(__clang__)
+    /* 3×mulx；a1^2 高输出契约下为 0，写入废弃寄存器 */
+    uint64_t r0, r1, r2, tl, th, j;
+    __asm__(
+        "movq   %[al], %%rdx            \n\t"
+        "mulxq  %[al], %[r0], %[r1]     \n\t"  // p0 = a0^2
+        "mulxq  %[ah], %[tl], %[th]     \n\t"  // t = a0*a1
+        "movq   %[ah], %%rdx            \n\t"
+        "mulxq  %[ah], %[r2], %[j]      \n\t"  // a1^2 低 limb（高 limb 契约为 0）
+        "addq   %[tl], %[r1]            \n\t"
+        "adcq   %[th], %[r2]            \n\t"
+        "addq   %[tl], %[r1]            \n\t"
+        "adcq   %[th], %[r2]            \n\t"
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [r2] "=&r"(r2), [tl] "=&r"(tl), [th] "=&r"(th), [j] "=&r"(j)
+        : [ah] "rm"(a_high), [al] "rm"(a_low)
+        : "cc", "rdx");
+    rr[0] = r0;
+    rr[1] = r1;
+    rr[2] = r2;
+#else
+    u128 p0 = (u128)a_low * a_low;
+    u128 t = (u128)a_low * a_high;
+    uint64_t s1 = _u128high(p0);
+    uint64_t s2 = a_high * a_high; /* 契约：a1 < 2^32，单 limb */
+    _add_ssaaaa(s2, s1, s2, s1, _u128high(t), _u128low(t));
+    _add_ssaaaa(s2, s1, s2, s1, _u128high(t), _u128low(t));
+    rr[0] = _u128low(p0);
+    rr[1] = s1;
+    rr[2] = s2;
+#endif
+}
+
+static inline void _umullo128x64_(uint64_t a_high, uint64_t a_low, uint64_t b, uint64_t rr[2]) {
+#if defined(LMMP_ASM_X64) && defined(__GNUC__) && !defined(__clang__)
+    /* 2×mulx；a1*b 高 limb 丢弃即截断语义。p1 低输出与 p0 高 limb
+       分属寄存器后一条 add 合并 */
+    uint64_t r0, r1, t, j;
+    __asm__(
+        "movq   %[al], %%rdx            \n\t"
+        "mulxq  %[b],  %[r0], %[r1]     \n\t"  // p0 = a0*b
+        "movq   %[ah], %%rdx            \n\t"
+        "mulxq  %[b],  %[t], %[j]       \n\t"  // p1 = a1*b（高 limb j 废弃）
+        "addq   %[t], %[r1]             \n\t"
+        : [r0] "=&r"(r0), [r1] "=&r"(r1), [t] "=&r"(t), [j] "=&r"(j)
+        : [ah] "rm"(a_high), [al] "rm"(a_low), [b] "rm"(b)
+        : "cc", "rdx");
+    rr[0] = r0;
+    rr[1] = r1;
+#else
+    u128 t = (((u128)a_high << 64) | a_low) * b;
+    rr[0] = _u128low(t);
+    rr[1] = _u128high(t);
+#endif
+}
+
 // n = nh * B + nl, di = lmmp_inv_1_(d)
 // q = n / d, r = n % d
 #define _udiv_qrnnd_preinv(q, r, nh, nl, d, di)                              \
