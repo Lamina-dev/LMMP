@@ -701,7 +701,10 @@ static int ipn_proth_i_(mp_srcptr np, mp_size_t nn, ulong kk, mp_bitcnt_t ne) {
         if (j != 1) break;
     }
     if (j == 0) return 0; /* gcd(a,N) > 1 且 a < N（N > 2^64 > a）*/
-    if (j == 1) return lmmp_is_prime_n_(np, nn, 4);
+    if (j == 1) {
+        if (nn == 2) return lmmp_is_prime_2_(np[0], np[1]);
+        return lmmp_is_prime_n_(np, nn, 4);
+    }
 
     TEMP_DECL;
     lmmp_mont_sp_t mc;
