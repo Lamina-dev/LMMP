@@ -272,6 +272,8 @@ static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong 
 bool lmmp_is_prime_notrial_(ulong n) {
     lmmp_param_assert(n > 2);
     if (n <= MP_UINT_MAX) {
+        if (n % 2 == 0)
+            return false;
         return lmmp_is_prime_uint_notrial_((uint)n);
     } else if (n < 684630005672341) {
         ushort bases[2];
