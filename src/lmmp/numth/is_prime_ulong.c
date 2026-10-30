@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/is_prime_table.h"
+#include "../../../include/lmmp/impl/is_prime.h"
 #include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/inlines.h"
 #include "../../../include/lmmp/impl/longlong.h"
@@ -31,6 +31,8 @@
 /*
 mont63 只能用于小于 2^63 的数，否则会溢出导致计算结果不正确
 mont64 可以用于任意大小的数，但由于考虑了溢出的情况，所以速度理论上会慢一些（并未详细测试）
+
+（本文件与 powmod_ulong.c 各持一份同源拷贝，库内惯例勿强行收敛）
 */
 #define MONT63_MAX ((ulong)(0x7fffffffffffffff))
 
@@ -94,101 +96,6 @@ static inline ulong mont63_mul(ulong a, ulong b, ulong m, ulong m_inv) {
     return mont63_reduce((u128)a * b, m, m_inv);
 }
 
-uint lmmp_powmod_uint_odd_(uint base, ulong exp, uint mod) {
-    lmmp_param_assert(mod > base);
-    lmmp_param_assert(mod % 2 == 1);
-    lmmp_param_assert(mod > 1);
-    ulong dst = 1;
-    ulong b = base;
-    _udiv64_t binv = _udiv64_gen(mod);
-    ulong q;
-    while (1) {
-        if (exp & 1) {
-            dst *= b;
-            q = _udiv64by64_q_preinv(dst, &binv);
-            dst -= q * mod;
-        }
-        exp >>= 1;
-        if (exp == 0)
-            break;
-        b *= b;
-        q = _udiv64by64_q_preinv(b, &binv);
-        b -= q * mod;
-    }
-    return dst;
-}
-
-ulong lmmp_powmod_ulong_odd_(ulong base, ulong exp, ulong mod) {
-    lmmp_param_assert(mod > base);
-    lmmp_param_assert(mod % 2 == 1);
-    lmmp_param_assert(mod > 1);
-    if (mod <= MP_UINT_MAX)
-        return lmmp_powmod_uint_odd_(base, exp, mod);
-    else if (mod <= MONT63_MAX) {
-        ulong R2 = mont63_R2(mod);
-        ulong m_inv = lmmp_binvert_ulong_(mod);
-        m_inv = -m_inv;
-        ulong dst = to_mont63(1, R2, mod, m_inv);
-        base = to_mont63(base, R2, mod, m_inv);
-        while (1) {
-            if (exp & 1)
-                dst = mont63_mul(dst, base, mod, m_inv);
-            exp >>= 1;
-            if (exp == 0)
-                break;
-            base = mont63_mul(base, base, mod, m_inv);
-        }
-        return from_mont63(dst, mod, m_inv);
-    } else {
-        ulong R2 = mont64_R2(mod);
-        ulong m_inv = lmmp_binvert_ulong_(mod);
-        m_inv = -m_inv;
-        ulong dst = to_mont64(1, R2, mod, m_inv);
-        base = to_mont64(base, R2, mod, m_inv);
-        while (1) {
-            if (exp & 1)
-                dst = mont64_mul(dst, base, mod, m_inv);
-            exp >>= 1;
-            if (exp == 0)
-                break;
-            base = mont64_mul(base, base, mod, m_inv);
-        }
-        return from_mont64(dst, mod, m_inv);
-    }
-}
-
-static inline int miller_rabin_32(ulong a, ulong t, ulong u, uint m, _udiv64_t* binv) {
-    ulong v = 1;
-    ulong base = a;
-    ulong q;
-    while (1) {
-        if (u & 1) {
-            v *= base;
-            q = _udiv64by64_q_preinv(v, binv);
-            v -= q * m;
-        }
-        u >>= 1;
-        if (u == 0)
-            break;
-        base *= base;
-        q = _udiv64by64_q_preinv(base, binv);
-        base -= q * m;
-    }
-
-    if (v == 1 || v == m - 1)
-        return 1;
-    for (ulong j = 1; j < t; ++j) {
-        v *= v;
-        q = _udiv64by64_q_preinv(v, binv);
-        v -= q * m;
-        if (v == m - 1)
-            return 1;
-        if (v == 1)
-            return 0;
-    }
-    return 0;
-}
-
 /*
     强伪素数第二阶段检查：v = b^d（蒙域）已算出。
     one/m_1 为蒙域的 1 与 m-1。
@@ -241,55 +148,6 @@ static inline ulong powmod2_64(ulong d, ulong R2, ulong m, ulong m_inv) {
         base = mont64_mul(base, base, m, m_inv);
     }
     return v;
-}
-
-/*******************************************************************************
- * from http://probableprime.org/download/example-primality.c
- * Deterministic Miller-Rabin tests for 64-bit.
- * Hashed 2-bases for n < 684630005672341 (slightly more than 2^49)
- * Hashed 3-bases for n < 2^64
- *
- * Based on Steve Worley's 2^32 example:
- *    http://www.mersenneforum.org/showthread.php?t=12209
- * With a 3-base encoding idea from Bradley Berg.
- *
- * Copyright 2014, Dana Jacobsen <dana@acm.org>
- *******************************************************************************/
-
-bool lmmp_is_prime_uint_(uint n) {
-    if (n == 2)
-        return true;
-    if (n % 2 == 0 || n <= 1)
-        return false;
-    int judge = lmmp_is_prime_table_(n);
-    if (judge == 0) {
-        return false;
-    } else if (judge == 1) {
-        return true;
-    }
-
-    if (trial_div35711(n))
-        return false;
-
-    ushort bases[2];
-    bases[0] = 2;
-    bases[1] = dj_base49[((0x3AC69A35UL * n) & 0xFFFFFFFFUL) >> 21] + 3;
-    if (n % bases[0] == 0)
-        return false;
-    if (n % bases[1] == 0)
-        return false;
-
-    ulong u = n - 1, t = 0;
-    while (u % 2 == 0) u /= 2, ++t;
-
-    _udiv64_t binv = _udiv64_gen(n);
-    if (miller_rabin_32(bases[0], t, u, n, &binv))
-        if (miller_rabin_32(bases[1], t, u, n, &binv))
-            return true;
-        else
-            return false;
-    else
-        return false;
 }
 
 static void powmod_win3_63(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulong m_inv) {
@@ -413,7 +271,9 @@ static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong 
 
 bool lmmp_is_prime_notrial_(ulong n) {
     lmmp_param_assert(n > 2);
-    if (n < 684630005672341) {
+    if (n <= MP_UINT_MAX) {
+        return lmmp_is_prime_uint_notrial_((uint)n);
+    } else if (n < 684630005672341) {
         ushort bases[2];
         bases[0] = 2;
         bases[1] = dj_base49[((0x3AC69A35UL * n) & 0xFFFFFFFFUL) >> 21] + 3;

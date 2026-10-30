@@ -641,8 +641,6 @@ LMMP_API bool lmmp_is_prime_uint_(uint n);
 /**
  * @brief 判断素数
  * @param n 待判断的数
- * @note 如果 n 的实际值小于2^32，此函数不会调用 lmmp_is_prime_uint_，
- *       如果你可以保证 n 的实际值小于2^32，使用 lmmp_is_prime_uint_ 将会更快
  * @return 若 n 为素数，返回 true，否则返回 false
  */
 LMMP_API bool lmmp_is_prime_ulong_(ulong n);

@@ -351,6 +351,74 @@ TEST_CASE("numth/prime", is_prime_uint_ulong_notrial) {
     }
 }
 
+/*
+    u32 档三免内核（is_prime_uint.c）定向测试：
+    惰性剩余两档界（n<2^31 零条件减 / n>=2^31 每步条件减）、短表界、
+    d 退化（n-1=2^t，ebits=1）、notrial 直调小素数（含 n==hash 基底路径）。
+*/
+TEST_CASE("numth/prime", is_prime_u32_tiers) {
+    u64 seed = 0xc0ffee123456789ull;
+
+    /* 2^31 档界两侧稠密扫描 */
+    for (u32 n = 0x7ffffc00u; n <= 0x80000400u; n += 2) {
+        u32 m = n | 1;
+        bool expect = ref_is_prime32(m);
+        TEST_CHECK_MSG(lmmp_is_prime_uint_(m) == expect, "is_prime_uint 2^31 tier");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(m) == expect, "is_prime_ulong 2^31 tier");
+    }
+
+    /* u32 顶部（n>=2^31 档上端；计数式循环避免 u32 回绕死循环） */
+    for (u32 j = 0; j < 128; ++j) {
+        u32 m = 0xffffff01u + 2 * j;
+        bool expect = ref_is_prime32(m);
+        TEST_CHECK_MSG(lmmp_is_prime_uint_(m) == expect, "is_prime_uint top tier");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(m) == expect, "is_prime_ulong top tier");
+    }
+
+    /* 短表界与 next_prime 拐角 */
+    for (u32 n = 65400; n <= 65700; ++n) {
+        bool expect = ref_is_prime32(n);
+        TEST_CHECK_MSG(lmmp_is_prime_uint_(n) == expect, "is_prime_uint short-table edge");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == expect, "is_prime_ulong short-table edge");
+    }
+
+    /* d 退化：n-1 = 2^t（ebits=1），含 Fermat 素数 3/5/17/257/65537 与合数 2^31+1 */
+    for (u32 t = 1; t <= 31; ++t) {
+        u32 m = (1u << t) + 1;
+        bool expect = ref_is_prime32(m);
+        TEST_CHECK_MSG(lmmp_is_prime_uint_(m) == expect, "is_prime_uint d=1");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(m) == expect, "is_prime_ulong d=1");
+    }
+
+    /* notrial 直调小奇数（覆盖 n==hash 基底、b>=n 起步路径；契约域 n>2 奇） */
+    for (u32 m = 3; m <= 3001; m += 2) {
+        bool expect = ref_is_prime32(m);
+        TEST_CHECK_MSG(lmmp_is_prime_notrial_(m) == expect, "notrial small direct");
+    }
+
+    /* 随机 u32 大样本 + 档界邻域加密 */
+    for (int i = 0; i < 100000; ++i) {
+        u32 m = (u32)(xorshift64(seed) >> (i % 2 ? 32 : 0));
+        if (i % 3 == 0) m = 0x7fffffffu - (m & 0xffffu);
+        if (i % 3 == 1) m = 0xffffffffu - (m & 0xffffu);
+        m |= 1;
+        if (m < 3) m = 3;
+        bool expect = ref_is_prime32(m);
+        TEST_CHECK_MSG(lmmp_is_prime_uint_(m) == expect, "is_prime_uint random u32");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_(m) == expect, "is_prime_ulong random u32");
+        TEST_CHECK_MSG(lmmp_is_prime_notrial_(m) == expect, "notrial random u32");
+    }
+
+    /* next_prime u32 区段拐角：返回值与间隔无素数 */
+    const u32 starts[] = {65521, 65522, 0x7ffffff0u, 0xfffff000u};
+    for (u32 s : starts) {
+        u32 p = (u32)lmmp_next_prime_ulong_(s);
+        TEST_CHECK_MSG(p > s && ref_is_prime32(p), "next_prime u32 corner hit");
+        for (u32 m = (s + 1) | 1; m < p; m += 2)
+            TEST_CHECK_MSG(!ref_is_prime32(m), "next_prime u32 corner gap");
+    }
+}
+
 TEST_CASE("numth/prime", is_prime_2) {
     struct { u64 hi, lo; bool expect; const char* what; } cases[] = {
         {0x7fffffffffffffffull, 0xffffffffffffffffull, true, "2^127-1 Mersenne"},
