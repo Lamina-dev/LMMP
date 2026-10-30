@@ -322,7 +322,7 @@ static u128 mont2_powmod_2_(u128 d, int ebits, u128 R2, u128 n, u128 ninv) {
 /* minv = floor(B^3/n)：2^192 除以 n 的商（lmmp_div_2_ 自带归一化，
    numb 出参收余数弃用） */
 static void ll_small_preinv(u128 *minv, u128 n) {
-    ulong q[2], nn[4] = {0, 0, 0, 1}, d[2];
+    ulong q[3], nn[4] = {0, 0, 0, 1}, d[2];
 
     _u128store(d, n);
     lmmp_div_2_(q, nn, 4, d);
