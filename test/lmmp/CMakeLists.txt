@@ -29,19 +29,27 @@ set(LMMP_TEST_SRCS
     src/test_threshold_boundaries.cpp
     src/test_mul.cpp
     src/test_mul_toom68.cpp
+    src/test_mul_mersenne.cpp
     src/test_div.cpp
     src/test_str.cpp
-    src/test_u128.cpp
     src/test_numth_gcd.cpp
+    src/test_numth_gcd_lehmer.cpp
     src/test_numth_gcdext.cpp
+    src/test_numth_modinv.cpp
     src/test_numth_pow.cpp
+    src/test_numth_powmod.cpp
     src/test_numth_divexact.cpp
     src/test_numth_binvert.cpp
-    src/test_numth_sqrt_cbrt.cpp
+    src/test_numth_sqrt.cpp
+    src/test_numth_cbrt.cpp
     src/test_numth_nthroot.cpp
     src/test_numth_combin.cpp
+    src/test_numth_binom.cpp
     src/test_numth_fib.cpp
-    src/test_numth_prime.cpp
+    src/test_numth_prime_uint.cpp
+    src/test_numth_prime2.cpp
+    src/test_numth_prime_n.cpp
+    src/test_numth_proth.cpp
     src/test_rng_hash.cpp
     src/test_global.cpp
 )

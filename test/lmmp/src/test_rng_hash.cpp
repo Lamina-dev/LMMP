@@ -31,12 +31,6 @@
 
 using namespace lmmp_test_utils;
 
-namespace {
-
-mp_ptr alloc_limbs(size_t n) { return (mp_ptr)lmmp_alloc(n * sizeof(mp_limb_t)); }
-
-}  // namespace
-
 TEST_CASE("rng/basic", seed_random_reproducible) {
     mp_size_t n = 16;
     mp_ptr a = alloc_limbs(n);

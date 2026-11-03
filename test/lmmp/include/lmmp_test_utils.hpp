@@ -25,23 +25,33 @@
 
 #include <cstdint>
 #include <cstring>
-#include <string>
-#include <vector>
 
 #include "lmmp/lmmp.h"
 #include "lmmp/lmmpn.h"
-#include "u128.hpp"
+#include "lmmp/numth.h"
+
+/*
+    测试工具集（2026-11-01 重构，2026-11-03 铁律立）：不包含任何自建
+    oracle 算法（BigInt/u128 已删除）。铁律：测试禁止引入任何自建算法
+    实现作为交叉验证 oracle。验证手段限定为：
+
+      1. 库内交叉验证：两条独立实现路径同输入比对（divexact vs div、
+         toom vs fft vs 分派器、mul_1 vs div_1 互逆重建……），且参考
+         须与被测算法规模匹配（大规模乘法禁用 basecase 作参考）
+      2. 数学恒等式：结果必须满足的代数关系（q*d+r==n、r^2<=n<(r+1)^2、
+         fib 递推、gcd 乘法消去律、Cassini……）
+      3. 模检查：结果与输入在若干 32 位素数下模值一致（乘积/和/差）
+      4. 写死常数：外部已知的固定值锚点（(2^64-1)^2、素数表、
+         factorial(10000) 顶 limb 等）
+      5. 64 位内的简单参考实现（逐位循环、% 运算等，不引入大整数）
+
+    本头文件只提供 limb 级工具，禁止再引入 128 位类型或大整数结构。
+*/
 
 namespace lmmp_test_utils {
 
 using u64 = std::uint64_t;
 using u32 = std::uint32_t;
-using u128 = uint128_t;
-
-constexpr u64 B_LO_MASK = UINT64_MAX;
-
-inline u64 hi128(u128 x) { return (u64)(x >> 64); }
-inline u64 lo128(u128 x) { return (u64)x; }
 
 // 简单确定性 xorshift64 随机源，避免测试输入与库 RNG 互相影响。
 inline u64 xorshift64(u64& s) {
@@ -51,376 +61,209 @@ inline u64 xorshift64(u64& s) {
     return s;
 }
 
-struct BigInt {
-    std::vector<u64> d;  // little-endian，高位无零（0 表示为 {0}）
+inline mp_ptr alloc_limbs(size_t n) { return (mp_ptr)lmmp_alloc(n * sizeof(mp_limb_t)); }
 
-    BigInt() : d(1, 0) {}
-    BigInt(u64 v) : d(1, v) { trim(); }
-    BigInt(const u64* p, size_t n) : d(p, p + n) { trim(); }
-
-    void trim() {
-        while (d.size() > 1 && d.back() == 0) d.pop_back();
-        if (d.empty()) d.push_back(0);
-    }
-
-    size_t size() const { return d.size(); }
-    bool is_zero() const { return d.size() == 1 && d[0] == 0; }
-    u64& operator[](size_t i) { return d[i]; }
-    const u64& operator[](size_t i) const { return d[i]; }
-
-    static int cmp(const BigInt& a, const BigInt& b) {
-        if (a.d.size() != b.d.size())
-            return a.d.size() < b.d.size() ? -1 : 1;
-        for (size_t i = a.d.size(); i-- > 0;) {
-            if (a.d[i] != b.d[i]) return a.d[i] < b.d[i] ? -1 : 1;
-        }
-        return 0;
-    }
-
-    bool operator<(const BigInt& o) const { return cmp(*this, o) < 0; }
-    bool operator<=(const BigInt& o) const { return cmp(*this, o) <= 0; }
-    bool operator>(const BigInt& o) const { return cmp(*this, o) > 0; }
-    bool operator>=(const BigInt& o) const { return cmp(*this, o) >= 0; }
-    bool operator==(const BigInt& o) const { return cmp(*this, o) == 0; }
-    bool operator!=(const BigInt& o) const { return cmp(*this, o) != 0; }
-
-    // 要求 a >= b
-    static BigInt sub_abs(const BigInt& a, const BigInt& b) {
-        BigInt r;
-        r.d.assign(a.d.size(), 0);
-        u64 borrow = 0;
-        for (size_t i = 0; i < b.d.size(); ++i) {
-            u64 x = a.d[i];
-            u128 diff = (u128)x - (u128)b.d[i] - borrow;
-            r.d[i] = (u64)diff;
-            borrow = (diff >> 64) ? 1 : 0;
-        }
-        for (size_t i = b.d.size(); i < a.d.size(); ++i) {
-            u64 x = a.d[i];
-            u128 diff = (u128)x - borrow;
-            r.d[i] = (u64)diff;
-            borrow = (diff >> 64) ? 1 : 0;
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt add_abs(const BigInt& a, const BigInt& b) {
-        const BigInt& big = a.d.size() >= b.d.size() ? a : b;
-        const BigInt& small = a.d.size() >= b.d.size() ? b : a;
-        BigInt r;
-        r.d.assign(big.d.size() + 1, 0);
-        u64 carry = 0;
-        for (size_t i = 0; i < big.d.size(); ++i) {
-            u128 s = (u128)big.d[i] + (i < small.d.size() ? small.d[i] : 0) + carry;
-            r.d[i] = lo128(s);
-            carry = hi128(s);
-        }
-        r.d[big.d.size()] = carry;
-        r.trim();
-        return r;
-    }
-
-    static BigInt add_small(const BigInt& a, u64 v) {
-        BigInt r = a;
-        u128 s = (u128)r.d[0] + v;
-        r.d[0] = lo128(s);
-        u64 carry = hi128(s);
-        size_t i = 1;
-        while (carry) {
-            if (i >= r.d.size()) r.d.push_back(0);
-            u128 s2 = (u128)r.d[i] + carry;
-            r.d[i] = lo128(s2);
-            carry = hi128(s2);
-            ++i;
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt sub_small(const BigInt& a, u64 v) {
-        BigInt r = a;
-        u64 x = r.d[0];
-        u64 z = x - v;
-        r.d[0] = z;
-        u64 borrow = (x < v) ? 1 : (z > x ? 1 : 0);
-        size_t i = 1;
-        while (borrow) {
-            if (i >= r.d.size()) r.d.push_back(0);
-            x = r.d[i];
-            z = x - borrow;
-            r.d[i] = z;
-            borrow = z > x ? 1 : 0;
-            ++i;
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt mul_school(const BigInt& a, const BigInt& b) {
-        BigInt r;
-        r.d.assign(a.d.size() + b.d.size(), 0);
-        for (size_t j = 0; j < b.d.size(); ++j) {
-            u64 carry = 0;
-            u64 y = b.d[j];
-            for (size_t i = 0; i < a.d.size(); ++i) {
-                u128 t = (u128)a.d[i] * y + r.d[i + j] + carry;
-                r.d[i + j] = lo128(t);
-                carry = hi128(t);
-            }
-            size_t k = j + a.d.size();
-            while (carry) {
-                if (k >= r.d.size()) r.d.push_back(0);
-                u128 t = (u128)r.d[k] + carry;
-                r.d[k] = lo128(t);
-                carry = hi128(t);
-                ++k;
-            }
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt sqr_school(const BigInt& a) { return mul_school(a, a); }
-
-    static BigInt shl_bits(const BigInt& a, size_t bits) {
-        BigInt r;
-        size_t limbs = bits / 64;
-        size_t rem = bits % 64;
-        r.d.assign(a.d.size() + limbs + (rem ? 1 : 0), 0);
-        for (size_t i = 0; i < a.d.size(); ++i) {
-            u128 t = (u128)a.d[i] << rem;
-            r.d[i + limbs] |= lo128(t);
-            if (rem) r.d[i + limbs + 1] |= hi128(t);
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt shr_bits(const BigInt& a, size_t bits) {
-        size_t limbs = bits / 64;
-        size_t rem = bits % 64;
-        if (limbs >= a.d.size()) return BigInt(0);
-        BigInt r;
-        r.d.assign(a.d.size() - limbs, 0);
-        if (rem == 0) {
-            std::memcpy(r.d.data(), a.d.data() + limbs, r.d.size() * 8);
-        } else {
-            for (size_t i = 0; i < r.d.size(); ++i) {
-                u64 lo = a.d[i + limbs] >> rem;
-                u64 hi = (i + limbs + 1 < a.d.size()) ? (a.d[i + limbs + 1] << (64 - rem)) : 0;
-                r.d[i] = lo | hi;
-            }
-        }
-        r.trim();
-        return r;
-    }
-
-    static BigInt div_small(const BigInt& a, u64 v, u64& rem) {
-        if (v == 0) return BigInt(0);
-        BigInt q;
-        q.d.assign(a.d.size(), 0);
-        u64 r = 0;
-        for (size_t i = a.d.size(); i-- > 0;) {
-            // r 是上一步余数恒 < v，满足 divmod_by_u64 的前置条件，
-            // 商/余数一次取回（避免 / 与 % 各做一次完整除法）。
-            uint128_t::divmod_by_u64(r, a.d[i], v, q.d[i], r);
-        }
-        q.trim();
-        rem = r;
-        return q;
-    }
-
-    static u64 mod_small(const BigInt& a, u64 v) {
-        u64 rem = 0;
-        div_small(a, v, rem);
-        return rem;
-    }
-
-    // Knuth-D 基 2^64 除法。仅用于交叉验证小/中等规模输入。
-    static BigInt divmod_school(const BigInt& num, const BigInt& den, BigInt& rem) {
-        if (den.is_zero()) return BigInt(0);
-        int c = cmp(num, den);
-        if (c < 0) {
-            rem = num;
-            return BigInt(0);
-        }
-        if (den.d.size() == 1) {
-            u64 r = 0;
-            BigInt q = div_small(num, den.d[0], r);
-            rem = BigInt(r);
-            return q;
-        }
-
-        int shift = __builtin_clzll(den.d.back());
-        BigInt u = shl_bits(num, (size_t)shift);
-        BigInt v = shl_bits(den, (size_t)shift);
-        size_t n = v.d.size();
-        size_t m = u.d.size() - n;  // 商的长度为 m+1
-
-        BigInt q;
-        q.d.assign(m + 1, 0);
-
-        // 确保 u 有 j+n+1 个有效访问位（最坏情况下 m+1+n）。
-        while (u.d.size() < n + m + 2) u.d.push_back(0);
-
-        for (size_t j = m + 1; j-- > 0;) {
-            u64 qhat;
-            u64 rhat;
-            u64 v1 = v.d[n - 1];
-            u64 v0 = v.d[n - 2];
-
-            if (u.d[j + n] == v1) {
-                // 标准 Knuth-D 特判，避免 qhat == B 溢出。
-                qhat = UINT64_MAX;
-                u128 nr = (u128)u.d[j + n - 1] + v1;
-                rhat = lo128(nr);
-                if (hi128(nr)) {
-                    goto skip_adjust;
-                }
-            } else {
-                // Knuth-D 不变量 u[j+n] <= v1，== 分支已被上面特判接走，
-                // 此处 u[j+n] < v1 满足 divmod_by_u64 的前置条件。
-                uint128_t::divmod_by_u64(u.d[j + n], u.d[j + n - 1], v1, qhat, rhat);
-            }
-
-            while (true) {
-                u128 lhs = (u128)qhat * v0;
-                u128 rhs = ((u128)rhat << 64) | u.d[j + n - 2];
-                if (lhs <= rhs) break;
-                --qhat;
-                u128 nr = (u128)rhat + v1;
-                rhat = lo128(nr);
-                if (hi128(nr)) break;
-            }
-
-        skip_adjust:
-            // u[j..j+n] -= qhat * v
-            // 借位必须独立传播：若把 borrow 折进 lo128(t)（y = lo + borrow），
-            // 当 lo == 2^64-1 且 borrow == 1 时 y 回绕为 0，借位静默丢失。
-            u64 borrow = 0;
-            u64 carry = 0;
-            for (size_t i = 0; i < n; ++i) {
-                u128 t = (u128)qhat * v.d[i] + carry;
-                carry = hi128(t);
-                u64 x = u.d[j + i];
-                u64 y = lo128(t);
-                u64 z = x - y - borrow;
-                borrow = (x < y) | ((x == y) & borrow);
-                u.d[j + i] = z;
-            }
-            {
-                u64 x = u.d[j + n];
-                u64 y = carry + borrow;
-                u64 z = x - y;
-                u64 new_borrow = (x < y) ? 1 : (z > x ? 1 : 0);
-                u.d[j + n] = z;
-                borrow = new_borrow;
-            }
-
-            if (borrow) {
-                --qhat;
-                u64 c = 0;
-                for (size_t i = 0; i < n; ++i) {
-                    u128 t = (u128)u.d[j + i] + v.d[i] + c;
-                    u.d[j + i] = lo128(t);
-                    c = hi128(t);
-                }
-                u.d[j + n] += c;
-            }
-
-            q.d[j] = qhat;
-        }
-
-        rem.d.assign(n, 0);
-        for (size_t i = 0; i < n; ++i) rem.d[i] = u.d[i];
-        rem = shr_bits(rem, (size_t)shift);
-        q.trim();
-        return q;
-    }
-
-    static BigInt pow(const BigInt& base, u64 exp) {
-        BigInt r(1), b = base;
-        while (exp) {
-            if (exp & 1) r = mul_school(r, b);
-            exp >>= 1;
-            if (exp) b = sqr_school(b);
-        }
-        return r;
-    }
-
-    static BigInt factorial(u32 n) {
-        BigInt r(1);
-        for (u32 i = 2; i <= n; ++i) r = mul_school(r, BigInt(i));
-        return r;
-    }
-
-    static BigInt gcd_euclid(BigInt a, BigInt b) {
-        while (!b.is_zero()) {
-            BigInt r;
-            divmod_school(a, b, r);
-            a = b;
-            b = r;
-        }
-        return a;
-    }
-};
-
-// 把库的 limb 数组复制为 BigInt，并去除前导零。
-inline BigInt from_limbs(const mp_limb_t* p, mp_size_t n) {
-    if (n <= 0) return BigInt(0);
-    return BigInt(p, (size_t)n);
+// [p,n] = 随机 limbs；top_nonzero 时顶 limb 置最高位（归一化）
+inline void random_limbs(mp_ptr p, size_t n, u64& seed, bool top_nonzero = true) {
+    for (size_t i = 0; i < n; ++i) p[i] = xorshift64(seed);
+    if (n > 0 && top_nonzero) p[n - 1] |= (u64)1 << 63;
 }
 
-inline void to_limbs(const BigInt& x, mp_ptr p, mp_size_t n) {
-    std::memset(p, 0, (size_t)n * sizeof(mp_limb_t));
-    for (size_t i = 0; i < x.d.size() && i < (size_t)n; ++i) p[i] = x.d[i];
+// 有效长度：去除前导零后的数值长度（n==0 或全零返回 0）
+inline mp_size_t norm_len(const mp_limb_t* p, mp_size_t n) {
+    while (n > 0 && p[n - 1] == 0) --n;
+    return n;
 }
 
-inline std::string to_hex(const BigInt& x) {
-    std::string s;
-    s.reserve(x.d.size() * 16 + 2);
-    char buf[24];
-    std::snprintf(buf, sizeof(buf), "0x");
-    s += buf;
-    for (size_t i = x.d.size(); i-- > 0;) {
-        std::snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)x.d[i]);
-        s += buf;
+// 手工把小值 v 加到 [p,n] 上（v 任意 u64），返回溢出进位
+inline u64 add_small_inplace(mp_ptr p, size_t n, u64 v) {
+    size_t i = 0;
+    u64 old = p[0];
+    p[0] += v;
+    u64 carry = (p[0] < old) ? 1 : 0;
+    while (carry && ++i < n) {
+        old = p[i];
+        ++p[i];
+        carry = (p[i] < old) ? 1 : 0;
     }
-    return s;
+    return (carry && i == n) ? 1 : 0;
 }
 
-// 十进制解析（独立于库 from_str）。
-inline BigInt from_decimal(const std::string& s) {
-    BigInt r(0);
-    for (char ch : s) {
-        if (ch < '0' || ch > '9') continue;
-        r = BigInt::mul_school(r, BigInt(10));
-        r = BigInt::add_small(r, (u64)(ch - '0'));
+// 手工把小值 v 从 [p,n] 减去，返回借位
+inline u64 sub_small_inplace(mp_ptr p, size_t n, u64 v) {
+    size_t i = 0;
+    u64 old = p[0];
+    p[0] -= v;
+    u64 borrow = (p[0] > old) ? 1 : 0;
+    while (borrow && ++i < n) {
+        old = p[i];
+        --p[i];
+        borrow = (p[i] > old) ? 1 : 0;
     }
-    return r;
+    return (borrow && i == n) ? 1 : 0;
 }
 
-// 十进制输出（独立于库 to_str），仅用于小规模输入。
-inline std::string to_decimal(const BigInt& x) {
-    if (x.is_zero()) return "0";
-    std::string out;
-    BigInt t = x;
-    while (!t.is_zero()) {
-        u64 rem = 0;
-        t = BigInt::div_small(t, 1000000000ull, rem);
-        char buf[16];
-        std::snprintf(buf, sizeof(buf), "%09llu", (unsigned long long)rem);
-        out = std::string(buf) + out;
+// [p,n] 右移 1 位，顶位补 top_bit；返回原最低位
+inline u64 shr1_inplace(mp_ptr p, size_t n, u64 top_bit) {
+    u64 low = p[0] & 1;
+    for (size_t i = 0; i + 1 < n; ++i) p[i] = (p[i] >> 1) | (p[i + 1] << 63);
+    if (n > 0) p[n - 1] = (p[n - 1] >> 1) | (top_bit << 63);
+    return low;
+}
+
+// 数值比较（忽略前导零）：a<b 返回 -1，相等 0，a>b 返回 1
+inline int mpn_cmp(const mp_limb_t* a, mp_size_t an, const mp_limb_t* b, mp_size_t bn) {
+    an = norm_len(a, an);
+    bn = norm_len(b, bn);
+    if (an != bn) return an < bn ? -1 : 1;
+    for (mp_size_t i = an; i-- > 0;)
+        if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+    return 0;
+}
+
+inline bool mpn_eq(const mp_limb_t* a, mp_size_t an, const mp_limb_t* b, mp_size_t bn) {
+    return mpn_cmp(a, an, b, bn) == 0;
+}
+
+/*
+    模检查：验证 limb 数组在 32 位素数下的模值。素数均 < 2^32，故两个
+    模值的乘积 < 2^64，无需 128 位中间量。被测的大数结果与由输入模值
+    直接计算出的期望模值一致，可捕捉绝大多数字节/进位类错误。
+*/
+constexpr u32 MOD_P[] = {4294967291u, 4294967279u, 4294967231u, 2147483647u, 1000000007u};
+constexpr int MOD_P_CNT = (int)(sizeof(MOD_P) / sizeof(MOD_P[0]));
+
+// [p,n] mod m（m 须为奇素数以外亦可用，仅要求 m != 0）；库 mod_1 路径
+inline u64 mod32(const mp_limb_t* p, mp_size_t n, u32 m) { return lmmp_mod_1_(p, n, m); }
+
+inline u64 mulmod32(u64 a, u64 b, u64 m) { return (a * b) % m; }  // a,b < m < 2^32
+inline u64 addmod32(u64 a, u64 b, u64 m) { return (a + b) % m; }  // a,b < m，和 < 2^33
+inline u64 submod32(u64 a, u64 b, u64 m) { return (a + m - b) % m; }
+
+// 模值相等：[a,an] 与 [b,bn] 在全部内置素数下同余
+inline bool mod_eq(const mp_limb_t* a, mp_size_t an, const mp_limb_t* b, mp_size_t bn) {
+    an = norm_len(a, an);
+    bn = norm_len(b, bn);
+    for (int i = 0; i < MOD_P_CNT; ++i) {
+        u32 p = MOD_P[i];
+        if (mod32(a, an, p) != mod32(b, bn, p)) return false;
     }
-    // 去掉前导零
-    size_t pos = out.find_first_not_of('0');
-    return pos == std::string::npos ? "0" : out.substr(pos);
+    return true;
 }
 
-inline bool limb_vec_eq(const BigInt& a, const mp_limb_t* p, mp_size_t n) {
-    BigInt b = from_limbs(p, n);
-    return a == b;
+// 模乘检查：[r,rn] ≡ [a,an]*[b,bn] (mod p) 对全部内置素数成立
+inline bool mod_is_product(const mp_limb_t* r, mp_size_t rn, const mp_limb_t* a, mp_size_t an,
+                           const mp_limb_t* b, mp_size_t bn) {
+    an = norm_len(a, an);
+    bn = norm_len(b, bn);
+    rn = norm_len(r, rn);
+    for (int i = 0; i < MOD_P_CNT; ++i) {
+        u32 p = MOD_P[i];
+        u64 want = mulmod32(mod32(a, an, p), mod32(b, bn, p), p);
+        if (mod32(r, rn, p) != want) return false;
+    }
+    return true;
+}
+
+// 模和检查：[r,rn] ≡ [a,an]+[b,bn] (mod p)
+inline bool mod_is_sum(const mp_limb_t* r, mp_size_t rn, const mp_limb_t* a, mp_size_t an,
+                       const mp_limb_t* b, mp_size_t bn) {
+    an = norm_len(a, an);
+    bn = norm_len(b, bn);
+    rn = norm_len(r, rn);
+    for (int i = 0; i < MOD_P_CNT; ++i) {
+        u32 p = MOD_P[i];
+        u64 want = addmod32(mod32(a, an, p), mod32(b, bn, p), p);
+        if (mod32(r, rn, p) != want) return false;
+    }
+    return true;
+}
+
+// 模差检查：[r,rn] ≡ [a,an]-[b,bn] (mod p)（模意义下无符号差）
+inline bool mod_is_diff(const mp_limb_t* r, mp_size_t rn, const mp_limb_t* a, mp_size_t an,
+                        const mp_limb_t* b, mp_size_t bn) {
+    an = norm_len(a, an);
+    bn = norm_len(b, bn);
+    rn = norm_len(r, rn);
+    for (int i = 0; i < MOD_P_CNT; ++i) {
+        u32 p = MOD_P[i];
+        u64 want = submod32(mod32(a, an, p), mod32(b, bn, p), p);
+        if (mod32(r, rn, p) != want) return false;
+    }
+    return true;
+}
+
+/*
+    库组合判据与构造（多文件共享；全部为库原语组合，非算法实现）。
+    铁律（2026-11-03）：测试禁止引入任何自建算法实现作为交叉验证 oracle
+    ——无 BigInt/u128、无手写逐位乘除/开方循环、无库除法驱动的欧几里得
+    循环求 gcd/gcdext 参考。允许的手段仅限：库内多路径互比、数学恒等式
+    （本节的整除性/重建类判据）、写死常数、模检查、64 位内标量参考。
+*/
+
+// 整除性判据：[p,pn] mod [d,dn] == 0（恒等式必要条件，库 div_ 求余）
+inline bool divides_all(const mp_limb_t* d, mp_size_t dn, const mp_limb_t* p, mp_size_t pn) {
+    if (dn == 0) return false;
+    mp_ptr r = (mp_ptr)lmmp_alloc((size_t)dn * sizeof(mp_limb_t));
+    lmmp_div_(NULL, r, p, pn, d, dn);
+    bool ok = norm_len(r, dn) == 0;
+    lmmp_free(r);
+    return ok;
+}
+
+// 零垫对齐加法：sum = a + b（长度取 mx；库 add_n_）
+inline void pad_add(const mp_limb_t* a, mp_size_t la, const mp_limb_t* b, mp_size_t lb, mp_size_t mx,
+                    mp_ptr sum) {
+    lmmp_zero(sum, mx);
+    memcpy(sum, a, (size_t)la * 8);
+    mp_ptr pad = alloc_limbs(mx);
+    lmmp_zero(pad, mx);
+    memcpy(pad, b, (size_t)lb * 8);
+    lmmp_add_n_(sum, sum, pad, mx);
+    lmmp_free(pad);
+}
+
+// mul_ 契约 na>=nb：按长度排序后调用
+inline void mul_sorted(mp_ptr dst, const mp_limb_t* a, mp_size_t la, const mp_limb_t* b,
+                       mp_size_t lb) {
+    if (la >= lb) lmmp_mul_(dst, a, la, b, lb);
+    else lmmp_mul_(dst, b, lb, a, la);
+}
+
+// [e,en] 乘小常数 v 的链参考（库 mul_1_ 原地），返回新长度；越界返回 -1
+inline mp_size_t chain_mul_small(mp_ptr e, mp_size_t en, u64 v, size_t cap) {
+    u64 hi = lmmp_mul_1_(e, e, en, v);
+    if (hi) {
+        if ((size_t)en + 1 >= cap) return -1;
+        e[en] = hi;
+        return en + 1;
+    }
+    return en;
+}
+
+// 64 位内素数试除参考（标量简单参考允许域）
+inline bool is_prime_small(u32 n) {
+    if (n < 2) return false;
+    for (u32 d = 2; (u64)d * d <= n; ++d)
+        if (n % d == 0) return false;
+    return true;
+}
+
+// 相邻斐波那契对 (F(k), F(k+1))，F(k+1) 实际长度 >= want_n；返回 F(k+1)
+// 实际长度（fibonacci2_ 返回值）。缓冲上方零垫：F(k) 长度可为返回值或其减一。
+inline mp_size_t fib_pair(mp_ptr x, mp_ptr y, mp_size_t buf, mp_size_t want_n) {
+    ulong k = 3;
+    for (;; ++k) {
+        mp_size_t need = lmmp_fibonacci_size_(k + 1);
+        // size_ 比实际长度多 2-4 limb：need 超 buf+4 后实际长度也不可能 <= buf
+        if (need > buf + 4) return 0;
+        if (need <= buf) {
+            lmmp_zero(x, buf);
+            lmmp_zero(y, buf);
+            mp_size_t ly = lmmp_fibonacci2_(y, x, need, k);  // x=F(k), y=F(k+1)
+            if (ly >= want_n) return ly;
+        }
+    }
 }
 
 }  // namespace lmmp_test_utils

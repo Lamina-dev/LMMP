@@ -23,6 +23,7 @@
 #ifndef LMMP_TEST_FRAMEWORK_HPP
 #define LMMP_TEST_FRAMEWORK_HPP
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -75,6 +76,7 @@ inline int run_all(const std::string& filter) {
     int total = 0;
     int failed = 0;
     int checks = 0;
+    auto t_start = std::chrono::steady_clock::now();
 
     for (const auto& tc : registry()) {
         std::string full = std::string(tc.category) + "/" + tc.name;
@@ -83,22 +85,30 @@ inline int run_all(const std::string& filter) {
 
         ++total;
         ctx() = Context{tc.category, tc.name, 0, 0, false};
-        std::printf("[ RUN    ] %s\n", full.c_str());
-
+        auto t0 = std::chrono::steady_clock::now();
         tc.fn();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - t0).count();
 
         checks += ctx().checks;
         if (ctx().failed) {
             ++failed;
-            std::printf("[  FAILED] %s  (%d failure(s), %d check(s))\n",
-                        full.c_str(), ctx().failures, ctx().checks);
+            std::printf("[  FAILED] %s  (%d failure(s), %d check(s), %lld ms)\n",
+                        full.c_str(), ctx().failures, ctx().checks, (long long)ms);
+        } else if (ms >= 50) {
+            // 慢用例显式标注耗时（全量套件时限 release<=5s / debug<=1min）
+            std::printf("[  PASSED] %s  (%d check(s), %lld ms SLOW)\n",
+                        full.c_str(), ctx().checks, (long long)ms);
         } else {
             std::printf("[  PASSED] %s  (%d check(s))\n", full.c_str(), ctx().checks);
         }
     }
 
+    auto tot_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - t_start).count();
     std::printf("========================================================\n");
-    std::printf("TOTAL: %d test(s), %d failed, %d check(s)\n", total, failed, checks);
+    std::printf("TOTAL: %d test(s), %d failed, %d check(s), %lld ms\n",
+                total, failed, checks, (long long)tot_ms);
     return failed == 0 ? 0 : 1;
 }
 

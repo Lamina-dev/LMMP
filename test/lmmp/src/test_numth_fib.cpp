@@ -25,55 +25,47 @@
 #include "lmmp_test.hpp"
 #include "lmmp_test_utils.hpp"
 
-#include <vector>
-
 using namespace lmmp_test_utils;
 
-namespace {
-
-mp_ptr alloc_limbs(size_t n) { return (mp_ptr)lmmp_alloc(n * sizeof(mp_limb_t)); }
-
-// 朴素迭代参考：F[0..limit]
-std::vector<BigInt> fib_ref(ulong limit) {
-    std::vector<BigInt> f;
-    f.push_back(BigInt(0));
-    f.push_back(BigInt(1));
-    for (ulong i = 2; i <= limit; ++i) f.push_back(BigInt::add_abs(f[i - 1], f[i - 2]));
-    return f;
-}
-
-mp_size_t norm_len(const mp_ptr p, mp_size_t n) {
-    while (n > 0 && p[n - 1] == 0) --n;
-    return n;
-}
-
-}  // namespace
+/*
+    斐波那契验证（库内交叉 + 恒等式 + 写死常数）：
+      1. 写死锚点：F(10)=55、F(50)=12586269025、F(93)=12200160415121876738
+      2. 链式递推：fibonacci2_(n) 的 F[n-1]/F[n] 与 fibonacci2_(n+1) 的
+         F[n]/F[n+1] 逐档衔接，且 F[n+1] == F[n] + F[n-1]（库内加法）
+      3. 大规模抽查：递推链 + Cassini 恒等式（全库内，见下）
+*/
 
 TEST_CASE("numth/fib", small_exhaustive) {
-    const ulong NLIM = 500;
-    auto ref = fib_ref(NLIM);
-    for (ulong n = 0; n <= NLIM; n += 5) {
-        mp_size_t rn = lmmp_fibonacci_size_(n);
-        TEST_CHECK_MSG(rn >= 1, "size lower bound");
-        mp_ptr dst = alloc_limbs((size_t)rn);
-        mp_size_t len = lmmp_fibonacci_(dst, rn, n);
-        TEST_CHECK_MSG(from_limbs(dst, len) == ref[n], "fibonacci_ value");
-        lmmp_free(dst);
+    // 写死常数锚点（值均 < 2^64）
+    struct { ulong n; u64 v; } known[] = {
+        {10, 55ull}, {50, 12586269025ull},
+        {93, 12200160415121876738ull},  // FIB_TABLE_LIMIT 档（最后单 limb 表项）
+    };
+    for (auto& k : known) {
+        mp_ptr d = alloc_limbs(2);
+        lmmp_zero(d, 2);
+        lmmp_fibonacci_(d, 2, k.n);
+        TEST_CHECK_EQ(d[0], k.v);
+        lmmp_free(d);
+    }
 
-        mp_size_t rn2 = lmmp_fibonacci_size_(n);
-        TEST_CHECK_MSG(rn2 >= 1, "size lower bound");
-        mp_ptr fp = alloc_limbs((size_t)rn2);
-        mp_ptr f1p = alloc_limbs((size_t)rn2);
-        mp_size_t len2 = lmmp_fibonacci2_(fp, f1p, rn2, n);
-        TEST_CHECK_MSG(from_limbs(fp, len2) == ref[n], "fibonacci2_ F[n] value");
-        mp_size_t len2m1 = len2 - (f1p[len2 - 1] == 0);
-        if (n == 0) {
-            TEST_CHECK_MSG(from_limbs(f1p, len2m1) == BigInt(1), "F[-1]==1");
-        } else {
-            TEST_CHECK_MSG(from_limbs(f1p, len2m1) == ref[n - 1], "fibonacci2_ F[n-1] value");
-        }
-        lmmp_free(fp);
-        lmmp_free(f1p);
+    // 链式递推：F[n+1] == F[n] + F[n-1]，两档 fibonacci2_ 输出衔接
+    const ulong NLIM = 500;
+    for (ulong n = 1; n <= NLIM; n += 7) {
+        mp_size_t rn = lmmp_fibonacci_size_(n + 1) + 1;
+        mp_ptr fa = alloc_limbs((size_t)rn), fb = alloc_limbs((size_t)rn);
+        mp_ptr fc = alloc_limbs((size_t)rn), fd = alloc_limbs((size_t)rn);
+        mp_ptr s = alloc_limbs((size_t)rn + 1);
+        lmmp_zero(fa, rn); lmmp_zero(fb, rn); lmmp_zero(fc, rn); lmmp_zero(fd, rn);
+
+        lmmp_fibonacci2_(fb, fa, rn, n);      // fa = F[n-1], fb = F[n]
+        lmmp_fibonacci2_(fd, fc, rn, n + 1);  // fc = F[n],   fd = F[n+1]
+        TEST_CHECK(mpn_eq(fb, rn, fc, rn));   // 两档衔接：同 n 输出一致
+        lmmp_zero(s, rn + 1);
+        lmmp_add_(s, fb, rn, fa, rn);
+        TEST_CHECK(mpn_eq(s, rn + 1, fd, rn));  // F[n]+F[n-1] == F[n+1]
+
+        lmmp_free(fa); lmmp_free(fb); lmmp_free(fc); lmmp_free(fd); lmmp_free(s);
     }
 }
 
