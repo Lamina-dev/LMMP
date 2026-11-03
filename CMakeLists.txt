@@ -55,7 +55,6 @@ set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
 option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
 option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
 option(LMMP_BUILD_EXAMPLES "Build LMMP examples" OFF)
-option(LMMP_BUILD_MEASURES "Build LMMP measurements(need build benchmarks)" OFF)
 
 # 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
 option(LMMP_TUNE_MODE "Build tuning core and tune driver" OFF)
