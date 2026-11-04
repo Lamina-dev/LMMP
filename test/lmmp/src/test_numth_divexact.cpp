@@ -53,13 +53,15 @@ TEST_CASE("numth/divexact", divexact_1) {
             u64 hi = lmmp_mul_1_(np, q, n, d);
             mp_size_t nn = n;
             if (hi) np[n] = hi, nn = n + 1;
+            dst[n] = 0;  // hi==0 时被调只写 n limb，高位断言不得读未定值
+            mp_ptr q2 = alloc_limbs(n + 1);
+            q2[n] = 0;
 
             lmmp_divexact_1_(dst, np, nn, d, dinv);
             TEST_CHECK_EQ(memcmp(dst, q, n * 8), 0);
             TEST_CHECK_EQ(dst[n], 0ull);
 
             // 与普通除法交叉：余数 0、商一致
-            mp_ptr q2 = alloc_limbs(n + 1);
             u64 rem = lmmp_div_1_(q2, np, nn, d);
             TEST_CHECK_EQ(rem, 0ull);
             TEST_CHECK_EQ(memcmp(q2, q, n * 8), 0);

@@ -240,11 +240,11 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
                         lmmp_zero(p1, mx); memcpy(p1, q1, (size_t)l1 * 8);
                         lmmp_sub_(diff, p0, mx, p1, mx);
                         mp_size_t dl = norm_len(diff, mx);
-                        bool det_ok = (dl <= 1 && (dl == 0 || diff[0] == 1));  // 差恰为 +1
+                        bool det_ok = (dl == 1 && diff[0] == 1);  // 差恰为 +1（dl==0 为奇异阵，拒）
                         if (!det_ok) {
                             lmmp_sub_(diff, p1, mx, p0, mx);  // 反向：差为 +1 ⟺ 原差为 -1
                             dl = norm_len(diff, mx);
-                            det_ok = (dl <= 1 && (dl == 0 || diff[0] == 1));
+                            det_ok = (dl == 1 && diff[0] == 1);
                         }
                         TEST_CHECK_MSG(det_ok, "hgcd det == +-1");
                         lmmp_free(p0); lmmp_free(p1); lmmp_free(q0); lmmp_free(q1); lmmp_free(diff);

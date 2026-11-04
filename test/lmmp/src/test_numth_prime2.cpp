@@ -271,7 +271,7 @@ TEST_CASE("numth/prime", is_prime_2) {
     {
         int found[2] = {0, 0};
         const int groups[2][2] = {{66, 78}, {108, 126}};  // {t_lo, t_hi}：<SW 与 >SW
-        mp_limb_t n[3];
+        mp_limb_t n[4];  // k2t_limbs 清零 t/64+3 个 limb（t<=127 需 4）
         for (int g = 0; g < 2; ++g) {
             for (int t = groups[g][0]; t <= groups[g][1] && found[g] < 2; ++t) {
                 for (uint k = 3; k < 999 && found[g] < 2; k += 2) {
