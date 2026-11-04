@@ -295,6 +295,6 @@ TEST_CASE("asm/boundary", inv_and_mulmod_boundary) {
         u64 r2 = lmmp_div_1_(q2, abw, 2, mod);
         TEST_CHECK_EQ(r2, r);
         TEST_CHECK_EQ(q2[0], qq);
-        TEST_CHECK_EQ(norm_len(q2 + 1, 1), 0);
+        TEST_CHECK_EQ(norm_len(q2 + 1, 1), (mp_size_t)0);
     }
 }

@@ -232,7 +232,7 @@ TEST_CASE("numth/gcdext", gcdext_2) {
         mp_size_t un = hi ? 3 : 2;
         if (hi) u[2] = hi;
         mp_ptr g = alloc_limbs(2), s = alloc_limbs(2);
-        mp_ssize_t sn, tn;
+        mp_ssize_t sn;
         mp_size_t gn = lmmp_gcdext_2_(g, s, &sn, NULL, NULL, u, un, v);
         TEST_CHECK_MSG(mpn_eq(g, gn, v, 2) && sn == 0, "exact multiple");
         lmmp_free(u); lmmp_free(v); lmmp_free(g); lmmp_free(s);

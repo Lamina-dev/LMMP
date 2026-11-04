@@ -151,7 +151,7 @@ TEST_CASE("numth/divexact", divexact_basecase_divide_cross) {
             mp_ptr qd = alloc_limbs(nn - dn + 2), rd = alloc_limbs(dn);
             lmmp_zero(qd, nn - dn + 2); lmmp_zero(rd, dn);
             lmmp_div_(qd, rd, np, nn, d, dn);
-            TEST_CHECK_EQ(norm_len(rd, dn), 0);
+            TEST_CHECK_EQ(norm_len(rd, dn), (mp_size_t)0);
             TEST_CHECK(mpn_eq(qd, nn - dn + 2, q, q_actual));
 
             lmmp_free(d); lmmp_free(q); lmmp_free(np);

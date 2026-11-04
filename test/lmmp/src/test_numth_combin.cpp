@@ -49,7 +49,7 @@ TEST_CASE("numth/fac", factorial) {
         lmmp_zero(dst, need + 2);
         lmmp_factorial_(dst, bits, need, 10);
         TEST_CHECK_EQ(dst[0], 3628800ull);
-        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), 0);
+        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
         lmmp_free(dst);
     }
     {
@@ -59,7 +59,7 @@ TEST_CASE("numth/fac", factorial) {
         lmmp_zero(dst, need + 2);
         lmmp_factorial_(dst, bits, need, 20);
         TEST_CHECK_EQ(dst[0], 2432902008176640000ull);
-        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), 0);
+        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
         lmmp_free(dst);
     }
 
@@ -106,7 +106,7 @@ TEST_CASE("numth/fac_extern", double_hyper_super_primefac) {
             lmmp_zero(dst, need + 2);
             lmmp_2factorial_(dst, bits, need, k.n);
             TEST_CHECK_EQ(dst[0], k.v);
-            TEST_CHECK_EQ(norm_len(dst + 1, need + 1), 0);
+            TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
             lmmp_free(dst);
         }
     }
@@ -240,7 +240,7 @@ TEST_CASE("numth/trialdiv", trialdiv_remove) {
 
             mp_size_t cnt = lmmp_remove_(np, &nn, d, 1);
             TEST_CHECK_EQ(cnt, (mp_size_t)k);
-            TEST_CHECK_EQ(nn, 1);
+            TEST_CHECK_EQ(nn, (mp_size_t)1);
             TEST_CHECK_EQ(np[0], 11ull);
         }
         lmmp_free(np);

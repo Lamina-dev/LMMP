@@ -195,7 +195,8 @@ TEST_CASE("numth/powmod", powmod_odd_and_dispatch) {
     // 费马小定理：素模 p ∈ MOD_P，b^(p-1) == 1；b^p == b（固定 b）
     for (int i = 0; i < MOD_P_CNT; ++i) {
         u32 p = MOD_P[i];
-        for (u64 bb : {2ull, 3ull, 12345ull, (u64)p - 1}) {
+        u64 bbs[4] = {2, 3, 12345, (u64)p - 1};  // 显式数组：Linux 下 u64 与 ull 字面量异型
+        for (u64 bb : bbs) {
             u64 b = bb % p;
             if (b == 0) continue;
             mp_limb_t mp[1] = {p}, bp[1] = {b}, ep[1] = {p - 1}, dst[1];
@@ -308,7 +309,8 @@ TEST_CASE("numth/powmod", powlo_family) {
             ep[2] |= (u64)1 << 63;
             lmmp_zero(bp, n + 1);
             memcpy(bp, b, (size_t)n * 8);  // b < B^n
-            for (ulong e : {1ull, 2ull, 5ull, 0xdeadbeefull, ep[0]}) {
+            ulong es[5] = {1, 2, 5, 0xdeadbeef, ep[0]};  // 同上：mp_limb_t 与 ull 异型
+            for (ulong e : es) {
                 mp_limb_t e1[1] = {e};
                 lmmp_powlo_(dst, b, n, e1, 1);
                 lmmp_powmod_(dst2, bp, e1, 1, bn, n + 1);

@@ -60,7 +60,7 @@ bool check_pow1_agree(ulong base, ulong exp, mp_size_t (*fn)(mp_ptr, mp_size_t, 
     mp_ptr d1 = alloc_limbs(cap), d2 = alloc_limbs(cap);
     mp_size_t r1 = fn(d1, cap, base, exp);
     mp_size_t r2 = lmmp_pow_1_(d2, cap, base, exp);
-    bool ok = r1 == r2 && r1 >= 0 && r1 <= lmmp_pow_1_size_(base, exp);
+    bool ok = r1 == r2 && r1 <= lmmp_pow_1_size_(base, exp);
     ok = ok && (r1 == 0 || d1[r1 - 1] != 0);
     ok = ok && memcmp(d1, d2, (size_t)r1 * 8) == 0;
     for (int i = 0; i < MOD_P_CNT && ok; ++i)
@@ -107,7 +107,7 @@ TEST_CASE("numth/pow", pow_1_variants_and_anchors) {
     for (const auto& a : anchors) {
         mp_ptr d = alloc_limbs(4);
         mp_size_t rn = lmmp_pow_1_(d, 4, a.base, a.exp);
-        bool ok = rn == a.n && memcmp(d, a.w, (size_t)a.n * 8) == 0;
+        bool ok = rn == (mp_size_t)a.n && memcmp(d, a.w, (size_t)a.n * 8) == 0;
         lmmp_free(d);
         TEST_CHECK_MSG(ok, "pow_1 anchor");
     }

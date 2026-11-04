@@ -82,7 +82,7 @@ TEST_CASE("numth/number", nPr_nCr_multinomial_arith) {
             lmmp_zero(dst, need + 2);
             lmmp_nCr_(dst, bits, need, k.n, k.r);
             TEST_CHECK_EQ(dst[0], k.v);
-            TEST_CHECK_EQ(norm_len(dst + 1, need + 1), 0);
+            TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
             lmmp_free(dst);
         }
     }
@@ -153,7 +153,7 @@ TEST_CASE("numth/number", nPr_nCr_multinomial_arith) {
         lmmp_zero(dst, need + 2);
         lmmp_multinomial_(dst, need, (uint)n, r, 3);
         TEST_CHECK_EQ(dst[0], 60ull);
-        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), 0);
+        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
         lmmp_free(dst);
     }
 
