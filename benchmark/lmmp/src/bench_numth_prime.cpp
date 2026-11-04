@@ -48,7 +48,7 @@ int pool_cnt(mp_size_t n) { return n <= 64 ? 32 : 8; }
 
 /* 顶位起始的随机奇数池（<=64bit），元素个数 POOL */
 mp_ptr pool_bits(uint bits, mp_limb_t seed) {
-    if (bits < 1) bits = 1;
+    if (bits < 2) bits = 2;  /* 1-bit 奇数仅有值 1：退化且与标注位宽不符 */
     if (bits > 64) bits = 64;
     mp_ptr a = alloc_limbs(POOL);
     for (int i = 0; i < POOL; i++) {
@@ -205,6 +205,7 @@ double bench_is_strong_lucas(mp_size_t n, PrimePool kind, const BenchOpts& o) {
 }
 
 double bench_is_prothprime(uint t, bool prime_pool, const BenchOpts& o) {
+    if (t < 1) t = 1;  /* is_prothprime_ 契约 n>0 */
     ProthPool p = pool_proth(t, 8, prime_pool);
     size_t idx = 0;
     double us = measure([&] { sink += (mp_limb_t)lmmp_is_prothprime_(p.ks[idx++ % p.cnt], t); }, o);
@@ -213,6 +214,7 @@ double bench_is_prothprime(uint t, bool prime_pool, const BenchOpts& o) {
 }
 
 double bench_is_prime_n_proth(uint t, int strength, bool prime_pool, const BenchOpts& o) {
+    if (t < 1) t = 1;  /* 同 bench_is_prothprime：契约 n>0 */
     ProthPool p = pool_proth(t, 8, prime_pool);
     size_t idx = 0;
     double us = measure(

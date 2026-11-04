@@ -277,12 +277,12 @@ using namespace lmmp_bench;
 
 BENCH_CASE("lmmpn/mul", mul) {
     const mp_size_t SZ[] = {10, 50, 100, 500, 1000, 5000};
-    for (mp_size_t n : SZ) report_n("mul", n, bench_mul(n, n), n * n * 8.0);
+    for (mp_size_t n : SZ) report_n("mul", n, bench_mul(n, n));
 }
 
 BENCH_CASE("lmmpn/mul", mul_n) {
     const mp_size_t SZ[] = {10, 50, 100, 500, 1000, 5000};
-    for (mp_size_t n : SZ) report_n("mul_n", n, bench_mul_n(n), n * n * 8.0);
+    for (mp_size_t n : SZ) report_n("mul_n", n, bench_mul_n(n));
 }
 
 BENCH_CASE("lmmpn/mul", unbal) {
@@ -293,7 +293,7 @@ BENCH_CASE("lmmpn/mul", unbal) {
 
 BENCH_CASE("lmmpn/sqr", sqr) {
     const mp_size_t SZ[] = {10, 50, 100, 500, 1000, 5000};
-    for (mp_size_t n : SZ) report_n("sqr", n, bench_sqr(n), n * n * 8.0);
+    for (mp_size_t n : SZ) report_n("sqr", n, bench_sqr(n));
 }
 
 BENCH_CASE("lmmpn/mul_toom", toom) {

@@ -282,6 +282,7 @@ double bench_div_2(mp_size_t n, const BenchOpts& o) {
 }
 
 double bench_div_2_s(mp_size_t n, const BenchOpts& o) {
+    if (n < 3) return 0.0;  /* lambda 读写 a[0..1]，且 3/2 除法契约需 n>=3 */
     mp_ptr a = alloc_limbs(n), q = alloc_limbs(n + 1), b = alloc_limbs(2);
     fill_random(a, n, 0x2718281828459046ull + n);
     b[1] = 0x9e3779b97f4a7c15ull | LIMB_B_2;
@@ -404,10 +405,10 @@ BENCH_CASE("asm/mul1", mul1) {
 
 BENCH_CASE("asm/mulbase", mulbase) {
     const mp_size_t SZ[] = {50, 200, 1000};
-    for (mp_size_t n : SZ) report_n("mul_basecase", n, bench_mul_basecase(n, n), n * n * 8.0);
-    for (mp_size_t n : SZ) report_n("sqr_basecase", n, bench_sqr_basecase(n), n * n * 8.0);
+    for (mp_size_t n : SZ) report_n("mul_basecase", n, bench_mul_basecase(n, n));
+    for (mp_size_t n : SZ) report_n("sqr_basecase", n, bench_sqr_basecase(n));
     const mp_size_t LO[] = {50, 200};
-    for (mp_size_t n : LO) report_n("mullo_basecase", n, bench_mullo_basecase(n), n * n * 8.0);
+    for (mp_size_t n : LO) report_n("mullo_basecase", n, bench_mullo_basecase(n));
 }
 
 BENCH_CASE("asm/mulbase", unbal) {

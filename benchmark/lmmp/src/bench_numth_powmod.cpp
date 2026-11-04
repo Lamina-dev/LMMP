@@ -69,7 +69,7 @@ double bench_powmod_odd(mp_size_t n, const BenchOpts& o) {
 */
 double bench_powmod_even(mp_size_t n, uint nb2, const BenchOpts& o) {
     if (n < 3 && nb2 > 1) nb2 = 1;
-    if (nb2 < 1 || nb2 > n) nb2 = 1;
+    if (nb2 < 1 || nb2 >= n) nb2 = 1;  /* 奇部至少占顶 1 limb */
     mp_ptr m = alloc_limbs(n), b = alloc_limbs(n), e = alloc_limbs(n), dst = alloc_limbs(n);
     lmmp_seed_random_(m, n, 0x51ce77ac0bull + nb2 * 131 + n, 1);
     if (nb2 == 1) {

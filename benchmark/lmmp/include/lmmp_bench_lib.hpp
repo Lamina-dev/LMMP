@@ -187,13 +187,13 @@ enum class PrimePool { ODD, PRIME, COPRIME };
 
 /**
  * @brief lmmp_is_prime_notrial_ 耗时（免试除判素）
- * @param bits 输入位宽（1..64）
+ * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档）
  */
 double bench_is_prime_notrial(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
 /**
  * @brief lmmp_is_prime_ulong_ 耗时
- * @param bits 输入位宽（1..64）
+ * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档）
  */
 double bench_is_prime_ulong(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
@@ -215,7 +215,7 @@ double bench_is_strong_lucas(mp_size_t n, PrimePool kind = PrimePool::COPRIME,
 
 /**
  * @brief lmmp_is_prothprime_ 耗时（Proth 数 N=k*2^t+1 单梯子定理判决）
- * @param t 2 的幂指数（N 的规模档），k<=2^32 内部搜索
+ * @param t 2 的幂指数（N 的规模档，t>=1），k<=2^32 内部搜索
  * @param prime_pool true 构造 Proth 素数池（判决最贵），false 试除幸存合数池
  */
 double bench_is_prothprime(uint t, bool prime_pool = true, const BenchOpts& o = {});

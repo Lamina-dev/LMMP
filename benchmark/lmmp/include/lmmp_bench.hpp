@@ -95,7 +95,9 @@ inline double measure(Op&& op, const BenchOpts& o = {}) {
         k <<= 1;
     }
 
-    unsigned samples = block_sec >= o.slow_block_sec ? std::min(2u, o.max_samples) : o.max_samples;
+    /* max_samples==0 亦至少采 1 个样本，避免聚合面对空 us */
+    unsigned samples = std::max(1u, block_sec >= o.slow_block_sec ? std::min(2u, o.max_samples)
+                                                                  : o.max_samples);
     std::vector<double> us;
     us.reserve(samples);
     for (unsigned s = 0; s < samples; ++s) {
