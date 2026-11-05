@@ -171,7 +171,7 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
                |  p2l |  p2h |      |
                |      |  p3l |  p3h |
     */
-#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
+#if defined(LMMP_ASM_X64) && defined(__GNUC__) && !defined(__clang__)
     /* 4×mulx + 运行累加：p1/p2/p3 依次流入 r8/r9 暂存（以 clobber 声明，
        乱序重命名消除 WAR），每个部分积以 add/adcx/adc 三连加进累加器
        （进位至多 1，res3 侧经 adc $0 传播）。相对九输出分解式，asm
@@ -201,6 +201,25 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
     rr[1] = r1;
     rr[2] = r2;
     rr[3] = r3;
+#elif defined(LMMP_ASM_X64) && defined(__clang__)
+    /* clang-x64 组合式：clang 的 mulhi 识别/进位融合/双移位合并把本
+       形态编成与手写 asm 同构体且无块边界税（asm 块输出强制驻活使
+       栈流量×3、调度冻结，探针 ladder 慢 1.7×）；GCC 无此融合（组合
+       式朴素展开 30+ 条指令），x64-GCC 走上方 asm。位置在 u128
+       typedef 之前，此处直接用 __uint128_t */
+    __uint128_t p00 = (__uint128_t)a_low * b_low;
+    __uint128_t p01 = (__uint128_t)a_low * b_high;
+    __uint128_t p10 = (__uint128_t)a_high * b_low;
+    __uint128_t p11 = (__uint128_t)a_high * b_high;
+    __uint128_t mid = p01 + p10;
+    __uint128_t cm = mid < p01; /* 129 位交叉和进位，属 hi 的第 64 位 */
+    __uint128_t l = (mid << 64) + p00;
+    __uint128_t cl = l < p00; /* 进位属 hi 的第 0 位 */
+    __uint128_t h = p11 + (mid >> 64) + cl + (cm << 64);
+    rr[0] = (uint64_t)l;
+    rr[1] = (uint64_t)(l >> 64);
+    rr[2] = (uint64_t)h;
+    rr[3] = (uint64_t)(h >> 64);
 #elif defined(LMMP_ASM_ARM64) && (defined(__GNUC__) || defined(__clang__))
     /* 8×(mul|umulh) + adds/adcs 标志链收尾，共 14 条：C 语句间无法保活
        NZCV 进位，纯 C 形态最少 21 条（进位须 cset 物化）。关键次序：
@@ -265,7 +284,7 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
                |  p1l |  p1h |      |
                |      |  p3l |  p3h |
     */
-#if defined(LMMP_ASM_X64) && (defined(__GNUC__) || defined(__clang__))
+#if defined(LMMP_ASM_X64) && defined(__GNUC__) && !defined(__clang__)
     /* 3×mulx；交叉积 p1 左移一位成为 129 位（v 为溢出位），
        shld 一条完成高位拼接，adcx/adox 双链吸收 v 与两段进位。
        res2 的两次加法（+p3l、+c1）各自至多产生一个进位且不会同时
@@ -296,6 +315,21 @@ static inline void _usqr128to256_(uint64_t a_high, uint64_t a_low, uint64_t rr[4
     rr[1] = r1;
     rr[2] = r2;
     rr[3] = r3;
+#elif defined(LMMP_ASM_X64) && defined(__clang__)
+    /* clang-x64 组合式（同 _umul128to256_ 分支依据）：交叉积单次
+       乘法后整体加倍，129 位进位经 m >> 127 顶位提取 */
+    __uint128_t p0 = (__uint128_t)a_low * a_low;
+    __uint128_t m = (__uint128_t)a_low * a_high; /* 交叉积，加倍后 129 位 */
+    __uint128_t p1 = (__uint128_t)a_high * a_high;
+    __uint128_t ml = m << 1;
+    __uint128_t mh = m >> 127; /* 加倍进位（0/1），属 hi 的第 64 位 */
+    __uint128_t l = (ml << 64) + p0;
+    __uint128_t cl = l < p0;
+    __uint128_t h = p1 + (ml >> 64) + cl + (mh << 64);
+    rr[0] = (uint64_t)l;
+    rr[1] = (uint64_t)(l >> 64);
+    rr[2] = (uint64_t)h;
+    rr[3] = (uint64_t)(h >> 64);
 #elif defined(LMMP_ASM_ARM64) && (defined(__GNUC__) || defined(__clang__))
     /* 6×(mul|umulh) + lsr/extr 拆交叉积加倍 + 三连标志链，共 11 条。
        加倍的 129 位拆法：tc = 交叉 hi >> 63（顶位，属 res3 段），
@@ -526,13 +560,11 @@ static inline void _usqr128to192_(uint64_t a_high, uint64_t a_low, uint64_t rr[3
 #else
     u128 p0 = (u128)a_low * a_low;
     u128 t = (u128)a_low * a_high;
-    uint64_t s1 = _u128high(p0);
-    uint64_t s2 = a_high * a_high; /* 契约：a1 < 2^32，单 limb */
-    _add_ssaaaa(s2, s1, s2, s1, _u128high(t), _u128low(t));
-    _add_ssaaaa(s2, s1, s2, s1, _u128high(t), _u128low(t));
+    u128 acc = ((u128)(a_high * a_high) << 64) | _u128high(p0);
+    acc = acc + t + t;
     rr[0] = _u128low(p0);
-    rr[1] = s1;
-    rr[2] = s2;
+    rr[1] = _u128low(acc);
+    rr[2] = _u128high(acc);
 #endif
 }
 
