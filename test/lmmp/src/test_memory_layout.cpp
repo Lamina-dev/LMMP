@@ -39,8 +39,11 @@ TEST_CASE("memory/addsub", add_n_sub_n_inplace_pair) {
     const u64 av[5] = {UINT64_MAX - 2, 1, 0, UINT64_MAX, 7};
     const u64 bv[5] = {3, UINT64_MAX, UINT64_MAX - 1, 0, 1};
 
-    mp_ptr a = alloc_limbs(n), b = alloc_limbs(n), sa = alloc_limbs(n), sb = alloc_limbs(n),
+    /* 输出缓冲多配 1 limb 置哨兵：越界写可见 */
+    mp_ptr a = alloc_limbs(n + 1), b = alloc_limbs(n + 1), sa = alloc_limbs(n), sb = alloc_limbs(n),
            ref_sum = alloc_limbs(n), ref_diff = alloc_limbs(n);
+    const mp_limb_t sent = UINT64_C(0x5a5af00dcafebeef);
+    a[n] = sent; b[n] = sent;
     for (mp_size_t i = 0; i < n; ++i) {
         a[i] = av[i]; b[i] = bv[i]; sa[i] = av[i]; sb[i] = bv[i];
     }
@@ -52,6 +55,8 @@ TEST_CASE("memory/addsub", add_n_sub_n_inplace_pair) {
     TEST_CHECK_EQ(cb, (carry ? 2u : 0u) | (borrow ? 1u : 0u));
     TEST_CHECK_EQ(memcmp(a, ref_sum, n * 8), 0);
     TEST_CHECK_EQ(memcmp(b, ref_diff, n * 8), 0);
+    TEST_CHECK_EQ(a[n], sent);
+    TEST_CHECK_EQ(b[n], sent);
 
     /* 交换两个输出位置：dsta == numb、dstb == numa。 */
     for (mp_size_t i = 0; i < n; ++i) { a[i] = av[i]; b[i] = bv[i]; }
@@ -59,6 +64,8 @@ TEST_CASE("memory/addsub", add_n_sub_n_inplace_pair) {
     TEST_CHECK_EQ(cb2, cb);
     TEST_CHECK_EQ(memcmp(b, ref_sum, n * 8), 0);
     TEST_CHECK_EQ(memcmp(a, ref_diff, n * 8), 0);
+    TEST_CHECK_EQ(a[n], sent);
+    TEST_CHECK_EQ(b[n], sent);
 
     lmmp_free(a); lmmp_free(b); lmmp_free(sa); lmmp_free(sb);
     lmmp_free(ref_sum); lmmp_free(ref_diff);
@@ -69,8 +76,11 @@ TEST_CASE("memory/addsub", addshl1_subshl1_inplace) {
     const u64 av[4] = {1, 0, UINT64_MAX - 1, 5};
     const u64 bv[4] = {UINT64_MAX, 1, 0, 0};
 
-    mp_ptr a = alloc_limbs(n), b = alloc_limbs(n), sa = alloc_limbs(n), sb = alloc_limbs(n),
+    /* 输出缓冲多配 1 limb 置哨兵：越界写可见 */
+    mp_ptr a = alloc_limbs(n + 1), b = alloc_limbs(n + 1), sa = alloc_limbs(n), sb = alloc_limbs(n),
            ref = alloc_limbs(n + 1);
+    const mp_limb_t sent = UINT64_C(0x5a5af00dcafebeef);
+    a[n] = sent; b[n] = sent;
     for (mp_size_t i = 0; i < n; ++i) {
         a[i] = av[i]; b[i] = bv[i]; sa[i] = av[i]; sb[i] = bv[i];
     }
@@ -80,6 +90,7 @@ TEST_CASE("memory/addsub", addshl1_subshl1_inplace) {
     const mp_limb_t cy = lmmp_addshl1_n_(a, a, b, n);
     TEST_CHECK_EQ(cy, cy_ref);
     TEST_CHECK_EQ(memcmp(a, ref, n * 8), 0);
+    TEST_CHECK_EQ(a[n], sent);
 
     /* subshl1：a = [0,0,0,2] >= b<<1，dst == numb。 */
     const u64 bigv[4] = {0, 0, 0, 2};
@@ -88,6 +99,8 @@ TEST_CASE("memory/addsub", addshl1_subshl1_inplace) {
     const mp_limb_t bw = lmmp_subshl1_n_(b, a, b, n);
     TEST_CHECK_EQ(bw, bw_ref);
     TEST_CHECK_EQ(memcmp(b, ref, n * 8), 0);
+    TEST_CHECK_EQ(a[n], sent);
+    TEST_CHECK_EQ(b[n], sent);
 
     lmmp_free(a); lmmp_free(b); lmmp_free(sa); lmmp_free(sb); lmmp_free(ref);
 }

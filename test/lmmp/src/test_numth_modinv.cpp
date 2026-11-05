@@ -142,7 +142,8 @@ TEST_CASE("numth/modinv", modinv_big) {
             mp_ptr u2 = alloc_limbs(un > mn ? un : mn);
             lmmp_copy(u2, u, un);
             mp_size_t rn2 = lmmp_modinv_(u2, u2, un, m, mn);
-            TEST_CHECK_MSG(rn2 == rn, "alias stable");
+            TEST_CHECK_MSG(rn2 == rn && (rn == 0 || mpn_cmp(u2, rn2, dst, rn) == 0),
+                           "alias stable");
             lmmp_free(m); lmmp_free(u); lmmp_free(dst); lmmp_free(u2);
         }
     }

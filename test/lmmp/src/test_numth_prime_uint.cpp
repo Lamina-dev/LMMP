@@ -153,6 +153,7 @@ TEST_CASE("numth/prime", next_prev_prime) {
             for (ulong k = n + 1; k < next; ++k) TEST_CHECK_MSG(!ref_is_prime64(k), "next_prime no gap prime");
         }
         ulong p = lmmp_prev_prime_ulong_(n);
+        TEST_CHECK_MSG(p > 0, "prev_prime nonzero for n >= 2");
         if (p > 0) {
             TEST_CHECK_MSG(ref_is_prime64(p), "prev_prime is prime");
             TEST_CHECK_MSG(p <= n, "prev_prime <= n");

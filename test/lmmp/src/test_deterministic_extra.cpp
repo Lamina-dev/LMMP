@@ -44,20 +44,20 @@ TEST_CASE("low/addsub", add_sub_deterministic_inplace) {
     for (mp_size_t i = 0; i < n; ++i) { a[i] = av[i]; b[i] = bv[i]; }
 
     mp_ptr a2 = alloc_limbs(n), b2 = alloc_limbs(n);
-    lmmp_add_n_(r, a, b, n);   // 分离缓冲参考：和
-    lmmp_sub_n_(d, a, b, n);   // 分离缓冲参考：差（a >= b）
-    // eqsep 原地：dst == numa / dst == numb 各两向
+    const u64 add_cy = lmmp_add_n_(r, a, b, n);   // 分离缓冲参考：和
+    const u64 sub_bw = lmmp_sub_n_(d, a, b, n);   // 分离缓冲参考：差（a >= b）
+    // eqsep 原地：dst == numa / dst == numb 各两向（返回值与分离缓冲一致）
     memcpy(a2, a, n * 8);
-    lmmp_add_n_(a2, a2, b, n);
+    TEST_CHECK_EQ(lmmp_add_n_(a2, a2, b, n), add_cy);
     TEST_CHECK_EQ(memcmp(a2, r, n * 8), 0);
     memcpy(b2, b, n * 8);
-    lmmp_add_n_(b2, a, b2, n);
+    TEST_CHECK_EQ(lmmp_add_n_(b2, a, b2, n), add_cy);
     TEST_CHECK_EQ(memcmp(b2, r, n * 8), 0);
     memcpy(a2, a, n * 8);
-    lmmp_sub_n_(a2, a2, b, n);
+    TEST_CHECK_EQ(lmmp_sub_n_(a2, a2, b, n), sub_bw);
     TEST_CHECK_EQ(memcmp(a2, d, n * 8), 0);
     memcpy(b2, b, n * 8);
-    lmmp_sub_n_(b2, a, b2, n);
+    TEST_CHECK_EQ(lmmp_sub_n_(b2, a, b2, n), sub_bw);
     TEST_CHECK_EQ(memcmp(b2, d, n * 8), 0);
 
     lmmp_free(a); lmmp_free(b); lmmp_free(d); lmmp_free(r);
@@ -144,11 +144,13 @@ TEST_CASE("numth/combin", nPr_nCr_degenerate_boundaries) {
             mp_size_t need = lmmp_nPr_size_(n, r, &bits);
             mp_ptr dst = alloc_limbs(need + 2);
             lmmp_zero(dst, need + 2);
-            lmmp_nPr_(dst, bits, need, n, r);
+            mp_size_t rn = lmmp_nPr_(dst, bits, need, n, r);  // 实际长度
             if (r == 0) {
                 TEST_CHECK_EQ(dst[0], 1ull);
+                TEST_CHECK_EQ(rn, (mp_size_t)1);
             } else if (r == 1) {
                 TEST_CHECK_EQ(dst[0], (u64)n);  // n <= 12 单 limb
+                TEST_CHECK_EQ(rn, (mp_size_t)1);
             } else {
                 // nPr(n, n) == n!：库 factorial 交叉（长度一律取返回值，
                 // size_ 含冗余、缓冲高位为未初始化内存）
@@ -157,6 +159,7 @@ TEST_CASE("numth/combin", nPr_nCr_degenerate_boundaries) {
                 mp_ptr f = alloc_limbs(fn + 2);
                 mp_size_t fl = lmmp_factorial_(f, fb, fn, (uint)n);
                 TEST_CHECK(mpn_eq(dst, need + 2, f, fl));  // dst 已零化，容量域比较安全
+                TEST_CHECK_EQ(rn, fl);  // 同值规范化长度必等，防高位零掩盖
                 lmmp_free(f);
             }
             lmmp_free(dst);
@@ -208,8 +211,9 @@ TEST_CASE("numth/combin", nPr_nCr_degenerate_boundaries) {
         mp_size_t need = lmmp_nPr_size_(n, 1, &bits);
         mp_ptr dst = alloc_limbs(need + 2);
         lmmp_zero(dst, need + 2);
-        lmmp_nPr_(dst, bits, need, n, 1);
+        mp_size_t rn = lmmp_nPr_(dst, bits, need, n, 1);
         TEST_CHECK(mpn_eq(dst, need + 2, &n, 1));  // nPr(n,1) == n
+        TEST_CHECK_EQ(rn, (mp_size_t)1);
         lmmp_free(dst);
     }
 }

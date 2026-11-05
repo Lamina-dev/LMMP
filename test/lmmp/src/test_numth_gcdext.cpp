@@ -304,10 +304,12 @@ void run_gcdext_pair(u64& seed, mp_size_t un, mp_size_t vn, int mode) {
     // 参数交换（s/t 角色互换）
     mp_ssize_t sn2, tn2;
     mp_size_t gn2 = lmmp_gcdext_(g, s, &sn2, t, &tn2, v, vn, u, un);
-    (void)gn2;
     if (mode == 4) {
         TEST_CHECK_MSG(gn2 == 1 && g[0] == 1, "neighbor-1 swapped gcd");
-    } else if (mode != 1) {
+    } else if (mode == 1) {
+        // u = k*v：交换后 gcd(v, u) 仍为 v
+        TEST_CHECK_MSG(mpn_eq(g, gn2, v, vn), "swapped exact multiple gcd");
+    } else {
         TEST_CHECK_MSG(check_gcdext(g, gn2, s, sn2, t, tn2, v, vn, u, un), "swapped");
     }
     // dstt=NULL
@@ -317,7 +319,8 @@ void run_gcdext_pair(u64& seed, mp_size_t un, mp_size_t vn, int mode) {
     // dstg 与 up 别名（参照首次调用已验证的 g 值）
     mp_ptr u2 = alloc_limbs(un + vn);
     lmmp_copy(u2, u, un);
-    lmmp_gcdext_(u2, s, &sn, NULL, NULL, u2, un, v, vn);
+    mp_size_t gna = lmmp_gcdext_(u2, s, &sn, NULL, NULL, u2, un, v, vn);
+    TEST_CHECK_MSG(gna == gns, "alias dstg=up length");
     TEST_CHECK_MSG(mpn_eq(u2, gn, gsave, gns), "alias dstg=up");
     lmmp_free(u); lmmp_free(v); lmmp_free(g); lmmp_free(s); lmmp_free(t);
     lmmp_free(u2);

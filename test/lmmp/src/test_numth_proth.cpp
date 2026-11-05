@@ -88,6 +88,12 @@ TEST_CASE("numth/proth", is_prothprime_driver) {
         {200, 400, true}, {384, 200, false}, {521, 150, false},
         {1000, 100, false}, {2048, 60, false},
     };
+    /* 固定正例锚点（证书已知素）：被测恒返回 0 的回归在抽样合数分支
+       （k&63==3）大概率无素例可撞、found 硬断言又只保 t=200 档 */
+    TEST_CHECK_MSG(lmmp_is_prothprime_(233, 521) == 1, "proth anchor 233*2^521+1 prime");
+    TEST_CHECK_MSG(proth_cert_g(233, 521), "proth anchor 233*2^521+1 certified");
+    TEST_CHECK_MSG(lmmp_is_prothprime_(13, 1000) == 1, "proth anchor 13*2^1000+1 prime");
+    TEST_CHECK_MSG(proth_cert_g(13, 1000), "proth anchor 13*2^1000+1 certified");
     for (const auto& b : bigs) {
         int found = 0;
         for (u32 k = 3; (int)k < 2 * b.cap; k += 2) {

@@ -141,6 +141,8 @@ inline mp_size_t limbs_norm(const mp_limb_t* p, mp_size_t n) {
 inline bool proth_cert_g(uint k, int t, int nbase = 17) {
     static const u64 bases[] = {3,  5,  7,  11, 13, 17, 19, 23, 29, 31,
                                 37, 41, 43, 47, 53, 59, 61};
+    const int nbases = (int)(sizeof(bases) / sizeof(bases[0]));
+    if (nbase > nbases) nbase = nbases;  /* 防 bases 越界读 */
     mp_limb_t N[512], e[512], bp[512], r[512], m1[512];
     mp_size_t nn = k2t_limbs(N, t, k, 1);
     mp_size_t en = k2t_limbs(e, t - 1, k, 0);

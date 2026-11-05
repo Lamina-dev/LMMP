@@ -232,6 +232,8 @@ TEST_CASE("numth/nthroot", nthroot_top_probe_construction) {
                     } else if (sp.delta < 0) sub_small_inplace(numa, na, (u64)(-sp.delta));
                     if (numa[na - 1] == 0) continue;
                     mp_size_t nr2 = (na + (mp_size_t)root - 1) / (mp_size_t)root;
+                    lmmp_nthroot_(dst, NULL, numa, na, root, tp);  // NULL 余数路径同输入
+                    check_floor(numa, na, dst, nr2, root, NULL, pw, pw1, rp1, sum);
                     lmmp_nthroot_(dst, dstr, numa, na, root, tp);
                     check_floor(numa, na, dst, nr2, root, dstr, pw, pw1, rp1, sum);
                 }

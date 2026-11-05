@@ -53,19 +53,28 @@ TEST_CASE("numth/divexact", divexact_1) {
             u64 hi = lmmp_mul_1_(np, q, n, d);
             mp_size_t nn = n;
             if (hi) np[n] = hi, nn = n + 1;
-            dst[n] = 0;  // hi==0 时被调只写 n limb，高位断言不得读未定值
+            // 哨兵：nn==n 时被调只写 n limb（dst[n] 须原样），nn>n 时
+            // 恰写 nn limb、顶 limb 须被主动写 0（预置 0 会掩盖漏写）
+            const mp_limb_t sent = UINT64_C(0x5a5af00dcafebeef);
+            dst[n] = sent;
             mp_ptr q2 = alloc_limbs(n + 1);
-            q2[n] = 0;
+            q2[n] = sent;
 
             lmmp_divexact_1_(dst, np, nn, d, dinv);
             TEST_CHECK_EQ(memcmp(dst, q, n * 8), 0);
-            TEST_CHECK_EQ(dst[n], 0ull);
+            if (nn > n)
+                TEST_CHECK_EQ(dst[n], 0ull);
+            else
+                TEST_CHECK_EQ(dst[n], sent);
 
-            // 与普通除法交叉：余数 0、商一致
+            // 与普通除法交叉：余数 0、商一致（同哨兵规则：写 na limb）
             u64 rem = lmmp_div_1_(q2, np, nn, d);
             TEST_CHECK_EQ(rem, 0ull);
             TEST_CHECK_EQ(memcmp(q2, q, n * 8), 0);
-            TEST_CHECK_EQ(q2[n], 0ull);
+            if (nn > n)
+                TEST_CHECK_EQ(q2[n], 0ull);
+            else
+                TEST_CHECK_EQ(q2[n], sent);
 
             lmmp_free(q); lmmp_free(np); lmmp_free(dst); lmmp_free(q2);
         }
