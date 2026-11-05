@@ -58,7 +58,20 @@ mp_ptr pool_bits(uint bits, mp_limb_t seed, PrimePool kind) {
         a[i] |= (mp_limb_t)1 << (bits - 1);
         a[i] |= 1;
         if (kind == PrimePool::COPRIME) {
-            while (lmmp_trialdiv_(a + i, 1, 1000)) a[i] += 2;
+            /* 步进不得越出指定位宽：将越界时重采样候选而非沿用更宽的值
+               （bits>=10 域内幸存者密度 ~1/7，重采样几乎不触发；bits<=9
+               域内无 >1000 素因子的幸存者，由入口拒绝） */
+            uint tries = 0;
+            while (lmmp_trialdiv_(a + i, 1, 1000)) {
+                if (bits < 64 && ((a[i] + 2) >> bits) != 0) {
+                    lmmp_seed_random_(a + i, 1, seed + i + 0x9e37ull * ++tries, 1);
+                    a[i] &= ((mp_limb_t)-1) >> (64 - bits);
+                    a[i] |= (mp_limb_t)1 << (bits - 1);
+                    a[i] |= 1;
+                } else {
+                    a[i] += 2;
+                }
+            }
         } else if (kind == PrimePool::PRIME) {
             a[i] = lmmp_next_prime_ulong_(a[i]);
         }
@@ -78,6 +91,7 @@ mp_ptr pool_2(uint bits, mp_limb_t seed, PrimePool kind) {
         a[2 * i + 1] |= (mp_limb_t)1 << (hb - 1);
         a[2 * i] |= 1;
         if (kind == PrimePool::COPRIME) {
+            /* 步进只改低 limb、回绕不进位到高 limb，值恒在指定位宽内 */
             while (lmmp_trialdiv_(a + 2 * i, 2, 1000)) a[2 * i] += 2;
         } else if (kind == PrimePool::PRIME) {
             while (lmmp_is_prime_2_(a[2 * i], a[2 * i + 1]) == 0) a[2 * i] += 2;
@@ -149,6 +163,9 @@ ProthPool pool_proth(uint t, int cnt, bool want_prime) {
 }  // namespace
 
 double bench_is_prime_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
+    /* COPRIME 域内须存在试除幸存者（最小 1009 需 10 位）：更窄位宽
+       拒绝测量，不得以更宽的值冒充请求位宽 */
+    if (kind == PrimePool::COPRIME && bits < 10) return 0.0;
     mp_ptr a = pool_bits(bits, 0x51ce25c0ff33ull + bits, kind);
     size_t idx = 0;
     double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_notrial_(a[idx++ & (POOL - 1)]); }, o);
@@ -157,6 +174,7 @@ double bench_is_prime_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
 }
 
 double bench_is_prime_ulong(uint bits, PrimePool kind, const BenchOpts& o) {
+    if (kind == PrimePool::COPRIME && bits < 10) return 0.0;  /* 同 notrial：域宽下界 */
     mp_ptr a = pool_bits(bits, 0x13579bdf0246ull + bits, kind);
     size_t idx = 0;
     double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_ulong_(a[idx++ & (POOL - 1)]); }, o);

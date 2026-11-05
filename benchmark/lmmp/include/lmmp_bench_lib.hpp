@@ -187,13 +187,16 @@ enum class PrimePool { ODD, PRIME, COPRIME };
 
 /**
  * @brief lmmp_is_prime_notrial_ 耗时（免试除判素）
- * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档）
+ * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档；
+ *             COPRIME 池要求 bits>=10——更窄宽度域内无 >1000 素因子幸存者，
+ *             拒绝测量返回 0.0）
  */
 double bench_is_prime_notrial(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
 /**
  * @brief lmmp_is_prime_ulong_ 耗时
- * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档）
+ * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档；
+ *             COPRIME 池要求 bits>=10，拒绝测量返回 0.0）
  */
 double bench_is_prime_ulong(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
