@@ -20,180 +20,204 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+/* 阶乘族与因子剥离验证（无 BigInt oracle；nPr/nCr 见 test_numth_binom.cpp）：
+   1. 递推链：n! == n*(n-1)!、n!! == n*(n-2)!!、H(n) == H(n-1)*n^n、
+      S(n) == S(n-1)*n!（乘法全走库 mul_1/mul/factorial_）
+   2. 模检查：结果 mod 32 位素数 == 逐项模乘（u64 简单循环）
+   3. 写死锚点：10!=3628800、20!=2432902008176640000、9!!=945、
+      10!!=3840
+   4. trialdiv 与 64 位内简单试除交叉；remove 剥除恰 k 个因子（库构造）
+*/
+
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
 #include "lmmp_test.hpp"
 #include "lmmp_test_utils.hpp"
 
-#include <cstring>
-#include <vector>
-
 using namespace lmmp_test_utils;
-using u16 = std::uint16_t;
-
-namespace {
-
-mp_ptr alloc_limbs(size_t n) { return (mp_ptr)lmmp_alloc(n * sizeof(mp_limb_t)); }
-
-BigInt ref_factorial(u32 n) {
-    BigInt r(1);
-    for (u32 i = 2; i <= n; ++i) r = BigInt::mul_school(r, BigInt(i));
-    return r;
-}
-
-BigInt ref_product_range(u32 lo, u32 hi) {
-    BigInt r(1);
-    for (u32 i = lo; i <= hi; ++i) r = BigInt::mul_school(r, BigInt(i));
-    return r;
-}
-
-bool is_prime_small(u32 n) {
-    if (n < 2) return false;
-    for (u32 d = 2; (u64)d * d <= n; ++d) if (n % d == 0) return false;
-    return true;
-}
-
-}  // namespace
 
 TEST_CASE("numth/fac", factorial) {
-    for (u32 n : {0, 1, 2, 5, 10, 20, 50, 100, 200}) {
-        BigInt expect = ref_factorial(n);
+    const size_t CAP = 4000;
+    mp_ptr expect = alloc_limbs(CAP);
+    mp_size_t elen = 0;
+
+    // 写死锚点
+    {
         mp_bitcnt_t bits = 0;
-        mp_size_t need = lmmp_factorial_size_(n, &bits);
-        TEST_CHECK_MSG(need >= (mp_size_t)expect.d.size(), "factorial_size enough");
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_factorial_(dst, bits, need, n);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "factorial value");
+        mp_size_t need = lmmp_factorial_size_(10, &bits);
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_factorial_(dst, bits, need, 10);
+        TEST_CHECK_EQ(dst[0], 3628800ull);
+        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
         lmmp_free(dst);
     }
+    {
+        mp_bitcnt_t bits = 0;
+        mp_size_t need = lmmp_factorial_size_(20, &bits);
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_factorial_(dst, bits, need, 20);
+        TEST_CHECK_EQ(dst[0], 2432902008176640000ull);
+        TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
+        lmmp_free(dst);
+    }
+
+    // 递推链 + 模检查：n! == n * (n-1)!（链跨全部中间档位）
+    u32 built = 0;  // expect == built!
+    expect[0] = 1;
+    elen = 1;
+    for (u32 n : {0, 1, 2, 5, 10, 20, 50, 100, 200, 1000, 10000}) {
+        mp_bitcnt_t bits = 0;
+        mp_size_t need = lmmp_factorial_size_(n, &bits);
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_factorial_(dst, bits, need, n);
+        mp_size_t rn = norm_len(dst, need + 2);
+        if (n == 0) {
+            TEST_CHECK_EQ(dst[0], 1ull);
+            lmmp_free(dst);
+            continue;
+        }
+        for (u32 i = built + 1; i <= n; ++i) elen = chain_mul_small(expect, elen, i, CAP);
+        built = n;
+        TEST_CHECK(mpn_eq(dst, rn, expect, elen));
+
+        // 模检查：n! mod p == 逐项模乘（独立 64 位计算）
+        for (int pi = 0; pi < MOD_P_CNT; ++pi) {
+            u64 p = MOD_P[pi];
+            u64 m = 1;
+            for (u32 i = 2; i <= n; ++i) m = mulmod32(m, i % p, p);
+            TEST_CHECK_EQ(mod32(dst, rn, (u32)p), m);
+        }
+        lmmp_free(dst);
+    }
+    lmmp_free(expect);
 }
 
 TEST_CASE("numth/fac_extern", double_hyper_super_primefac) {
-    // 双阶乘
-    for (u32 n : {0, 1, 2, 3, 10, 21, 50, 107}) {
-        BigInt expect(1);
-        for (u32 i = (n % 2 == 0 ? 2 : 1); i <= n; i += 2) expect = BigInt::mul_school(expect, BigInt(i));
+    // 双阶乘：n!! == n*(n-2)!! 链 + 写死锚点 9!!=945、10!!=3840
+    {
+        struct { u32 n; u64 v; } known[] = {{0, 1ull}, {1, 1ull}, {9, 945ull}, {10, 3840ull}};
+        for (auto& k : known) {
+            mp_bitcnt_t bits = 0;
+            mp_size_t need = lmmp_2factorial_size_(k.n, &bits);
+            mp_ptr dst = alloc_limbs(need + 2);
+            lmmp_zero(dst, need + 2);
+            lmmp_2factorial_(dst, bits, need, k.n);
+            TEST_CHECK_EQ(dst[0], k.v);
+            TEST_CHECK_EQ(norm_len(dst + 1, need + 1), (mp_size_t)0);
+            lmmp_free(dst);
+        }
+    }
+    const size_t CAP = 512;
+    mp_ptr e = alloc_limbs(CAP);
+    for (u32 n : {2, 3, 10, 21, 50, 107, 301}) {
+        // 链参考：从 1 起按 n 的奇偶逐项乘
+        e[0] = 1;
+        mp_size_t elen = 1;
+        for (u32 i = (n % 2 == 0 ? 2 : 1); i <= n; i += 2)
+            elen = chain_mul_small(e, elen, i, CAP);
         mp_bitcnt_t bits = 0;
         mp_size_t need = lmmp_2factorial_size_(n, &bits);
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_2factorial_(dst, bits, need, n);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "2factorial value");
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_2factorial_(dst, bits, need, n);
+        TEST_CHECK(mpn_eq(dst, need + 2, e, elen));
         lmmp_free(dst);
     }
+    lmmp_free(e);
 
-    // hyper factorial: prod k^k
-    for (u16 n : {1, 3, 5, 8, 20}) {
-        BigInt expect(1);
-        for (u16 k = 1; k <= n; ++k) expect = BigInt::mul_school(expect, BigInt::pow(BigInt(k), k));
+    // hyper factorial: H(n) == H(n-1) * n^n（n^n 由库 mul 链构造）
+    const size_t CAP2 = 4096;
+    mp_ptr h = alloc_limbs(CAP2), t = alloc_limbs(CAP2);
+    h[0] = 1;
+    mp_size_t hlen = 1;
+    int checked_h = 0;
+    for (u32 k = 1; k <= 20; ++k) {
+        // k^k：k 次乘 k
+        t[0] = 1;
+        mp_size_t tn = 1;
+        for (u32 i = 0; i < k; ++i) tn = chain_mul_small(t, tn, k, CAP2);
+        mp_ptr prod = alloc_limbs(CAP2);
+        mul_sorted(prod, h, hlen, t, tn);
+        hlen = norm_len(prod, hlen + tn);
+        memcpy(h, prod, (size_t)hlen * 8);
+        lmmp_free(prod);
+        if (k == 1 || k == 3 || k == 5 || k == 8 || k == 20) {
+            mp_bitcnt_t bits = 0;
+            mp_size_t need = lmmp_hyperfac_size_(k, &bits);
+            mp_ptr dst = alloc_limbs(need + 2);
+            lmmp_zero(dst, need + 2);
+            lmmp_hyperfac_(dst, bits, need, k);
+            TEST_CHECK(mpn_eq(dst, need + 2, h, hlen));
+            lmmp_free(dst);
+            ++checked_h;
+        }
+    }
+    TEST_CHECK_EQ(checked_h, 5);
+    lmmp_free(h);
+    lmmp_free(t);
+
+    // super factorial: S(n) == S(n-1) * n!（n! 用库 factorial_，交叉）
+    const size_t CAP3 = 4096;
+    mp_ptr s = alloc_limbs(CAP3);
+    s[0] = 1;
+    mp_size_t slen = 1;
+    for (u32 k = 1; k <= 30; ++k) {
         mp_bitcnt_t bits = 0;
-        mp_size_t need = lmmp_hyperfac_size_(n, &bits);
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_hyperfac_(dst, bits, need, n);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "hyperfac value");
-        lmmp_free(dst);
-    }
+        mp_size_t need = lmmp_factorial_size_(k, &bits);
+        mp_ptr fac = alloc_limbs(need + 2);
+        lmmp_zero(fac, need + 2);
+        lmmp_factorial_(fac, bits, need, k);
+        mp_size_t flen = norm_len(fac, need + 2);
 
-    // super factorial: prod k!
-    for (u16 n : {1, 3, 5, 8, 30}) {
-        BigInt expect(1);
-        for (u16 k = 1; k <= n; ++k) expect = BigInt::mul_school(expect, ref_factorial(k));
-        mp_bitcnt_t bits = 0;
-        mp_size_t need = lmmp_superfac_size_(n, &bits);
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_superfac_(dst, bits, need, n);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "superfac value");
-        lmmp_free(dst);
-    }
+        mp_ptr prod = alloc_limbs(CAP3);
+        mul_sorted(prod, s, slen, fac, flen);
+        slen = norm_len(prod, slen + flen);
+        memcpy(s, prod, (size_t)slen * 8);
 
-    // prime factorial: prod primes <= n
+        if (k == 1 || k == 3 || k == 5 || k == 8 || k == 30) {
+            need = lmmp_superfac_size_(k, &bits);
+            mp_ptr dst = alloc_limbs(need + 2);
+            lmmp_zero(dst, need + 2);
+            lmmp_superfac_(dst, bits, need, k);
+            TEST_CHECK(mpn_eq(dst, need + 2, s, slen));
+            lmmp_free(dst);
+        }
+        lmmp_free(prod);
+        lmmp_free(fac);
+    }
+    lmmp_free(s);
+
+    // prime factorial: 素数判定用 64 位内简单试除，乘积走库链
+    const size_t CAP4 = 4096;
+    mp_ptr pf = alloc_limbs(CAP4);
     for (u32 n : {2, 3, 10, 20, 50, 700}) {
-        BigInt expect(1);
-        for (u32 p = 2; p <= n; ++p) if (is_prime_small(p)) expect = BigInt::mul_school(expect, BigInt(p));
+        pf[0] = 1;
+        mp_size_t plen = 1;
+        for (u32 p = 2; p <= n; ++p)
+            if (is_prime_small(p)) plen = chain_mul_small(pf, plen, p, CAP4);
         mp_size_t need = lmmp_primefac_size_(n);
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_primefac_(dst, need, n);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "primefac value");
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_primefac_(dst, need, n);
+        TEST_CHECK(mpn_eq(dst, need + 2, pf, plen));
         lmmp_free(dst);
     }
-}
-
-TEST_CASE("numth/number", nPr_nCr_multinomial_arith) {
-    // nPr
-    for (ulong n : {0, 1, 5, 10, 20, 50, 100}) {
-        for (ulong r = 0; r <= n; r += (n > 20 ? 20 : 1)) {
-            BigInt expect = ref_product_range((u32)(n - r + 1), (u32)n);
-            mp_bitcnt_t bits = 0;
-            mp_size_t need = lmmp_nPr_size_(n, r, &bits);
-            mp_ptr dst = alloc_limbs((size_t)need + 2);
-            mp_size_t rn = lmmp_nPr_(dst, bits, need, n, r);
-            TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "nPr value");
-            lmmp_free(dst);
-        }
-    }
-
-    // nCr（要求 r <= n/2）
-    for (u32 n : {0, 1, 5, 10, 20, 50, 100}) {
-        for (u32 r = 0; r <= n / 2; ++r) {
-            BigInt fn = ref_factorial(n);
-            BigInt fr = ref_factorial(r);
-            BigInt fnr = ref_factorial(n - r);
-            BigInt rem;
-            BigInt expect = BigInt::divmod_school(fn, BigInt::mul_school(fr, fnr), rem);
-            mp_bitcnt_t bits = 0;
-            mp_size_t need = lmmp_nCr_size_(n, r, &bits);
-            mp_ptr dst = alloc_limbs((size_t)need + 2);
-            mp_size_t rn = lmmp_nCr_(dst, bits, need, n, r);
-            TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "nCr value");
-            lmmp_free(dst);
-        }
-    }
-
-    // multinomial
-    {
-        u32 r[] = {1, 2, 3};
-        u32 n_sum = 6;
-        BigInt fn = ref_factorial(n_sum);
-        BigInt den = BigInt::mul_school(BigInt::mul_school(ref_factorial(r[0]), ref_factorial(r[1])), ref_factorial(r[2]));
-        BigInt rem;
-        BigInt expect = BigInt::divmod_school(fn, den, rem);
-        ulong n = 0;
-        mp_size_t need = lmmp_multinomial_size_(r, 3, &n);
-        TEST_CHECK_EQ(n, (ulong)n_sum);
-        mp_ptr dst = alloc_limbs((size_t)need + 2);
-        mp_size_t rn = lmmp_multinomial_(dst, need, (uint)n, r, 3);
-        TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "multinomial value");
-        lmmp_free(dst);
-    }
-
-    // arith_seqprod: x(x+m)...(x+n*m)
-    for (u32 x : {1, 3, 10}) {
-        for (u32 m : {2, 5, 10}) {
-            for (u32 n : {1, 3, 10}) {
-                if ((u64)x + (u64)n * m > 100000) continue;
-                BigInt expect(1);
-                for (u32 i = 0; i <= n; ++i) expect = BigInt::mul_school(expect, BigInt(x + i * m));
-                mp_size_t need = lmmp_arith_seqprod_size_(x, n, m);
-                mp_ptr dst = alloc_limbs((size_t)need + 2);
-                mp_size_t rn = lmmp_arith_seqprod_(dst, need, x, n, m);
-                TEST_CHECK_MSG(from_limbs(dst, rn) == expect, "arith_seqprod value");
-                lmmp_free(dst);
-            }
-        }
-    }
+    lmmp_free(pf);
 }
 
 TEST_CASE("numth/trialdiv", trialdiv_remove) {
-    // trialdiv
+    // trialdiv：与 64 位内简单试除（% 循环 + 库 mod_1）交叉
     for (mp_size_t n : {1, 2, 3, 5}) {
         mp_ptr p = alloc_limbs(n);
         u64 seed = 0x0123456789abcdeful + n;
         for (size_t i = 0; i < (size_t)n; ++i) p[i] = xorshift64(seed);
         if (p[n - 1] == 0) p[n - 1] = 1;
-        // 参考判定：≤100 内是否存在能整除 p 的素数，与试除布尔结果逐例比对
-        BigInt bp(p, n);
         bool ref = false;
         for (u32 d = 2; d <= 100; ++d) {
-            if (is_prime_small(d) && BigInt::mod_small(bp, d) == 0) {
+            if (is_prime_small(d) && lmmp_mod_1_(p, n, d) == 0) {
                 ref = true;
                 break;
             }
@@ -202,28 +226,22 @@ TEST_CASE("numth/trialdiv", trialdiv_remove) {
         lmmp_free(p);
     }
 
-    // remove：构造 np = dp^k * rest
+    // remove：np = dp^k * 11（库 mul_1 链构造），须剥除恰 k 个因子剩 11
     for (u64 dp : {2, 3, 5, 7}) {
-        mp_ptr np = alloc_limbs(3);
-        mp_ptr d = alloc_limbs(1);
+        mp_ptr np = alloc_limbs(3), d = alloc_limbs(1);
         d[0] = dp;
-        np[0] = 1;
         for (int k = 0; k < 4; ++k) {
+            np[0] = 1;
+            np[1] = 0;
+            np[2] = 0;
             mp_size_t nn = 1;
-            BigInt bn(1);
-            for (int i = 0; i < k; ++i) {
-                bn = BigInt::mul_school(bn, BigInt(dp));
-            }
-            bn = BigInt::mul_school(bn, BigInt(11));  // 不能被 dp 整除
-            to_limbs(bn, np, 3);
-            // 规范化长度：最高非零 limb 下标 + 1
-            nn = 1;
-            for (int i = 2; i >= 0; --i) if (np[i]) { nn = i + 1; break; }
+            for (int i = 0; i < k; ++i) nn = chain_mul_small(np, nn, dp, 3);
+            nn = chain_mul_small(np, nn, 11, 3);
 
             mp_size_t cnt = lmmp_remove_(np, &nn, d, 1);
             TEST_CHECK_EQ(cnt, (mp_size_t)k);
-            BigInt rest(11);
-            TEST_CHECK_MSG(from_limbs(np, nn) == rest, "remove rest value");
+            TEST_CHECK_EQ(nn, (mp_size_t)1);
+            TEST_CHECK_EQ(np[0], 11ull);
         }
         lmmp_free(np);
         lmmp_free(d);

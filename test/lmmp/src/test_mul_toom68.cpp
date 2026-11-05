@@ -22,7 +22,7 @@
 
 /* Toom-6.5 / Toom-8.5 乘法与 Toom-6/8 平方测试：
    1) 内核直调覆盖原生不平衡全比例范围（(p,q) 切分阶梯各档）
-   2) BigInt oracle 对拍（含负系数插值路径）
+   2) basecase 精确对拍 + 模检查（独立路径；含负系数插值路径）
    3) 新阈值边界（MUL_TOOM6H/8H、SQR_TOOM6/8 的 ±1 经完整分派）
    4) 极端输入（全 1 / 全 FF） */
 
@@ -38,29 +38,21 @@ using namespace lmmp_test_utils;
 
 namespace {
 
-mp_ptr alloc_limbs(size_t n) { return (mp_ptr)lmmp_alloc(n * sizeof(mp_limb_t)); }
-
-void random_limbs(mp_ptr p, size_t n, u64& seed) {
-    for (size_t i = 0; i < n; ++i) p[i] = xorshift64(seed);
-    if (n > 0) p[n - 1] |= (u64)1 << 63;
-}
-
 void fill_pattern(mp_ptr p, size_t n, mp_limb_t pat) {
     for (size_t i = 0; i < n; ++i) p[i] = pat;
 }
 
-/* 与 BigInt oracle 对拍（按契约有效长度，勿用缓冲容量） */
+/* 与 basecase 精确对拍 + 模检查（两条独立实现路径；按契约有效长度） */
 void check_vs_oracle(const char* tag, mp_ptr a, mp_size_t na, mp_ptr b, mp_size_t nb, void (*fn)(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t)) {
     mp_ptr dst = alloc_limbs(na + nb);
+    mp_ptr ref = alloc_limbs(na + nb + 1);
     fn(dst, a, na, b, nb);
-    BigInt ba(a, na), bb(b, nb);
-    BigInt expect = BigInt::mul_school(ba, bb);
-    bool ok = expect.d.size() == (size_t)(na + nb);
-    for (size_t i = 0; ok && i < expect.d.size(); ++i)
-        if (expect.d[i] != dst[i]) ok = false;
-    if (!ok) TEST_CHECK_MSG(false, tag);
+    lmmp_mul_basecase_(ref, a, na, b, nb);
+    bool ok = memcmp(dst, ref, (size_t)(na + nb) * 8) == 0;
+    if (!ok || !mod_is_product(dst, na + nb, a, na, b, nb)) TEST_CHECK_MSG(false, tag);
     else TEST_CHECK(true);
     lmmp_free(dst);
+    lmmp_free(ref);
 }
 
 /* 内核直调 vs 独立分派路径（尺寸区间落在 toom44 及以下，路径独立） */
@@ -213,36 +205,32 @@ TEST_CASE("mul/toom68", thresholds_boundary_via_dispatch) {
             mp_size_t n = bd.base + d;
             if (bd.is_sqr) {
                 mp_ptr a = alloc_limbs(n);
-                mp_ptr r = alloc_limbs(2 * n);
+                mp_ptr r = alloc_limbs(2 * n), ref = alloc_limbs(2 * n + 1);
                 random_limbs(a, n, seed);
                 lmmp_sqr_(r, a, n);
-                BigInt ba(a, n);
-                BigInt expect = BigInt::sqr_school(ba);
-                size_t sz = expect.d.size();
-                bool ok = true;
-                for (size_t i = 0; i < sz && ok; ++i)
-                    if (expect.d[i] != r[i]) ok = false;
-                if (!ok) TEST_CHECK_MSG(false, "sqr threshold boundary mismatch");
+                lmmp_mul_basecase_(ref, a, n, a, n);
+                bool ok = memcmp(r, ref, (size_t)(2 * n) * 8) == 0;
+                if (!ok || !mod_is_product(r, 2 * n, a, n, a, n))
+                    TEST_CHECK_MSG(false, "sqr threshold boundary mismatch");
                 else TEST_CHECK(true);
                 lmmp_free(a);
                 lmmp_free(r);
+                lmmp_free(ref);
             } else {
                 mp_ptr a = alloc_limbs(n), b = alloc_limbs(n);
-                mp_ptr r = alloc_limbs(2 * n);
+                mp_ptr r = alloc_limbs(2 * n), ref = alloc_limbs(2 * n + 1);
                 random_limbs(a, n, seed);
                 random_limbs(b, n, seed);
                 lmmp_mul_n_(r, a, b, n);
-                BigInt ba(a, n), bb(b, n);
-                BigInt expect = BigInt::mul_school(ba, bb);
-                size_t sz = expect.d.size();
-                bool ok = true;
-                for (size_t i = 0; i < sz && ok; ++i)
-                    if (expect.d[i] != r[i]) ok = false;
-                if (!ok) TEST_CHECK_MSG(false, "mul threshold boundary mismatch");
+                lmmp_mul_basecase_(ref, a, n, b, n);
+                bool ok = memcmp(r, ref, (size_t)(2 * n) * 8) == 0;
+                if (!ok || !mod_is_product(r, 2 * n, a, n, b, n))
+                    TEST_CHECK_MSG(false, "mul threshold boundary mismatch");
                 else TEST_CHECK(true);
                 lmmp_free(a);
                 lmmp_free(b);
                 lmmp_free(r);
+                lmmp_free(ref);
             }
         }
     }
