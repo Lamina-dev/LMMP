@@ -46,6 +46,8 @@ TEST_CASE("low/addsub", add_sub_deterministic_inplace) {
     mp_ptr a2 = alloc_limbs(n), b2 = alloc_limbs(n);
     const u64 add_cy = lmmp_add_n_(r, a, b, n);   // 分离缓冲参考：和
     const u64 sub_bw = lmmp_sub_n_(d, a, b, n);   // 分离缓冲参考：差（a >= b）
+    TEST_CHECK_EQ(add_cy, 0u);  // 固定输入钉住参考语义：无终位进位/借位
+    TEST_CHECK_EQ(sub_bw, 0u);
     // eqsep 原地：dst == numa / dst == numb 各两向（返回值与分离缓冲一致）
     memcpy(a2, a, n * 8);
     TEST_CHECK_EQ(lmmp_add_n_(a2, a2, b, n), add_cy);

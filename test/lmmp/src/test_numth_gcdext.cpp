@@ -307,8 +307,12 @@ void run_gcdext_pair(u64& seed, mp_size_t un, mp_size_t vn, int mode) {
     if (mode == 4) {
         TEST_CHECK_MSG(gn2 == 1 && g[0] == 1, "neighbor-1 swapped gcd");
     } else if (mode == 1) {
-        // u = k*v：交换后 gcd(v, u) 仍为 v
+        // u = k*v：交换后 gcd(v, u) 仍为 v；极小系数下 s=1、t=0（对称于
+        // 首调的 sn==0，|t|<=v/(2g)=1/2 强制 t=0、s*v=v 强制 s=1）
         TEST_CHECK_MSG(mpn_eq(g, gn2, v, vn), "swapped exact multiple gcd");
+        TEST_CHECK_MSG(sn2 == 1 && s[0] == 1 && tn2 == 0, "swapped exact multiple s=1,t=0");
+        TEST_CHECK_MSG(check_gcdext(g, gn2, s, sn2, t, tn2, v, vn, u, un),
+                       "swapped exact multiple identity");
     } else {
         TEST_CHECK_MSG(check_gcdext(g, gn2, s, sn2, t, tn2, v, vn, u, un), "swapped");
     }

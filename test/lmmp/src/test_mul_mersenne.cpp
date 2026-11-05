@@ -115,6 +115,8 @@ TEST_CASE("mul/mersenne_dc", mersenne_dc_vs_oracle) {
                 mersenne_oracle(ro, rn, a, an, a, an, full);
                 TEST_CHECK(limbs_same(ro, r, rn));
                 if (an == rn) {
+                    /* 毒化 r：防分派入口未写/部分写时沿用 dc 结果通过 */
+                    for (mp_size_t i = 0; i < rn; ++i) r[i] = ~ro[i];
                     lmmp_sqr_mersenne_(r, rn, a, an);
                     TEST_CHECK(limbs_same(ro, r, rn));
                 }

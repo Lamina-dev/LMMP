@@ -83,7 +83,7 @@ TEST_CASE("numth/divexact", divexact_1) {
 
 TEST_CASE("numth/divexact", divexact_2) {
     u64 seed = 0x5555666677778888ull;
-    for (mp_size_t n = 4; n <= 80; ++n) {  // n>=4 保证 mul_ 契约 na=n-2>=nb=2
+    for (mp_size_t n = 3; n <= 80; ++n) {  // n=3 覆盖 3 limb 被除数最小路径
         for (int iter = 0; iter < 8; ++iter) {
             // 商实际为 n-2 个 limb；divexact_2 会写 n-1 个 limb，最高位为 0。
             mp_ptr q = alloc_limbs(n - 2), d = alloc_limbs(2), np = alloc_limbs(n),
@@ -91,7 +91,10 @@ TEST_CASE("numth/divexact", divexact_2) {
             random_limbs(q, n - 2, seed, false);
             random_limbs(d, 2, seed);
             d[0] |= 1;
-            lmmp_mul_(np, q, n - 2, d, 2);  // np = q*d（恰 n limbs）
+            if (n == 3)
+                lmmp_mul_(np, d, 2, q, 1);  // na=1<nb=2：交换操作数序保 mul_ 契约
+            else
+                lmmp_mul_(np, q, n - 2, d, 2);  // np = q*d（恰 n limbs）
 
             lmmp_binvert_2_(dinv, d);
             lmmp_divexact_2_(dst, np, n, d, dinv);
