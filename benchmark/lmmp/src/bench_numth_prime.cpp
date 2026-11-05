@@ -46,8 +46,9 @@ constexpr int POOL = 512;
 
 int pool_cnt(mp_size_t n) { return n <= 64 ? 32 : 8; }
 
-/* 顶位起始的随机奇数池（<=64bit），元素个数 POOL */
-mp_ptr pool_bits(uint bits, mp_limb_t seed) {
+/* 顶位起始的随机奇数池（<=64bit），元素个数 POOL；kind 过滤同 pool_n：
+   PRIME 素数（next_prime 构造，全基底执行）/ COPRIME 试除幸存者 */
+mp_ptr pool_bits(uint bits, mp_limb_t seed, PrimePool kind) {
     if (bits < 2) bits = 2;  /* 1-bit 奇数仅有值 1：退化且与标注位宽不符 */
     if (bits > 64) bits = 64;
     mp_ptr a = alloc_limbs(POOL);
@@ -56,19 +57,17 @@ mp_ptr pool_bits(uint bits, mp_limb_t seed) {
         if (bits < 64) a[i] &= ((mp_limb_t)-1) >> (64 - bits);
         a[i] |= (mp_limb_t)1 << (bits - 1);
         a[i] |= 1;
+        if (kind == PrimePool::COPRIME) {
+            while (lmmp_trialdiv_(a + i, 1, 1000)) a[i] += 2;
+        } else if (kind == PrimePool::PRIME) {
+            a[i] = lmmp_next_prime_ulong_(a[i]);
+        }
     }
     return a;
 }
 
-/* 素数池（lmmp_next_prime_ulong_ 构造，保证全基底执行） */
-mp_ptr pool_bits_prime(uint bits, mp_limb_t seed) {
-    mp_ptr a = pool_bits(bits, seed);
-    for (int i = 0; i < POOL; i++) a[i] = lmmp_next_prime_ulong_(a[i]);
-    return a;
-}
-
-/* [lo,hi] 对池（65..128bit），hi 顶位起始 */
-mp_ptr pool_2(uint bits, mp_limb_t seed) {
+/* [lo,hi] 对池（65..128bit），hi 顶位起始；kind 过滤同 pool_bits */
+mp_ptr pool_2(uint bits, mp_limb_t seed, PrimePool kind) {
     if (bits < 65) bits = 65;
     if (bits > 128) bits = 128;
     uint hb = bits - 64;
@@ -78,6 +77,11 @@ mp_ptr pool_2(uint bits, mp_limb_t seed) {
         a[2 * i + 1] &= ((mp_limb_t)-1) >> (64 - hb);
         a[2 * i + 1] |= (mp_limb_t)1 << (hb - 1);
         a[2 * i] |= 1;
+        if (kind == PrimePool::COPRIME) {
+            while (lmmp_trialdiv_(a + 2 * i, 2, 1000)) a[2 * i] += 2;
+        } else if (kind == PrimePool::PRIME) {
+            while (lmmp_is_prime_2_(a[2 * i], a[2 * i + 1]) == 0) a[2 * i] += 2;
+        }
     }
     return a;
 }
@@ -145,8 +149,7 @@ ProthPool pool_proth(uint t, int cnt, bool want_prime) {
 }  // namespace
 
 double bench_is_prime_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
-    mp_ptr a = kind == PrimePool::PRIME ? pool_bits_prime(bits, 0x51ce25c0ff33ull + bits)
-                                        : pool_bits(bits, 0x51ce25c0ff33ull + bits);
+    mp_ptr a = pool_bits(bits, 0x51ce25c0ff33ull + bits, kind);
     size_t idx = 0;
     double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_notrial_(a[idx++ & (POOL - 1)]); }, o);
     lmmp_free(a);
@@ -154,8 +157,7 @@ double bench_is_prime_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
 }
 
 double bench_is_prime_ulong(uint bits, PrimePool kind, const BenchOpts& o) {
-    mp_ptr a = kind == PrimePool::PRIME ? pool_bits_prime(bits, 0x13579bdf0246ull + bits)
-                                        : pool_bits(bits, 0x13579bdf0246ull + bits);
+    mp_ptr a = pool_bits(bits, 0x13579bdf0246ull + bits, kind);
     size_t idx = 0;
     double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_ulong_(a[idx++ & (POOL - 1)]); }, o);
     lmmp_free(a);
@@ -165,10 +167,7 @@ double bench_is_prime_ulong(uint bits, PrimePool kind, const BenchOpts& o) {
 double bench_is_prime_2(uint bits, PrimePool kind, const BenchOpts& o) {
     if (bits < 65) bits = 65;
     if (bits > 128) bits = 128;
-    mp_ptr a = pool_2(bits, 0xdeadbeefca01ull + bits);
-    if (kind == PrimePool::PRIME)
-        for (int i = 0; i < POOL; i++)
-            while (lmmp_is_prime_2_(a[2 * i], a[2 * i + 1]) == 0) a[2 * i] += 2;
+    mp_ptr a = pool_2(bits, 0xdeadbeefca01ull + bits, kind);
     size_t idx = 0;
     double us = measure(
         [&] {
