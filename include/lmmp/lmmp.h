@@ -201,6 +201,21 @@ STATIC_ASSERT(sizeof(void*) == 8, "64-bit architecture required");
     #define LMMP_VECT_CONSERVATIVE
 #endif
 
+/*
+ 禁止内联：用于大体量算法体（整段阶梯/判定内核）的函数——被小型包装入口
+ （如 is_prime 家族的试除包装）内联会造成代码复制与 I-cache 膨胀，而单次
+ 调用开销相对函数体耗时可忽略。注意与每 bit/每 limb 热循环内的小助手相反：
+ 那类函数的常量传播与内联是性能来源，禁用外联属性是负收益（勿对热循环
+ 助手使用）。跨编译单元（无 LTO）本就不可内联，本属性只影响同单元调用方，
+ 但 Linux 构建 -fno-semantic-interposition 会放开导出函数的内联，故对
+ 可能被同单元入口内联的导出接口也应显式标注。
+*/
+#if defined(__GNUC__) || defined(__clang__)
+    #define LMMP_NOINLINE __attribute__((noinline))
+#else
+    #define LMMP_NOINLINE
+#endif
+
 
 /*
  LMMP 内存分配函数指针类型：

@@ -237,6 +237,40 @@ static const struct { u64 lo, hi; bool expect; } vec128[] = {
 };
 }  // namespace
 
+/* notrial 变体：判定集合与全函数精确一致（试除仅承担合数侧廉价早拒，
+   不改变结论）；含小因子合数（MR 侧应同样拒绝）与素数两侧 */
+TEST_CASE("numth/prime", is_prime_2_notrial) {
+    const auto agree = [&](mp_limb_t lo, mp_limb_t hi, const char* what) {
+        int full = lmmp_is_prime_2_(lo, hi);
+        int nt = lmmp_is_prime_2_notrial_(lo, hi);
+        TEST_CHECK_MSG(nt == full, what);
+    };
+    /* 边界与分档代表（含偶数拒、psi_12/13 邻域、BPSW 档素数） */
+    agree(0x0000000000000000ull, 0x0000000000000001ull, "2^64 even");
+    agree(0x000000000000000dull, 0x0000000000000001ull, "2^64+13");
+    agree(0xffffffffffffffffull, 0x7fffffffffffffffull, "2^127-1");
+    agree(0xffffffffffffff61ull, 0xffffffffffffffffull, "2^128-159");
+    agree(0x51adc5b22410a5fdull, 0x000000000002be69ull, "psi_13");
+    agree(0x51adc5b22410a68bull, 0x000000000002be69ull, "first prime > SW");
+    /* 小因子合数：3|n、5|n 与 2^64+1（17 整除），notrial 走 MR 同拒 */
+    agree(0xffffffffffffffffull, 0xffffffffffffffffull, "2^128-1 (3 divides)");
+    agree(0x0000000000000001ull, 0x0000000000000001ull, "2^64+1 Fermat");
+    agree(0x0000000000000005ull, 0x0000000000000003ull, "3*2^64+5 (5 divides)");
+    /* 随机奇数流：全量对照（确定性期望经 ref_is_prime64 不适用 128bit，
+       以两变体互证为主，位宽扫 65..128 若干代表点） */
+    u64 seed = 0x6e6f747269616c32ull;
+    const uint HB[] = {1, 3, 17, 63, 64};
+    for (uint hb : HB) {
+        for (int i = 0; i < 200; ++i) {
+            mp_limb_t lo = xorshift64(seed), hi = xorshift64(seed);
+            if (hb < 64) hi &= ((mp_limb_t)-1) >> (64 - hb);
+            hi |= (mp_limb_t)1 << (hb - 1);
+            lo |= 1;
+            agree(lo, hi, "random odd agree");
+        }
+    }
+}
+
 TEST_CASE("numth/prime", is_prime_2) {
     struct { u64 hi, lo; bool expect; const char* what; } cases[] = {
         {0x7fffffffffffffffull, 0xffffffffffffffffull, true, "2^127-1 Mersenne"},

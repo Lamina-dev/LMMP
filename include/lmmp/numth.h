@@ -646,20 +646,32 @@ LMMP_API bool lmmp_is_prime_uint_(uint n);
 LMMP_API bool lmmp_is_prime_ulong_(ulong n);
 
 /**
- * @brief 判断素数（无试除法）
+ * @brief 判断素数（无试除法，单 limb 档）
  * @param n 待判断的数（建议为极有可能为素数的数）
  * @note 不进行试除法过滤，适用于判断已被小素数试除法过滤的数或强伪素数
  * @warning n>2
  * @return 若 n 为素数，返回 true，否则返回 false
  */
-LMMP_API bool lmmp_is_prime_notrial_(ulong n);
+LMMP_API bool lmmp_is_prime_ulong_notrial_(ulong n);
 
 /**
  * @brief 判断 128 位素数
  * @param lo 待判断数的低 64 位
  * @param hi 待判断数的高 64 位
  * @warning hi>0
- * @note B <= n < SWbound = 3317044064679887385961981（约
+ * @note 在 lmmp_is_prime_2_notrial_ 前进行小素数试除。适合随机输入或一般情况。
+ * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（强 BPSW 型非确定性判据）
+ */
+LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
+
+/**
+ * @brief 判断 128 位素数（无试除法）
+ * @param lo 待判断数的低 64 位
+ * @param hi 待判断数的高 64 位
+ * @warning hi>0, lo%2==1
+ * @note 不进行试除法，对于含有明显小因子的输入不会早退。建议输入
+ *       不含小因子或强伪素数、半素数等。
+ *       B <= n < SWbound = 3317044064679887385961981（约
  *       2^81.5）时为确定性判据（前 13 个素数基底的 Rabin-Miller，
  *       Sorenson-Webster），返回 1；更大时为 BPSW 型判据（基底 2 强伪素数
  *       测试叠加强 Lucas-Selfridge 测试的 V 阶梯实现，Lucas 参数含 A*
@@ -667,7 +679,7 @@ LMMP_API bool lmmp_is_prime_notrial_(ulong n);
  *       Q-Euler 两项强化检查，素数必然全过），学界无已知反例，返回 2。
  * @return 0 = 合数；1 = 素数（确定性判据）；2 = 极可能是素数（强 BPSW 型非确定性判据）
  */
-LMMP_API int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi);
+LMMP_API int lmmp_is_prime_2_notrial_(mp_limb_t lo, mp_limb_t hi);
 
 /**
  * @brief 强 Lucas-Selfridge 测试（大于 128 位）
@@ -689,9 +701,24 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  * @brief 大整数素性检验（强度分档，大于 128 位）
  * @param np 待测数指针（nn 个limb）
  * @param nn 待测数的 limb 长度
+ * @param strength 检测强度 [0,7]，语义同 lmmp_is_prime_n_notrial_，强度越高理论误判率越低。
+ *                 强度>=4时，已是接受集为标准 BPSW 素性（学界目前无已知反例）接受集的子集。
+ * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
+ * @note 在 lmmp_is_prime_n_notrial_ 前进行小素数试除，适合随机输入或者一般情况。
+ *       建议使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时。素性强度可以参照
+ *       lmmp_is_prime_n_notrial_中的说明。
+ * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
+ *         2 = 极大概率为素数
+ */
+LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
+
+/**
+ * @brief 大整数素性检验（无试除法，强度分档，大于 128 位）
+ * @param np 待测数指针（nn 个limb）
+ * @param nn 待测数的 limb 长度
  * @param strength 检测强度 [0,7]。随机基底 MR 分两层："1+n" 搭配指先跑至多
- *        x 轮 1 limb 基底（a in [3,B) 均匀，最廉价，尽早拒判）再跑至多 y 轮
- *        全域（n limb，[2,n-2] 均匀）基底。各层均为"至多"轮数，任一轮检出
+ *        x 轮 1 limb 随机基底（a in [3,B) 均匀，廉价，可尽早拒判）再跑至多 y 轮
+ *        全域（n limb 随机基底，[2,n-2] 均匀）基底。各层均为“至多”轮数，任一轮检出
  *        合数即提前终止：
  *        | 强度| 基底2 MR | 1 limb 基底 MR | n limb 基底 MR | 强 Lucas |
  *        | --- | ------- | -------------- | -------------- | -------- |
@@ -703,8 +730,9 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  *        |  5  |   √     |       2        |       0        |    √     |
  *        |  6  |   √     |       2        |       1        |    √     |
  *        |  7  |   √     |       3        |       2        |    √     |
- * @warning np!=NULL, nn>2, np[nn-1]>0, 0<=strength<=7
- * @note 建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
+ * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1, 0<=strength<=7
+ * @note 不进行试除法，对于含有明显小因子的输入不会早退。建议输入不含小因子或强伪素数、半素数等。
+ *       建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
  *       且可以更快的过滤伪素数。该档为 BPSW 型判据（基底 2 MR 叠加强 Lucas）之上增加 2 轮
  *       1 limb 随机基底 MR；其中 Lucas 半部含 BFW vpsp 与 Q-Euler 两项强化检查
  *       （Baillie-Fiori-Wagstaff 2021，素数必然全过），故接受集为标准 BPSW
@@ -715,7 +743,7 @@ LMMP_API int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn);
  * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
  *         2 = 极大概率为素数
  */
-LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
+LMMP_API int lmmp_is_prime_n_notrial_(mp_srcptr np, mp_size_t nn, int strength);
 
 /**
  * @brief Proth 数 k*2^n+1 的素性判定（普罗斯定理）

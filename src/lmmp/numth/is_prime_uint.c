@@ -94,7 +94,7 @@ static int sprp_check_u32(uint y, ulong t, uint n, ulong dinv) {
     return 0;
 }
 
-bool lmmp_is_prime_uint_notrial_(uint n) {
+LMMP_NOINLINE bool lmmp_is_prime_uint_notrial_(uint n) {
     lmmp_param_assert(n > 2);
     lmmp_param_assert(n % 2 == 1);
 

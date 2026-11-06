@@ -684,45 +684,10 @@ static void mont2_preinv(u128 *ninv, u128 *R2, u128 n) {
     *R2 = ((u128)n2[1] << 64) | n2[0];
 }
 
-int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
-    lmmp_param_assert(hi > 0);
+LMMP_NOINLINE static int is2_notrial_i_(mp_limb_t lo, mp_limb_t hi) {
     u128 n, nm1, d;
-    slong t, i;
+    slong t;
     int ebits;
-
-    if ((lo & 1) == 0) return 0;
-
-#define ainv0 ll_trial_primes[i][0]
-#define ainv1 ll_trial_primes[i][1]
-#define abound0 ll_trial_primes[i][2]
-#define abound1 ll_trial_primes[i][3]
-#define binv0 ll_trial_primes[i + 1][0]
-#define binv1 ll_trial_primes[i + 1][1]
-#define bbound0 ll_trial_primes[i + 1][2]
-#define bbound1 ll_trial_primes[i + 1][3]
-
-    if (hi < FAST_TRIAL_BOUND) {
-        for (i = 0; i < 32; i += 2) {
-            u128 a = _umul128to128_(hi, lo, ainv1, ainv0);
-            u128 b = _umul128to128_(hi, lo, binv1, binv0);
-            if ((_u128high(a) < abound1) | (_u128high(b) < bbound1)) return 0;
-        }
-    } else {
-        for (i = 0; i < 32; i += 2) {
-            u128 a = _umul128to128_(hi, lo, ainv1, ainv0);
-            u128 b = _umul128to128_(hi, lo, binv1, binv0);
-            if (ll_le(a, ((u128)abound1 << 64) | abound0) | ll_le(b, ((u128)bbound1 << 64) | bbound0))
-                return 0;
-        }
-    }
-#undef ainv0
-#undef ainv1
-#undef abound0
-#undef abound1
-#undef binv0
-#undef binv1
-#undef bbound0
-#undef bbound1
 
     n = ((u128)hi << 64) | lo;
     nm1 = n - 1;
@@ -763,4 +728,51 @@ int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
 
         return mont2_lucas_strong_(n, ninv, R2) ? 2 : 0;
     }
+}
+
+int lmmp_is_prime_2_notrial_(mp_limb_t lo, mp_limb_t hi) {
+    lmmp_param_assert(hi > 0);
+    if ((lo & 1) == 0) return 0;
+    return is2_notrial_i_(lo, hi);
+}
+
+int lmmp_is_prime_2_(mp_limb_t lo, mp_limb_t hi) {
+    lmmp_param_assert(hi > 0);
+    slong i;
+
+    if ((lo & 1) == 0) return 0;
+
+#define ainv0 ll_trial_primes[i][0]
+#define ainv1 ll_trial_primes[i][1]
+#define abound0 ll_trial_primes[i][2]
+#define abound1 ll_trial_primes[i][3]
+#define binv0 ll_trial_primes[i + 1][0]
+#define binv1 ll_trial_primes[i + 1][1]
+#define bbound0 ll_trial_primes[i + 1][2]
+#define bbound1 ll_trial_primes[i + 1][3]
+
+    if (hi < FAST_TRIAL_BOUND) {
+        for (i = 0; i < 32; i += 2) {
+            u128 a = _umul128to128_(hi, lo, ainv1, ainv0);
+            u128 b = _umul128to128_(hi, lo, binv1, binv0);
+            if ((_u128high(a) < abound1) | (_u128high(b) < bbound1)) return 0;
+        }
+    } else {
+        for (i = 0; i < 32; i += 2) {
+            u128 a = _umul128to128_(hi, lo, ainv1, ainv0);
+            u128 b = _umul128to128_(hi, lo, binv1, binv0);
+            if (ll_le(a, ((u128)abound1 << 64) | abound0) | ll_le(b, ((u128)bbound1 << 64) | bbound0))
+                return 0;
+        }
+    }
+#undef ainv0
+#undef ainv1
+#undef abound0
+#undef abound1
+#undef binv0
+#undef binv1
+#undef bbound0
+#undef bbound1
+
+    return is2_notrial_i_(lo, hi);
 }

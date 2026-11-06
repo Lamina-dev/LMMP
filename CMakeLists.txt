@@ -227,9 +227,11 @@ function(lmmp_target_setup target)
         target_compile_definitions(${target} PRIVATE LMMP_WINDOWS)
     elseif(TARGET_SYSTEM STREQUAL "LIN")
         target_compile_definitions(${target} PRIVATE LMMP_LINUX)
+        # 库内对导出函数的调用假定无语义插入（允许内联与直接调用），
+        # 配合链接期 -Bsymbolic-functions（见下方链接选项段）取代 -fno-plt
         target_compile_options(${target} PRIVATE
-            $<$<COMPILE_LANGUAGE:C>: -fno-plt>
-            $<$<COMPILE_LANGUAGE:CXX>: -fno-plt>
+            $<$<COMPILE_LANGUAGE:C>: -fno-semantic-interposition>
+            $<$<COMPILE_LANGUAGE:CXX>: -fno-semantic-interposition>
         )
     elseif(TARGET_SYSTEM STREQUAL "MAC")
         target_compile_definitions(${target} PRIVATE LMMP_MACOS)
@@ -267,6 +269,16 @@ function(lmmp_target_setup target)
             >
         )
         message(STATUS "Linker options: GNU ld style (Linux/MinGW/Windows-GNU-Clang).")
+
+        # Linux 共享库：函数符号链接期本地绑定，库内互调免 PLT/GOT 间接，
+        # 与编译期 -fno-semantic-interposition 配套（对符号插入式
+        # interposition 的显式放弃，与库的 -fvisibility=hidden 策略一致）
+        if(TARGET_SYSTEM STREQUAL "LIN")
+            get_target_property(target_type ${target} TYPE)
+            if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+                target_link_options(${target} PRIVATE -Wl,-Bsymbolic-functions)
+            endif()
+        endif()
     else()
         # Windows 上 GNU 驱动的 clang 等工具链，不附加平台特有链接选项。
         message(STATUS "Linker options: default for this toolchain.")

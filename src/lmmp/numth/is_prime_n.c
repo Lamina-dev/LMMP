@@ -356,7 +356,7 @@ static inline int ipn_jacobi_small_(ulong b, ulong A) {
     (A|n) = (n|A)*(-1)^(((A-1)/2)((n-1)/2)) 归结到 (n mod A | A)；
     D 为负时乘 (-1|n) 因子。gcd(|D|,n)>1 返回 0
 */
-static int ipn_jacobi_D_(uint Dabs, int Dneg, mp_srcptr np, mp_size_t nn) {
+LMMP_NOINLINE static int ipn_jacobi_D_(uint Dabs, int Dneg, mp_srcptr np, mp_size_t nn) {
     ulong A = Dabs;
     ulong b = lmmp_mod_1_(np, nn, A);
     int sign = 1;
@@ -525,16 +525,7 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
     return ret;
 }
 
-int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
-    lmmp_param_assert(np != NULL);
-    lmmp_param_assert(nn > 2 && np[nn - 1] > 0);
-    lmmp_param_assert(strength >= 0 && strength <= 7);
-
-    if ((np[0] & 1) == 0) return 0;
-
-    /* 小素数试除初筛：契约域 n > 2^128 大于一切表内素数，命中即合数 */
-    if (lmmp_trialdiv_(np, nn, ipn_trial_bound[strength])) return 0;
-
+LMMP_NOINLINE static int ipn_notrial_i_(mp_srcptr np, mp_size_t nn, int strength) {
     /* n-1 = d*2^t（d 奇）的形状参数：t 与 d 位长先于单块工作区求出
        （全域轮奇次幂表 ppn 依 d 位长取窗口尺寸） */
     mp_bitcnt_t t, dbits;
@@ -654,6 +645,29 @@ composite:
     lmmp_mont_free_(&mc);
     TEMP_FREE;
     return 0;
+}
+
+int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength) {
+    lmmp_param_assert(np != NULL);
+    lmmp_param_assert(nn > 2 && np[nn - 1] > 0);
+    lmmp_param_assert(strength >= 0 && strength <= 7);
+
+    if ((np[0] & 1) == 0) return 0;
+
+    /* 小素数试除初筛：契约域 n > 2^128 大于一切表内素数，命中即合数 */
+    if (lmmp_trialdiv_(np, nn, ipn_trial_bound[strength])) return 0;
+
+    return ipn_notrial_i_(np, nn, strength);
+}
+
+int lmmp_is_prime_n_notrial_(mp_srcptr np, mp_size_t nn, int strength) {
+    lmmp_param_assert(np != NULL);
+    lmmp_param_assert(nn > 2 && np[nn - 1] > 0);
+    lmmp_param_assert(strength >= 0 && strength <= 7);
+
+    if ((np[0] & 1) == 0) return 0;
+
+    return ipn_notrial_i_(np, nn, strength);
 }
 
 /*

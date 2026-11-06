@@ -31,6 +31,62 @@
 
 using namespace lmmp_test_utils;
 
+/*
+    xoshiro256pp 档（seed_type=1）的公开契约验证。尺寸取 {127,128,129,
+    135}：跨内部分档边界两侧并含各尾块形态（127/128/129/135 的 n%8 为
+    7/0/1/7）——只用公开接口断言，不触及内部引擎：
+      可复现（同种子两次调用逐 limb 相等）、种子敏感性、返回长度契约
+      （rn<=n，rn<n ⟹ 顶 limb 为零即被截断）、缓冲区哨兵（[n,n+GUARD)
+      不被触碰）、输出确有写入（非全毒值）
+*/
+TEST_CASE("rng/xoshiro", x8_backend_boundary) {
+    const mp_limb_t seed = 0x1234567890abcdefULL;
+    const mp_limb_t POISON = 0xa5deadbeef5aa5a5ULL;
+    const mp_size_t GUARD = 8;
+    const mp_size_t NS[] = {127, 128, 129, 135};
+
+    for (mp_size_t n : NS) {
+        mp_ptr a = alloc_limbs(n + GUARD);
+        mp_ptr b = alloc_limbs(n + GUARD);
+        for (mp_size_t i = 0; i < n + GUARD; ++i) {
+            a[i] = POISON;
+            b[i] = POISON;
+        }
+
+        mp_size_t an = lmmp_seed_random_(a, n, seed, 1);
+        mp_size_t bn = lmmp_seed_random_(b, n, seed, 1);
+
+        TEST_CHECK_MSG(an <= n && bn <= n, "trimmed length bound");
+        TEST_CHECK_MSG(an == bn, "reproducible trimmed length");
+        /* 截断语义：rn < n 仅当顶部 limb 为零（且逐级为零） */
+        if (an < n) TEST_CHECK_MSG(a[n - 1] == 0, "trim only drops zero limbs");
+
+        bool eq = true;
+        for (mp_size_t i = 0; i < n; ++i)
+            if (a[i] != b[i]) eq = false;
+        TEST_CHECK_MSG(eq, "same seed reproduces sequence");
+
+        bool written = false;
+        for (mp_size_t i = 0; i < n; ++i)
+            if (a[i] != POISON) written = true;
+        TEST_CHECK_MSG(written, "output actually written");
+
+        mp_size_t cn = lmmp_seed_random_(b, n, seed + 1, 1);
+        bool diff = (cn != an);
+        for (mp_size_t i = 0; i < an && i < cn && !diff; ++i)
+            if (a[i] != b[i]) diff = true;
+        TEST_CHECK_MSG(diff, "seed changes sequence");
+
+        bool guard_ok = true;
+        for (mp_size_t i = n; i < n + GUARD; ++i)
+            if (a[i] != POISON || b[i] != POISON) guard_ok = false;
+        TEST_CHECK_MSG(guard_ok, "no out-of-bounds write beyond n");
+
+        lmmp_free(a);
+        lmmp_free(b);
+    }
+}
+
 TEST_CASE("rng/basic", seed_random_reproducible) {
     mp_size_t n = 16;
     mp_ptr a = alloc_limbs(n);
