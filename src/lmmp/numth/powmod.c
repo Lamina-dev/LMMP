@@ -174,14 +174,14 @@ mp_limb_t lmmp_redc_(
 }
 
 void lmmp_powmod_odd_mont_(
-    mp_ptr          restrict    u,
-    mp_srcptr       restrict   bp,
-    mp_srcptr       restrict   ep,
-    mp_size_t                  en,
-    lmmp_mont_t*    restrict   mc,
-    mp_ptr          restrict   b2,
-    mp_ptr          restrict prod,
-    mp_ptr          restrict   pp
+    mp_ptr       restrict    u,
+    mp_srcptr    restrict   bp,
+    mp_srcptr    restrict   ep,
+    mp_size_t               en,
+    lmmp_mont_t* restrict   mc,
+    mp_ptr       restrict   b2,
+    mp_ptr       restrict prod,
+    mp_ptr       restrict   pp
 ) {
     lmmp_param_assert(u != NULL && bp != NULL && ep != NULL && mc != NULL);
     lmmp_param_assert(b2 != NULL && prod != NULL && pp != NULL);

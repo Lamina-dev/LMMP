@@ -1,14 +1,14 @@
-# 编辑器历史文件
-.history/
-
-# 编译产物
-build*/
-dist/
 *.o
 *.exe
 *.out
+*.dll
+*.lib
+.history/
+build*/
+dist/
+tmp/
+temp/
 
-.zcode
 .DS_Store
 .clang-format
 Thumbs.db

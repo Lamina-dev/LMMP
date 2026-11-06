@@ -112,11 +112,11 @@ static inline void ipn_mont_half_(mp_ptr x, lmmp_mont_t* restrict mc) {
     正常路径 |Q|、|D| 为个位数）；sep(dst,x)
 */
 static void ipn_mont_mul_small_(
-    mp_ptr           dst,
-    mp_srcptr         x,
-    ulong           qabs,
-    int              qneg,
-    lmmp_mont_t* restrict mc
+    mp_ptr                 dst,
+    mp_srcptr                x,
+    ulong                 qabs,
+    int                   qneg,
+    lmmp_mont_t* restrict   mc
 ) {
     if (qabs == 0) {
         lmmp_zero(dst, mc->n);
@@ -163,12 +163,12 @@ static inline mp_size_t ipn_norm_(mp_srcptr dp, mp_size_t dn) {
  * @return 1 = 通过基 2 的 Miller-Rabin 测试；0 = 合数
  */
 static int ipn_sprp_base2_(
-    lmmp_mont_t* restrict mc,
-    mp_srcptr           d,
-    mp_bitcnt_t       dbits,
-    mp_bitcnt_t            t,
-    mp_ptr              u,
-    mp_ptr restrict    prod
+    lmmp_mont_t* restrict    mc,
+    mp_srcptr                 d,
+    mp_bitcnt_t           dbits,
+    mp_bitcnt_t               t,
+    mp_ptr                    u,
+    mp_ptr       restrict  prod
 ) {
     mp_size_t nn = mc->n;
 

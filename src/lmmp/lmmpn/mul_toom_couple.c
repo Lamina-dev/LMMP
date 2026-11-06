@@ -22,15 +22,6 @@
 
 #include "../../../include/lmmp/impl/toom_interp.h"
 
-/*
-   输入 {pp,n} 与 (sign ? -{np,n} : {np,n})，一次完成：
-       {pp,n} <- ({pp,n}+{np,n})/2^(ps+1)
-       {np,n} <- ({pp,n}-{np,n})/2^(ns+1)
-   最后按 off 拼回：
-       {pp,n+off} <- {pp,n} + {np,n}*B^off
-
-   toom6h/8h 各 ± 点对的两个 (n+1) 位乘积经本函数混合为插值输入：
-   和半边落 pp（供偶系数），差半边落 np 顶部（供奇系数）。 */
 
 void lmmp_toom_couple_handling_(mp_ptr pp, mp_size_t n, mp_ptr np, int nsign, mp_size_t off, int ps, int ns) {
     mp_limb_t cy;

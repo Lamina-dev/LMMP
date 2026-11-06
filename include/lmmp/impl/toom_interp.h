@@ -168,9 +168,9 @@ int lmmp_toom_eval_pm2rexp_(mp_ptr rp, mp_ptr rm, unsigned q, mp_srcptr ap, mp_s
 /**
  * @brief Toom ± 点对配对混合：一次完成和/差半边的右移缩放与重叠拼回
  *        （toom6h/8h 各评估点对的两个 (n+1) 位乘积的后处理）
- * 输入 {pp,n} 与 (nsign ? -{np,n} : {np,n})，计算：
- *   {np,n} <- ({pp,n}+{np,n})/2^(ns+1)（和半边，供奇系数插值）
- *   {pp,n} <- ({pp,n}-{np,n})/2^(ps+1)（差半边，供偶系数）
+ * 输入 [pp,n] 与 (nsign ? -[np,n] : [np,n])，计算：
+ *   [np,n] <- ([pp,n]+[np,n])/2^(ns+1)（和半边，供奇系数插值）
+ *   [pp,n] <- ([pp,n]-[np,n])/2^(ps+1)（差半边，供偶系数）
  * 最后 {pp,n+off} <- {pp,n} + {np,n}*B^off
  * @param pp 输入/输出：正点值乘积（容量 n+off+1 limbs）
  * @param n 有效数据长度
