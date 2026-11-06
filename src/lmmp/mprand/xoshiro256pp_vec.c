@@ -20,40 +20,8 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/*
-    xoshiro256++ 的 8 流向量化实现（rand_state.h 的 xoshiro256ppx8_*）。
-
-    单流递推（xoshiro256++，rot23）：
-      r = rotl(s0 + s3, 23) + s0;  t = s1 << 17
-      s2 ^= s0;  s3 ^= s1;  s1 ^= s2;  s0 ^= s3;  s2 ^= t;  s3 = rotl(s3, 45)
-    递推仅含 按位异或/加/常数移位/常数旋转。8 条独立流按 SoA 布局
-    （s0[0..7] 等），主循环写成 8 lane 连续同构语句组（命名局部变量，
-    无函数调用/数组下标/结构体）——编译器 SLP（超字级并行）将其打包
-    为向量指令（x86-64-v3: AVX2 的 vpxor/vpaddq/vpsllq/vpsrlq/vpor，
-    每字 2×256 位；arm64: NEON，每字 4×128 位），全程无手写向量内建
-    或内联汇编。状态驻寄存器跨迭代（出口才写回），8 流互不相依，
-    唯一的跨迭代依赖是各流自身的状态递推链。
-
-    吞吐与瓶颈（Windows 14650HX GCC 15.2 -O3 -march=x86-64-v3，rdtsc
-    5 轮中位，绑核测量）：
-      - 主循环 34 条指令/8 limb（vpxor10 + 旋转模拟 12 + vpaddq4 +
-        <<17 两条 + 存 2 + 控制流），状态驻 ymm 无 load；
-      - P 核（Raptor Cove）：0.62-0.88 cyc/limb，vs 单流标量 1.7-2.4
-        为 2.7x；实测 ~5cyc/块 ≈ 移位双端口下限 5cyc——瓶颈是 AVX2
-        无旋转指令（rotl 三件套 sll+srl+or 占 12/34 条，且移位类仅
-        p0/p1 两端口），非向量宽度本身；
-      - E 核（Gracemont）：256 位指令拆 uop 对，1.6 cyc/limb，仅 1.5x；
-      - 标量基线非延迟瓶颈（4 字状态链 ~2c/迭代，OoO 已吞吐化 ~11
-        uop/limb），故 8 lane 的理论上限 = uop 数比 ~2.6x 而非 8x，
-        P 核实测 2.7x 已贴上限；
-      - AVX-512（vprolq/vpternlogq，-march=x86-64-v4 编译实测）主循
-        环仅 19 条、无移位墙，理论 ~0.31 cyc/limb；本机 AVX-512 禁用
-        且库基线 v3，仅作 v4 时代存档。
-    含播种（32 次 mix64）全路径分档见 mprand.c XOSHIRO_VEC_MIN。
-    n%8 尾部多产出一块仅取所需，各流保持锁步推进。总状态 2048 bit。
-*/
-
 #include "../../../include/lmmp/impl/rand_state.h"
+
 
 void lmmp_xoshiro256ppx8_srandom(xoshiro256ppx8_state* rng, mp_limb_t seed) {
     lmmp_param_assert(rng != NULL);

@@ -35,8 +35,6 @@ typedef struct {
 #define GLOBAL_RNG_INIT_SEED_TYPE 1
 static LMMP_THREAD_LOCAL lmmp_global_rng_t lmmp_global_rng = {GLOBAL_RNG_INIT_STATE, GLOBAL_RNG_INIT_SEED_TYPE};
 
-#define XOSHIRO_VEC_MIN 128
-
 void lmmp_global_rng_init_(unsigned seed, unsigned seed_type) {
     lmmp_global_rng.state = lmmp_seed_generator(seed + seed_type);
     lmmp_global_rng.seed_type = seed_type % 2;

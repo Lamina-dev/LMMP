@@ -154,6 +154,8 @@ void lmmp_xoshiro256ppx8_srandom(xoshiro256ppx8_state* rng, mp_limb_t seed);
  */
 void lmmp_xoshiro256ppx8_fill_(mp_ptr restrict dst, mp_size_t n, xoshiro256ppx8_state* restrict rng);
 
+#define XOSHIRO_VEC_MIN 128
+
 #define PCG64_LE_MULTIPLIER 6364136223846793005ULL
 #define PCG64_LE_INCREMENT 1442695040888963407ULL
 
