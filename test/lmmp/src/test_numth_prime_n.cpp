@@ -62,6 +62,49 @@ TEST_CASE("numth/prime", is_prime_n_proven_primes) {
 #endif
 }
 
+/* notrial 变体：判定集合与全函数精确一致（试除仅承担合数侧廉价早拒）。
+   小因子合数在全函数走试除拒、在 notrial 走 MR 拒，结论须相同；
+   随机奇数流按档位全量对照 */
+TEST_CASE("numth/prime", is_prime_n_notrial_agree) {
+    const int STR[] = {0, 4, 7};
+    mp_limb_t p[512], t1[512];
+
+    /* 已证素数（Mersenne）：notrial 与全函数同为 2 */
+    mp_size_t pn = mersenne_limbs(p, 521);
+    for (int s : STR)
+        TEST_CHECK_MSG(lmmp_is_prime_n_notrial_(p, pn, s) == lmmp_is_prime_n_(p, pn, s), "proven prime agree");
+
+    /* 偶数：同拒（notrial 的奇偶短路） */
+    lmmp_copy(t1, p, pn);
+    lmmp_dec(t1);
+    for (int s : STR)
+        TEST_CHECK_MSG(lmmp_is_prime_n_notrial_(t1, pn, s) == lmmp_is_prime_n_(t1, pn, s), "even agree");
+
+    /* 小因子 3 / 97：全函数试除拒，notrial MR 拒 */
+    for (u64 f : {3ull, 97ull}) {
+        mp_limb_t fb[1] = {(mp_limb_t)f};
+        lmmp_mul_(t1, p, pn, fb, 1);
+        mp_size_t fn = limbs_norm(t1, pn + 1);
+        for (int s : STR)
+            TEST_CHECK_MSG(lmmp_is_prime_n_notrial_(t1, fn, s) == lmmp_is_prime_n_(t1, fn, s),
+                           "small factor agree");
+    }
+
+    /* 随机奇数流（3L/8L，含素数与各类合数）全量对照 */
+    u64 seed = 0x6e6f747269616c6eull;
+    for (mp_size_t n : {mp_size_t(3), mp_size_t(8)}) {
+        mp_ptr a = alloc_limbs(n);
+        for (int i = 0; i < 60; ++i) {
+            for (mp_size_t j = 0; j < n; ++j) a[j] = xorshift64(seed);
+            a[0] |= 1;
+            for (int s : STR)
+                TEST_CHECK_MSG(lmmp_is_prime_n_notrial_(a, n, s) == lmmp_is_prime_n_(a, n, s),
+                               "random odd agree");
+        }
+        lmmp_free(a);
+    }
+}
+
 /* 确定性拒绝：偶数 / 小因子（<= 全档最小试除上界 100）/ 素数平方（Lucas 半部） */
 TEST_CASE("numth/prime", is_prime_n_deterministic_reject) {
     mp_limb_t p[512], t1[512], t2[1024];
@@ -159,7 +202,7 @@ TEST_CASE("numth/prime", is_strong_lucas_n) {
 TEST_CASE("numth/prime", is_prime_n_constructive_spsp) {
     for (u64 n : {2047ull, 3277ull, 4033ull, 4681ull, 8321ull, 15841ull, 29341ull}) {
         TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == false, "classic spsp2 rejected (ulong)");
-        TEST_CHECK_MSG(lmmp_is_prime_notrial_(n) == false, "classic spsp2 rejected (notrial)");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_notrial_(n) == false, "classic spsp2 rejected (notrial)");
     }
 
     mp_limb_t buf[512];

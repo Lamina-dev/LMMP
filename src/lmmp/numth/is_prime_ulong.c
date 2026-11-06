@@ -269,7 +269,7 @@ static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong 
     *pv2 = v2;
 }
 
-bool lmmp_is_prime_notrial_(ulong n) {
+LMMP_NOINLINE bool lmmp_is_prime_ulong_notrial_(ulong n) {
     lmmp_param_assert(n > 2);
     if (n <= MP_UINT_MAX) {
         if (n % 2 == 0)
@@ -372,7 +372,7 @@ bool lmmp_is_prime_ulong_(ulong n) {
     }
     if (trial_div35711(n))
         return false;
-    return lmmp_is_prime_notrial_(n);
+    return lmmp_is_prime_ulong_notrial_(n);
 }
 
 static inline bool trial_div13(ulong n) {
@@ -455,7 +455,7 @@ ulong lmmp_next_prime_ulong_(ulong n) {
              || trial_div41(n)) {
                 n += 2;
             } else {
-                if (lmmp_is_prime_notrial_(n)) {
+                if (lmmp_is_prime_ulong_notrial_(n)) {
                     return n;
                 } else {
                     n += 2;
@@ -485,7 +485,7 @@ ulong lmmp_prev_prime_ulong_(ulong n) {
              || trial_div41(n)) {
                 n -= 2;
             } else {
-                if (lmmp_is_prime_notrial_(n)) {
+                if (lmmp_is_prime_ulong_notrial_(n)) {
                     return n;
                 } else {
                     n -= 2;

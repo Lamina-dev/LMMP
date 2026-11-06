@@ -162,13 +162,13 @@ ProthPool pool_proth(uint t, int cnt, bool want_prime) {
 
 }  // namespace
 
-double bench_is_prime_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
+double bench_is_prime_ulong_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
     /* COPRIME 域内须存在试除幸存者（最小 1009 需 10 位）：更窄位宽
        拒绝测量，不得以更宽的值冒充请求位宽 */
     if (kind == PrimePool::COPRIME && bits < 10) return 0.0;
     mp_ptr a = pool_bits(bits, 0x51ce25c0ff33ull + bits, kind);
     size_t idx = 0;
-    double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_notrial_(a[idx++ & (POOL - 1)]); }, o);
+    double us = measure([&] { sink += (mp_limb_t)lmmp_is_prime_ulong_notrial_(a[idx++ & (POOL - 1)]); }, o);
     lmmp_free(a);
     return us;
 }
@@ -198,6 +198,22 @@ double bench_is_prime_2(uint bits, PrimePool kind, const BenchOpts& o) {
     return us;
 }
 
+double bench_is_prime_2_notrial(uint bits, PrimePool kind, const BenchOpts& o) {
+    if (bits < 65) bits = 65;
+    if (bits > 128) bits = 128;
+    mp_ptr a = pool_2(bits, 0xdeadbeefca02ull + bits, kind);
+    size_t idx = 0;
+    double us = measure(
+        [&] {
+            sink += (mp_limb_t)lmmp_is_prime_2_notrial_(a[2 * (idx & (POOL - 1))],
+                                                        a[2 * (idx & (POOL - 1)) + 1]);
+            idx++;
+        },
+        o);
+    lmmp_free(a);
+    return us;
+}
+
 double bench_is_prime_n(mp_size_t n, int strength, PrimePool kind, const BenchOpts& o) {
     int cnt = pool_cnt(n);
     mp_ptr a = pool_n(n, cnt, 0x51ce77ac01ull + (mp_limb_t)strength * 131 + n, kind);
@@ -205,6 +221,19 @@ double bench_is_prime_n(mp_size_t n, int strength, PrimePool kind, const BenchOp
     double us = measure(
         [&] {
             sink += (mp_limb_t)lmmp_is_prime_n_(a + n * (idx++ % cnt), n, strength);
+        },
+        o);
+    lmmp_free(a);
+    return us;
+}
+
+double bench_is_prime_n_notrial(mp_size_t n, int strength, PrimePool kind, const BenchOpts& o) {
+    int cnt = pool_cnt(n);
+    mp_ptr a = pool_n(n, cnt, 0x51ce77ac03ull + (mp_limb_t)strength * 131 + n, kind);
+    size_t idx = 0;
+    double us = measure(
+        [&] {
+            sink += (mp_limb_t)lmmp_is_prime_n_notrial_(a + n * (idx++ % cnt), n, strength);
         },
         o);
     lmmp_free(a);
@@ -252,15 +281,17 @@ double bench_is_prime_n_proth(uint t, int strength, bool prime_pool, const Bench
 using namespace lmmp_bench;
 
 /*
-    64bit 内档位对应 notrial_/ulong_ 内部分支：40bit（双基底分支）、
+    64bit 内档位对应 notrial 家族内部分支：40bit（双基底分支）、
     56bit（三基底 mont63 分支）、64bit 顶（三基底 mont64 分支）；
     is_prime_2 档位对应 <psi_13（13 基底确定）与 >=psi_13（+强 Lucas）。
+    notrial 与带试除版本的对照差即试除腿成本（odd 池有试除早拒收益，
+    coprime/prime 池已过滤小因子，差值接近纯试除开销）。
 */
 BENCH_CASE("numth/prime", notrial) {
     const uint BITS[] = {40, 56, 64};
     for (uint bits : BITS) {
-        report_bits("notrial odd", bits, bench_is_prime_notrial(bits, PrimePool::ODD));
-        report_bits("notrial prime", bits, bench_is_prime_notrial(bits, PrimePool::PRIME));
+        report_bits("notrial odd", bits, bench_is_prime_ulong_notrial(bits, PrimePool::ODD));
+        report_bits("notrial prime", bits, bench_is_prime_ulong_notrial(bits, PrimePool::PRIME));
     }
 }
 
@@ -278,6 +309,12 @@ BENCH_CASE("numth/prime", is_prime_2) {
     report_bits("is_prime_2 prime", 128, bench_is_prime_2(128, PrimePool::PRIME));
 }
 
+BENCH_CASE("numth/prime", is_prime_2_notrial) {
+    const uint BITS[] = {65, 128};
+    for (uint bits : BITS) report_bits("is_prime_2_notrial odd", bits, bench_is_prime_2_notrial(bits, PrimePool::ODD));
+    report_bits("is_prime_2_notrial coprime", 128, bench_is_prime_2_notrial(128, PrimePool::COPRIME));
+}
+
 /*
     MR 轮的指数为模数全长，单 op 成本随 n^3 增长（200L 已 ~1s），
     默认阶梯到 200L 止；更大尺寸用 bench_is_prime_n(n, ...) 单点测量。
@@ -291,6 +328,13 @@ BENCH_CASE("numth/prime", is_prime_n) {
 BENCH_CASE("numth/prime", is_prime_n_prime) {
     const mp_size_t SZ[] = {8, 64};
     for (mp_size_t n : SZ) report_n("is_prime_n s4 prime", n, bench_is_prime_n(n, 4, PrimePool::PRIME));
+}
+
+/* coprime 池已过试除，notrial 与全函数对照差即试除腿纯开销 */
+BENCH_CASE("numth/prime", is_prime_n_notrial) {
+    const mp_size_t SZ[] = {3, 8, 16, 64};
+    for (mp_size_t n : SZ)
+        report_n("is_prime_n_notrial s4 coprime", n, bench_is_prime_n_notrial(n, 4, PrimePool::COPRIME));
 }
 
 BENCH_CASE("numth/prime", is_prime_n_tier) {

@@ -51,10 +51,10 @@ extern const uint16_t dj_base64[16384];
  * @param n 待判断的数
  * @warning n>2, n%2==1
  * @note 建议调用前已过 3,5,7,11 试除（内部不试除）；
- *       供 lmmp_is_prime_uint_ 与 lmmp_is_prime_notrial_ 的 n≤2^32-1 档共享；
+ *       供 lmmp_is_prime_uint_ 与 lmmp_is_prime_ulong_notrial_ 的 n≤2^32-1 档共享；
  *       判定集合与 mont63 双链旧实现精确一致（同基底同强 MR 语义）
  * @return 若 n 为素数，返回 true，否则返回 false
  */
-bool lmmp_is_prime_uint_notrial_(uint n);
+LMMP_NOINLINE bool lmmp_is_prime_uint_notrial_(uint n);
 
 #endif  // __LMMP_IS_PRIME_H__

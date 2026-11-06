@@ -186,12 +186,12 @@ double bench_powlo(mp_size_t n, const BenchOpts& o = {});
 enum class PrimePool { ODD, PRIME, COPRIME };
 
 /**
- * @brief lmmp_is_prime_notrial_ 耗时（免试除判素）
+ * @brief lmmp_is_prime_ulong_notrial_ 耗时（免试除判素）
  * @param bits 输入位宽（2..64；PRIME 池经 next_prime 可能上跨一档；
  *             COPRIME 池要求 bits>=10——更窄宽度域内无 >1000 素因子幸存者，
  *             拒绝测量返回 0.0）
  */
-double bench_is_prime_notrial(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
+double bench_is_prime_ulong_notrial(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
 /**
  * @brief lmmp_is_prime_ulong_ 耗时
@@ -207,12 +207,26 @@ double bench_is_prime_ulong(uint bits, PrimePool kind = PrimePool::ODD, const Be
 double bench_is_prime_2(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
 
 /**
+ * @brief lmmp_is_prime_2_notrial_ 耗时（免试除双 limb 判素）
+ * @param bits 输入位宽（65..128，顶位恒置 1）
+ */
+double bench_is_prime_2_notrial(uint bits, PrimePool kind = PrimePool::ODD, const BenchOpts& o = {});
+
+/**
  * @brief lmmp_is_prime_n_ 耗时
  * @param n 输入长度（limbs，顶位置 1）
  * @param strength 强度档（0/2/4/7...）
  */
 double bench_is_prime_n(mp_size_t n, int strength = 4, PrimePool kind = PrimePool::COPRIME,
                         const BenchOpts& o = {});
+
+/**
+ * @brief lmmp_is_prime_n_notrial_ 耗时（免试除）
+ * @param n 输入长度（limbs，顶位置 1）
+ * @param strength 强度档（0/2/4/7...）
+ */
+double bench_is_prime_n_notrial(mp_size_t n, int strength = 4, PrimePool kind = PrimePool::COPRIME,
+                                const BenchOpts& o = {});
 double bench_is_strong_lucas(mp_size_t n, PrimePool kind = PrimePool::COPRIME,
                              const BenchOpts& o = {});
 

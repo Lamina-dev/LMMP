@@ -50,7 +50,7 @@ TEST_CASE("numth/prime", is_prime_uint_ulong_notrial) {
         u64 n = xorshift64(seed);
         bool expect = ref_is_prime64(n);
         TEST_CHECK_MSG(lmmp_is_prime_ulong_(n) == expect, "is_prime_ulong random");
-        if (n > 2) TEST_CHECK_MSG(lmmp_is_prime_notrial_(n) == expect, "is_prime_notrial random");
+        if (n > 2) TEST_CHECK_MSG(lmmp_is_prime_ulong_notrial_(n) == expect, "is_prime_notrial random");
     }
 }
 
@@ -91,7 +91,7 @@ TEST_CASE("numth/prime", is_prime_u32_tiers) {
     /* notrial 直调小奇数（覆盖 n==hash 基底、b>=n 起步路径；契约域 n>2 奇） */
     for (u32 m = 3; m <= 3001; m += 2) {
         bool expect = ref_is_prime32(m);
-        TEST_CHECK_MSG(lmmp_is_prime_notrial_(m) == expect, "notrial small direct");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_notrial_(m) == expect, "notrial small direct");
     }
 
     /* 随机 u32 大样本 + 档界邻域加密 */
@@ -104,7 +104,7 @@ TEST_CASE("numth/prime", is_prime_u32_tiers) {
         bool expect = ref_is_prime32(m);
         TEST_CHECK_MSG(lmmp_is_prime_uint_(m) == expect, "is_prime_uint random u32");
         TEST_CHECK_MSG(lmmp_is_prime_ulong_(m) == expect, "is_prime_ulong random u32");
-        TEST_CHECK_MSG(lmmp_is_prime_notrial_(m) == expect, "notrial random u32");
+        TEST_CHECK_MSG(lmmp_is_prime_ulong_notrial_(m) == expect, "notrial random u32");
     }
 
     /* next_prime u32 区段拐角：返回值与间隔无素数 */
