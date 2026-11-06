@@ -7,8 +7,16 @@ permissions:
 
 jobs:
   linux-x64:
-    name: Linux-x64 (GCC, x64 ASM)
+    name: Linux-x64 (GCC, ${{ matrix.asm }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lmmp_asm: AUTO
+            asm: x64 ASM
+          - lmmp_asm: GENERIC
+            asm: generic
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,12 +27,12 @@ jobs:
           cmake --version | head -1
           gcc --version | head -1
 
-      - name: Configure (Release, AUTO ASM)
+      - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=AUTO
+            -DLMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
         run: cmake --build build --config Release --parallel 2
@@ -33,8 +41,16 @@ jobs:
         run: ctest --test-dir build --output-on-failure --no-tests=error
 
   linux-arm64:
-    name: Linux-arm64 (GCC, arm64 ASM)
+    name: Linux-arm64 (GCC, ${{ matrix.asm }})
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lmmp_asm: AUTO
+            asm: arm64 ASM
+          - lmmp_asm: GENERIC
+            asm: generic
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,12 +61,12 @@ jobs:
           cmake --version | head -1
           gcc --version | head -1
 
-      - name: Configure (Release, AUTO ASM)
+      - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=AUTO
+            -DLMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
         run: cmake --build build --config Release --parallel 2
@@ -59,8 +75,16 @@ jobs:
         run: ctest --test-dir build --output-on-failure --no-tests=error
 
   macos-arm64:
-    name: macOS-arm64 (Clang, arm64 ASM)
-    runs-on: macos-14
+    name: macOS-arm64 (Clang, ${{ matrix.asm }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lmmp_asm: AUTO
+            asm: arm64 ASM
+          - lmmp_asm: GENERIC
+            asm: generic
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,12 +95,12 @@ jobs:
           cmake --version | head -1
           clang --version | head -1
 
-      - name: Configure (Release, AUTO ASM)
+      - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=AUTO
+            -DLMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
         run: cmake --build build --config Release --parallel 3
@@ -85,11 +109,19 @@ jobs:
         run: ctest --test-dir build --output-on-failure --no-tests=error
 
   windows-x64:
-    name: Windows-x64 (MinGW GCC, x64 ASM)
+    name: Windows-x64 (MinGW GCC, ${{ matrix.asm }})
     runs-on: windows-2022
     defaults:
       run:
         shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lmmp_asm: AUTO
+            asm: x64 ASM
+          - lmmp_asm: GENERIC
+            asm: generic
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,12 +143,12 @@ jobs:
           cmake --version | head -1
           gcc --version | head -1
 
-      - name: Configure (Release, AUTO ASM)
+      - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=AUTO
+            -DLMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
         run: cmake --build build --config Release --parallel 2
