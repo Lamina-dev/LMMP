@@ -86,6 +86,54 @@ mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x) {
     }
 }
 
+mp_limb_t lmmp_mod_preinv_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x, mp_limb_t inv, mp_limb_t k) {
+    mp_limb_t ah, al;
+    if (na == 1) {
+        ah = numa[0];
+        return ah % x;
+    }
+    mp_limb_t t = numa[na - 2], q, r;
+    if (k > 0) {
+        const mp_limb_t rshift = LIMB_BITS - k;
+        ah = numa[na - 1] >> rshift;
+        t = numa[na - 2];
+        al = (numa[na - 1] << k) | (t >> rshift);
+        x <<= k;
+        _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        na -= 2;
+        while (na-- > 0) {
+            ah = r;
+            al = t << k;
+            t = numa[na];
+            al |= t >> rshift;
+            _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        }
+        ah = r;
+        al = t << k;
+        _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        (void)q;
+        return r >> k;
+    } else {
+        ah = 0;
+        t = numa[na - 2];
+        al = numa[na - 1];
+        q = al / x;
+        r = al % x;
+        na -= 2;
+        while (na-- > 0) {
+            ah = r;
+            al = t;
+            t = numa[na];
+            _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        }
+        ah = r;
+        al = t;
+        _udiv_qrnnd_preinv(q, r, ah, al, x, inv);
+        (void)q;
+        return r;
+    }
+}
+
 mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x) {
     mp_limb_t ah, al;
     if (na == 1) {

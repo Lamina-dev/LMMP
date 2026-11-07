@@ -904,6 +904,21 @@ LMMP_API mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_lim
 LMMP_API mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
 
 /**
+ * @brief 单精度数取余（预备逆元版） [numa,na] mod x，同 lmmp_mod_1_
+ * @param numa 输入被除数，长度为na
+ * @param na 被除数的 limb 长度
+ * @param x 除数（单个 limb ）
+ * @param inv 预计算逆元 lmmp_inv_1_(x<<k)
+ * @param k 预计算移位量 lmmp_leading_zeros_(x)
+ * @return 除法余数（单个 limb ）
+ * @warning na>0, x!=0, numa!=NULL, k=lmmp_leading_zeros_(x), inv=lmmp_inv_1_(x<<k)
+ * @note 同一 x 反复取模时（如固定素数逐候选判整除），预处理一次、多次调用本函数，
+ *       省去每次调用的 clz/归一化/lmmp_inv_1_ 开销
+ */
+LMMP_API mp_limb_t lmmp_mod_preinv_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x, mp_limb_t inv,
+                                      mp_limb_t k);
+
+/**
  * @brief 双精度数除法 (除数为2个limb)
  * @param dstq 输出商的缓冲区，长度至少为na-1（可为NULL，此时仅计算余数）
  * @param numa 输入被除数（长度na）
