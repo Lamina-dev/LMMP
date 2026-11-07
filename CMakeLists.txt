@@ -19,19 +19,102 @@
 #  SPDX-License-Identifier: LGPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(LMMP LANGUAGES C CXX)
 
 # ==============================================================================
-# 0. 工具链限制：仅支持 GNU/Clang 风格工具链
+# 工具链选择与限制（编译器选择须在 project() 之前裁决）
 # ==============================================================================
+# 生成器检查：拒绝 Visual Studio 系生成器
+if(CMAKE_GENERATOR MATCHES "^Visual Studio")
+    message(FATAL_ERROR
+        "The '${CMAKE_GENERATOR}' generator always builds with the MSVC toolchain and "
+        "ignores CMAKE_C_COMPILER / LMMP_COMPILER_DIR, but MSVC is not supported. "
+        "Configure with a GNU-compatible generator instead: -G Ninja (recommended) or "
+        "-G \"MinGW Makefiles\". Note the generator is cached per build directory: "
+        "reconfigure into a fresh directory after switching.")
+endif()
+
+# 编译器目录：传入包含 GNU/Clang 编译器对（gcc+g++ 或 clang+clang++）的文件夹
+set(LMMP_COMPILER_DIR "" CACHE PATH
+    "Directory containing a GNU/Clang compiler pair (gcc+g++ or clang+clang++). Empty = default compiler.")
+
+# 链接器目录：传入包含链接器的文件夹，按文件名识别风味
+set(LMMP_LINKER_DIR "" CACHE PATH
+    "Directory containing the linker (ld.lld | ld.mold | ld, flavor by name). Empty = toolchain default linker.")
+
+# 编译器在首次配置时固化进构建树（CMake 缓存），同树切换会静默沿用旧编译器，
+# 故此前配置过目录而本次清空时同样显式拒绝。
+if(NOT LMMP_COMPILER_DIR AND LMMP_RESOLVED_C_COMPILER)
+    message(FATAL_ERROR
+        "LMMP_COMPILER_DIR was cleared in an existing build directory previously "
+        "configured with '${LMMP_RESOLVED_C_COMPILER}'. CMake cannot switch compilers "
+        "in place; configure into a fresh build directory.")
+endif()
+
+if(LMMP_COMPILER_DIR)
+    if(NOT IS_DIRECTORY "${LMMP_COMPILER_DIR}")
+        message(FATAL_ERROR "LMMP_COMPILER_DIR is not a directory: ${LMMP_COMPILER_DIR}")
+    endif()
+
+    # 只在该目录内探测（不回落 PATH），探测缓存每次配置前清空。
+    # 切换编译器必须换用全新构建目录：下方守卫对同树换目录显式报错。
+    foreach(_pair "gcc;g++" "clang;clang++")
+        list(GET _pair 0 _cc_name)
+        list(GET _pair 1 _cxx_name)
+        unset(LMMP_PROG_${_cc_name} CACHE)
+        find_program(LMMP_PROG_${_cc_name} NAMES ${_cc_name} PATHS "${LMMP_COMPILER_DIR}" NO_DEFAULT_PATH)
+        mark_as_advanced(LMMP_PROG_${_cc_name})
+        unset(LMMP_PROG_${_cc_name}_CXX CACHE)
+        find_program(LMMP_PROG_${_cc_name}_CXX NAMES ${_cxx_name} PATHS "${LMMP_COMPILER_DIR}" NO_DEFAULT_PATH)
+        mark_as_advanced(LMMP_PROG_${_cc_name}_CXX)
+    endforeach()
+
+    if(LMMP_PROG_gcc AND LMMP_PROG_gcc_CXX)
+        set(_lmmp_cc "${LMMP_PROG_gcc}")
+        set(_lmmp_cxx "${LMMP_PROG_gcc_CXX}")
+    elseif(LMMP_PROG_clang AND LMMP_PROG_clang_CXX)
+        set(_lmmp_cc "${LMMP_PROG_clang}")
+        set(_lmmp_cxx "${LMMP_PROG_clang_CXX}")
+    elseif(LMMP_PROG_gcc OR LMMP_PROG_clang)
+        message(FATAL_ERROR
+            "LMMP_COMPILER_DIR has a C compiler but no matching C++ compiler (g++ / clang++): ${LMMP_COMPILER_DIR}")
+    else()
+        message(FATAL_ERROR
+            "No GNU/Clang compiler pair (gcc+g++ or clang+clang++) found in LMMP_COMPILER_DIR: ${LMMP_COMPILER_DIR}")
+    endif()
+
+    if(LMMP_RESOLVED_C_COMPILER AND NOT LMMP_RESOLVED_C_COMPILER STREQUAL "${_lmmp_cc}")
+        message(FATAL_ERROR
+            "LMMP_COMPILER_DIR switched from '${LMMP_RESOLVED_C_COMPILER}' to '${_lmmp_cc}' "
+            "in an existing build directory. CMake cannot switch compilers in place "
+            "(it would silently keep the old one); configure into a fresh build directory.")
+    endif()
+
+    set(CMAKE_C_COMPILER "${_lmmp_cc}")
+    set(CMAKE_CXX_COMPILER "${_lmmp_cxx}")
+    set(LMMP_RESOLVED_C_COMPILER "${_lmmp_cc}" CACHE STRING
+        "Compiler path resolved from LMMP_COMPILER_DIR (internal guard)" FORCE)
+    mark_as_advanced(LMMP_RESOLVED_C_COMPILER)
+    unset(_lmmp_cc)
+    unset(_lmmp_cxx)
+    # .S 汇编经 C 预处理器处理，与 C 使用同一驱动。
+    set(CMAKE_ASM_COMPILER "${CMAKE_C_COMPILER}")
+    message(STATUS "Compiler (LMMP_COMPILER_DIR): ${CMAKE_C_COMPILER}")
+endif()
+
+project(LMMP LANGUAGES C CXX)
+
+# 工具链限制（第 0 节续）：仅支持 GNU/Clang 风格工具链，project() 识别完成后
+# 拒绝 MSVC 系编译器（原生 MSVC、clang-cl）。
 if(MSVC OR CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    # 原生 MSVC 与 clang-cl 均已停止支持。
-    # Windows 下请使用 MinGW GCC 或 GNU 驱动的 clang。
-    message(FATAL_ERROR "MSVC/clang-cl toolchain is not supported. Use MinGW GCC or GNU-driver clang on Windows.")
+    message(FATAL_ERROR
+        "MSVC toolchain is not supported (C compiler: ${CMAKE_C_COMPILER}, "
+        "id '${CMAKE_C_COMPILER_ID}'). Use a GNU/Clang toolchain: on Windows "
+        "MinGW GCC or GNU-driver clang, e.g. -G Ninja "
+        "-DLMMP_COMPILER_DIR=<mingw64/bin>.")
 endif()
 
 # ==============================================================================
-# 1. 可配置选项
+# 可配置选项
 # ==============================================================================
 set(LMMP_X86_64 FALSE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|x64|X64)$")
@@ -50,11 +133,25 @@ endif()
 #   AUTO     按当前平台自动选择最合适的模式；不支持时回退 GENERIC。
 set(LMMP_ASM "AUTO" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO")
 set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
+# 取值大小写不敏感（统一归一大写，用户可传小写）
+string(TOUPPER "${LMMP_ASM}" _lmmp_asm_norm)
+if(NOT _lmmp_asm_norm STREQUAL "${LMMP_ASM}")
+    set(LMMP_ASM "${_lmmp_asm_norm}" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO" FORCE)
+endif()
+unset(_lmmp_asm_norm)
 
-# 构建目标
-option(LMMP_BUILD_TESTS "Build LMMP unit tests" ON)
-option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" ON)
+# 构建目标（默认只构建动态库；test/benchmark/example 为附加构建，开启后
+# 与动态库输出到同一目录，便于以统一产物目录整体引入）
+option(LMMP_BUILD_TESTS "Build LMMP unit tests" OFF)
+option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" OFF)
 option(LMMP_BUILD_EXAMPLES "Build LMMP examples" OFF)
+
+# 统一产物目录：传入后所有构建产物（动态库、导入库与可选的
+# test/benchmark/example 可执行文件）平铺到该目录，不区分配置子目录，
+# 并随库同步对外头文件（include/lmmp），目录即完整可引入形态；
+# 为空时维持源内 dist 布局。建议使用绝对路径。
+set(LMMP_OUTPUT_DIR "" CACHE PATH
+    "Flat output directory for all artifacts (shared lib, import lib, headers, optional tests/benchmarks). Empty = in-tree dist/lmmp/bin/<config>.")
 
 # 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
 option(LMMP_TUNE_MODE "Build tuning core and tune driver" OFF)
@@ -67,9 +164,14 @@ option(LMMP_DEBUG_MEMORY_CHECK "Enable full heap/stack memory check (very high o
 set(LMMP_MEMORY_MORE_ALLOC_TIMES 1 CACHE STRING "Extra memory allocation factor in tenths (used by memory check)")
 option(LMMP_DEBUG_MEMORY_LEAK "Enable allocation/free statistics (low overhead)" OFF)
 
-# 目标系统：自动识别，也可手动指定 WIN | LIN | MAC
+# 目标系统：自动识别，也可手动指定 WIN | LIN | MAC（取值大小写不敏感）
 set(TARGET_SYSTEM "AUTO" CACHE STRING "Target system: AUTO | WIN | LIN | MAC")
 set_property(CACHE TARGET_SYSTEM PROPERTY STRINGS AUTO WIN LIN MAC)
+string(TOUPPER "${TARGET_SYSTEM}" _lmmp_ts_norm)
+if(NOT _lmmp_ts_norm STREQUAL "${TARGET_SYSTEM}")
+    set(TARGET_SYSTEM "${_lmmp_ts_norm}" CACHE STRING "Target system: AUTO | WIN | LIN | MAC" FORCE)
+endif()
+unset(_lmmp_ts_norm)
 
 # 构建类型检查
 set(VALID_BUILD_TYPES Debug Release RelWithDebInfo MinSizeRel)
@@ -78,7 +180,7 @@ if(CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE IN_LIST VALID_BUILD_TYPES)
 endif()
 
 # ==============================================================================
-# 2. 目标系统
+# 目标系统
 # ==============================================================================
 if(TARGET_SYSTEM STREQUAL "AUTO")
     if(WIN32)
@@ -94,11 +196,10 @@ string(TOUPPER ${TARGET_SYSTEM} TARGET_SYSTEM_UPPER)
 message(STATUS "Target system: ${TARGET_SYSTEM_UPPER}")
 
 # ==============================================================================
-# 3. 汇编支持
+# 汇编支持
 # ==============================================================================
 set(LMMP_ASM_ENABLED FALSE)
 set(LMMP_ASM_ARCH "")
-set(LMMP_ASM_DIR "")
 
 if(LMMP_ASM STREQUAL "AUTO")
     if(LMMP_X86_64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT TARGET_SYSTEM STREQUAL "MAC")
@@ -119,7 +220,6 @@ if(LMMP_ASM STREQUAL "X64")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
     set(LMMP_ASM_ARCH "x64")
-    set(LMMP_ASM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/lmmp/lmmpn/asm/x64")
     enable_language(ASM)
     message(STATUS "ASM support: ENABLED (x64 .S, GAS/LLVM)")
 elseif(LMMP_ASM STREQUAL "ARM64")
@@ -131,7 +231,6 @@ elseif(LMMP_ASM STREQUAL "ARM64")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
     set(LMMP_ASM_ARCH "arm64")
-    set(LMMP_ASM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/lmmp/lmmpn/asm/arm64")
     enable_language(ASM)
     message(STATUS "ASM support: ENABLED (arm64 .S, GAS/LLVM)")
 elseif(LMMP_ASM STREQUAL "GENERIC")
@@ -141,7 +240,55 @@ else()
 endif()
 
 # ==============================================================================
-# 4. 默认构建类型
+# 链接器选择（LMMP_LINKER_DIR）
+# ==============================================================================
+# 在指定目录内按 ld.lld | lld → ld.mold | mold → ld 顺序探测链接器，按文件名
+# 归类风味，经 GNU/Clang 驱动的 -B 前缀目录与 -fuse-ld 生效（对 Apple ld64
+# 之外的链接器，macOS 下仅 lld 可用；mold 需较新驱动支持）。
+set(LMMP_LINKER_FLAGS "")
+if(LMMP_LINKER_DIR)
+    if(NOT IS_DIRECTORY "${LMMP_LINKER_DIR}")
+        message(FATAL_ERROR "LMMP_LINKER_DIR is not a directory: ${LMMP_LINKER_DIR}")
+    endif()
+
+    set(_lmmp_ld_flavor "")
+    foreach(_name ld.lld lld ld.mold mold ld)
+        unset(_lmmp_ld_prog CACHE)
+        find_program(_lmmp_ld_prog NAMES ${_name} PATHS "${LMMP_LINKER_DIR}" NO_DEFAULT_PATH)
+        if(_lmmp_ld_prog)
+            if(_name MATCHES "lld")
+                set(_lmmp_ld_flavor "lld")
+            elseif(_name MATCHES "mold")
+                set(_lmmp_ld_flavor "mold")
+            else()
+                set(_lmmp_ld_flavor "ld")
+            endif()
+            break()
+        endif()
+    endforeach()
+    if(NOT _lmmp_ld_flavor)
+        message(FATAL_ERROR
+            "No linker (ld / ld.lld / ld.mold) found in LMMP_LINKER_DIR: ${LMMP_LINKER_DIR}")
+    endif()
+
+    # GNU/Clang 驱动的子程序搜索前缀，须以 / 结尾
+    file(TO_CMAKE_PATH "${LMMP_LINKER_DIR}" _lmmp_ld_dir)
+    if(NOT _lmmp_ld_dir MATCHES "/$")
+        string(APPEND _lmmp_ld_dir "/")
+    endif()
+    set(LMMP_LINKER_FLAGS "-B${_lmmp_ld_dir}")
+    if(_lmmp_ld_flavor STREQUAL "lld")
+        list(APPEND LMMP_LINKER_FLAGS "-fuse-ld=lld")
+    elseif(_lmmp_ld_flavor STREQUAL "mold")
+        list(APPEND LMMP_LINKER_FLAGS "-fuse-ld=mold")
+    endif()
+    message(STATUS "Linker (LMMP_LINKER_DIR): ${_lmmp_ld_flavor} in ${LMMP_LINKER_DIR}")
+    unset(_lmmp_ld_flavor)
+    unset(_lmmp_ld_dir)
+endif()
+
+# ==============================================================================
+# 默认构建类型
 # ==============================================================================
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
@@ -150,7 +297,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # ==============================================================================
-# 5. 通用编译选项函数
+# 通用编译选项函数
 # ==============================================================================
 function(lmmp_target_setup target)
 
@@ -223,6 +370,11 @@ function(lmmp_target_setup target)
         LMMP_MEMORY_MORE_ALLOC_TIMES=${LMMP_MEMORY_MORE_ALLOC_TIMES}
     )
 
+    # 链接器目录选择：经驱动的 -B 前缀与 -fuse-ld 生效（见 3.5 节）
+    if(LMMP_LINKER_FLAGS)
+        target_link_options(${target} PRIVATE ${LMMP_LINKER_FLAGS})
+    endif()
+
     if(TARGET_SYSTEM STREQUAL "WIN")
         target_compile_definitions(${target} PRIVATE LMMP_WINDOWS)
     elseif(TARGET_SYSTEM STREQUAL "LIN")
@@ -287,33 +439,40 @@ function(lmmp_target_setup target)
 endfunction()
 
 # ==============================================================================
-# 6. 输出目录
+# 输出目录
 # ==============================================================================
+# 三种形态：
+#   LMMP_TUNE_MODE  -> tune/lmmp/bin（调优产物独立，不区分配置子目录）
+#   LMMP_OUTPUT_DIR -> 传入目录平铺（动态库/导入库/头文件/附加构建产物同层，
+#                     不区分配置子目录，供其他项目直接引入）
+#   默认            -> dist/lmmp/bin/<config>（源内开发布局）
+set(OUTPUT_SPLIT_CONFIG FALSE)
 if(LMMP_TUNE_MODE)
-    # 调优产物全部输出到 tune/lmmp/bin，与 dist 分离。
-    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/tune/lmmp)
+    set(OUTPUT_BIN ${CMAKE_SOURCE_DIR}/tune/lmmp/bin)
+elseif(LMMP_OUTPUT_DIR)
+    get_filename_component(OUTPUT_BIN "${LMMP_OUTPUT_DIR}" ABSOLUTE)
 else()
-    set(OUTPUT_ROOT ${CMAKE_SOURCE_DIR}/dist/lmmp)
+    set(OUTPUT_BIN ${CMAKE_SOURCE_DIR}/dist/lmmp/bin)
+    set(OUTPUT_SPLIT_CONFIG TRUE)
 endif()
 
 foreach(TYPE RUNTIME ARCHIVE LIBRARY)
-    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_ROOT}/bin)
-    if(LMMP_TUNE_MODE)
-        # 调优模式不区分配置子目录，核心库与调优驱动放在一起。
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin)
+    set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_BIN})
+    if(OUTPUT_SPLIT_CONFIG)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_BIN}/debug)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_BIN}/release)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_BIN}/relwithdebinfo)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_BIN}/minsizerel)
     else()
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_ROOT}/bin/debug)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_ROOT}/bin/release)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_ROOT}/bin/relwithdebinfo)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_ROOT}/bin/minsizerel)
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_BIN})
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_BIN})
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_BIN})
+        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_BIN})
     endif()
 endforeach()
 
 # ==============================================================================
-# 7. 构建子模块
+# 构建子模块
 # ==============================================================================
 add_subdirectory(src/lmmp)
 
@@ -335,15 +494,24 @@ else()
 endif()
 
 # ==============================================================================
-# 8. 最终信息输出
+# 最终信息输出
 # ==============================================================================
 message(STATUS "=====================================")
 message(STATUS "Lmmp configure summary")
 message(STATUS "=====================================")
-message(STATUS "Compiler:      ${CMAKE_C_COMPILER_ID}")
-message(STATUS "Linker:        ${CMAKE_C_COMPILER_LINKER_ID}")
+message(STATUS "Compiler:      ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} (${CMAKE_C_COMPILER})")
+if(LMMP_LINKER_FLAGS)
+    message(STATUS "Linker:        ${LMMP_LINKER_FLAGS}")
+elseif(CMAKE_C_COMPILER_LINKER_ID)
+    message(STATUS "Linker:        ${CMAKE_C_COMPILER_LINKER_ID} (toolchain default)")
+else()
+    message(STATUS "Linker:        toolchain default")
+endif()
 message(STATUS "Target system: ${TARGET_SYSTEM}")
 message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
 message(STATUS "ASM support:   ${LMMP_ASM}")
-message(STATUS "Output dir:    ${OUTPUT_ROOT}")
+message(STATUS "Output dir:    ${OUTPUT_BIN}")
+if(NOT LMMP_TUNE_MODE)
+    message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} benchmarks=${LMMP_BUILD_BENCHMARKS} examples=${LMMP_BUILD_EXAMPLES}")
+endif()
 message(STATUS "=====================================")
