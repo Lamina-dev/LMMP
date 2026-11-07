@@ -114,19 +114,26 @@ else()
 
     if(LMMP_OUTPUT_DIR)
         # 统一产物目录：随库同步对外头文件（仅 include/lmmp 顶层公共头，
-        # impl/ 内部头不外发）。
-        # （动态库 + 导入库 + include/ 头文件）。头文件变更而库未重链时，
-        # 删除产物目录或重新构建 liblmmp 可强制刷新。
+        # impl/ 内部头不外发），使该目录即完整可引入形态（动态库 + 导入库
+        # + include/）。头文件变更而库未重链时，删除产物目录或重新构建
+        # liblmmp 可强制刷新。
         file(GLOB LMMP_PUBLIC_HEADERS CONFIGURE_DEPENDS
             LIST_DIRECTORIES FALSE
             "${CMAKE_SOURCE_DIR}/include/lmmp/*.h"
         )
-        add_custom_command(TARGET liblmmp POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
-            COMMAND ${CMAKE_COMMAND} -E copy
-                ${LMMP_PUBLIC_HEADERS} "${OUTPUT_BIN}/include/lmmp"
-            COMMENT "liblmmp: copying public headers to ${OUTPUT_BIN}/include"
-        )
+        if(LMMP_PUBLIC_HEADERS)
+            add_custom_command(TARGET liblmmp POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
+                COMMAND ${CMAKE_COMMAND} -E copy
+                    ${LMMP_PUBLIC_HEADERS} "${OUTPUT_BIN}/include/lmmp"
+                COMMENT "liblmmp: copying public headers to ${OUTPUT_BIN}/include"
+            )
+        else()
+            # 头文件缺失时保留目标目录创建，仅跳过复制
+            add_custom_command(TARGET liblmmp POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
+            )
+        endif()
     endif()
 
     message(STATUS "liblmmp: configured successfully (shared library)")

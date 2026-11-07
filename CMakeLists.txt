@@ -41,13 +41,22 @@ set(LMMP_COMPILER_DIR "" CACHE PATH
 set(LMMP_LINKER_DIR "" CACHE PATH
     "Directory containing the linker (ld.lld | ld.mold | ld, flavor by name). Empty = toolchain default linker.")
 
+# 编译器在首次配置时固化进构建树（CMake 缓存），同树切换会静默沿用旧编译器，
+# 故此前配置过目录而本次清空时同样显式拒绝。
+if(NOT LMMP_COMPILER_DIR AND LMMP_RESOLVED_C_COMPILER)
+    message(FATAL_ERROR
+        "LMMP_COMPILER_DIR was cleared in an existing build directory previously "
+        "configured with '${LMMP_RESOLVED_C_COMPILER}'. CMake cannot switch compilers "
+        "in place; configure into a fresh build directory.")
+endif()
+
 if(LMMP_COMPILER_DIR)
     if(NOT IS_DIRECTORY "${LMMP_COMPILER_DIR}")
         message(FATAL_ERROR "LMMP_COMPILER_DIR is not a directory: ${LMMP_COMPILER_DIR}")
     endif()
 
-    # 只在该目录内探测；每次配置前清缓存，
-    # 保证改动 LMMP_COMPILER_DIR 后重新探测而非沿用旧结果。
+    # 只在该目录内探测（不回落 PATH），探测缓存每次配置前清空。
+    # 切换编译器必须换用全新构建目录：下方守卫对同树换目录显式报错。
     foreach(_pair "gcc;g++" "clang;clang++")
         list(GET _pair 0 _cc_name)
         list(GET _pair 1 _cxx_name)
@@ -60,11 +69,11 @@ if(LMMP_COMPILER_DIR)
     endforeach()
 
     if(LMMP_PROG_gcc AND LMMP_PROG_gcc_CXX)
-        set(CMAKE_C_COMPILER "${LMMP_PROG_gcc}")
-        set(CMAKE_CXX_COMPILER "${LMMP_PROG_gcc_CXX}")
+        set(_lmmp_cc "${LMMP_PROG_gcc}")
+        set(_lmmp_cxx "${LMMP_PROG_gcc_CXX}")
     elseif(LMMP_PROG_clang AND LMMP_PROG_clang_CXX)
-        set(CMAKE_C_COMPILER "${LMMP_PROG_clang}")
-        set(CMAKE_CXX_COMPILER "${LMMP_PROG_clang_CXX}")
+        set(_lmmp_cc "${LMMP_PROG_clang}")
+        set(_lmmp_cxx "${LMMP_PROG_clang_CXX}")
     elseif(LMMP_PROG_gcc OR LMMP_PROG_clang)
         message(FATAL_ERROR
             "LMMP_COMPILER_DIR has a C compiler but no matching C++ compiler (g++ / clang++): ${LMMP_COMPILER_DIR}")
@@ -72,6 +81,21 @@ if(LMMP_COMPILER_DIR)
         message(FATAL_ERROR
             "No GNU/Clang compiler pair (gcc+g++ or clang+clang++) found in LMMP_COMPILER_DIR: ${LMMP_COMPILER_DIR}")
     endif()
+
+    if(LMMP_RESOLVED_C_COMPILER AND NOT LMMP_RESOLVED_C_COMPILER STREQUAL "${_lmmp_cc}")
+        message(FATAL_ERROR
+            "LMMP_COMPILER_DIR switched from '${LMMP_RESOLVED_C_COMPILER}' to '${_lmmp_cc}' "
+            "in an existing build directory. CMake cannot switch compilers in place "
+            "(it would silently keep the old one); configure into a fresh build directory.")
+    endif()
+
+    set(CMAKE_C_COMPILER "${_lmmp_cc}")
+    set(CMAKE_CXX_COMPILER "${_lmmp_cxx}")
+    set(LMMP_RESOLVED_C_COMPILER "${_lmmp_cc}" CACHE STRING
+        "Compiler path resolved from LMMP_COMPILER_DIR (internal guard)" FORCE)
+    mark_as_advanced(LMMP_RESOLVED_C_COMPILER)
+    unset(_lmmp_cc)
+    unset(_lmmp_cxx)
     # .S 汇编经 C 预处理器处理，与 C 使用同一驱动。
     set(CMAKE_ASM_COMPILER "${CMAKE_C_COMPILER}")
     message(STATUS "Compiler (LMMP_COMPILER_DIR): ${CMAKE_C_COMPILER}")

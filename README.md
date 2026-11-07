@@ -53,8 +53,8 @@ cmake --build build -j
 
 工具链选择的补充说明：
 
-+ `LMMP_COMPILER_DIR` 适合工具链不在 `PATH` 上的场景，等价于自动传全路径的 `CMAKE_C/CXX_COMPILER`；需要精确指定单个可执行文件时仍可直接使用 CMake 原生变量。
-+ `LMMP_LINKER_DIR` 经驱动的 `-B` 前缀与 `-fuse-ld` 生效。macOS 下 Apple ld64 之外的链接器仅 lld 可用；mold 需要较新驱动支持。改动任一目录选项后重新配置即可生效。
++ `LMMP_COMPILER_DIR` 适合工具链不在 `PATH` 上的场景，等价于自动传全路径的 `CMAKE_C/CXX_COMPILER`；需要精确指定单个可执行文件时仍可直接使用 CMake 原生变量。编译器在首次配置时固化进构建树，**更换目录必须使用全新构建目录**（同树重配会静默沿用旧编译器，构建守卫将显式报错拒绝）。
++ `LMMP_LINKER_DIR` 经驱动的 `-B` 前缀与 `-fuse-ld` 生效。macOS 下 Apple ld64 之外的链接器仅 lld 可用；mold 需要较新驱动支持。链接器可同树重新配置直接切换。
 
 ## 动态库
 
