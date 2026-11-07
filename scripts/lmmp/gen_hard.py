@@ -36,7 +36,7 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
 约定: intel 语法 mulx HI, LO, src (HI=第一目的操作数)。
 
 用法: python scripts/lmmp/gen_hard.py  (可在任意目录执行, 输出路径锚定脚本
-自身位置: src/lmmp/lmmpn/asm/{x64,arm64}/ 下的 .S)
+自身位置: src/lmmp/lmmpn/arch/{x64,arm64}/ 下的 .S)
 """
 
 import os
@@ -1239,7 +1239,7 @@ def arm64_strip_inline_comments(text):
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
-    asm_dir = os.path.normpath(os.path.join(here, "..", "..", "src", "lmmp", "lmmpn", "asm"))
+    asm_dir = os.path.normpath(os.path.join(here, "..", "..", "src", "lmmp", "lmmpn", "arch"))
     with open(os.path.join(asm_dir, "x64", "mul_hard.S"), "w", newline="\n") as f:
         f.write(gen_x64_mul())
     with open(os.path.join(asm_dir, "x64", "sqr_hard.S"), "w", newline="\n") as f:

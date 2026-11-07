@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 /*
     汇编不可用时的通用 C 实现（eqsep 重叠安全：每组加载先于同组存储）。

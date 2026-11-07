@@ -21,35 +21,44 @@
 
 set(LIBLMMP_VERSION "4.3.0")
 
+# 全部模块的 C 源统一递归收集（含各模块 arch/generic/ 的 C 回退；GENERIC 模式下
+# 回退实现即为正式实现）。
 file(GLOB_RECURSE LIBLMMP_SRCS CONFIGURE_DEPENDS
     LIST_DIRECTORIES FALSE
     ${CMAKE_CURRENT_SOURCE_DIR}/*.c
 )
 
 if(LMMP_ASM_ENABLED)
-    # 启用汇编时，Windows 下使用 .def 文件导出汇编实现的函数。
-    set(DEF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/lmmpn/asm/lmmp_asm.def)
-    if(TARGET_SYSTEM STREQUAL "WIN")
-        list(APPEND LIBLMMP_SRCS ${DEF_FILE})
-    endif()
+    # arch/ 布局由模块自描述，构建系统按形态自动发现
+    #   <module>/arch/<arch>/*.S   目标架构汇编（<arch> = x64 | arm64）
+    #   <module>/arch/generic/*.c  与汇编同名符号的 C 回退，启用汇编时整体排除
+    #   <module>/arch/extern.def   该模块汇编的导出符号表（Windows .def）
+    # 新增模块（如 numth）按同一形态建立 arch/ 子树即被自动纳入。
+    list(FILTER LIBLMMP_SRCS EXCLUDE REGEX "/arch/generic/")
 
-    # 过滤掉 generic 目录下的源文件，避免与汇编实现重复定义。
-    list(FILTER LIBLMMP_SRCS EXCLUDE REGEX ".*/generic/.*")
-
-    # 收集目标架构的 GAS/LLVM 汇编文件。
     file(GLOB ASM_SRCS CONFIGURE_DEPENDS
         LIST_DIRECTORIES FALSE
-        ${LMMP_ASM_DIR}/*.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/*/arch/${LMMP_ASM_ARCH}/*.S
     )
-
     if(NOT ASM_SRCS)
-        message(FATAL_ERROR "LMMP_ASM=${LMMP_ASM} is enabled but no assembly files found in ${LMMP_ASM_DIR}!")
+        message(FATAL_ERROR
+            "LMMP_ASM=${LMMP_ASM} is enabled but no assembly files found under "
+            "${CMAKE_CURRENT_SOURCE_DIR}/*/arch/${LMMP_ASM_ARCH}/")
+    endif()
+    list(APPEND LIBLMMP_SRCS ${ASM_SRCS})
+
+    if(TARGET_SYSTEM STREQUAL "WIN")
+        # 各模块的 extern.def 逐个交给链接器
+        file(GLOB DEF_FILES CONFIGURE_DEPENDS
+            LIST_DIRECTORIES FALSE
+            ${CMAKE_CURRENT_SOURCE_DIR}/*/arch/extern.def
+        )
+        list(APPEND LIBLMMP_SRCS ${DEF_FILES})
     endif()
 
-    list(APPEND LIBLMMP_SRCS ${ASM_SRCS})
-    message(STATUS "liblmmp: Using ASM (${LMMP_ASM_ARCH} .S, GAS/LLVM)")
+    list(LENGTH ASM_SRCS ASM_SRC_COUNT)
+    message(STATUS "liblmmp: Using ASM (${LMMP_ASM_ARCH} .S, GAS/LLVM, ${ASM_SRC_COUNT} files)")
 else()
-    # 不启用汇编则使用纯 C 通用实现
     message(STATUS "liblmmp: Using generic C implementation")
 endif()
 

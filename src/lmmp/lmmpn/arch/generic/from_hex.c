@@ -20,9 +20,9 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/impl/str_conv.h"
-#include "../../../../include/lmmp/impl/mparam.h"
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/impl/str_conv.h"
+#include "../../../../../include/lmmp/impl/mparam.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 // ASCII -> nibble 值表，非法字符映射为 0（契约要求输入全为合法十六进制数字）
 static const mp_byte_t lmmp_hex_val_tab[256] = {

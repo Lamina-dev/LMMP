@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/impl/divexact.h"
+#include "../../../../../include/lmmp/impl/divexact.h"
 
 
 #define MODLIMB_INVERSE_3 ((mp_limb_t)0xAAAAAAAAAAAAAAAB)

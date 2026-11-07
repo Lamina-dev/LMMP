@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 
 void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n) {

@@ -21,9 +21,9 @@ cmake --build build -j
 ```
 
 支持情况：
-+ x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/asm/x64/*.S`
-+ arm64 macOS / Linux：使用 `src/lmmp/lmmpn/asm/arm64/*.S`
-+ 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/generic/` 的 C 实现
++ x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/arch/x64/*.S`
++ arm64 macOS / Linux：使用 `src/lmmp/lmmpn/arch/arm64/*.S`
++ 其他架构或 macOS x64：自动回退到 `src/lmmp/lmmpn/arch/generic/` 的 C 实现
 
 在开启汇编时，所能够支持运行的架构及芯片如下：
 + X86-64：x86-64-v3指令集+adx指令集；支持芯片：Intel Broadwell及之后，AMD Excavator及之后（锐龙、霄龙）

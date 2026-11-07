@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 
 #if defined(__SIZEOF_INT128__)

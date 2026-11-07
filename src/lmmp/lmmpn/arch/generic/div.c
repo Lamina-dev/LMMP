@@ -20,9 +20,9 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/impl/longlong.h"
-#include "../../../../include/lmmp/impl/inlines.h"
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/impl/longlong.h"
+#include "../../../../../include/lmmp/impl/inlines.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 
 mp_limb_t lmmp_div_3_2_(mp_ptr restrict numa, mp_srcptr restrict numb, mp_limb_t inv21) {

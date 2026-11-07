@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/lmmpn.h"
+#include "../../../../../include/lmmp/lmmpn.h"
 
 
 void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na) {

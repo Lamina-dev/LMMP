@@ -23,14 +23,14 @@
 /*
     fft/ifft 蝶形数据面融合内核 lmmp_fft_bfy_fused_ / lmmp_ifft_bfy_fused_ 的 C 参考实现。
 
-    x64 汇编构建下符号由 asm/x64/fft_fuse.S 提供（本文件被构建系统排除）；
+    x64 汇编构建下符号由 arch/x64/fft_fuse.S 提供（本文件被构建系统排除）；
     GENERIC 与 arm64 汇编构建走此 C 实现（arm64 NEON 版待移植，由 CMake 补入）。
 
     顺序流式访问（每 limb 恰好读写一次），不做 PART_SIZE 分块。
     差链补码化同 add_n_sub_n_: d = a + ~t + k, k0 = 1 - b, 借位 = 1 - k。
 */
 
-#include "../../../../include/lmmp/impl/fft_ssa.h"
+#include "../../../../../include/lmmp/impl/fft_ssa.h"
 
 mp_limb_t lmmp_ifft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb,
                                mp_size_t l, mp_size_t w, mp_size_t shr) {

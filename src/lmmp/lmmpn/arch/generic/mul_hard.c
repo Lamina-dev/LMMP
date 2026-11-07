@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../include/lmmp/impl/mul_hard.h"
+#include "../../../../../include/lmmp/impl/mul_hard.h"
 
 /* 常量行程循环的完全展开提示: clang 用 #pragma unroll (行程数已知时
    无视代价模型强制全展开), gcc 用 #pragma GCC unroll 上界 (覆盖最大
