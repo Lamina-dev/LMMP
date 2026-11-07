@@ -110,9 +110,12 @@ typedef size_t mp_bitcnt_t;          // 表示bit数量的无符号整数类型
 #define LLIMB_BYTES 4
 #define LLIMB_MASK ((mp_limb_t)0xffffffff)
 
-#if defined(LMMP_WINDOWS) && (defined(__GNUC__) || defined(__clang__))
-    // MinGW on Windows: use native TLS section
-    #define LMMP_THREAD_LOCAL __thread
+#if defined(LMMP_WINDOWS)
+    #if defined(__clang__)
+        #define LMMP_THREAD_LOCAL __declspec(thread)
+    #else
+        #define LMMP_THREAD_LOCAL __thread
+    #endif
 #elif defined(__GNUC__) || defined(__clang__)
     #define LMMP_THREAD_LOCAL __thread
 #else

@@ -20,6 +20,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLMMP_ASM=ARM64
 cmake --build build -j
 ```
 
+注意生成器：装有 Visual Studio 的 Windows 机器上，cmake 默认生成器可能为 Visual Studio（会被本库构建时直接拒绝）。Windows 下请显式 `-G Ninja`（推荐）或 `-G "MinGW Makefiles"`。`LMMP_ASM` / `TARGET_SYSTEM` 取值大小写不敏感。
+
 支持情况：
 + x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/arch/x64/*.S`
 + arm64 macOS / Linux：使用 `src/lmmp/lmmpn/arch/arm64/*.S`
@@ -35,9 +37,12 @@ cmake --build build -j
 | 选项 | 取值 | 默认 | 说明 |
 |---|---|---|---|
 | `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
-| `LMMP_BUILD_TESTS` | `ON` / `OFF` | `ON` | 是否构建单元测试 |
-| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `ON` | 是否构建性能基准 |
-| `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序 |
+| `LMMP_COMPILER_DIR` | 目录路径 | 空 | 编译器所在目录（自动识别其中的 gcc/g++ 或 clang/clang++）；为空使用系统默认编译器 |
+| `LMMP_LINKER_DIR` | 目录路径 | 空 | 链接器所在目录（按文件名识别：`ld.lld`/`lld` => lld，`ld.mold`/`mold` => mold，`ld`=> GNU ld）；为空使用工具链默认链接器 |
+| `LMMP_OUTPUT_DIR` | 目录路径 | 空 | 统一产物目录：动态库、导入库与对外头文件平铺于此，附加构建（tests 等）开启后也输出于此；为空使用源内 `dist/lmmp/` 布局 |
+| `LMMP_BUILD_TESTS` | `ON` / `OFF` | `OFF` | 是否构建单元测试（开启后与动态库输出到同一目录） |
+| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `OFF` | 是否构建性能基准（开启后与动态库输出到同一目录） |
+| `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序（开启后与动态库输出到同一目录） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部栈溢出检查（开销：高） |
 | `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
@@ -46,13 +51,40 @@ cmake --build build -j
 | `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
 | `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
 
-## 测试、基准与调优
+工具链选择的补充说明：
 
-LMMP 提供测试、基准和调优功能。测试与基准默认随主项目一起构建（可用 `-DLMMP_BUILD_TESTS=OFF` / `-DLMMP_BUILD_BENCHMARKS=OFF` 关闭）。调优功能需单独配置，默认不参与项目构建。关于调优程序，可以阅读 `tune/lmmp/README.md`。
++ `LMMP_COMPILER_DIR` 适合工具链不在 `PATH` 上的场景，等价于自动传全路径的 `CMAKE_C/CXX_COMPILER`；需要精确指定单个可执行文件时仍可直接使用 CMake 原生变量。
++ `LMMP_LINKER_DIR` 经驱动的 `-B` 前缀与 `-fuse-ld` 生效。macOS 下 Apple ld64 之外的链接器仅 lld 可用；mold 需要较新驱动支持。改动任一目录选项后重新配置即可生效。
+
+## 动态库
+
+配置 `LMMP_OUTPUT_DIR` 后，构建产物以平铺形态汇聚到该目录，供其他项目直接引入：
 
 ```bash
-# 构建
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build-out -DCMAKE_BUILD_TYPE=Release \
+  -DLMMP_COMPILER_DIR=/path/to/mingw64/bin \
+  -DLMMP_OUTPUT_DIR=/path/to/lmmp-dist
+cmake --build build-out
+```
+
+产物布局（`LMMP_OUTPUT_DIR` 内，不区分配置子目录）：
+
+```
+lmmp-dist/
+├── lmmp.dll / liblmmp.so / liblmmp.dylib   # 动态库
+├── liblmmp.dll.a / lmmp.lib 等             # 导入库
+└── include/lmmp/                           # 对外头文件
+```
+
+单元测试、基准与示例默认不构建；如需在同一目录获得它们，加 `-DLMMP_BUILD_TESTS=ON` 等即可，可执行文件与动态库同层放置。
+
+## 测试、基准与调优
+
+LMMP 提供测试、基准和调优功能。默认只构建动态库；测试与基准需显式开启（`-DLMMP_BUILD_TESTS=ON` / `-DLMMP_BUILD_BENCHMARKS=ON`）。调优功能需单独配置，默认不参与项目构建。关于调优程序，可以阅读 `tune/lmmp/README.md`。
+
+```bash
+# 构建（含单元测试）
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DLMMP_BUILD_TESTS=ON
 cmake --build build -j
 
 # 运行全部单元测试
@@ -79,65 +111,6 @@ ctest --test-dir build --output-on-failure
   - ``secret.h``：加密模块，包含如hash、加密解密（未实现）等高精度计算。
 + 标准接口系列：
   这部分模块均未实现，计划采用不透明结构体的方式，提供更高级的接口。
-
-## 目录结构
-
-```
-LMMP/                       # 项目根目录
-├── COPYING                 # GPL-3.0 许可证全文
-├── COPYING.LESSER          # LGPL-3.0 许可证全文
-├── README.md               # README
-├── CMakeLists.txt          # 根目录CMake（全局配置：构建类型、C/C++标准、输出目录等）
-├── dist/                   # 编译产物根目录（自动生成，存放所有库和可执行文件）
-│   └── lmmp/               # LMMP项目专属产物目录
-│       └── bin/            # 可执行文件输出目录
-│           ├── release/    # 输出目录
-│           └── debug/      # 输出目录
-├── include/                # 头文件目录（对外暴露，所有子模块可引用）
-│   └── lmmp/               # 项目名嵌套目录
-│       ├── impl/           # 内部实现头文件目录（仅供内部使用）
-│       ├── version.h       # 版本头文件
-│       └── .h              # 其他头文件
-├── src/                    # 核心源代码根目录
-│   └── lmmp/               # 核心库源代码目录（对应include/lmmp）
-│       ├── lmmp/           # 通用函数或通用逻辑实现文件
-│       ├── lmmpn/          # 多精度整数运算子模块实现文件
-│       │   ├── asm         # 汇编实现文件
-│       │   ├── generic     # c模拟汇编实现文件
-│       │   └── *.c/        # 实现文件
-│       ├── global/         # 全局变量定义文件
-│       ├── numth/          # 数论计算子模块实现文件
-│       ├── secret/         # 密码学子模块实现文件
-│       ├── mprand/         # 随机数生成子模块实现文件
-│       └── CMakeLists.txt  # 源码目录CMake
-├── benchmark/              # 基准测试根目录
-│   └── lmmp/               # LMMP项目基准测试目录
-│       ├── CMakeLists.txt  # 基准测试CMake配置
-│       ├── include/        # 基准测试私有头文件（仅测试内部使用）
-│       ├── src/            # 基准测试源代码目录
-│       └── main.cpp        # 基准测试主程序main()
-├── example/                # 示例程序根目录
-│   └── lmmp/               # LMMP项目基准测试目录
-│       ├── CMakeLists.txt  # 示例程序CMake配置
-│       ├── example1.cpp    # 示例1
-│       └── example2.cpp    # 示例2
-├── test/                   # 测试程序根目录
-│   └── lmmp/               # LMMP项目基准测试目录
-│       ├── CMakeLists.txt  # 测试程序CMake配置
-│       ├── include/        # 测试私有头文件（仅测试内部使用）
-│       ├── src/            # 测试源代码目录
-│       └── main.cpp        # 测试主程序入口函数main()
-├── tune/                   # 调优程序根目录（调优程序单独构建）
-│   └── lmmp/               # LMMP项目基准测试目录
-│       ├── CMakeLists.txt  # 调优程序CMake配置
-│       ├── include/        # 调优私有头文件（仅测试内部使用）
-│       ├── src/            # 调优源代码目录
-│       └── bin/            # 调优可执行文件输出目录
-└── build/                  # 构建目录（外部构建，仅供参考）
-    ├── CMakeCache.txt      # CMake缓存文件（自动生成）
-    ├── Makefile            # 编译脚本（Linux/Mac，自动生成）
-    └── else
-```
 
 ## 快速开始
 
