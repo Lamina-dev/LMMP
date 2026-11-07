@@ -17,7 +17,6 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
@@ -25,9 +24,7 @@
 //
 //   Windows: dst=rcx, n=rdx, upper=r8b
 //   SysV:    dst=rdi, n=rsi, upper=dl
-//   cal: dst[i] = '0' + dst[i] (+ adj*(dst[i]>9)),
-//           adj = 39(lower)/7(upper),
-//
+
 
 #include "lmmp_asm.h"
 
@@ -39,11 +36,11 @@
 
 .text
 
-// ---------- lmmp_dec_to_chars_: [0,9] -> ['0','9'] ----------
-
-.p2align 4
-
+// ======================================
+// lmmp_dec_to_chars_
+// ======================================
 .globl ASM_GSYM(lmmp_dec_to_chars_)
+.p2align 4
 ASM_GSYM(lmmp_dec_to_chars_):
     mov          eax, 48
     vmovd        xmm0, eax
@@ -78,18 +75,18 @@ ASM_GSYM(lmmp_dec_to_chars_):
     vzeroupper
     ret
 
-// ---------- lmmp_b36_to_chars_: [0,35] -> ['0'-'9',a-z/A-Z] ----------
-
-.p2align 4
-
+// ======================================
+// lmmp_b36_to_chars_
+// ======================================
 .globl ASM_GSYM(lmmp_b36_to_chars_)
+.p2align 4
 ASM_GSYM(lmmp_b36_to_chars_):
     xor          eax, eax
     test         rb2, rb2
     setne        al
     shl          eax, 5
     xor          eax, 39
-    mov          r11d, eax          // r11 = adj,
+    mov          r11d, eax          // r11 = adj
 
     vmovd        xmm3, eax
     vpbroadcastb ymm3, xmm3         // ymm3 = adj

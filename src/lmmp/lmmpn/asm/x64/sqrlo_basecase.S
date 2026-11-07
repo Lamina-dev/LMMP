@@ -17,23 +17,12 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // void lmmp_sqrlo_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 //
 //   Windows: dst=rcx, numa=rdx, n=r8
 //   SysV:    dst=rdi, numa=rsi, n=rdx
-//   cal: dst[0..n) = (numa^2) mod B^n
-//
-//   三角分解 U^2 = 2*T + D (mod B^n)：
-//     行 j 计算 T 的一片：dst[2j+1..n-1] += a_j * a[j+1..n-1-j]，
-//     乘加链恰好终止于第 n-1 列，链尾进位落在第 n 列直接丢弃。
-//     行 0 为 mul_1 现写链（.Lmul1_*），行 1.. 为 addmul_1 累加链（.Lam_*），
-//     末尾一趟融合的 2*dst + a_i^2 对角收尾（.Ldiag_*）。
-//   寻址约定：rdi = dst + 8n 固定，rsi = numa + 8n - 8j 随行下移，
-//   行窗口 [rbx,-1]（rbx = 2j+1-n）相对两锚同偏移读写。
-//
 
 #include "lmmp_asm.h"
 
@@ -79,12 +68,14 @@
     pop r12
 .endm
 
-// ====================== .text ======================
 
 .text
+
+// ======================================
+// lmmp_sqrlo_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_sqrlo_basecase_)
 .p2align 4
-
 ASM_GSYM(lmmp_sqrlo_basecase_):
     test    P_N, P_N
     jz      .Lret                 // n == 0
@@ -106,54 +97,54 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     mov     rdx, P_N              // n -> rdx
 #endif
 
-    mov     r12, rsi              // r12 = numa（对角收尾用）
+    mov     r12, rsi              // r12 = numa
     mov     r13, rdi              // r13 = dst
     mov     r14, rdx              // r14 = n
     lea     rsi, [rsi + rdx*8]    // rsi = numa + n
     lea     rdi, [rdi + rdx*8]    // rdi = dst + n
     lea     rbx, [rdx - 1]
-    neg     rbx                   // rbx = 1-n（行 0 窗口基址）
+    neg     rbx                   // rbx = 1-n
 
     mov     r9, [rsi + rbx*8 - 8] // r9 = a_0
     mov     rax, [rsi + rbx*8]    // rax = a_1
-    mul     r9                    // rdx:rax = a_0 * a_1（第 1 列）
+    mul     r9                    // rdx:rax = a_0 * a_1
 
     test    bl, 1
     jnz     .Lmul1_odd
 
-.Lmul1_even:                      // 窗口基址为偶
+.Lmul1_even:                      // base even
     mov     r10, rax
     mov     r11, rdx
     mov     rax, [rsi + rbx*8 + 8]
     test    bl, 2
     jnz     .Lmul1_even_2mod4
 
-    lea     rbp, [rbx + 2]        // rbx ≡ 0 (mod 4)
+    lea     rbp, [rbx + 2]        // rbx = 0 (mod 4)
     jmp     .Lmul1_l0
 
-.Lmul1_even_2mod4:                // rbx ≡ 2 (mod 4)
+.Lmul1_even_2mod4:                // rbx = 2 (mod 4)
     lea     rbp, [rbx]
     jmp     .Lmul1_l2
 
-.Lmul1_odd:                       // 窗口基址为奇
+.Lmul1_odd:                       // base odd
     mov     r11, rax
     mov     r10, rdx
     test    bl, 2
     jz      .Lmul1_odd_3mod4
 
-    lea     rbp, [rbx + 3]        // rbx ≡ 1 (mod 4)
+    lea     rbp, [rbx + 3]        // rbx = 1 (mod 4)
     test    rbp, rbp
     js      .Lmul1_l1
-    mov     [rdi - 8], rax        // 窗口长度 1（n == 2）：dst[1] = lo(a0*a1)
+    mov     [rdi - 8], rax        // w=1 (n == 2): dst[1] = lo(a0*a1)
     jmp     .Lrow
 
-.Lmul1_odd_3mod4:                 // rbx ≡ 3 (mod 4)
+.Lmul1_odd_3mod4:                 // rbx = 3 (mod 4)
     lea     rbp, [rbx + 1]
     mov     rax, [rsi + rbx*8 + 8]
     jmp     .Lmul1_l3
 
 .p2align 4
-.Lmul1_tp:                        // mul_1 主循环，4 limbs
+.Lmul1_tp:                        // mul_1 main loop, 4 limbs
     mov     r10, rdx
     add     r11, rax
 .Lmul1_l1:
@@ -191,14 +182,11 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     mov     [rdi - 8], r11        // dst[n-1]
     // carry discarded
 
-// ======================================
-// 行循环：行 j 的窗口 [2j+1-n, -1]（rdi 固定 dst+n，
-// rsi = numa + n - 8j 随行下移，切片/目标列共用偏移）
-// ======================================
+// row loop: window [2j+1-n, -1], rdi = dst+n, rsi = numa+n-8j
 .p2align 4
 .Lrow:
-    add     rbx, 2                // 下一行窗口基址 = 2j+1-n
-    jns     .Ldiag                // 基址 >= 0：行耗尽
+    add     rbx, 2                // next base = 2j+1-n
+    jns     .Ldiag                // base >= 0: rows done
     sub     rsi, 8
     mov     r9, [rsi + rbx*8 - 8] // r9 = a_j
     mov     rax, [rsi + rbx*8]    // rax = a_{j+1}
@@ -214,10 +202,10 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     test    bl, 2
     jnz     .Lrow_even_2mod4
 
-    lea     rbp, [rbx + 2]        // rbx ≡ 0 (mod 4)
+    lea     rbp, [rbx + 2]        // rbx = 0 (mod 4)
     jmp     .Lam_l0
 
-.Lrow_even_2mod4:                 // rbx ≡ 2 (mod 4)
+.Lrow_even_2mod4:                 // rbx = 2 (mod 4)
     lea     rbp, [rbx]
     jmp     .Lam_l2
 
@@ -227,23 +215,23 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     test    bl, 2
     jz      .Lrow_odd_3mod4
 
-.Lrow_odd_1mod4:                  // rbx ≡ 1 (mod 4)
+.Lrow_odd_1mod4:                  // rbx = 1 (mod 4)
     lea     rbp, [rbx + 3]
     test    rbp, rbp
     js      .Lam_l1
-    add     r11, [rdi - 8]        // 窗口长度 1：dst[n-1] += lo
+    add     r11, [rdi - 8]        // w=1: dst[n-1] += lo
     adc     r10, 0
     mov     [rdi - 8], r11
     // hi discarded
     jmp     .Lrow
 
-.Lrow_odd_3mod4:                  // rbx ≡ 3 (mod 4)
+.Lrow_odd_3mod4:                  // rbx = 3 (mod 4)
     lea     rbp, [rbx + 1]
     mov     rax, [rsi + rbx*8 + 8]
     jmp     .Lam_l3
 
 .p2align 4
-.Lam_tp:                          // addmul_1 主循环，4 limbs
+.Lam_tp:                          // addmul_1 main loop, 4 limbs
     mov     r10, rdx
     add     r11, rax
 .Lam_l1:
@@ -286,59 +274,53 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
 .Lam_ed:
     add     r11, rax
     adc     rdx, 0
-    add     r11, [rdi - 8]        // dst[n-1] += 累计值
+    add     r11, [rdi - 8]        // dst[n-1] += s
     adc     rdx, 0
     mov     [rdi - 8], r11
     // carry discarded
     jmp     .Lrow
 
-// ======================================
-// 对角收尾：dst = 2*dst + sum a_i^2*B^2i，截断于 n
-//   r12 = numa, r13 = dst, r14 = n
-//   全局 1 位 CF 进位链贯穿：对内仅 setc/lea/dec/jecxx（不触 CF 的
-//   指令做控制流），指针步进用 lea；pending（对角高半+存位 ≤ B-1）
-//   常驻 r10，偶列乘积 a_i^2 现场产生。
-// ======================================
+// diag: dst = 2*dst + sum a_i^2*B^2i, CF chain live, r10 = pending
 .Ldiag:
     mov     rax, [r12]
     mul     rax                   // rdx:rax = a_0^2
-    mov     [r13], rax            // dst[0] = lo(a_0^2)（T[0] 恒 0，无出链）
+    mov     [r13], rax            // dst[0] = lo(a_0^2)
     mov     r10, rdx              // pending = hi(a_0^2)
     lea     rdi, [r13 + 8]        // &dst[1]
     lea     rsi, [r12 + 8]        // &a[1]
     lea     rcx, [r14 - 1]
-    shr     rcx, 1                // 对数 = (n-1)/2（列 1..n-1）
+    shr     rcx, 1                // pairs = (n-1)/2
     mov     r11, r14
-    and     r11, 1                // 0 = n 偶（有末尾孤奇列）
+    and     r11, 1                // 0 = n even
     xor     ebx, ebx              // c = 0
     clc
     jecxz   .Ldiag_tail
 
 .p2align 4
 .Ldiag_pair:
-    mov     r8, [rdi]             // 奇列（无对角）
-    mov     r9, [rdi + 8]         // 偶列（对角 a_i）
+    mov     r8, [rdi]             // odd col
+    mov     r9, [rdi + 8]         // even col
     mov     rax, [rsi]
     adc     r8, r8
     adc     r9, r9
-    setc    bl                    // 存链位（mul 将毁 CF）
+    setc    bl                    // save CF
     mul     rax                   // rdx:rax = a_i^2
-    add     r8, r10               // 奇列 += pending
-    adc     r9, rax               // 偶列 += lo(a_i^2)，CF 出链
+    add     r8, r10               // odd += pending
+    adc     r9, rax               // even += lo(a_i^2)
     mov     [rdi], r8
     mov     [rdi + 8], r9
-    lea     r10, [rdx + rbx]      // 新 pending = hi(a_i^2) + c ≤ B-1
+    lea     r10, [rdx + rbx]      // pending = hi(a_i^2) + c
     lea     rdi, [rdi + 16]
     lea     rsi, [rsi + 8]
     dec     ecx
     jnz     .Ldiag_pair
 
 .Ldiag_tail:
-    dec     r11                   // dec 不触 CF；原 0（n 偶）回绕非零落入尾部
-    jz      .Ldone                // 原 1（n 奇）：无末尾孤奇列
+    dec     r11                   // dec keeps CF; 0 (n even) wraps to tail
+    jz      .Ldone                // 1 (n odd): no lone tail col
     mov     r8, [rdi]
-    adc     r8, r8                // 2d + 链 CF
-    add     r8, r10               // + pending，出格进位丢弃
+    adc     r8, r8                // 2d + CF
+    add     r8, r10               // + pending, drop out-of-range carry
     mov     [rdi], r8
 
 .Ldone:

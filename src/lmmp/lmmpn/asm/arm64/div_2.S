@@ -18,12 +18,11 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
 // mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
 //
-//   x0=dstq, x1=numa, x2=na, x3=numb
-//   ret x0 = qh (div_2_s_)
-//   cal: d = b << k, m = inv_2_1_(d)
+//   dstq=x0, numa=x1, na=x2, numb=x3
 //      q = hi(m*r_hi) + r_hi + a_lo
 //      z = a - q*d, two fixups, r >>= k
 
@@ -31,11 +30,13 @@
 
 .text
 
-.globl ASM_GSYM(lmmp_div_2_)
-.p2align 2
-
+// ======================================
+// lmmp_div_2_
+// ======================================
 // x19=numb, x20=numa, x21=dstq, x22=bl, x23=bh
 // na==2 -> single step; else LBB4_5
+.globl ASM_GSYM(lmmp_div_2_)
+.p2align 2
 ASM_GSYM(lmmp_div_2_):
     stp     x28, x27, [sp, #-96]!
     stp     x26, x25, [sp, #16]
@@ -1044,11 +1045,13 @@ LBB4_48:
     ldp     x28, x27, [sp], #96
     ret
 
-.globl ASM_GSYM(lmmp_div_2_s_)
-.p2align 2
-
+// ======================================
+// lmmp_div_2_s_
+// ======================================
 // x19=numa, x20=dstq, x21=bh, x22=bl
 // k=0: pre-divide top limbs, 2x unrolled
+.globl ASM_GSYM(lmmp_div_2_s_)
+.p2align 2
 ASM_GSYM(lmmp_div_2_s_):
     stp     x24, x23, [sp, #-64]!
     stp     x22, x21, [sp, #16]

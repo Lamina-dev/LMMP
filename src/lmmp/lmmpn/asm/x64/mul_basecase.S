@@ -23,7 +23,6 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, numb=r9, nb=[rsp+0x48]
 //   SysV:    dst=rdi, numa=rsi, na=rdx, numb=rcx, nb=r8
-//   cal: dst[0..na+nb) = numa*numb, mul_1/mul_2 seed then addmul_2
 
 #include "lmmp_asm.h"
 
@@ -83,12 +82,14 @@
     pop     r15
 .endm
 
-// ====================== .code ======================
 
 .text
+
+// ======================================
+// lmmp_mul_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_mul_basecase_)
 .p2align 4
-
 ASM_GSYM(lmmp_mul_basecase_):
     PUSH_ALL
 
@@ -110,9 +111,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     test    r8b, 1                  // nb parity
     jnz     .Ldo_mul_1
 
-// ======================================
-// nb even: dst = numa * numb[0..2) (mul_2)
-// ======================================
+// nb even: dst = numa * [numb,2] (mul_2)
 .Ldo_mul_2:
     mov     rax, [rsi + rbx*8]      // rax = numa[0]
     mov     r9, [rcx]               // r9 = numb[0]
@@ -194,9 +193,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     lea     rcx, [rcx + 16]         // numb += 2
     lea     rdi, [rdi + 16]         // dst += 2
 
-// ======================================
 // addmul_2 outer loop
-// ======================================
 .Ldo_addmul:
     PUSH_FULL
 
@@ -347,9 +344,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     POP_ALL
     ret
 
-// ======================================
 // nb odd: dst = numa * numb[0] (mul_1)
-// ======================================
 .Ldo_mul_1:
     mov     rdx, [rcx]              // rdx = b0 (mulx implied)
     xor     r10d, r10d              // carry = 0

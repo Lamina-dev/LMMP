@@ -25,19 +25,16 @@
 //
 //   Windows: dst=rcx, numa=rdx, numb=r8, n=r9, c=[rsp+40] (only nc_)
 //   SysV:    dst=rdi, numa=rsi, numb=rdx, n=rcx, c=r8 (only nc_)
-//   ret rax = t0 & 1, shifted out bit
-//   cal: t_i = numa[i] - numb[i] - CF; dst[i-1] = (t_{i-1}>>1)|(t_i<<63)
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 4
-
 // ======================================
 // lmmp_shr1sub_nc_
 // ======================================
 .globl ASM_GSYM(lmmp_shr1sub_nc_)
+.p2align 4
 ASM_GSYM(lmmp_shr1sub_nc_):
 #ifdef LMMP_WINDOWS
     mov     rax, [rsp+40]       // rax = c
@@ -65,6 +62,7 @@ ASM_GSYM(lmmp_shr1sub_nc_):
 // lmmp_shr1sub_n_
 // ======================================
 .globl ASM_GSYM(lmmp_shr1sub_n_)
+.p2align 4
 ASM_GSYM(lmmp_shr1sub_n_):
 #ifdef LMMP_WINDOWS
     push    rsi

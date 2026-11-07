@@ -21,17 +21,18 @@
 //
 // mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
 //
-//   Windows: rp=rcx, up=rdx, n=r8, vl=r9
-//   SysV:    rp=rdi, up=rsi, n=rdx, vl=rcx
-//   ret rax = highest limb carry
-//   cal: rp[i] += up[i]*vl
+//   Windows: numa=rcx, numb=rdx, n=r8, b=r9
+//   SysV:    numa=rdi, numb=rsi, n=rdx, b=rcx
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_addmul_1_
+// ======================================
 .globl ASM_GSYM(lmmp_addmul_1_)
-
+.p2align 4
 ASM_GSYM(lmmp_addmul_1_):
 #ifdef LMMP_WINDOWS
     push    rsi

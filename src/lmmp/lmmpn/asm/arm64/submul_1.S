@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_submul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
 //
-//   x0=rp, x1=up, x2=n, x3=v
-//   ret x0 = highest borrow
-//   cal: rp[i] -= up[i]*v, s_j = lo_j + hi_{j-1} + C
+//   rp=x0, up=x1, n=x2, v=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_submul_1_
+// ======================================
 .globl ASM_GSYM(lmmp_submul_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_submul_1_):
     adds    x15, xzr, xzr                // borrow = 0, C = 0
     tbz     x2, #0, Lsm1_1               // n mod 2 == 0

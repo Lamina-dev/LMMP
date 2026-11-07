@@ -17,7 +17,6 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // void lmmp_divexact_by3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -26,20 +25,6 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8
 //   SysV:    dst=rdi, numa=rsi, na=rdx
-//   cal: Hensel 精确除法, 每 limb:
-//            l = s - c,  q = l * INV_k mod B,  c' = borrow(l) + floor(k*q/B)
-//        三个函数的核心循环结构不同 (进位计算恒等式各异), 勿强行共享。
-//        恒等式 (B = 2^64):
-//            floor(3q/B)  = 2 - [q<T1] - [q<T2],   T1=0x5555_5555_5555_5556
-//                                                T2=0xAAAA_AAAA_AAAA_AAAB (=INV3)
-//            floor(9q/B)  = (q>>61) + [l<q]
-//                证: t+q=9q≡l (mod B), carry(t+q) ⟺ t≥B−q ⟺ t=(l−q)mod B 回绕 ⟺ q>l
-//            floor(15q/B) = (q>>60) - [(q<<4)<q]
-//   regs: rdi=dst, rsi=numa, r8=na, rcx=counter, r11=INV/T2, r10=c/borrow,
-//         rax=q, r9/rdx=scratch
-//   note: c 值域 by3<=3, by9<=9, by15<=15, setc r10b 只写低字节且高位恒 0;
-//         by9/by15 的 c 在 rax, 借位经 setb r10b 物化后单条 adc/sbb 折叠。
-//
 
 #include "lmmp_asm.h"
 
@@ -48,8 +33,8 @@
 // ======================================
 // lmmp_divexact_by3_
 // ======================================
-.p2align 4
 .globl ASM_GSYM(lmmp_divexact_by3_)
+.p2align 4
 ASM_GSYM(lmmp_divexact_by3_):
 #ifdef LMMP_WINDOWS
     push    rsi
@@ -59,11 +44,11 @@ ASM_GSYM(lmmp_divexact_by3_):
 #else
     mov     r8, rdx                     // r8 = na
 #endif
-    movabs  r11, 0xAAAAAAAAAAAAAAAB     // T2 = [q>=T2] 阈值, 恰为 INV3
+    movabs  r11, 0xAAAAAAAAAAAAAAAB     // T2 = INV3
     movabs  r9, 0x5555555555555556      // T1
     xor     r10d, r10d                  // c = 0
     mov     rcx, r8
-    and     rcx, 3                      // 余数 limb 先行
+    and     rcx, 3                      // remainder limbs first
     jz      .Lby3_groups
 
 .p2align 4
@@ -71,7 +56,7 @@ ASM_GSYM(lmmp_divexact_by3_):
     mov     rax, [rsi]
     sub     rax, r10                    // l = s - c, CF = borrow
     cmc                                 // CF = !borrow
-    sbb     r10, r10                    // r10 = borrow - 1 (全宽写, 免部分寄存器合并)
+    sbb     r10, r10                    // r10 = borrow - 1
     add     r10, 3                      // r10 = borrow + 2
     imul    rax, r11                    // q
     mov     [rdi], rax
@@ -154,8 +139,8 @@ ASM_GSYM(lmmp_divexact_by3_):
 // ======================================
 // lmmp_divexact_by9_
 // ======================================
-.p2align 4
 .globl ASM_GSYM(lmmp_divexact_by9_)
+.p2align 4
 ASM_GSYM(lmmp_divexact_by9_):
 #ifdef LMMP_WINDOWS
     push    rsi
@@ -264,8 +249,8 @@ ASM_GSYM(lmmp_divexact_by9_):
 // ======================================
 // lmmp_divexact_by15_
 // ======================================
-.p2align 4
 .globl ASM_GSYM(lmmp_divexact_by15_)
+.p2align 4
 ASM_GSYM(lmmp_divexact_by15_):
 #ifdef LMMP_WINDOWS
     push    rsi
@@ -290,7 +275,7 @@ ASM_GSYM(lmmp_divexact_by15_):
     setc    r10b                        // borrow
     imul    rax, r11                    // q
     mov     [rdi], rax
-    mov     r9, rax                     // q 副本
+    mov     r9, rax                     // q copy
     mov     rdx, rax
     shr     rdx, 60                     // hi = q>>60
     shl     rax, 4                      // t = q<<4

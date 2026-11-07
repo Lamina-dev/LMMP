@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 //
-//   x0=dst, x1=numa, x2=na
-//   ret: none
-//   cal: dst[0..2na) = numa^2 = sum a_i^2 + 2*sum a_i*a_j
+//   dst=x0, numa=x1, na=x2
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_sqr_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_sqr_basecase_)
 .p2align 2
-
 ASM_GSYM(lmmp_sqr_basecase_):
     cmp     x2, #3
     b.ls    Lsqr_le3                 // na <= 3 small path

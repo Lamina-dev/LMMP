@@ -18,22 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 //
-
-//
 // mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 //
 //   Windows: dst=rcx, numa=rdx, numb=r8, n=r9
 //   SysV:    dst=rdi, numa=rsi, numb=rdx, n=rcx
-//   ret rax = numa - (numb << 1) 's borrow
-//   cal: dst[i] = numa[i] - (numb[i]<<1 | numb[i-1]>>63) - borrow
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 4
-
+// ======================================
+// lmmp_subshl1_n_
+// ======================================
 .globl ASM_GSYM(lmmp_subshl1_n_)
+.p2align 4
 ASM_GSYM(lmmp_subshl1_n_):
 
 #ifdef LMMP_WINDOWS

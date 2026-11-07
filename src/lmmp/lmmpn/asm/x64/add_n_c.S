@@ -25,20 +25,18 @@
 //
 //   Windows: dst=rcx, numa=rdx, numb=r8, n=r9, c=[rsp+40] (only nc_)
 //   SysV:    dst=rdi, numa=rsi, numb=rdx, n=rcx, c=r8 (only nc_)
-//   ret rax = highest limb carry
-//   cal: dst[i] = numa[i] + numb[i] + CF, adcs chain
 
 #include "lmmp_asm.h"
 
 #define ADCSBB adc
 
 .text
-.p2align 4
 
 // ======================================
 // lmmp_add_nc_
 // ======================================
 .globl ASM_GSYM(lmmp_add_nc_)
+.p2align 4
 ASM_GSYM(lmmp_add_nc_):
 #ifdef LMMP_WINDOWS
     mov     r10, [rsp+40]          // r10 = c
@@ -51,6 +49,7 @@ ASM_GSYM(lmmp_add_nc_):
 // lmmp_add_n_
 // ======================================
 .globl ASM_GSYM(lmmp_add_n_)
+.p2align 4
 ASM_GSYM(lmmp_add_n_):
     xor     r10, r10               // carry = 0
 
@@ -106,7 +105,7 @@ ASM_GSYM(lmmp_add_n_):
 .Ltail2:
     mov     [rdi], r10
     mov     [rdi+8], r11
-    setc    al                      // return highest limb carry
+    setc    al                      // ret carry
 #ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
@@ -133,7 +132,7 @@ ASM_GSYM(lmmp_add_n_):
 
 .Ltail1:
     mov     [rdi], r11
-    setc    al                      // return highest limb carry
+    setc    al                      // ret carry
 #ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
@@ -186,7 +185,7 @@ ASM_GSYM(lmmp_add_n_):
     mov     rax, rcx               // rax = 0
     mov     [rdi], r10
     mov     [rdi+8], r11
-    setc    al                     // rax = highest limb carry
+    setc    al                     // ret carry
 
 #ifdef LMMP_WINDOWS
     pop     rdi

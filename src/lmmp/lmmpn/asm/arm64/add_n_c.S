@@ -18,27 +18,30 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 // mp_limb_t lmmp_add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 //
-//   x0=dst, x1=numa, x2=numb, x3=n, x4=c (only nc_)
-//   ret x0 = highest limb carry
-//   cal: dst[i] = numa[i] + numb[i] + C, adcs chain
+//   dst=x0, numa=x1, numb=x2, n=x3, c (only nc_)=x4
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_add_nc_
+// ======================================
 .globl ASM_GSYM(lmmp_add_nc_)
 .p2align 2
-
 ASM_GSYM(lmmp_add_nc_):
     cmp     x4, #1                  // C = (c != 0)
     b       Ladd_ent
 
+// ======================================
+// lmmp_add_n_
+// ======================================
 .globl ASM_GSYM(lmmp_add_n_)
 .p2align 2
-
 ASM_GSYM(lmmp_add_n_):
     cmn     xzr, xzr                // 0 + 0: C = 0, carry = 0
 
@@ -54,7 +57,7 @@ Ladd_bx1:                           // n mod 2 == 1
     tbnz    x3, #1, Ladd_b11        // n mod 4 == 3
 
 Ladd_b01:                           // n mod 4 == 1
-    cbz     x17, Ladd_ret           // n == 1, takle and return
+    cbz     x17, Ladd_ret           // n == 1
     ldp     x4, x5, [x1, #8]
     ldp     x8, x9, [x2, #8]
     sub     x1, x1, #8

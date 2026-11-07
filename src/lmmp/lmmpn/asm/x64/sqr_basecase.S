@@ -23,7 +23,6 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8
 //   SysV:    dst=rdi, numa=rsi, na=rdx
-//   cal: dst = sum a_i^2*B^2i + 2*sum_{i<j} a_i*a_j*B^(i+j)
 
 #include "lmmp_asm.h"
 
@@ -41,12 +40,13 @@
     #define POP_RDI
 #endif
 
-// ====================== .code ======================
 .text
 
+// ======================================
+// lmmp_sqr_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_sqr_basecase_)
 .p2align 4
-
 ASM_GSYM(lmmp_sqr_basecase_):
     cmp     rx2, 2
     jae     .Lgt1

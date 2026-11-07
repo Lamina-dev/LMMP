@@ -33,9 +33,8 @@
 //
 // ulong lmmp_mulmod_ulong_(ulong a, ulong b, ulong mod, ulongp q);
 //
-//   Windows: a(mod)=rcx, b=rdx, numb/dst=r8, n/q=r9; ret rax
-//   SysV:    a(mod)=rdi, b=rsi, numb/dst=rdx, n/q=rcx; ret rax
-//   cal: bit/popcount helpers, mul high, mul store, div-based mulmod
+//   Windows: x/a=rcx, b=rdx, dst/mod=r8, q=r9
+//   SysV:    x/a=rdi, b=rsi, dst/mod=rdx, q=rcx
 
 #include "lmmp_asm.h"
 
@@ -44,9 +43,8 @@
 // ======================================
 // lmmp_limb_bits_
 // ======================================
-// ret rax = 64 - lzcnt(x)
-.p2align 4
 .globl ASM_GSYM(lmmp_limb_bits_)
+.p2align 4
 ASM_GSYM(lmmp_limb_bits_):
     lzcnt   rax, rx0
     neg     rax
@@ -56,9 +54,8 @@ ASM_GSYM(lmmp_limb_bits_):
 // ======================================
 // lmmp_leading_zeros_
 // ======================================
-// ret rax = lzcnt(x), 64 if x == 0
-.p2align 4
 .globl ASM_GSYM(lmmp_leading_zeros_)
+.p2align 4
 ASM_GSYM(lmmp_leading_zeros_):
     lzcnt   rax, rx0
     ret
@@ -66,9 +63,8 @@ ASM_GSYM(lmmp_leading_zeros_):
 // ======================================
 // lmmp_tailing_zeros_
 // ======================================
-// ret rax = tzcnt(x), 64 if x == 0
-.p2align 4
 .globl ASM_GSYM(lmmp_tailing_zeros_)
+.p2align 4
 ASM_GSYM(lmmp_tailing_zeros_):
     tzcnt   rax, rx0
     ret
@@ -76,9 +72,8 @@ ASM_GSYM(lmmp_tailing_zeros_):
 // ======================================
 // lmmp_limb_popcnt_
 // ======================================
-// ret rax = popcount(x)
-.p2align 4
 .globl ASM_GSYM(lmmp_limb_popcnt_)
+.p2align 4
 ASM_GSYM(lmmp_limb_popcnt_):
     xor     rax, rax
     popcnt  rax, rx0
@@ -87,12 +82,11 @@ ASM_GSYM(lmmp_limb_popcnt_):
 // ======================================
 // lmmp_mulh_
 // ======================================
-// ret rax = (a*b) >> 64
-.p2align 4
 .globl ASM_GSYM(lmmp_mulh_)
+.p2align 4
 ASM_GSYM(lmmp_mulh_):
 #ifdef LMMP_WINDOWS
-    mulx    rax, r11, rcx         // b 已在 rdx (mulx 隐式乘数)
+    mulx    rax, r11, rcx         // b in rdx
 #else
     mov     rdx, rsi              // b -> rdx
     mulx    rax, r11, rdi
@@ -102,12 +96,11 @@ ASM_GSYM(lmmp_mulh_):
 // ======================================
 // lmmp_mullh_
 // ======================================
-// dst[0] = a*b low, dst[1] = high
-.p2align 4
 .globl ASM_GSYM(lmmp_mullh_)
+.p2align 4
 ASM_GSYM(lmmp_mullh_):
 #ifdef LMMP_WINDOWS
-    mulx    r9, rax, rcx          // b 已在 rdx, dst=r8 不被 mulx 碰
+    mulx    r9, rax, rcx          // b in rdx, dst=r8
     mov     [r8], rax
     mov     [r8+8], r9
 #else
@@ -122,10 +115,8 @@ ASM_GSYM(lmmp_mullh_):
 // ======================================
 // lmmp_mulmod_ulong_
 // ======================================
-// *q = (a*b)/mod, ret rax = remainder
-// caller must ensure quotient fits 64 bits
-.p2align 4
 .globl ASM_GSYM(lmmp_mulmod_ulong_)
+.p2align 4
 ASM_GSYM(lmmp_mulmod_ulong_):
     mov     rax, rx0
     mov     r10, rx2

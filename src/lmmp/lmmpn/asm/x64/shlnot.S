@@ -17,15 +17,12 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, shl=r9
 //   SysV:    dst=rdi, numa=rsi, na=rdx, shl=rcx
-//   ret rax = numa[na-1] >> (64 - shl)
-//   cal: dst[i] = ~((numa[i] << shl) | (numa[i-1] >> (64-shl)))
 
 #include "lmmp_asm.h"
 
@@ -57,9 +54,12 @@
 .endm
 
 .text
-.p2align 4
 
+// ======================================
+// lmmp_shlnot_
+// ======================================
 .globl ASM_GSYM(lmmp_shlnot_)
+.p2align 4
 ASM_GSYM(lmmp_shlnot_):
     xor     rax, rax
     lin64_args

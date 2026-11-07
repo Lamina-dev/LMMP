@@ -18,27 +18,10 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 //
-
-//
 // mp_size_t lmmp_to_hex_(char* dst, mp_srcptr numa, mp_size_t na, bool upper);
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, upper=r9b
 //   SysV:    dst=rdi, numa=rsi, na=rdx, upper=cl
-//
-// 输出为低位在前的十六进制串（与 C 版一致）：limb 0 的字符在最前，
-// 每字节的低 nibble 字符在前。主循环每次 4 limb（ymm=32B）出 64 字符：
-//   lo/hi = v & 0x0F / (v >>u16 4) & 0x0F   （16 位 lane 移位使各字节取高 nibble）
-//   loc/hic = pshufb(16B LUT, nib)          （每 128 lane 一张表，vinserti128 复制）
-//   unpacklo/unpackhi 交织后，128 lane 序为 {i, i+2}/{i+1, i+3}，
-//   perm2i128(0x20/0x31) 交叉重排为 {i, i+1} 与 {i+2, i+3}
-// 不足 4 的 limb 尾走 xmm（每 limb 16 字符），顶 limb 的残尾（0~15 nibble）
-// 走标量。游走指针直接推进 rx1，循环结束处 rx1 恰指向顶 limb。
-//
-// 寄存器约定（两 ABI 通用部分）：r10=LUT 基址，r11/digits 与 tail 计数
-// 经 push/pop 中转；rcx/rdx/r8/r9 仅在其参数职责耗尽后作暂存。向量侧
-// 只用 ymm0-ymm5——SysV 全部易失，Win64 亦全部易失（xmm6+ 被调保存，
-// 重排目标复用已消费完的 ymm2/ymm3，不得新占 ymm6+）。
-//
 
 #include "lmmp_asm.h"
 
@@ -50,22 +33,24 @@
 
 .text
 
-.p2align 4
-
+// ======================================
+// lmmp_to_hex_
+// ======================================
 .globl ASM_GSYM(lmmp_to_hex_)
+.p2align 4
 ASM_GSYM(lmmp_to_hex_):
-    // 大小写 LUT 基址（r10），标量尾复用；顺手装载向量常量
+    // LUT base (r10)
     lea          r10, [rip + .Lhex_lower]
     lea          r11, [rip + .Lhex_upper]
     test         rb2, rb2
     cmovne       r10, r11
     vmovdqa      xmm0, [r10]
-    vinserti128  ymm0, ymm0, xmm0, 1         // ymm0 = 16B LUT 复制到两个 128 lane
+    vinserti128  ymm0, ymm0, xmm0, 1         // ymm0 = 16B LUT x2
     mov          eax, 0x0F
     vmovd        xmm1, eax
     vpbroadcastb ymm1, xmm1                  // ymm1 = 0x0F
 
-    // 去值前导零：rax = na-1（最高非零 limb 下标）
+    // strip leading zeros: rax = na-1
     mov          rax, rx2
 .Lstrip:
     test         rax, rax
@@ -73,9 +58,9 @@ ASM_GSYM(lmmp_to_hex_):
     dec          rax
     cmp          qword ptr [rx1 + rax * 8], 0
     je           .Lstrip
-    lea          rx2, [rax + 1]              // rx2 = na（规范化）
+    lea          rx2, [rax + 1]              // rx2 = na
 
-    // digits = ((na-1)*64 + bitlen(top) + 3) >> 2   -> 压栈保存
+    // digits = ((na-1)*64 + bitlen(top) + 3) >> 2
     mov          r11, [rx1 + rax * 8]        // top limb
     lzcnt        r11, r11
     neg          r11
@@ -86,7 +71,7 @@ ASM_GSYM(lmmp_to_hex_):
     shr          rax, 2
     push         rax                         // [digits]
 
-    // nfull = na-1：q = nfull>>2（r11 计数），tail = nfull&3（压栈）
+    // nfull = na-1, r11 = nfull>>2, tail = nfull&3
     mov          rax, rx2
     dec          rax
     mov          r11, rax
@@ -96,7 +81,7 @@ ASM_GSYM(lmmp_to_hex_):
     jz           .Ltail_limbs
 
 .p2align 4
-.Lmain:                                        // 4 limb -> 64 chars
+.Lmain:                                      // 4 limb -> 64 chars
     vmovdqu      ymm2, [rx1]                 // {i, i+1, i+2, i+3}
     vpand        ymm3, ymm2, ymm1            // lo nibbles
     vpsrlw       ymm2, ymm2, 4
@@ -114,8 +99,8 @@ ASM_GSYM(lmmp_to_hex_):
     dec          r11
     jnz          .Lmain
 
-.Ltail_limbs:                                  // 1~3 个整 limb（xmm，每次 1 limb）
-    pop          rax                         // tail 计数
+.Ltail_limbs:                                // 1..3 limbs (xmm, 1 limb each)
+    pop          rax                         // tail
     test         rax, rax
     jz           .Ltop
 .Ltail_loop:
@@ -132,28 +117,27 @@ ASM_GSYM(lmmp_to_hex_):
     dec          rax
     jnz          .Ltail_loop
 
-.Ltop:                                         // 顶 limb 残尾（低 nibble 字符在前）
+.Ltop:                                       // top limb tail
     pop          r11                         // digits
-    mov          rax, [rx1]                  // top limb（rx1 已推进至 &numa[nfull]）
-    // 此后 rdx/r8/r9 的参数职责均已耗尽，可作暂存
+    mov          rax, [rx1]                  // top limb
 .Ltop_pair:
     mov          rdx, rax
     shr          rdx, 4
-    jz           .Ltop_one                   // 本字节仅剩低 nibble
+    jz           .Ltop_one                   // low nibble only
     mov          r8, rax
     and          r8, 0x0F
-    movzx        edx, byte ptr [r10 + r8]    // 低 nibble 字符
+    movzx        edx, byte ptr [r10 + r8]    // lo nibble char
     mov          r8, rax
     shr          r8, 4
     and          r8, 0x0F
-    movzx        r8d, byte ptr [r10 + r8]    // 高 nibble 字符
+    movzx        r8d, byte ptr [r10 + r8]    // hi nibble char
     shl          r8, 8
     or           rdx, r8
-    mov          [rx0], dx                   // 低在前
+    mov          [rx0], dx                   // lo first
     add          rx0, 2
     shr          rax, 8
     jmp          .Ltop_pair
-.Ltop_one:                                     // 此处 rax ∈ [0,15]
+.Ltop_one:                                   // rax in [0,15]
     test         rax, rax
     jz           .Lret
     movzx        edx, byte ptr [r10 + rax]

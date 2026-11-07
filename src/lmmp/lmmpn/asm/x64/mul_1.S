@@ -23,15 +23,16 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, x=r9
 //   SysV:    dst=rdi, numa=rsi, na=rdx, x=rcx
-//   ret rax = highest limb carry
-//   cal: dst[i] = numa[i]*x, s_i = lo_i + hi_(i-1) + CF
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_mul_1_
+// ======================================
 .globl ASM_GSYM(lmmp_mul_1_)
-
+.p2align 4
 ASM_GSYM(lmmp_mul_1_):
 #ifdef LMMP_WINDOWS
     push    rsi

@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_div_3_2_(mp_ptr numa, mp_srcptr numb, mp_limb_t inv21);
 //
-//   x0=numa, x1=numb, x2=inv21
-//   ret x0 = quotient q
-//   cal: q = a2*inv21 + a1; z = a - q*b; fixups
+//   numa=x0, numb=x1, inv21=x2
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_div_3_2_
+// ======================================
 .globl ASM_GSYM(lmmp_div_3_2_)
 .p2align 2
-
 ASM_GSYM(lmmp_div_3_2_):
     ldp     x8, x9, [x0]           // x8 = a0, x9 = a1
     ldr     x10, [x0, #16]         // x10 = a2

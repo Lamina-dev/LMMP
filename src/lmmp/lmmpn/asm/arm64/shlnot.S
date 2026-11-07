@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_shlnot_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 //
-//   x0=dst, x1=numa, x2=na, x3=shl
-//   ret x0 = numa[na-1] >> (64 - shl)
-//   cal: dst[i] = ~((numa[i] << shl) | (numa[i-1] >> (64-shl)))
+//   dst=x0, numa=x1, na=x2, shl=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_shlnot_
+// ======================================
 .globl ASM_GSYM(lmmp_shlnot_)
 .p2align 2
-
 ASM_GSYM(lmmp_shlnot_):
     cbz     x3, Lsln_copy0          // shl == 0, not copy
     neg     x5, x3                  // x5 = 64 - shl

@@ -23,16 +23,16 @@
 //
 //   Windows: numa=rcx, numb=rdx, inv21=r8
 //   SysV:    numa=rdi, numb=rsi, inv21=rdx
-//   ret rax = quotient q; [numa,2] = [numa,3] mod [numb,2]
-//   cal: q = (a2*inv21 + a1) >> 64, z = a - q*b, correct
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 4
-
+// ======================================
+// lmmp_div_3_2_
+// ======================================
 .globl ASM_GSYM(lmmp_div_3_2_)
+.p2align 4
 ASM_GSYM(lmmp_div_3_2_):
     push    rbx
     push    rsi

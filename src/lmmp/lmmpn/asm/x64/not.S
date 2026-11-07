@@ -17,22 +17,22 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 //
 //   Windows: dst=rcx, numa=rdx, na=r8
 //   SysV:    dst=rdi, numa=rsi, na=rdx
-//   cal: dst[i] = ~numa[i], 8 limbs per 2x vpxor
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 4
-
+// ======================================
+// lmmp_not_
+// ======================================
 .globl ASM_GSYM(lmmp_not_)
+.p2align 4
 ASM_GSYM(lmmp_not_):
     vpcmpeqd ymm0, ymm0, ymm0       // ymm0 = ~0
     mov     r10, rx2                // r10 = na

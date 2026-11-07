@@ -23,14 +23,15 @@
 //
 //   Windows: numa=rcx, na=rdx, x=r8
 //   SysV:    numa=rdi, na=rsi, x=rdx
-//   ret rax = remainder [numa,na] mod x
-//   cal: normalize d = x<<k, m = inv(d), per limb q = (xh*m + a_lo + xh+1)>>64, z = a - q*d, correct
 
 #include "lmmp_asm.h"
 
 .text
-.globl ASM_GSYM(lmmp_mod_1_)
 
+// ======================================
+// lmmp_mod_1_
+// ======================================
+.globl ASM_GSYM(lmmp_mod_1_)
 .p2align 4
 ASM_GSYM(lmmp_mod_1_):
     push    rbp

@@ -18,22 +18,22 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);
-//   ret x0 = [numa,na] mod x; [dstq,na] = [numa,na] div x if dstq != NULL
 // mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
 //   qh:[dstq,na-1] = [numa,na] div x, [numa,1] = remainder
 //
-//   x0=dstq, x1=numa, x2=na, x3=x
-//   ret x0 = remainder (div_1_), qh (div_1_s_)
-//   cal: q = (xh+1) + hi(xh*m); z = a_lo - d*q; fixups
+//   dstq=x0, numa=x1, na=x2, x=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_div_1_
+// ======================================
 .globl ASM_GSYM(lmmp_div_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_div_1_):
 // x1=extra(0), x2=numa, x3=na, x4=x
     cbz     x0, Ldiv1_to_mod        // dstq==NULL -> mod_1_
@@ -215,13 +215,14 @@ Ldiv1_to_mod:                       // remap: mod_1_(numa, na, x)
 // mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
 //   qh:[dstq,na-1] = [numa,na] div x, [numa,1] = remainder
 //
-//   x0=dstq, x1=numa, x2=na, x3=x
-//   ret x0 = qh
-//   cal: q = (xh+1) + hi(xh*m); z = a_lo - d*q; fixups
+//   dstq=x0, numa=x1, na=x2, x=x3
 // ----------------------------------------------------------------------
+
+// ======================================
+// lmmp_div_1_s_
+// ======================================
 .globl ASM_GSYM(lmmp_div_1_s_)
 .p2align 2
-
 ASM_GSYM(lmmp_div_1_s_):
     stp     x29, x30, [sp, #-80]!
     stp     x19, x20, [sp, #16]

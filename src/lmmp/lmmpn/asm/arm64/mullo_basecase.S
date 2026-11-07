@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_mullo_basecase_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 //
-//   x0=dst, x1=numa, x2=numb, x3=n
-//   ret: none
-//   cal: dst[0..n) = lo(numa * numb), addmul_1 columns
+//   dst=x0, numa=x1, numb=x2, n=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_mullo_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_mullo_basecase_)
 .p2align 2
-
 ASM_GSYM(lmmp_mullo_basecase_):
     stp     x26, x25, [sp, #-80]!       // save regs
     stp     x24, x23, [sp, #16]

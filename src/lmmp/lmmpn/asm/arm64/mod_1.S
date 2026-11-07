@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_mod_1_(mp_srcptr numa, mp_size_t na, mp_limb_t x);
 //
-//   x0=numa, x1=na, x2=x
-//   ret x0 = [numa,na] mod x
-//   cal: as div_1_, no quotient stored
+//   numa=x0, na=x1, x=x2
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_mod_1_
+// ======================================
 .globl ASM_GSYM(lmmp_mod_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_mod_1_):
 // x20=&numa[na-1], x21=na-1, x22=d, x23=k, x0=m
     stp     x29, x30, [sp, #-80]!

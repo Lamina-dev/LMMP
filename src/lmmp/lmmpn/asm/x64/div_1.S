@@ -22,6 +22,9 @@
 // mp_limb_t lmmp_div_1_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_limb_t x);
 //
 // mp_limb_t lmmp_div_1_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_limb_t x);
+//
+//   Windows: dstq=rcx, numa=rdx, na=r8, x=r9
+//   SysV:    dstq=rdi, numa=rsi, na=rdx, x=rcx
 
 #include "lmmp_asm.h"
 
@@ -30,10 +33,6 @@
 // ======================================
 // lmmp_div_1_
 // ======================================
-// Windows: dstq=rcx, numa=rdx, na=r8, x=r9
-// SysV:    dstq=rdi, numa=rsi, na=rdx, x=rcx
-// ret rax = remainder [numa,na] mod x; if dstq != NULL, [dstq,na] = quotient
-// cal: normalize d = x<<k, m = inv(d), per limb q = (xh*m + a_lo + xh+1)>>64, z = a - q*d, correct
 .globl ASM_GSYM(lmmp_div_1_)
 .p2align 4
 ASM_GSYM(lmmp_div_1_):
@@ -159,10 +158,6 @@ ASM_GSYM(lmmp_div_1_):
 // ======================================
 // lmmp_div_1_s_
 // ======================================
-// Windows: dstq=rcx, numa=rdx, na=r8, x=r9
-// SysV:    dstq=rdi, numa=rsi, na=rdx, x=rcx
-// ret rax = top quotient qh; [dstq,na-1] = quotient, [numa,1] = remainder
-// cal: d normalized (MSB=1), m = inv(d), same q estimate and correction as div_1_
 .globl ASM_GSYM(lmmp_div_1_s_)
 .p2align 4
 ASM_GSYM(lmmp_div_1_s_):

@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_not_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 //
-//   x0=dst, x1=numa, x2=na
-//   ret: none
-//   cal: dst[i] = ~numa[i], NEON 8 limbs per iter
+//   dst=x0, numa=x1, na=x2
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_not_
+// ======================================
 .globl ASM_GSYM(lmmp_not_)
 .p2align 2
-
 ASM_GSYM(lmmp_not_):
     lsr     x17, x2, #3             // 8-limbs size
     cbz     x17, Lnot_tail

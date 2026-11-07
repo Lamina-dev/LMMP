@@ -18,20 +18,21 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_inv_1_(mp_limb_t x);
 // mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
 //
 //   x=x0, xh=x0, xl=x1
-//   ret x0 = (B^2-1)/x - B, requires MSB(x)=1
-//   cal: table + 3 Newton steps, v = v3 - ((v3*x + x) >> 64)
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_inv_1_
+// ======================================
 .globl ASM_GSYM(lmmp_inv_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_inv_1_):
     lsr     x2, x0, #54             // bits 55..62 of x
     adr     x1, Linv1_table
@@ -104,12 +105,13 @@ Linv1_table:
 // mp_limb_t lmmp_inv_2_1_(mp_limb_t xh, mp_limb_t xl);
 //
 //   xh=x0, xl=x1
-//   ret x0 = (B^3-1)/(xh*B+xl) - B
-//   cal: v = inv_1_(xh), fix by xl
 // ----------------------------------------------------------------------
+
+// ======================================
+// lmmp_inv_2_1_
+// ======================================
 .globl ASM_GSYM(lmmp_inv_2_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_inv_2_1_):
     stp     x29, x30, [sp, #-32]!
     stp     x19, x20, [sp, #16]

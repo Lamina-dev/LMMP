@@ -23,7 +23,6 @@
 //
 //   Windows: dst=rcx, numa=rdx, numb=r8, n=r9
 //   SysV:    dst=rdi, numa=rsi, numb=rdx, n=rcx
-//   cal: dst[0..n) = lo n limbs of numa*numb
 
 #include "lmmp_asm.h"
 
@@ -71,12 +70,14 @@
     pop r12
 .endm
 
-// ====================== .text ======================
 
 .text
+
+// ======================================
+// lmmp_mullo_basecase_
+// ======================================
 .globl ASM_GSYM(lmmp_mullo_basecase_)
 .p2align 4
-
 ASM_GSYM(lmmp_mullo_basecase_):
     PUSH_ALL
 

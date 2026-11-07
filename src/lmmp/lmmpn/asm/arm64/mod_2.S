@@ -18,20 +18,21 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_mod_2_(mp_srcptr numa, mp_size_t na, mp_ptr numb);
 //
-//   x0=numa, x1=na, x2=numb
-//   ret [numb,2] = [numa,na] mod [numb,2]
-//   cal: as div_2_, no quotient
+//   numa=x0, na=x1, numb=x2
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_mod_2_
+// ======================================
+// x19=numb, x20=numa, x21=bl, x22=bh, x24/x25=k
 .globl ASM_GSYM(lmmp_mod_2_)
 .p2align 2
-
-// x19=numb, x20=numa, x21=bl, x22=bh, x24/x25=k
 ASM_GSYM(lmmp_mod_2_):
     stp     x28, x27, [sp, #-96]!
     stp     x26, x25, [sp, #16]

@@ -18,6 +18,7 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // int lmmp_limb_bits_(mp_limb_t x);
 // int lmmp_limb_popcnt_(mp_limb_t x);
 // int lmmp_leading_zeros_(mp_limb_t x);
@@ -26,16 +27,17 @@
 // void lmmp_mullh_(mp_limb_t a, mp_limb_t b, mp_ptr dst);
 // ulong lmmp_mulmod_ulong_(ulong a, ulong b, ulong mod, ulongp q);
 //
-//   x0=a, x1=b, x2=mod/dst, x3=q
+//   a=x0, b=x1, mod/dst=x2, q=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_limb_bits_
+// ======================================
 .globl ASM_GSYM(lmmp_limb_bits_)
 .p2align 2
-
-// ret bit length of x, 0 if x == 0
 ASM_GSYM(lmmp_limb_bits_):
     clz     x8, x0                  // clz(x), 64 if 0
     mov     w9, #64
@@ -44,10 +46,11 @@ ASM_GSYM(lmmp_limb_bits_):
     csel    w0, wzr, w8, eq         // x == 0 -> 0
     ret
 
+// ======================================
+// lmmp_limb_popcnt_
+// ======================================
 .globl ASM_GSYM(lmmp_limb_popcnt_)
 .p2align 2
-
-// ret popcount(x), via NEON
 ASM_GSYM(lmmp_limb_popcnt_):
     fmov    d0, x0                  // x to vector
     cnt     v0.8b, v0.8b            // per-byte popcount
@@ -55,48 +58,51 @@ ASM_GSYM(lmmp_limb_popcnt_):
     fmov    w0, s0
     ret
 
+// ======================================
+// lmmp_leading_zeros_
+// ======================================
 .globl ASM_GSYM(lmmp_leading_zeros_)
 .p2align 2
-
-// ret clz(x), 64 if x == 0
 ASM_GSYM(lmmp_leading_zeros_):
     clz     x0, x0
     ret
 
+// ======================================
+// lmmp_tailing_zeros_
+// ======================================
 .globl ASM_GSYM(lmmp_tailing_zeros_)
 .p2align 2
-
-// ret ctz(x), 64 if x == 0
 ASM_GSYM(lmmp_tailing_zeros_):
     rbit    x8, x0                  // clz of reversed = ctz
     clz     x0, x8
     ret
 
+// ======================================
+// lmmp_mulh_
+// ======================================
 .globl ASM_GSYM(lmmp_mulh_)
 .p2align 2
-
-// ret hi 64 of a*b
 ASM_GSYM(lmmp_mulh_):
     umulh   x0, x1, x0
     ret
 
+// ======================================
+// lmmp_mullh_
+// ======================================
+// dst[0] = lo(a*b), dst[1] = hi(a*b)
 .globl ASM_GSYM(lmmp_mullh_)
 .p2align 2
-
-// dst[0] = lo(a*b), dst[1] = hi(a*b)
 ASM_GSYM(lmmp_mullh_):
     mul     x8, x1, x0              // lo 64
     umulh   x9, x1, x0              // hi 64
     stp     x8, x9, [x2]
     ret
 
+// ======================================
+// lmmp_mulmod_ulong_
+// ======================================
 .globl ASM_GSYM(lmmp_mulmod_ulong_)
 .p2align 2
-
-// r = (a*b) mod mod, *q = quotient
-// cal: s = clz(mod), M = (a*b) << s
-//      q0 = (M*v) >> 128, msub fixups
-//      r = r' >> s
 ASM_GSYM(lmmp_mulmod_ulong_):
     stp     x24, x23, [sp, #-64]!   // save regs
     stp     x22, x21, [sp, #16]

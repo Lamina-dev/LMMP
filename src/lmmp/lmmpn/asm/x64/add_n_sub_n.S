@@ -17,7 +17,6 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // mp_limb_t lmmp_add_n_sub_n_(mp_ptr dsta, mp_ptr dstb, mp_srcptr numa, mp_srcptr numb,
@@ -25,31 +24,16 @@
 //
 //   Windows: dsta=rcx, dstb=rdx, numa=r8, numb=r9, n=[rsp+40]
 //   SysV:    dsta=rdi, dstb=rsi, numa=rdx, numb=rcx, n=r8
-//   ret rax = 2*carry + borrow
-//
-//   cal: [dsta,n] = numa + numb, [dstb,n] = numa - numb
-//
-//   双进位链 (adcx/adox 互不侵犯对方标志):
-//     和链(CF): adcx s, b            s = a + b + carry
-//     差链(OF): 补码加法 d = a + ~b + k, k = 1 - borrow
-//               k_0 = 1 (无初始借位), 链上传递 k_{i+1} = 该加法进位,
-//               故最终借位 = !OF
-//     初始化: mov r10, 0x4000000000000000; add r10, r10
-//             (2^62 + 2^62 = 2^63: 有符号溢出置 OF=1, 无符号不进位置 CF=0)
-//
-//   eqsep(dsta|dstb, numa|numb) 重叠安全: 每肢两加载先于两存储。
-//   链建立后所有指令不得破坏 CF/OF: 指针调整只用 lea, 循环计数只用
-//   lea+jrcxz+jmp (dec/sub/add/cmp/test 均会改写 CF 或 OF); 长跳转
-//   (test/jz)仅在链建立之前使用。
-//
 
 #include "lmmp_asm.h"
 
 .text
-.p2align 4
 
+// ======================================
+// lmmp_add_n_sub_n_
+// ======================================
 .globl ASM_GSYM(lmmp_add_n_sub_n_)
-
+.p2align 4
 ASM_GSYM(lmmp_add_n_sub_n_):
 #ifdef LMMP_WINDOWS
     mov     rax, [rsp+40]         // rax = n
@@ -67,22 +51,22 @@ ASM_GSYM(lmmp_add_n_sub_n_):
     mov     r8,  rcx              // r8  = numb
     mov     rcx, rax              // rcx = n
 #endif
-    shr     rcx, 2                // rcx = n/4 (主循环迭代数)
-    and     eax, 3                // rax = n mod 4 (尾部 limb 数)
-    mov     rbx, rax              // rbx = 尾部计数
-    test    rcx, rcx              // (链未建立, 标志可动)
-    jz      .Lsmall               // n < 4, 只有尾部
+    shr     rcx, 2                // rcx = n/4
+    and     eax, 3                // rax = n mod 4
+    mov     rbx, rax              // rbx = n mod 4
+    test    rcx, rcx
+    jz      .Lsmall               // n < 4
 
     mov     r10, 0x4000000000000000
-    add     r10, r10              // OF = 1 (k_0), CF = 0
+    add     r10, r10              // OF = 1, CF = 0
 
 .p2align 4
-.Lloop:                           // 主循环: 每迭代 4 肢
+.Lloop:                           // main loop, 4 limbs
     mov     r9,  [rdx]            // r9  = a0
     mov     r10, [r8]             // r10 = b0
-    mov     r11, r9               // r11 = a0 (差链副本)
+    mov     r11, r9               // r11 = a0
     adcx    r9,  r10              // s0 = a0 + b0 + CF
-    not     r10                   // r10 = ~b0 (not 不动标志)
+    not     r10                   // r10 = ~b0
     adox    r11, r10              // d0 = a0 + ~b0 + OF
     mov     [rdi], r9
     mov     [rsi], r11
@@ -122,12 +106,12 @@ ASM_GSYM(lmmp_add_n_sub_n_):
     jrcxz   .Ltail
     jmp     .Lloop
 
-.Lsmall:                          // n < 4: 尾部路径独立初始化标志
+.Lsmall:                          // n < 4
     mov     r10, 0x4000000000000000
     add     r10, r10              // OF = 1, CF = 0
 
-.Ltail:                           // 尾部: rbx = n mod 4 肢
-    mov     rcx, rbx              // mov 不动标志
+.Ltail:                           // tail: n mod 4 limbs
+    mov     rcx, rbx
 .Ltail_chk:
     jrcxz   .Lend
     mov     r9,  [rdx]

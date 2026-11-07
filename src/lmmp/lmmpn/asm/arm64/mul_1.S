@@ -18,19 +18,20 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_mul_1_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_limb_t x);
 //
-//   x0=dst, x1=numa, x2=na, x3=x
-//   ret x0 = highest carry
-//   cal: dst[0..na) = numa * x, s_j = lo_j + hi_{j-1} + C
+//   dst=x0, numa=x1, na=x2, x=x3
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_mul_1_
+// ======================================
 .globl ASM_GSYM(lmmp_mul_1_)
 .p2align 2
-
 ASM_GSYM(lmmp_mul_1_):
     adds    x4, xzr, xzr                // carry = 0, C = 0
 

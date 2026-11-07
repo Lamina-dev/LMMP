@@ -18,27 +18,30 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_shr1add_nc_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t c);
 // mp_limb_t lmmp_shr1add_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 //
-//   x0=dst, x1=numa, x2=numb, x3=n, x4=c (only nc_)
-//   ret x0 = t0 & 1
-//   cal: t_i = numa[i] + numb[i] + C; dst[i-1] = (t_{i-1}>>1)|(t_i<<63)
+//   dst=x0, numa=x1, numb=x2, n=x3, c (only nc_)=x4
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_shr1add_nc_
+// ======================================
 .globl ASM_GSYM(lmmp_shr1add_nc_)
 .p2align 2
-
 ASM_GSYM(lmmp_shr1add_nc_):
     cmp     x4, #1                  // C = (c != 0)
     b       Lrsha_ent
 
+// ======================================
+// lmmp_shr1add_n_
+// ======================================
 .globl ASM_GSYM(lmmp_shr1add_n_)
 .p2align 2
-
 ASM_GSYM(lmmp_shr1add_n_):
     cmn     xzr, xzr                // 0 + 0: C = 0
 

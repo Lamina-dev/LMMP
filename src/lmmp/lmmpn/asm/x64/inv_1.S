@@ -25,15 +25,11 @@
 //
 //   Windows: x=rcx (xh=rcx, xl=rdx)
 //   SysV:    x=rdi (xh=rdi, xl=rsi)
-//   ret rax = inv: inv_1_ returns (B^2-1)/x - B, inv_2_1_ returns (B^3-1)/x - B (B = 2^64)
-//   cal: v = v3 - ((v3*x + x) >> 64), Newton from 9-bit table approx
 
 #include "lmmp_asm.h"
 
 .text
 
-.globl ASM_GSYM(lmmp_inv_1_)
-.globl ASM_GSYM(lmmp_inv_2_1_)
 
 .p2align 4
 ASM_GSYM(lmmp_inv_1_table_):
@@ -58,6 +54,7 @@ ASM_GSYM(lmmp_inv_1_table_):
 // ======================================
 // lmmp_inv_1_
 // ======================================
+.globl ASM_GSYM(lmmp_inv_1_)
 .p2align 4
 ASM_GSYM(lmmp_inv_1_):
 #ifdef LMMP_WINDOWS
@@ -114,6 +111,7 @@ ASM_GSYM(lmmp_inv_1_):
 // ======================================
 // lmmp_inv_2_1_
 // ======================================
+.globl ASM_GSYM(lmmp_inv_2_1_)
 .p2align 4
 ASM_GSYM(lmmp_inv_2_1_):
 #ifdef LMMP_WINDOWS

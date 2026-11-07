@@ -18,12 +18,11 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // void lmmp_dec_to_chars_(mp_byte_t* dst, mp_size_t n);
 // void lmmp_b36_to_chars_(mp_byte_t* dst, mp_size_t n, bool upper);
 //
-//   x0=dst, x1=n, w2=upper
-//   ret: none
-//   cal: dst[i] = '0' + dst[i] (+ adj*(dst[i]>9)),
+//   dst=x0, n=x1, upper=w2
 //           adj = 39(lower)/7(upper),
 //
 
@@ -31,11 +30,12 @@
 
 .text
 
-// ---------- lmmp_dec_to_chars_: [0,9] -> ['0','9'] ----------
 
+// ======================================
+// lmmp_dec_to_chars_
+// ======================================
 .globl ASM_GSYM(lmmp_dec_to_chars_)
 .p2align 2
-
 ASM_GSYM(lmmp_dec_to_chars_):
     movi    v0.16b, #48               // v0 = '0'
     lsr     x2, x1, #6                // x2 = n >> 6
@@ -66,11 +66,12 @@ Ldec_tail_loop:                       // remainder bytes
 Ldec_done:
     ret
 
-// ---------- lmmp_b36_to_chars_: [0,35] -> ['0'-'9',a-z/A-Z] ----------
 
+// ======================================
+// lmmp_b36_to_chars_
+// ======================================
 .globl ASM_GSYM(lmmp_b36_to_chars_)
 .p2align 2
-
 ASM_GSYM(lmmp_b36_to_chars_):
     mov     w3, #39                   // adj: lower 39
     mov     w4, #7                    // adj: upper 7

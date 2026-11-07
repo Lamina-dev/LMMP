@@ -22,6 +22,9 @@
 // void lmmp_div_2_(mp_ptr dstq, mp_srcptr numa, mp_size_t na, mp_ptr numb);
 //
 // mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
+//
+//   Windows: dstq=rcx, numa=rdx, na=r8, numb=r9
+//   SysV:    dstq=rdi, numa=rsi, na=rdx, numb=rcx
 
 #include "lmmp_asm.h"
 
@@ -30,10 +33,6 @@
 // ======================================
 // lmmp_div_2_
 // ======================================
-// Windows: dstq=rcx, numa=rdx, na=r8, numb=r9
-// SysV:    dstq=rdi, numa=rsi, na=rdx, numb=rcx
-// ret: [numb,2] = remainder; if dstq != NULL, [dstq,na-1] = quotient
-// cal: normalize b, m = (2^192-1) div b - 2^64, per limb q = (m*ah_hi + ah_lo + ah_hi)>>64, z = a - q*b, correct
 .globl ASM_GSYM(lmmp_div_2_)
 .p2align 4
 ASM_GSYM(lmmp_div_2_):
@@ -228,10 +227,6 @@ ASM_GSYM(lmmp_div_2_):
 // ======================================
 // lmmp_div_2_s_
 // ======================================
-// Windows: dstq=rcx, numa=rdx, na=r8, numb=r9
-// SysV:    dstq=rdi, numa=rsi, na=rdx, numb=rcx
-// ret rax = top quotient qh; qh:[dstq,na-2] = quotient, [numa,2] = remainder
-// cal: b normalized (MSB(bh)=1), m = (2^192-1) div b - 2^64, same q estimate and correction as div_2_
 .globl ASM_GSYM(lmmp_div_2_s_)
 .p2align 4
 ASM_GSYM(lmmp_div_2_s_):

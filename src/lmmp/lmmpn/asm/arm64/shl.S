@@ -18,42 +18,43 @@
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
 
+//
 // mp_limb_t lmmp_shl_c_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl, mp_limb_t c);
 // mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
 //
-//   x0=dst, x1=numa, x2=na, x3=shl, x4=c (only c_)
-//   ret x0 = numa[na-1] >> (64 - shl)
-//   cal: dst[i] = (numa[i] << shl) | (numa[i-1] >> (64-shl))
+//   dst=x0, numa=x1, na=x2, shl=x3, c=x4 (only c_)
 
 #include "lmmp_asm.h"
 
 .text
 
+// ======================================
+// lmmp_shl_c_
+// ======================================
 .globl ASM_GSYM(lmmp_shl_c_)
 .p2align 2
-
 ASM_GSYM(lmmp_shl_c_):
 
 Lshl_ent:
     cbz     x3, Lshl_copy           // shl == 0, copy
-    sub     x7, x3, #64              // k - 64（负 = 右移 s）
+    sub     x7, x3, #64              // k - 64
     neg     x5, x7                   // x5 = s = 64 - shl
-    dup     v0.2d, x3                // 左移量 k
-    dup     v1.2d, x7                // 右移量 -(64-k)
+    dup     v0.2d, x3                // k
+    dup     v1.2d, x7                // -(64-k)
     dup     v2.2d, x4                // lo_prev = [c, c]
-    lsr     x8, x2, #2               // 4-limb 块数
-    and     x9, x2, #3               // 余 limb 数
+    lsr     x8, x2, #2               // 4-limb groups
+    and     x9, x2, #3               // tail limbs
     cbz     x8, Lshl_pair
 .p2align 4
 
-Lshl_v4:                             // 主循环：4 limb/迭代
+Lshl_v4:                             // main loop, 4 limbs
     ldr     q3, [x1], #16            // A = [a_i, a_{i+1}]
     ldr     q4, [x1], #16            // B = [a_{i+2}, a_{i+3}]
     ushl    v5.2d, v3.2d, v0.2d      // hiA = A << k
     ushl    v6.2d, v3.2d, v1.2d      // loA = A >> s
     ext     v3.16b, v2.16b, v6.16b, #8 // [lo_prev[1], loA[0]]
     ushl    v7.2d, v4.2d, v0.2d      // hiB
-    ushl    v4.2d, v4.2d, v1.2d      // loB（B 原值已耗尽，原地）
+    ushl    v4.2d, v4.2d, v1.2d      // loB
     orr     v5.16b, v5.16b, v3.16b   // outA
     ext     v3.16b, v6.16b, v4.16b, #8 // [loA[1], loB[0]]
     str     q5, [x0], #16
@@ -63,7 +64,7 @@ Lshl_v4:                             // 主循环：4 limb/迭代
     subs    x8, x8, #1
     b.ne    Lshl_v4
 
-Lshl_pair:                           // 余一对（2 limb）
+Lshl_pair:                           // tail pair (2 limbs)
     tbz     x9, #1, Lshl_single
     ldr     q3, [x1], #16
     ushl    v5.2d, v3.2d, v0.2d      // hi
@@ -73,11 +74,11 @@ Lshl_pair:                           // 余一对（2 limb）
     str     q5, [x0], #16
     orr     v2.16b, v6.16b, v6.16b   // lo_prev = lo
 
-Lshl_single:                         // 余一 limb
+Lshl_single:                         // tail single limb
     tbz     x9, #0, Lshl_ret
     ldr     x6, [x1]                 // a[n-1]
-    umov    x7, v2.d[1]              // a[n-2] >> s（n==1 时为 c）
-    lsr     x10, x6, x5              // ret = a[n-1] >> s（暂存 x10）
+    umov    x7, v2.d[1]              // a[n-2] >> s (c if n==1)
+    lsr     x10, x6, x5              // ret = a[n-1] >> s
     lsl     x6, x6, x3
     orr     x6, x6, x7
     str     x6, [x0]
@@ -88,9 +89,11 @@ Lshl_ret:
     umov    x0, v2.d[1]              // ret = a[n-1] >> s = lo_prev[1]
     ret
 
+// ======================================
+// lmmp_shl_
+// ======================================
 .globl ASM_GSYM(lmmp_shl_)
 .p2align 2
-
 ASM_GSYM(lmmp_shl_):
     mov     x4, xzr                  // c = 0
     b       Lshl_ent

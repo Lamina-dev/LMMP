@@ -17,7 +17,6 @@
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
-//
 
 //
 // mp_limb_t lmmp_shl_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t shl);
@@ -26,17 +25,16 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, shl=r9, c=[rsp+40] (only c_)
 //   SysV:    dst=rdi, numa=rsi, na=rdx, shl=rcx, c=r8 (only c_)
-//   ret rax = numa[na-1] >> (64 - shl)
-//   cal: dst[i] = (numa[i] << shl) | (numa[i-1] >> (64-shl))
 
 #include "lmmp_asm.h"
 
 .text
 
-.p2align 4
-
+// ======================================
 // lmmp_shl_c_
+// ======================================
 .globl ASM_GSYM(lmmp_shl_c_)
+.p2align 4
 ASM_GSYM(lmmp_shl_c_):
 #ifdef LMMP_WINDOWS
     mov     rax, [rsp+40]           // rax = c
@@ -49,9 +47,11 @@ ASM_GSYM(lmmp_shl_c_):
 #endif
     jmp     .Lentry
 
+// ======================================
 // lmmp_shl_
-.p2align 4
+// ======================================
 .globl ASM_GSYM(lmmp_shl_)
+.p2align 4
 ASM_GSYM(lmmp_shl_):
     xor     rax, rax                // c = 0
 #ifdef LMMP_WINDOWS
@@ -67,16 +67,16 @@ ASM_GSYM(lmmp_shl_):
     push    r12
     push    r13
     push    r14
-    jz      .Lcopy                  // shl == 0: 降序 copy（dst > numa 安全）
+    jz      .Lcopy                  // shl == 0: copy
 
     mov     r10d, 64
     sub     r10d, ecx               // r10 = s = 64 - shl
-    vmovq   xmm4, rcx               // 向量左移计数 k
-    vmovq   xmm5, r10               // 向量右移计数 s
+    vmovq   xmm4, rcx               // k = shl
+    vmovq   xmm5, r10               // s = 64 - shl
 
     mov     r11, [rdx + r8*8 - 8]   // a[n-1]
     xor     r12d, r12d
-    shld    r12, r11, cl            // r12 = ret = a[n-1] >> s（暂存他寄存器）
+    shld    r12, r11, cl            // r12 = a[n-1] >> s
 
     lea     rdx, [rdx + r8*8 - 8]   // rdx -> a[n-1]
     lea     r9, [r9 + r8*8 - 8]     // r9  -> dst[n-1]
@@ -84,28 +84,28 @@ ASM_GSYM(lmmp_shl_):
     cmp     r8, 512
     jae     .Lpeel
     lea     r10, [r8 - 1]           // n-1
-    xor     r14d, r14d              // P = 0：小 n 免剥底（省 ~14 条入口指令，
-    jmp     .Lcommon                //   FFT 高频温热小调用无拆分存储罚可免）
+    xor     r14d, r14d              // P = 0
+    jmp     .Lcommon
 
-.Lpeel:                             // n >= 512：按 dst 相位剥 P 个 limb 使组存储 32B 对齐
-    mov     r10, r9                 // r9 -> dst[n-1]：剥去 n-1 limb 偏移还原基址相位
+.Lpeel:                             // n >= 512: peel P limbs for 32B stores
+    mov     r10, r9                 // dst base phase
     shr     r10, 3
     neg     r10
     lea     r11, [r10 + r8 + 2]     // P = (3 - ((r9>>3) - (n-1))) & 3
-    and     r11d, 3                 //   <= 3 < n-1，免 clamp
-    mov     r14, r11                // P 暂存（底链计数）
+    and     r11d, 3
+    mov     r14, r11                // P
     lea     r10, [r8 - 1]
-    sub     r10, r11                // M = n-1-P = 向量+顶尾 limb 数
+    sub     r10, r11                // M = n-1-P
 
 .Lcommon:
     mov     r13, r10
-    and     r13d, 3                 // T = 顶部余 limb 数
-    shr     r10, 2                  // F = 向量组数
+    and     r13d, 3                 // T = top limbs
+    shr     r10, 2                  // F = groups
     mov     r8, r10
     test    r13, r13
     jz      .Loff
 
-.Ltail:                             // 顶部 T 个 limb，降序标量 shld 链
+.Ltail:                             // top T limbs
     mov     r10, [rdx]
     mov     r11, [rdx - 8]
     shld    r10, r11, cl
@@ -115,7 +115,7 @@ ASM_GSYM(lmmp_shl_):
     dec     r13
     jnz     .Ltail
 
-.Loff:                              // 循环不变量对齐：rdx = &a[P+4F+1]
+.Loff:                              // rdx = &a[P+4F+1]
     add     rdx, 8
     add     r9, 8
 
@@ -133,17 +133,17 @@ ASM_GSYM(lmmp_shl_):
     dec     r8
 
 .Lpairs:
-    shr     r8, 1                   // 组对数
+    shr     r8, 1                   // pairs
     jz      .Lbottom
 
 .p2align 4
-.Lloop:                             // 主循环：每组对 8 limb，降序
-    vmovdqu ymm0, [rdx - 32]        // 高组 A
-    vmovdqu ymm1, [rdx - 40]        // 高组 A'
+.Lloop:                             // main loop, 8 limbs/pair
+    vmovdqu ymm0, [rdx - 32]        // A hi
+    vmovdqu ymm1, [rdx - 40]        // A' hi
     vpsllq  ymm2, ymm0, xmm4
     vpsrlq  ymm3, ymm1, xmm5
-    vmovdqu ymm0, [rdx - 64]        // 低组 A（载入提前发射）
-    vmovdqu ymm1, [rdx - 72]        // 低组 A'
+    vmovdqu ymm0, [rdx - 64]        // A lo
+    vmovdqu ymm1, [rdx - 72]        // A' lo
     vpor    ymm2, ymm2, ymm3
     vmovdqu [r9 - 32], ymm2
     vpsllq  ymm2, ymm0, xmm4
@@ -159,7 +159,7 @@ ASM_GSYM(lmmp_shl_):
     test    r14, r14
     jz      .Lend
 
-.Lbottom_chain:                     // 剥出的 P 个 limb，降序标量 shld 链
+.Lbottom_chain:                     // peeled P limbs
     mov     r10, [rdx - 8]          // a[i]
     mov     r11, [rdx - 16]         // a[i-1]
     shld    r10, r11, cl
@@ -181,15 +181,15 @@ ASM_GSYM(lmmp_shl_):
     pop     r12
     ret
 
-.Lcopy:                             // shl == 0: 降序 copy, ret 0
+.Lcopy:                             // shl == 0: copy
     xor     eax, eax
     cmp     r9, rdx
     je      .Lcopy_out
     lea     rdx, [rdx + r8*8]
     lea     r9, [r9 + r8*8]
     mov     r13, r8
-    and     r13d, 3                 // 尾 limb 数
-    shr     r8, 2                   // 4-limb 组数
+    and     r13d, 3                 // tail limbs
+    shr     r8, 2                   // groups
     jz      .Lcopy_tail
 
 .p2align 4
