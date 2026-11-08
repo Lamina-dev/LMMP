@@ -31,7 +31,8 @@
         - 构造性 SPRP-2：Mersenne 合数、Fermat 数、Carmichael 对抗语料；
         - p1*p2 / p1*p2*p3 乘积（素因子均为已证素数或确定性 u64 素数）。
       确定性拒绝侧（硬断言 ==0）
-        - 偶数；小因子乘积（因子 <= 全档最小试除上界 100）；
+        - 偶数；小因子乘积（因子 <= 全档最小试除上界 100；另以 71/313 limb
+          乘积覆盖 4/8 链试除腿，313 limb*9973 于 s=7 全块扫后末块命中）；
         - 素数平方：D 搜索对平方数恒 (D|n) = +1 不命中 -1，必行至
           Dabs==17 的延迟 perfsqr（或素因子整除 D 的 gcd 出口）；
         - gcd(|D|,n) > 1：5|n 的乘积在首个 D=5 处 (5|n)=0 命中 j==0。
@@ -123,6 +124,26 @@ TEST_CASE("numth/prime", is_prime_n_deterministic_reject) {
         mp_size_t fn = limbs_norm(t1, pn + 1);
         for (int s = 0; s <= 7; ++s)
             TEST_CHECK_MSG(lmmp_is_prime_n_(t1, fn, s) == 0, "small factor rejected");
+    }
+
+    /* 小因子 @ 4 链档（71 limb）：M4423*3 首块即拦 */
+    {
+        mp_size_t pn4 = mersenne_limbs(p, 4423);
+        mp_limb_t fb[1] = {3ull};
+        lmmp_mul_(t1, p, pn4, fb, 1);
+        mp_size_t fn = limbs_norm(t1, pn4 + 1);
+        for (int s = 0; s <= 7; ++s)
+            TEST_CHECK_MSG(lmmp_is_prime_n_(t1, fn, s) == 0, "small factor k4 leg rejected");
+    }
+
+    /* 小因子 9973 @ 8 链档（313 limb）：仅 s=7（上界 10000）确定性拦截，
+       全块无幸存后于末块命中——8 链试除腿全块循环的断言域覆盖 */
+    {
+        mp_size_t pn8 = mersenne_limbs(p, 19937);
+        mp_limb_t fb[1] = {9973ull};
+        lmmp_mul_(t2, p, pn8, fb, 1);
+        mp_size_t fn = limbs_norm(t2, pn8 + 1);
+        TEST_CHECK_MSG(lmmp_is_prime_n_(t2, fn, 7) == 0, "small factor k8 leg full sweep rejected");
     }
 
     /* 素数平方：s >= 4 的 Lucas 半部（D 搜索必行至延迟 perfsqr/gcd 出口）

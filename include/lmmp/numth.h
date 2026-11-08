@@ -1160,17 +1160,6 @@ LMMP_API mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m);
 LMMP_API mp_size_t lmmp_arith_seqprod_(mp_ptr dst, mp_size_t rn, uint x, uint n, uint m);
 
 /**
- * @brief 试除法，若存在不超过 N 的质因数，则返回true，否则返回false
- * @param np 被除数指针
- * @param nn 被除数的 limb 长度
- * @param N 试除法尝试的质数最大值
- * @warning num!=NULL, nn>0, N>2
- * @note 试除法尝试从 2-N 中所有质数进行试除，如果存在可以整除的素数则立即返回true
- * @return 若存在不超过N，且能整除[np,nn]的素数则返回true，若没有能够整除的素数，则返回false
- */
-LMMP_API bool lmmp_trialdiv_(mp_srcptr np, mp_size_t nn, ushort N);
-
-/**
  * @brief 除去[np,nn]中的[dp,dn]的因子
  * @param np 被除数指针，将会被修改为除去因子后的数
  * @param nn 被除数指针的 limb 长度，将会被修改除去因子后的长度

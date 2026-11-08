@@ -46,6 +46,23 @@ constexpr int POOL = 512;
 
 int pool_cnt(mp_size_t n) { return n <= 64 ? 32 : 8; }
 
+/* COPRIME 池预筛（lmmp_trialdiv_ 已降内部接口，以公共 API 等价实现）：
+   与 <=1000 素数之积取 gcd，gcd!=1 ⟺ 存在 <=1000 素因子（池元素恒奇，素数 2 无关） */
+bool small_factor_q(mp_srcptr x, mp_size_t n) {
+    static mp_ptr pr = nullptr;
+    static mp_size_t prn = 0;
+    if (pr == nullptr) {
+        mp_size_t need = lmmp_primefac_size_(1000);
+        pr = alloc_limbs(need);
+        prn = lmmp_primefac_(pr, need, 1000);
+    }
+    mp_ptr g = alloc_limbs(prn);
+    mp_size_t gn = (n >= prn) ? lmmp_gcd_(g, x, n, pr, prn) : lmmp_gcd_(g, pr, prn, x, n);
+    bool has = !(gn == 1 && g[0] == 1);
+    lmmp_free(g);
+    return has;
+}
+
 /* 顶位起始的随机奇数池（<=64bit），元素个数 POOL；kind 过滤同 pool_n：
    PRIME 素数（next_prime 构造，全基底执行）/ COPRIME 试除幸存者 */
 mp_ptr pool_bits(uint bits, mp_limb_t seed, PrimePool kind) {
@@ -62,7 +79,7 @@ mp_ptr pool_bits(uint bits, mp_limb_t seed, PrimePool kind) {
                （bits>=10 域内幸存者密度 ~1/7，重采样几乎不触发；bits<=9
                域内无 >1000 素因子的幸存者，由入口拒绝） */
             uint tries = 0;
-            while (lmmp_trialdiv_(a + i, 1, 1000)) {
+            while (small_factor_q(a + i, 1)) {
                 if (bits < 64 && ((a[i] + 2) >> bits) != 0) {
                     lmmp_seed_random_(a + i, 1, seed + i + 0x9e37ull * ++tries, 1);
                     a[i] &= ((mp_limb_t)-1) >> (64 - bits);
@@ -92,7 +109,7 @@ mp_ptr pool_2(uint bits, mp_limb_t seed, PrimePool kind) {
         a[2 * i] |= 1;
         if (kind == PrimePool::COPRIME) {
             /* 步进只改低 limb、回绕不进位到高 limb，值恒在指定位宽内 */
-            while (lmmp_trialdiv_(a + 2 * i, 2, 1000)) a[2 * i] += 2;
+            while (small_factor_q(a + 2 * i, 2)) a[2 * i] += 2;
         } else if (kind == PrimePool::PRIME) {
             while (lmmp_is_prime_2_(a[2 * i], a[2 * i + 1]) == 0) a[2 * i] += 2;
         }
@@ -109,7 +126,7 @@ mp_ptr pool_n(mp_size_t n, int cnt, mp_limb_t seed, PrimePool kind) {
         cur[n - 1] |= (mp_limb_t)1 << 63;
         cur[0] |= 1;
         if (kind == PrimePool::COPRIME) {
-            while (lmmp_trialdiv_(cur, n, 1000)) cur[0] += 2;
+            while (small_factor_q(cur, n)) cur[0] += 2;
         } else if (kind == PrimePool::PRIME) {
             while (lmmp_is_prime_n_(cur, n, 4) == 0) cur[0] += 2;
         }
@@ -149,7 +166,7 @@ ProthPool pool_proth(uint t, int cnt, bool want_prime) {
         for (;;) {
             mp_size_t nn = proth_limbs(p.a + p.stride * i, k, t);
             bool ok = want_prime ? lmmp_is_prothprime_(k, (mp_size_t)t)
-                                 : !lmmp_trialdiv_(p.a + p.stride * i, nn, 1000);
+                                 : !small_factor_q(p.a + p.stride * i, nn);
             if (ok) break;
             k += 2;
         }

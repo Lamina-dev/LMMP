@@ -514,6 +514,21 @@
 #define SQR_MERSENNE_FFT_THRESHOLD LMMP_DEFAULT_SQR_MERSENNE_FFT_THRESHOLD
 #endif
 
+// 试除法分派阈值：nn 低于此值回退 mod_preinv_1_ 腿（块积预处理全局表复用）
+#define LMMP_DEFAULT_TRIALDIV_PREINV_THRESHOLD 24
+#ifdef LMMP_TUNE
+#define TRIALDIV_PREINV_THRESHOLD lmmp_tune_TRIALDIV_PREINV_THRESHOLD
+#else
+#define TRIALDIV_PREINV_THRESHOLD LMMP_DEFAULT_TRIALDIV_PREINV_THRESHOLD
+#endif
+// 试除法分派阈值：nn 达到此值起 8 链折叠取模，中间段 4 链
+#define LMMP_DEFAULT_TRIALDIV_K8_THRESHOLD 192
+#ifdef LMMP_TUNE
+#define TRIALDIV_K8_THRESHOLD lmmp_tune_TRIALDIV_K8_THRESHOLD
+#else
+#define TRIALDIV_K8_THRESHOLD LMMP_DEFAULT_TRIALDIV_K8_THRESHOLD
+#endif
+
 #ifdef LMMP_TUNE
 #include <stdint.h>
 /* 可调阈值运行时绑定（由 tune/lmmp/src/lmmp_tune_params.c 定义）。 */
@@ -580,6 +595,8 @@ extern uint64_t lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_MERSENNE_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_MERSENNE_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
+extern uint64_t lmmp_tune_TRIALDIV_PREINV_THRESHOLD;
+extern uint64_t lmmp_tune_TRIALDIV_K8_THRESHOLD;
 #endif
 
 // 某些计算中，一次性处理的64位数组的长度（此大小为64位数组的长度）
