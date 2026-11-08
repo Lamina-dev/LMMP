@@ -23,6 +23,7 @@
 #ifndef LMMP_TUNE_H
 #define LMMP_TUNE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /*

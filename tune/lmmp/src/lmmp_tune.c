@@ -96,6 +96,8 @@ static const tune_module_t g_modules[] = {
     {"divexact_mersenne_fold", "DIVEXACT_MERSENNE_THRESHOLD", "DIVEXACT_MERSENNE_THRESHOLD", tune_run_divexact_mersenne_fold},
     {"gcd_hgcd", "gcd,GCD_HGCD_THRESHOLD", "GCD_HGCD_THRESHOLD", tune_run_gcd_hgcd},
     {"hgcd_modmul_cache", "HGCD_MODMUL_CACHE_THRESHOLD", "HGCD_MODMUL_CACHE_THRESHOLD", tune_run_hgcd_modmul_cache},
+    {"trialdiv_preinv", "TRIALDIV_PREINV_THRESHOLD", "TRIALDIV_PREINV_THRESHOLD", tune_run_trialdiv_preinv},
+    {"trialdiv_k8", "TRIALDIV_K8_THRESHOLD", "TRIALDIV_K8_THRESHOLD", tune_run_trialdiv_k8},
     {"fft_table", "fft,FFT_TABLE", "lmmp_fft_table_", tune_run_fft_table},
 };
 
