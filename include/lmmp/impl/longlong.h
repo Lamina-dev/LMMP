@@ -611,6 +611,24 @@ static inline void _umullo128x64_(uint64_t a_high, uint64_t a_low, uint64_t b, u
         (q) = _qh_;                                                          \
     } while (0)
 
+// ret nh*B mod m
+// m>=2^63, inv=lmmp_inv_1_(m), nh<m
+static inline uint64_t _bpow_step_(uint64_t nh, uint64_t m, uint64_t inv) {
+    __uint128_t s = (__uint128_t)nh * inv + ((__uint128_t)(nh + 1) << 64);
+    uint64_t r = 0 - (uint64_t)(s >> 64) * m;
+    uint64_t mask = -(uint64_t)(r > (uint64_t)s);
+    r += mask & m;
+    if (r >= m) r -= m;
+    return r;
+}
+
+// r = B^nb mod t, while nb=[1|2], k=clz(t), m=t<<k >= 2^63, inv=lmmp_inv_1_(m)
+static inline uint64_t _bpow_preinv_(uint64_t m, uint64_t k, int nb, uint64_t inv) {
+    uint64_t r = _bpow_step_((uint64_t)1 << k, m, inv);
+    if (nb >= 2) r = _bpow_step_(r, m, inv);
+    return r >> k;
+}
+
 // n = n2 * B^2 + n1 * B + n0, d = d1 * B + d0, dinv = lmmp_inv_2_1_(d)
 // q = n / d, r = n % d
 #define _udiv_qr_3by2(q, r1, r0, n2, n1, n0, d1, d0, dinv)                  \

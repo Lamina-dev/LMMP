@@ -515,7 +515,7 @@
 #endif
 
 // 试除法分派阈值：nn 低于此值回退 mod_preinv_1_ 腿（块积预处理全局表复用）
-#define LMMP_DEFAULT_TRIALDIV_PREINV_THRESHOLD 24
+#define LMMP_DEFAULT_TRIALDIV_PREINV_THRESHOLD 12
 #ifdef LMMP_TUNE
 #define TRIALDIV_PREINV_THRESHOLD lmmp_tune_TRIALDIV_PREINV_THRESHOLD
 #else

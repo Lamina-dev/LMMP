@@ -48,10 +48,7 @@ static inline ulong mont64_reduce(u128 t, ulong m, ulong m_inv) {
 static inline ulong mont_R2(ulong m) {
     mp_bitcnt_t shift = 0;
     clz_shl_u64(m, m, shift);
-    mp_limb_t r[3] = {0, 0, 1ull << shift};
-    mp_limb_t q[2];
-    lmmp_div_1_s_(q, r, 3, m);
-    return r[0] >> shift;
+    return _bpow_preinv_(m, shift, 2, lmmp_inv_1_(m));
 }
 
 static inline ulong mont64_R2(ulong m) {
