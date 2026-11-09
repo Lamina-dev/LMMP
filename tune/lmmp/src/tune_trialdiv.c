@@ -53,7 +53,7 @@ typedef struct {
     mp_limb_t dinv, r2, base, mi;
 } trialdiv_ctx;
 
-/* B^nb mod t，同 trialdiv_bpow_：移位对消 + div_1_s_ */
+/** @brief 求 B^nb mod t（移位对消 + div_1_s_，同 trialdiv.c 的 trialdiv_bpow_） */
 static mp_limb_t trialdiv_bpow_(mp_limb_t t, uint nb) {
     mp_limb_t m = t;
     mp_bitcnt_t k = 0;
@@ -67,6 +67,7 @@ static mp_limb_t trialdiv_bpow_(mp_limb_t t, uint nb) {
     return r[0] >> k;
 }
 
+/** @brief 构造指定档位的计时上下文：归一化随机被除数 + 块积 d 的全套预处理 */
 static void* trialdiv_make_ctx_leg(uint64_t size, int leg) {
     trialdiv_ctx* c = (trialdiv_ctx*)lmmp_alloc(sizeof(trialdiv_ctx));
     if (c == NULL) return NULL;
@@ -88,6 +89,7 @@ static void* trialdiv_make_ctx_leg(uint64_t size, int leg) {
     return c;
 }
 
+/** @brief 释放计时上下文 */
 static void trialdiv_free_ctx(void* v) {
     trialdiv_ctx* c = (trialdiv_ctx*)v;
     if (c != NULL) {
@@ -96,33 +98,44 @@ static void trialdiv_free_ctx(void* v) {
     }
 }
 
+/**
+ * @brief 计时体：按 ctx 选定的一条取模核跑一次
+ * @note 三个核都是无副作用的纯函数，返回值一丢弃，LTO 之下整个调用可被
+ *       合法消除——空 asm 屏障逼编译器把返回值交出来，防整段计时被优化空
+ */
 static double trialdiv_bench(void* v) {
     trialdiv_ctx* c = (trialdiv_ctx*)v;
+    mp_limb_t r;
     switch (c->leg) {
     case LEG_PREINV:
-        (void)lmmp_mod_preinv_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->inv, c->k);
+        r = lmmp_mod_preinv_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->inv, c->k);
         break;
     case LEG_K4:
-        (void)lmmp_mod_4chunk_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->dinv, c->r2, c->base, c->mi);
+        r = lmmp_mod_4chunk_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->dinv, c->r2, c->base, c->mi);
         break;
     default:
-        (void)lmmp_mod_8chunk_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->dinv, c->r2, c->base, c->mi);
+        r = lmmp_mod_8chunk_1_(c->np, c->nn, TUNE_TRIALDIV_D, c->dinv, c->r2, c->base, c->mi);
         break;
     }
+    __asm__ __volatile__("" : : "r"(r));
     return 0.0;
 }
 
 /* ---------------- TRIALDIV_PREINV_THRESHOLD：preinv 核 vs K4 核 ---------------- */
 
+/** @brief 读 TRIALDIV_PREINV_THRESHOLD 阈值变量 */
 static uint64_t trialdiv_preinv_get(void) {
     return (uint64_t)lmmp_tune_TRIALDIV_PREINV_THRESHOLD;
 }
+/** @brief 写 TRIALDIV_PREINV_THRESHOLD 阈值变量 */
 static void trialdiv_preinv_set(uint64_t v) { lmmp_tune_TRIALDIV_PREINV_THRESHOLD = v; }
 
+/** @brief PREINV 任务的上下文工厂：low 走 preinv 核，high 走 K4 核 */
 static void* trialdiv_make_ctx_preinv(uint64_t size, int use_high) {
     return trialdiv_make_ctx_leg(size, use_high ? LEG_K4 : LEG_PREINV);
 }
 
+/** @brief 一维寻优 TRIALDIV_PREINV_THRESHOLD（preinv 核 vs K4 核） */
 int tune_run_trialdiv_preinv(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));
@@ -144,13 +157,17 @@ int tune_run_trialdiv_preinv(void) {
 
 /* ---------------- TRIALDIV_K8_THRESHOLD：K4 核 vs K8 核 ---------------- */
 
+/** @brief 读 TRIALDIV_K8_THRESHOLD 阈值变量 */
 static uint64_t trialdiv_k8_get(void) { return (uint64_t)lmmp_tune_TRIALDIV_K8_THRESHOLD; }
+/** @brief 写 TRIALDIV_K8_THRESHOLD 阈值变量 */
 static void trialdiv_k8_set(uint64_t v) { lmmp_tune_TRIALDIV_K8_THRESHOLD = v; }
 
+/** @brief K8 任务的上下文工厂：low 走 K4 核，high 走 K8 核 */
 static void* trialdiv_make_ctx_k8(uint64_t size, int use_high) {
     return trialdiv_make_ctx_leg(size, use_high ? LEG_K8 : LEG_K4);
 }
 
+/** @brief 一维寻优 TRIALDIV_K8_THRESHOLD（K4 核 vs K8 核） */
 int tune_run_trialdiv_k8(void) {
     tune_1d_spec_t spec;
     memset(&spec, 0, sizeof(spec));

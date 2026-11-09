@@ -30,6 +30,10 @@ LMMP_VECT_CONSERVATIVE
 
 #define MONT63_MAX ((ulong)(0x7fffffffffffffff))
 
+/**
+ * @brief 蒙域约化 REDC
+ * @warning m<2^63
+ */
 static inline ulong mont63_reduce(u128 t, ulong m, ulong m_inv) {
     // m < 2^63 时 k*m + t < 2^127，无 129 位溢出
     ulong k = _u128low(t) * m_inv;
@@ -38,6 +42,9 @@ static inline ulong mont63_reduce(u128 t, ulong m, ulong m_inv) {
     return hi >= m ? hi - m : hi;
 }
 
+/**
+ * @brief 蒙域乘：a*b*R^-1 mod m（R=B）
+ */
 static inline ulong mont63_mul(ulong a, ulong b, ulong m, ulong m_inv) {
     return mont63_reduce((u128)a * b, m, m_inv);
 }

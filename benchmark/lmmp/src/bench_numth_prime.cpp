@@ -46,8 +46,11 @@ constexpr int POOL = 512;
 
 int pool_cnt(mp_size_t n) { return n <= 64 ? 32 : 8; }
 
-/* COPRIME 池预筛（lmmp_trialdiv_ 已降内部接口，以公共 API 等价实现）：
-   与 <=1000 素数之积取 gcd，gcd!=1 ⟺ 存在 <=1000 素因子（池元素恒奇，素数 2 无关） */
+/**
+ * @brief COPRIME 池预筛（lmmp_trialdiv_ 已降内部接口，以公共 API 等价实现）
+ * @note 与 <=1000 素数之积取 gcd，gcd!=1 等价于存在 <=1000 素因子（池元素
+ *       恒奇，素数 2 无关）
+ */
 bool small_factor_q(mp_srcptr x, mp_size_t n) {
     static mp_ptr pr = nullptr;
     static mp_size_t prn = 0;
