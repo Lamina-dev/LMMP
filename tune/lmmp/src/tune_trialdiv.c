@@ -35,6 +35,7 @@
 #include "lmmp_tune_internal.h"
 #include "lmmp_tune.h"
 
+#include "lmmp/impl/longlong.h"
 #include "lmmp/impl/mparam.h"
 #include "lmmp/impl/trialdiv.h"
 
@@ -53,20 +54,6 @@ typedef struct {
     mp_limb_t dinv, r2, base, mi;
 } trialdiv_ctx;
 
-/** @brief 求 B^nb mod t（移位对消 + div_1_s_，同 trialdiv.c 的 trialdiv_bpow_） */
-static mp_limb_t trialdiv_bpow_(mp_limb_t t, uint nb) {
-    mp_limb_t m = t;
-    mp_bitcnt_t k = 0;
-    while ((m & LIMB_B_2) == 0) {
-        m <<= 1;
-        ++k;
-    }
-    mp_limb_t r[3] = {0, 0, 0}, q[2];
-    r[nb] = (mp_limb_t)1 << k;
-    lmmp_div_1_s_(q, r, (mp_size_t)(nb + 1), m);
-    return r[0] >> k;
-}
-
 /** @brief 构造指定档位的计时上下文：归一化随机被除数 + 块积 d 的全套预处理 */
 static void* trialdiv_make_ctx_leg(uint64_t size, int leg) {
     trialdiv_ctx* c = (trialdiv_ctx*)lmmp_alloc(sizeof(trialdiv_ctx));
@@ -81,11 +68,12 @@ static void* trialdiv_make_ctx_leg(uint64_t size, int leg) {
     tune_fill_limbs(c->np, c->nn, UINT64_C(0x6a09e667f3bcc909) ^ (uint64_t)size);
     c->np[c->nn - 1] |= LIMB_B_2;
     c->k = (mp_limb_t)lmmp_leading_zeros_(TUNE_TRIALDIV_D);
-    c->inv = lmmp_inv_1_(TUNE_TRIALDIV_D << c->k);
+    mp_limb_t m = TUNE_TRIALDIV_D << c->k;
+    c->inv = lmmp_inv_1_(m);
     c->dinv = lmmp_binvert_ulong_(TUNE_TRIALDIV_D);
     c->mi = -c->dinv;
-    c->r2 = trialdiv_bpow_(TUNE_TRIALDIV_D, 2);
-    c->base = trialdiv_bpow_(TUNE_TRIALDIV_D, 1);
+    c->r2 = _bpow_preinv_(m, c->k, 2, c->inv);
+    c->base = _bpow_preinv_(m, c->k, 1, c->inv);
     return c;
 }
 
@@ -144,8 +132,8 @@ int tune_run_trialdiv_preinv(void) {
     spec.high_name = "mod_4chunk";
     spec.lo = 2;
     spec.hi = 192;
-    spec.sample_lo = 2;
-    spec.sample_hi = 256;
+    spec.sample_lo = 4;
+    spec.sample_hi = 64;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = trialdiv_preinv_get;
     spec.set = trialdiv_preinv_set;
@@ -177,7 +165,7 @@ int tune_run_trialdiv_k8(void) {
     spec.lo = 16;
     spec.hi = 512;
     spec.sample_lo = 16;
-    spec.sample_hi = 640;
+    spec.sample_hi = 320;
     spec.pred = TUNE_HIGH_WHEN_GE;
     spec.get = trialdiv_k8_get;
     spec.set = trialdiv_k8_set;

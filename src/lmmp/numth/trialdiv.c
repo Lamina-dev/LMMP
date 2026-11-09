@@ -125,36 +125,32 @@ static void trialdiv_init_inv_(ushort n) {
 }
 
 /**
- * @brief 求 B^nb mod t，即 nb=1 时的 B mod t 和 nb=2 时的 B^2 mod t
- * @param t 除数，是奇素数积且 >= 3
- * @param nb 幂的档位，取 1 或 2
- * @return B^nb mod t
- */
-static ulong trialdiv_bpow_(ulong t, uint nb) {
-    ulong m = t;
-    mp_bitcnt_t k = 0;
-    clz_shl_u64(m, m, k);
-    mp_limb_t r[3] = {0, 0, 0}, q[2];
-    r[nb] = (mp_limb_t)1 << k;
-    lmmp_div_1_s_(q, r, (mp_size_t)(nb + 1), m);
-    return r[0] >> k;
-}
-
-/**
  * @brief 给 [bn_chunk,n) 的块补算折叠腿要用的 dinv、mi、r2、base
  * @param n 要补到的块数，不超过 bn
- * @note dinv 是 t 模 2^64 的逆元，mi 就是它的相反数；r2 与 base 两个蒙域
- *       常数由 trialdiv_bpow_ 现除得到。已经算过的块不会再算
+ * @note dinv 是 t 模 2^64 的逆元，mi 就是它的相反数；r2 与 base 共享一次
+ *       inv_1_ 未填的块顺手存进 preinv 组字段并推其水位（已填的块直接复用），
+ *       后续 preinv 腿免再算。已经算过的块不会再算
  */
 static void trialdiv_init_chunk_(ushort n) {
     for (ushort i = G.bn_chunk; i < n; ++i) {
         trialdiv_blk* b = &G.blks[i];
         b->dinv = lmmp_binvert_ulong_(b->t);
         b->mi = -b->dinv;
-        b->r2 = trialdiv_bpow_(b->t, 2);
-        b->base = trialdiv_bpow_(b->t, 1);
+        ulong m = b->t;
+        mp_bitcnt_t k = 0;
+        clz_shl_u64(m, m, k);
+        ulong inv;
+        if (i < G.bn_inv)
+            inv = b->inv;
+        else {
+            b->k = (uchar)k;
+            b->inv = inv = lmmp_inv_1_(m);
+        }
+        b->r2 = _bpow_preinv_(m, k, 2, inv);
+        b->base = _bpow_preinv_(m, k, 1, inv);
     }
     G.bn_chunk = n;
+    if (G.bn_inv < n) G.bn_inv = n;
 }
 
 typedef mp_limb_t (*trialdiv_leg_fn)(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b);

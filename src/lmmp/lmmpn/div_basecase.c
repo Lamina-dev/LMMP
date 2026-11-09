@@ -20,6 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+#include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/lmmpn.h"
 
@@ -49,27 +50,40 @@ mp_limb_t lmmp_div_basecase_(
     numa -= 2;
 
     mp_limb_t d1 = numb[nb + 1], d0 = numb[nb + 0];
+    mp_limb_t rh = numa[1], rl = numa[0];
 
     while (nq) {
         mp_limb_t q;
         --numa;
-        if (numa[2] == d1 && numa[1] == d0) {
+        if (rh == d1 && rl == d0) {
             q = LIMB_MAX;
+            numa[1] = rl;
             lmmp_submul_1_(numa - nb, numb, nb + 2, q);
+            rh = numa[1];
+            rl = numa[0];
         } else {
-            mp_limb_t cy, cy1;
-            q = lmmp_div_3_2_(numa, numb + nb, inv21);
+            mp_limb_t cy, cy1, r0, r1, n0 = numa[0];
+            _udiv_qr_3by2(q, r1, r0, rh, rl, n0, d1, d0, inv21);
             cy = lmmp_submul_1_(numa - nb, numb, nb, q);
-            cy1 = numa[0] < cy;
-            numa[0] -= cy;
-            cy = numa[1] < cy1;
-            numa[1] -= cy1;
+            cy1 = r0 < cy;
+            r0 -= cy;
+            cy = r1 < cy1;
+            r1 -= cy1;
             if (cy) {
+                numa[0] = r0;
+                numa[1] = r1;
                 lmmp_add_n_(numa - nb, numa - nb, numb, nb + 2);
+                rh = numa[1];
+                rl = numa[0];
                 --q;
+            } else {
+                rh = r1;
+                rl = r0;
             }
         }
         dstq[--nq] = q;
     }
+    numa[1] = rh;
+    numa[0] = rl;
     return qh;
 }
