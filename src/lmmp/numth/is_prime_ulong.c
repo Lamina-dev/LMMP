@@ -31,8 +31,6 @@
 /*
 mont63 只能用于小于 2^63 的数，否则会溢出导致计算结果不正确
 mont64 可以用于任意大小的数，但由于考虑了溢出的情况，所以速度理论上会慢一些（并未详细测试）
-
-（本文件与 powmod_ulong.c 各持一份同源拷贝，库内惯例勿强行收敛）
 */
 #define MONT63_MAX ((ulong)(0x7fffffffffffffff))
 
@@ -99,7 +97,6 @@ static inline ulong mont63_mul(ulong a, ulong b, ulong m, ulong m_inv) {
 /*
     强伪素数第二阶段检查：v = b^d（蒙域）已算出。
     one/m_1 为蒙域的 1 与 m-1。
-    与旧实现一致：平方链中先查 m_1，再查 one（提前判定合数）。
 */
 static inline int sprp_check63(ulong v, ulong t, ulong m, ulong m_inv, ulong one, ulong m_1) {
     if (v == one || v == m_1) return 1;
@@ -124,7 +121,7 @@ static inline int sprp_check64(ulong v, ulong t, ulong m, ulong m_inv, ulong one
 /*
     基底 2 专用幂（蒙域，LSB 链）：基底以蒙域值起步后，平方链保持
    base_j = 2^(2^j)*B 不变量，结果恒在蒙域；平方链与 v 乘链相互独立，
-   乱序执行可重叠（实测优于 MSB 加倍链——加倍条件减位于串行依赖上）。
+   乱序执行可重叠。
 */
 static inline ulong powmod2_63(ulong d, ulong R2, ulong m, ulong m_inv) {
     ulong v = to_mont63(1, R2, m, m_inv);
@@ -177,8 +174,7 @@ static void powmod_win3_63(ulong *pv, ulong bm, ulong d, int ebits, ulong m, ulo
     *pv = v;
 }
 
-static void powmod2_win3_63(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits,
-                            ulong m, ulong m_inv) {
+static void powmod2_win3_63(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits, ulong m, ulong m_inv) {
     ulong w1[8], w2[8], v1 = bm1, v2 = bm2;
     int bit = ebits - 2;
     w1[1] = bm1;
@@ -223,8 +219,7 @@ static void powmod2_win3_63(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong 
     *pv2 = v2;
 }
 
-static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits,
-                            ulong m, ulong m_inv) {
+static void powmod2_win3_64(ulong *pv1, ulong *pv2, ulong bm1, ulong bm2, ulong d, int ebits, ulong m, ulong m_inv) {
     ulong w1[8], w2[8], v1 = bm1, v2 = bm2;
     int bit = ebits - 2;
     w1[1] = bm1;
@@ -375,65 +370,17 @@ bool lmmp_is_prime_ulong_(ulong n) {
     return lmmp_is_prime_ulong_notrial_(n);
 }
 
-static inline bool trial_div13(ulong n) {
-    const _udiv64_t div13 = {.magic = 4256940940086819604ull, .more = 3};
-    ulong q = _udiv64by64_q_preinv(n, &div13);
-    n -= q * 13;
-    return n == 0;
-}
-
-static inline bool trial_div17(ulong n) {
-    const _udiv64_t div17 = {.magic = 16276538888567251426ull, .more = 4};
-    ulong q = _udiv64by64_q_preinv(n, &div17);
-    n -= q * 17;
-    return n == 0;
-}
-
-static inline bool trial_div19(ulong n) {
-    const _udiv64_t div19 = {.magic = 12621456471485482685ull, .more = 4};
-    ulong q = _udiv64by64_q_preinv(n, &div19);
-    n -= q * 19;
-    return n == 0;
-}
-
-static inline bool trial_div23(ulong n) {
-    const _udiv64_t div23 = {.magic = 7218291159277650633ull, .more = 4};
-    ulong q = _udiv64by64_q_preinv(n, &div23);
-    n -= q * 23;
-    return n == 0;
-}
-
-static inline bool trial_div29(ulong n) {
-    const _udiv64_t div29 = {.magic = 1908283869694091547ull, .more = 4};
-    ulong q = _udiv64by64_q_preinv(n, &div29);
-    n -= q * 29;
-    return n == 0;
-}
-
-static inline bool trial_div31(ulong n) {
-    const _udiv64_t div31 = {.magic = 595056260442243601ull, .more = 4};
-    ulong q = _udiv64by64_q_preinv(n, &div31);
-    n -= q * 31;
-    return n == 0;
-}
-
-static inline bool trial_div37(ulong n) {
-    const _udiv64_t div37 = {.magic = 13461137567301564693ull, .more = 5};
-    ulong q = _udiv64by64_q_preinv(n, &div37);
-    n -= q * 37;
-    return n == 0;
-}
-
-static inline bool trial_div41(ulong n) {
-    const _udiv64_t div41 = {.magic = 10348173504763894809ull, .more = 5};
-    ulong q = _udiv64by64_q_preinv(n, &div41);
-    n -= q * 41;
-    return n == 0;
-}
-
 // 64位内最大的质数
 #define ULONG_PRIME_MAX 0xFFFFFFFFFFFFFFC5ull
 #define ULONG_PRIME_MIN 2
+
+static inline int trial_div16(ulong n) {
+    return trial_div35711(n)
+        || n % 13 == 0 || n % 17 == 0 || n % 19 == 0 || n % 23 == 0
+        || n % 29 == 0 || n % 31 == 0 || n % 37 == 0 || n % 41 == 0
+        || n % 43 == 0 || n % 47 == 0 || n % 53 == 0 || n % 59 == 0
+        || n % 61 == 0 || n % 67 == 0 || n % 71 == 0;
+}
 
 ulong lmmp_next_prime_ulong_(ulong n) {
     if (n < prime_short_table[PRIME_SHORT_TABLE_SIZE - 1]) {
@@ -444,15 +391,7 @@ ulong lmmp_next_prime_ulong_(ulong n) {
     } else {
         n += (n % 2 == 0) ? 1 : 2;
         while (1) {
-            if (trial_div35711(n)
-             || trial_div13(n)
-             || trial_div17(n)
-             || trial_div19(n)
-             || trial_div23(n)
-             || trial_div29(n)
-             || trial_div31(n)
-             || trial_div37(n)
-             || trial_div41(n)) {
+            if (trial_div16(n)) {
                 n += 2;
             } else {
                 if (lmmp_is_prime_ulong_notrial_(n)) {
@@ -474,15 +413,7 @@ ulong lmmp_prev_prime_ulong_(ulong n) {
     } else {
         n -= (n % 2 == 0) ? 1 : 0;
         while (1) {
-            if (trial_div35711(n)
-             || trial_div13(n)
-             || trial_div17(n)
-             || trial_div19(n)
-             || trial_div23(n)
-             || trial_div29(n)
-             || trial_div31(n)
-             || trial_div37(n)
-             || trial_div41(n)) {
+            if (trial_div16(n)) {
                 n -= 2;
             } else {
                 if (lmmp_is_prime_ulong_notrial_(n)) {

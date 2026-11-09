@@ -23,6 +23,7 @@
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/prime_table.h"
 #include "../../../include/lmmp/impl/str_conv.h"
+#include "../../../include/lmmp/impl/trialdiv.h"
 
 
 typedef void (*lmmp_global_hook_fn)(void);
@@ -48,6 +49,8 @@ static const lmmp_global_entry_t lmmp_global_entries[] = {
     {NULL, lmmp_prime_int_table_free_},
     // 十进制幂表：首次调用 lmmp_dec_pow_table_ 时惰性构建，仅注册释放
     {NULL, lmmp_dec_pow_table_free_},
+    // 试除块表：首次调用 lmmp_trialdiv_ 时惰性构建，仅注册释放
+    {NULL, lmmp_trialdiv_table_free_},
 };
 
 #define GLOBAL_ENTRIES_NUM (sizeof(lmmp_global_entries) / sizeof(lmmp_global_entries[0]))

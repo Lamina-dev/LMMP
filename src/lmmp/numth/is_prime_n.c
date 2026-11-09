@@ -50,6 +50,7 @@
 #include "../../../include/lmmp/impl/longlong.h"
 #include "../../../include/lmmp/impl/powmod.h"
 #include "../../../include/lmmp/impl/rand_state.h"
+#include "../../../include/lmmp/impl/trialdiv.h"
 #include "../../../include/lmmp/lmmpn.h"
 #include "../../../include/lmmp/mprand.h"
 #include "../../../include/lmmp/numth.h"

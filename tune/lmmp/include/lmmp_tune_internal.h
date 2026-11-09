@@ -260,6 +260,8 @@ int tune_run_divexact_basecase(void);
 int tune_run_divexact_nn(void);
 int tune_run_divexact_mersenne_cache(void);
 int tune_run_fft_table(void);
+int tune_run_trialdiv_preinv(void);
+int tune_run_trialdiv_k8(void);
 
 /* 模块描述与批量执行。tune_module_run 保证模块间阈值隔离：
    每个模块结束后回滚全部阈值变量，仅保留该模块产出的调优结果。 */

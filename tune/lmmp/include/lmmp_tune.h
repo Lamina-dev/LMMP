@@ -23,6 +23,7 @@
 #ifndef LMMP_TUNE_H
 #define LMMP_TUNE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /*
@@ -94,6 +95,8 @@ extern uint64_t lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_MERSENNE_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_MERSENNE_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_GCD_HGCD_THRESHOLD;
+extern uint64_t lmmp_tune_TRIALDIV_PREINV_THRESHOLD;
+extern uint64_t lmmp_tune_TRIALDIV_K8_THRESHOLD;
 
 /*
  * 阈值变量登记表：快照/回滚用（见 lmmp_tune_params.c）。表中 name 即

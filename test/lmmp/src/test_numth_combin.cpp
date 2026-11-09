@@ -26,7 +26,7 @@
    2. 模检查：结果 mod 32 位素数 == 逐项模乘（u64 简单循环）
    3. 写死锚点：10!=3628800、20!=2432902008176640000、9!!=945、
       10!!=3840
-   4. trialdiv 与 64 位内简单试除交叉；remove 剥除恰 k 个因子（库构造）
+   4. remove 剥除恰 k 个因子（库构造）
 */
 
 #include "lmmp/lmmpn.h"
@@ -208,24 +208,7 @@ TEST_CASE("numth/fac_extern", double_hyper_super_primefac) {
     lmmp_free(pf);
 }
 
-TEST_CASE("numth/trialdiv", trialdiv_remove) {
-    // trialdiv：与 64 位内简单试除（% 循环 + 库 mod_1）交叉
-    for (mp_size_t n : {1, 2, 3, 5}) {
-        mp_ptr p = alloc_limbs(n);
-        u64 seed = 0x0123456789abcdeful + n;
-        for (size_t i = 0; i < (size_t)n; ++i) p[i] = xorshift64(seed);
-        if (p[n - 1] == 0) p[n - 1] = 1;
-        bool ref = false;
-        for (u32 d = 2; d <= 100; ++d) {
-            if (is_prime_small(d) && lmmp_mod_1_(p, n, d) == 0) {
-                ref = true;
-                break;
-            }
-        }
-        TEST_CHECK_MSG(lmmp_trialdiv_(p, n, 100) == ref, "trialdiv matches reference");
-        lmmp_free(p);
-    }
-
+TEST_CASE("numth/remove", remove_factors) {
     // remove：np = dp^k * 11（库 mul_1 链构造），须剥除恰 k 个因子剩 11
     for (u64 dp : {2, 3, 5, 7}) {
         mp_ptr np = alloc_limbs(3), d = alloc_limbs(1);

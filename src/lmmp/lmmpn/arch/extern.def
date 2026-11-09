@@ -37,6 +37,7 @@ EXPORTS
     lmmp_div_2_s_
     lmmp_div_3_2_
     lmmp_mod_1_
+    lmmp_mod_preinv_1_
     lmmp_mod_2_
 
     lmmp_inv_1_

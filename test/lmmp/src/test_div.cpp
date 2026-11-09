@@ -64,6 +64,12 @@ TEST_CASE("div/single", div_1_mod_1) {
             u64 ret_rem = lmmp_div_1_(q, a, n, x);
             TEST_CHECK_EQ(ret_rem, rem);
 
+            // mod_preinv_1: 同一 (x) 的预备逆元版，结果与 mod_1_ 一致
+            u64 k = lmmp_leading_zeros_(x);
+            u64 inv = lmmp_inv_1_(x << k);
+            u64 rem_pi = lmmp_mod_preinv_1_(a, n, x, inv, k);
+            TEST_CHECK_EQ(rem_pi, rem);
+
             // 重建：q*x + rem == a
             u64 hi = lmmp_mul_1_(t, q, n, x);
             t[n] = hi;
@@ -84,6 +90,38 @@ TEST_CASE("div/single", div_1_mod_1) {
             }
 
             lmmp_free(a); lmmp_free(q); lmmp_free(t); lmmp_free(acopy);
+        }
+    }
+}
+
+TEST_CASE("div/single", mod_preinv_1_boundary) {
+    // 定向边界除数：x=1(k=63) / 2 的幂 / 归一化档(k=0, MSB=1) / B-1 档 / 一般奇偶
+    const u64 divisors[] = {
+        1, 2, 3, 5, 7, 0xFFFF, 0x100000001ull,
+        1ull << 62, (1ull << 62) + 1, (1ull << 62) - 1,
+        1ull << 63, (1ull << 63) + 1, (1ull << 63) - 1,
+        ~0ull, ~0ull - 1ull, ~0ull - 2ull, 0x123456789ABCDEFFull,
+    };
+    u64 seed = 0x89ABCDEF01234567ull;
+    for (u64 x : divisors) {
+        const u64 k = lmmp_leading_zeros_(x);
+        const u64 inv = lmmp_inv_1_(x << k);
+        for (size_t n = 1; n <= 34; ++n) {
+            for (int iter = 0; iter < 6; ++iter) {
+                mp_ptr a = alloc_limbs(n);
+                random_limbs(a, n, seed);
+                u64 rem = lmmp_mod_1_(a, n, x);
+                u64 rem_pi = lmmp_mod_preinv_1_(a, n, x, inv, k);
+                TEST_CHECK_EQ(rem_pi, rem);
+                TEST_CHECK(rem_pi < x);
+
+                // 高位 0 容忍档：契约未要求归一化
+                a[n - 1] = 0;
+                rem = lmmp_mod_1_(a, n, x);
+                rem_pi = lmmp_mod_preinv_1_(a, n, x, inv, k);
+                TEST_CHECK_EQ(rem_pi, rem);
+                lmmp_free(a);
+            }
         }
     }
 }
