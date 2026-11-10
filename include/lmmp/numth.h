@@ -1323,6 +1323,16 @@ LMMP_API mp_limb_t lmmp_cbrt_3_(mp_limb_t a0, mp_limb_t a1, mp_limb_t a2);
 LMMP_API void lmmp_cbrt_6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
 
 /**
+ * @brief 计算算术立方根 [dst,2] = floor(cbrt([numa,6]))
+ * @param dst 结果指针（2个limb）
+ * @param numa 被开方数指针（6个limb，会被修改；返回时 [numa,5] 储存余数，即[numa,6] - [dst,2]^3）
+ * @param tp 临时指针（至少8个limb）
+ * @warning numa[5]>=0x6000000000000000, dst!=NULL, numa!=NULL, tp!=NULL, sep(dst,numa,tp)
+ * @note cbrt_6_ 的 na==6 快速路径；余数是修正循环的副产物，无需额外计算。
+ */
+LMMP_API void lmmp_cbrt_6_fast_(mp_ptr dst, mp_ptr numa, mp_ptr tp);
+
+/**
  * @brief 计算算术立方根 floor(cbrt([numa,3*ns]))
  * @param dst 结果指针（ns个limb）
  * @param numa 被开方数指针（3*ns个limb，且会被修改，若计算余数，余数存储在[numa,2*ns+1]中）

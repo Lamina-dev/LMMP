@@ -155,6 +155,26 @@ TEST_CASE("numth/cbrt", cbrt_6_divide_dispatcher) {
                 // cbrt_6_（3<na<=6）或 cbrt_divide_（na=3ns）
                 if (na <= 6) {
                     lmmp_cbrt_6_(dst, numa, na);
+                    if (na == 6) {
+                        // cbrt6_fast_ 直接入口：结果与 cbrt_6_ 一致 + 余数恒等式
+                        // [numa2,5] = [numa,6] - [dst,2]^3（立方经库乘重建）
+                        mp_ptr tp = alloc_limbs(8), dst2 = alloc_limbs(2);
+                        memcpy(numa2, numa, (size_t)na * 8);
+                        lmmp_cbrt_6_fast_(dst2, numa2, tp);
+                        TEST_CHECK_MSG(dst2[0] == dst[0] && dst2[1] == dst[1],
+                                       "cbrt6_fast matches cbrt_6");
+                        mp_ptr s2 = alloc_limbs(4), c3 = alloc_limbs(6);
+                        lmmp_sqr_(s2, dst2, 2);
+                        lmmp_mul_(c3, s2, 4, dst2, 2);
+                        mp_ptr rem = alloc_limbs(6);
+                        for (mp_size_t i = 0; i < 6; ++i)
+                            rem[i] = i < na ? numa[i] : 0;
+                        TEST_CHECK_MSG(lmmp_sub_(rem, rem, 6, c3, 6) == 0 &&
+                                           mpn_cmp(rem, 6, numa2, 5) == 0,
+                                       "cbrt6_fast remainder identity");
+                        lmmp_free(tp); lmmp_free(dst2); lmmp_free(s2);
+                        lmmp_free(c3); lmmp_free(rem);
+                    }
                 } else {
                     mp_ptr tp = alloc_limbs(6 * ns + 4);
                     memcpy(numa2, numa, (size_t)na * 8);
