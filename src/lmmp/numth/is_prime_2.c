@@ -410,8 +410,8 @@ static inline int ll_small_sprp_stage2(
 */
 static void ll_small_powmod_3_(
     ulong y1[2], ulong y2[2], ulong y3[2],
-    ulong    b1, ulong    b2, ulong    b3, u128      d, int ebits,
-    ulong    n1, ulong    n0, ulong minv1, ulong minv0
+    ulong b1,    ulong b2,    ulong b3,    u128  d, int ebits,
+    ulong n1,    ulong n0,    ulong minv1, ulong minv0
 ) {
     ulong xr1 = 0, xr0, yr1 = 0, yr0, zr1 = 0, zr0;
     int bit;
