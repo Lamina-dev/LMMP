@@ -139,7 +139,8 @@ def emit():
     out.append(",\n".join("    " + _fmt2(v) for v in R32))
     out.append("};\n")
     out.append("static const uint64_t lg2_c27[27][2] = {")
-    out.append(",\n".join("    " + _fmt2(v) for v in C27))
+    # 系数表只存全值的第 2/3 limb（与 check() 的 trunc_hi2 一致）
+    out.append(",\n".join("    " + _fmt2(v >> 64) for v in C27))
     out.append("};\n")
     out.append("static const uint64_t xp2_T16[16][2] = {")
     out.append(",\n".join("    " + _fmt2(v) for v in T16))
@@ -148,7 +149,7 @@ def emit():
     out.append(",\n".join("    " + _fmt3(v) for v in T8))
     out.append("};\n")
     out.append("static const uint64_t xp2_c[13][2] = {")
-    out.append(",\n".join("    " + _fmt2(v) for v in XC13))
+    out.append(",\n".join("    " + _fmt2(v >> 64) for v in XC13))
     out.append("};")
     return "\n".join(out)
 
