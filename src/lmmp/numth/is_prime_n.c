@@ -67,7 +67,7 @@ static const ushort ipn_trial_bound[8] = {100, 300, 1000, 3000, 1000, 3000, 5000
 
 /* 蒙域加倍 x+x-m。值 < 2m：进位回绕（2x >= B^n）时 B^n 与 m 的差额由
    减法借位在 B^n 下恰巧抵消，回绕结果即 2x-m（见 is_prime_2.c mont2_dbl）*/
-static inline void ipn_mont_dbl_(mp_ptr dst, mp_srcptr x, lmmp_mont_t* restrict mc) {
+static inline void ipn_mont_dbl_(mp_ptr dst, mp_srcptr x, const lmmp_mont_t* restrict mc) {
     mp_limb_t c = lmmp_add_n_(dst, x, x, mc->n);
     if (c)
         (void)lmmp_sub_n_(dst, dst, mc->m, mc->n);
@@ -76,20 +76,20 @@ static inline void ipn_mont_dbl_(mp_ptr dst, mp_srcptr x, lmmp_mont_t* restrict 
 }
 
 /* 蒙域模减 a-b（a,b < m）：借位回绕由加 m 补偿，结果 < m */
-static inline void ipn_mont_sub_(mp_ptr dst, mp_srcptr a, mp_srcptr b, lmmp_mont_t* restrict mc) {
+static inline void ipn_mont_sub_(mp_ptr dst, mp_srcptr a, mp_srcptr b, const lmmp_mont_t* restrict mc) {
     mp_limb_t bo = lmmp_sub_n_(dst, a, b, mc->n);
     if (bo)
         (void)lmmp_add_n_(dst, dst, mc->m, mc->n);
 }
 
 /* 蒙域取负 m-x（x != 0，结果 < m） */
-static inline void ipn_mont_neg_(mp_ptr dst, mp_srcptr x, lmmp_mont_t* restrict mc) {
+static inline void ipn_mont_neg_(mp_ptr dst, mp_srcptr x, const lmmp_mont_t* restrict mc) {
     (void)lmmp_sub_n_(dst, mc->m, x, mc->n);
 }
 
 /* 蒙域模加 a+b（a,b < m）。和 < 2m < B^n+m：进位回绕（和 >= B^n）时
    回绕值 < m，随后减 m 的借位在 B^n 下恰好补回，回绕结果即 a+b-m */
-static inline void ipn_mont_add_(mp_ptr dst, mp_srcptr a, mp_srcptr b, lmmp_mont_t* restrict mc) {
+static inline void ipn_mont_add_(mp_ptr dst, mp_srcptr a, mp_srcptr b, const lmmp_mont_t* restrict mc) {
     mp_limb_t c = lmmp_add_n_(dst, a, b, mc->n);
     if (c)
         (void)lmmp_sub_n_(dst, dst, mc->m, mc->n);
@@ -100,39 +100,11 @@ static inline void ipn_mont_add_(mp_ptr dst, mp_srcptr a, mp_srcptr b, lmmp_mont
 /* 蒙域值模 n 折半 x <- x/2 mod n（n 奇：x 偶直接移位；x 奇先加 n 再移，
    加法进位跨 limb 并入移位高位，B^n 回绕无损：真值 < 2n < 2B^n 且折半
    后 < B^n 可表示） */
-static inline void ipn_mont_half_(mp_ptr x, lmmp_mont_t* restrict mc) {
+static inline void ipn_mont_half_(mp_ptr x, const lmmp_mont_t* restrict mc) {
     mp_size_t n = mc->n;
     mp_limb_t c = (x[0] & 1) ? lmmp_add_n_(x, x, mc->m, n) : 0;
     lmmp_shr_(x, x, n, 1);
     x[n - 1] |= c << (LIMB_BITS - 1);
-}
-
-/*
-    蒙域小标量乘 dst = (±q)*x (mod m)。倍加链 r=0; 逐高位 r=2r(+x)，
-    全程 O(n) 模加/模加倍，对任意 ulong 的 q 均正确（大 q 仅减慢，
-    正常路径 |Q|、|D| 为个位数）；sep(dst,x)
-*/
-static void ipn_mont_mul_small_(
-    mp_ptr                 dst,
-    mp_srcptr                x,
-    ulong                 qabs,
-    int                   qneg,
-    lmmp_mont_t* restrict   mc
-) {
-    if (qabs == 0) {
-        lmmp_zero(dst, mc->n);
-        return;
-    }
-    mp_bitcnt_t hb = lmmp_limb_bits_(qabs) - 1;
-    lmmp_copy(dst, x, mc->n);
-    for (mp_bitcnt_t i = hb; i-- > 0;) {
-        ipn_mont_dbl_(dst, dst, mc);
-        if ((qabs >> i) & 1)
-            ipn_mont_add_(dst, dst, x, mc);
-    }
-    /* 负标量最后取负（in-place：sub_n 逐 limb 先读后写，安全） */
-    if (qneg && !lmmp_zero_q_(dst, mc->n))
-        ipn_mont_neg_(dst, dst, mc);
 }
 
 /* d 低位起 0 的个数；调用前应保证 [dp,n] != 0 */
@@ -273,6 +245,28 @@ static inline void ipn_sdiv_mul1_(mp_ptr x, mp_limb_t a, const ipn_sdiv_t* sd) {
         hi += lmmp_add_n_(x, x, sd->n, nn);
 }
 
+static void ipn_mont_mul_small_(
+    mp_ptr    restrict  dst,
+    mp_srcptr restrict    x,
+    ulong              qabs,
+    int                qneg,
+    const lmmp_mont_t*   mc,
+    const ipn_sdiv_t*    sd
+) {
+    if (qabs == 0) {
+        lmmp_zero(dst, mc->n);
+        return;
+    }
+    lmmp_copy(dst, x, mc->n);
+    if (qabs >= 3) {
+        ipn_sdiv_mul1_(dst, qabs, sd);
+    } else if (qabs == 2) {
+        ipn_mont_dbl_(dst, dst, mc);
+    }
+    if (qneg && !lmmp_zero_q_(dst, mc->n))
+        ipn_mont_neg_(dst, dst, mc);
+}
+
 /**
  * @brief 短基底 MR 单轮：基底为 1 limb 裸标量，梯子与探测全程蒙域
  * @param mc 蒙域上下文（含 one/m1，已完成 lmmp_mont_init_）
@@ -384,6 +378,7 @@ static int ipn_lucas_i_(
     mp_srcptr               np,
     mp_size_t               nn,
     lmmp_mont_t* restrict   mc,
+    const ipn_sdiv_t*       sd,
     mp_ptr       restrict prod
 ) {
     uint Dabs = 5;
@@ -428,37 +423,31 @@ static int ipn_lucas_i_(
 
     mp_bitcnt_t dbits = (dn - 1) * LIMB_BITS + lmmp_limb_bits_(d[dn - 1]);
     for (mp_bitcnt_t i = dbits - 1; i-- > 0;) {
-        ipn_mont_sub_(T1, Uk1, Uk, mc);                   /* (U_{k+1}-U_k)R */
+        ipn_mont_sub_(T1, Uk1, Uk, mc);                       /* (U_{k+1}-U_k)R */
         lmmp_sqr_(prod, Uk1, nn);
-        lmmp_mont_redc_(T2, prod, mc);                    /* A = U_{k+1}^2 R */
+        lmmp_mont_redc_(T2, prod, mc);                        /* A = U_{k+1}^2 R */
         lmmp_sqr_(prod, Uk, nn);
-        lmmp_mont_redc_(T3, prod, mc);                    /* B = U_k^2 R */
+        lmmp_mont_redc_(T3, prod, mc);                        /* B = U_k^2 R */
         lmmp_sqr_(prod, T1, nn);
-        lmmp_mont_redc_(T1, prod, mc);                    /* D = (U_{k+1}-U_k)^2 R */
-        ipn_mont_mul_small_(Uk, T3, Qabs, !Dneg, mc);     /* Q*U_k^2 R */
-        ipn_mont_sub_(Uk1, T2, Uk, mc);                   /* U_{2k+1} = A - Q*B */
-        ipn_mont_sub_(Uk, T2, T1, mc);                    /* U_{2k}   = A - D */
+        lmmp_mont_redc_(T1, prod, mc);                        /* D = (U_{k+1}-U_k)^2 R */
+        ipn_mont_mul_small_(Uk, T3, Qabs, !Dneg, mc, sd);     /* Q*U_k^2 R */
+        ipn_mont_sub_(Uk1, T2, Uk, mc);                       /* U_{2k+1} = A - Q*B */
+        ipn_mont_sub_(Uk, T2, T1, mc);                        /* U_{2k}   = A - D */
         if ((d[i / LIMB_BITS] >> (i % LIMB_BITS)) & 1) {
-            ipn_mont_mul_small_(T3, Uk, Qabs, !Dneg, mc); /* Q*U_{2k} R */
-            mp_ptr sw = Uk; Uk = Uk1; Uk1 = sw;           /* (U_{2k+1}, _) */
-            ipn_mont_sub_(Uk1, Uk, T3, mc);               /* U_{2k+2} = U_{2k+1} - Q*U_{2k} */
+            ipn_mont_mul_small_(T3, Uk, Qabs, !Dneg, mc, sd); /* Q*U_{2k} R */
+            mp_ptr sw = Uk; Uk = Uk1; Uk1 = sw;               /* (U_{2k+1}, _) */
+            ipn_mont_sub_(Uk1, Uk, T3, mc);                   /* U_{2k+2} = U_{2k+1} - Q*U_{2k} */
         }
     }
 
-    /* 判据：U_d = 0，或 V_d = 0，或 V_{d*2^r} = 0（0 < r < s）。
-       U_d 由阶梯直接给出（标准强 Lucas 判据；旧 V-only 阶梯以
-       2V_{d+1} = V_d 间接检出，依 P=1 恒等式 D*U_d = 2V_{d+1} - V_d
-       与 gcd(D,n)=1（D 搜索保证）精确等价，接受集不变）。
-       V_d = 2U_{d+1} - U_d（联立 U_{d+1} = U_d - Q*U_{d-1} 与
-       V_d = U_{d+1} - Q*U_{d-1}，阶梯末态恰为 (U_d, U_{d+1})，免 Q
-       参与；GMP 同式而阶梯终点为 (U_{d-1},U_d)，故其写成
-       U_d - 2Q*U_{d-1}）。Q^d = (V_d^2 - D*U_d^2)/4。
+    /*
        BFW 强化（Baillie-Fiori-Wagstaff 2021，同 is_prime_2.c）：判据
        命中不早退，链尾统一追加 vpsp（V_{n+1} ≡ 2Q）与 Q-Euler
        （Q^{(n+1)/2} ≡ ±Q）检查，素数必然全过、合数严格多拒。代价：
        s>=2（n ≡ 3 mod 4）命中者本付 Q^d 重建，仅 +1 平方 REDC；s=1
        （n ≡ 1 mod 4）素数必经入口命中，新付整套重建与检查（约
-       3.5 个 REDC + O(n) 标量，占 192n/每bit3REDC 的 U 阶梯 <0.5%） */
+       3.5 个 REDC + O(n) 标量，占 192n/每bit3REDC 的 U 阶梯 <0.5%）
+    */
     int hit = lmmp_zero_q_(Uk, nn);
     ipn_mont_dbl_(T1, Uk1, mc);
     ipn_mont_sub_(T1, T1, Uk, mc);         /* V_d = 2U_{d+1} - U_d */
@@ -471,7 +460,7 @@ static int ipn_lucas_i_(
         lmmp_mont_redc_(T2, prod, mc);     /* V_d^2 R */
         lmmp_sqr_(prod, Uk, nn);
         lmmp_mont_redc_(Uk, prod, mc);     /* U_d^2 R（U_d 槽至此耗尽） */
-        ipn_mont_mul_small_(T3, Uk, Dabs, 0, mc);
+        ipn_mont_mul_small_(T3, Uk, Dabs, 0, mc, sd);
         if (!Dneg)
             ipn_mont_sub_(T2, T2, T3, mc); /* D>0：V_d^2 - D*U_d^2 */
         else
@@ -492,11 +481,11 @@ static int ipn_lucas_i_(
                同型）。vpsp 补一次平方 REDC 得 V_{n+1}；Q-Euler 以蒙域
                Qm = Q*one 做双值比较 */
             lmmp_sqr_(prod, T1, nn);
-            lmmp_mont_redc_(Uk, prod, mc);                     /* V_{(n+1)/2}^2 R */
-            ipn_mont_dbl_(T3, T2, mc);                         /* 2Q^{(n+1)/2} R */
-            ipn_mont_sub_(T1, Uk, T3, mc);                     /* V_{n+1} R */
-            ipn_mont_mul_small_(Uk, mc->one, Qabs, !Dneg, mc); /* Q R */
-            ipn_mont_dbl_(T3, Uk, mc);                         /* 2Q R */
+            lmmp_mont_redc_(Uk, prod, mc);                         /* V_{(n+1)/2}^2 R */
+            ipn_mont_dbl_(T3, T2, mc);                             /* 2Q^{(n+1)/2} R */
+            ipn_mont_sub_(T1, Uk, T3, mc);                         /* V_{n+1} R */
+            ipn_mont_mul_small_(Uk, mc->one, Qabs, !Dneg, mc, sd); /* Q R */
+            ipn_mont_dbl_(T3, Uk, mc);                             /* 2Q R */
             if (lmmp_cmp_(T1, T3, nn) != 0)
                 hit = 0;
             else if (lmmp_cmp_(T2, Uk, nn) != 0) {
@@ -517,10 +506,12 @@ int lmmp_is_strong_lucas_(mp_srcptr np, mp_size_t nn) {
 
     TEMP_DECL;
     lmmp_mont_t mc;
+    ipn_sdiv_t sd;
     mp_size_t mn = lmmp_mont_need_(nn, 1);
     mp_ptr restrict arena = TALLOC_TYPE(mn + 2 * nn, mp_limb_t);
     lmmp_mont_init_(&mc, np, nn, arena, 1, arena + mn);
-    int ret = ipn_lucas_i_(np, nn, &mc, arena + mn);
+    ipn_sdiv_init_(&sd, np, nn);
+    int ret = ipn_lucas_i_(np, nn, &mc, &sd, arena + mn);
     lmmp_mont_free_(&mc);
     TEMP_FREE;
     return ret;
@@ -637,7 +628,7 @@ LMMP_NOINLINE static int ipn_notrial_i_(mp_srcptr np, mp_size_t nn, int strength
     }
 
     /* 4 档及以上：BPSW 的 Lucas 半部（嵌套 TEMP 分配阶梯段，蒙域段复用） */
-    if (strength >= 4 && !ipn_lucas_i_(np, nn, &mc, prod)) goto composite;
+    if (strength >= 4 && !ipn_lucas_i_(np, nn, &mc, &sd, prod)) goto composite;
     lmmp_mont_free_(&mc);
     TEMP_FREE;
     return 2;

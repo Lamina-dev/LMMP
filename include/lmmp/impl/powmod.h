@@ -362,7 +362,7 @@ static inline int lmmp_mont_sp_init_(lmmp_mont_sp_t* mc, mp_srcptr mp, mp_size_t
  * @param mc 稀疏蒙域上下文（须已完成 lmmp_mont_sp_init_ 且 form != 0）
  * @warning sep(dst,tp)，dst 与 mc->m 分离
  */
-static inline void lmmp_mont_sp_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_sp_t* restrict mc) {
+static inline void lmmp_mont_sp_redc_(mp_ptr restrict dst, mp_ptr restrict tp, const lmmp_mont_sp_t* restrict mc) {
     mp_size_t n = mc->n, n2 = 2 * n;
     mp_size_t p = mc->p;
     mp_limb_t kv0 = mc->kv0, kv1 = mc->kv1;
