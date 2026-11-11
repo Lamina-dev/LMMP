@@ -604,8 +604,10 @@ extern uint64_t lmmp_tune_TRIALDIV_K8_THRESHOLD;
 
 // cache 一次处理的位图数量
 #define PRIME_CACHE_BLOCK_NUM 64
-// cache 中质数最多可能的数量（取决于上面的PRIME_CACHE_BLOCK_NUM）
-#define PRIME_CACHE_SIZE 1028
+// cache 中质数最多可能的数量（取决于上面的PRIME_CACHE_BLOCK_NUM）。
+// mod-30 位图下 64 字 = 512 字节 = 15360 个数，最坏为首块（含补入的 3、5）：
+// pi(15359) - 1 = 1793，取 1794（与旧奇数编码取 pi(8191) = 1028 同风格 +1 松弛）
+#define PRIME_CACHE_SIZE 1794
 
 #define MP_UCHAR_MAX (0xff)
 #define MP_USHORT_MAX (0xffff)
