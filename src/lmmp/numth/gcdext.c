@@ -652,12 +652,12 @@ mp_size_t lmmp_gcdext_hgcd_(mp_ptr dstg, mp_ptr dsts, mp_ssize_t* sn, mp_ptr dst
                 while (dnn > 0 && db[dnn - 1] == 0)
                     --dnn;
                 for (;;) {
-                    mp_limb_t c2 = lmmp_mul_1_(p2b, sp, sun, 2);
-                    mp_size_t twon = sun + (c2 != 0);
-                    int cmp2 = (twon != dnn) ? (twon < dnn ? -1 : 1) : lmmp_cmp_(p2b, db, dnn);
-                    if (cmp2 < 0)
+                    mp_limb_t c2s = lmmp_mul_1_(p2b, sp, sun, 2);
+                    mp_size_t twosn = sun + (c2s != 0);
+                    int cmp2s = (twosn != dnn) ? (twosn < dnn ? -1 : 1) : lmmp_cmp_(p2b, db, dnn);
+                    if (cmp2s < 0)
                         break;
-                    if (cmp2 == 0) {
+                    if (cmp2s == 0) {
                         suneg = 0; /* 平局恒取正 */
                         break;
                     }

@@ -159,11 +159,11 @@ static inline void lmmp_mont_fold_hi_(
  *       总成本 n 次 addmul_1 ≈ 一次 basecase 乘法
  */
 static inline mp_limb_t lmmp_mont_redc_bc_(
-    mp_ptr    restrict dst,
-    mp_ptr    restrict  up,
-    mp_srcptr restrict   m,
+    mp_ptr    restrict   dst,
+    mp_ptr    restrict    up,
+    mp_srcptr restrict     m,
     mp_size_t              n,
-    mp_limb_t            ninv1
+    mp_limb_t          ninv1
 ) {
     mp_ptr restrict up0 = up;
     for (mp_size_t j = n; j > 0; j--) {
@@ -218,12 +218,12 @@ static inline void lmmp_mont_redcify_(
  *       回收，FFT 变换缓存另经 lmmp_mont_free_ 释放
  */
 static inline void lmmp_mont_init_(
-    lmmp_mont_t* mc,
-    mp_srcptr     mp,
-    mp_size_t      n,
-    mp_ptr      arena,
-    int       anchors,
-    mp_ptr restrict prod
+    lmmp_mont_t*         mc,
+    mp_srcptr            mp,
+    mp_size_t             n,
+    mp_ptr            arena,
+    int             anchors,
+    mp_ptr restrict    prod
 ) {
     mc->n = n;
     mc->m = mp;
@@ -320,7 +320,7 @@ typedef struct {
 
 /**
  * @brief 稀疏形状探测与上下文装配（O(n) 扫描，免分配）
- * @param mc 上下文（出口：形状命中时就绪，否则 form=0 其余字段无效）
+ * @param mc 上下文（出口：形状命中时就绪，否则 form=0 其余字段为 0）
  * @param mp 模数（n 个limb，奇，顶 limb 非零）
  * @param n 模数 limb 长度
  * @warning n >= 2
@@ -330,6 +330,7 @@ static inline int lmmp_mont_sp_init_(lmmp_mont_sp_t* mc, mp_srcptr mp, mp_size_t
     lmmp_debug_assert(n >= 2 && mp[0] % 2 == 1 && mp[n - 1] != 0);
     mc->n = n;
     mc->m = mp;
+    mc->p = mc->kv0 = mc->kv1 = 0;
     if (mp[0] == 1) {
         mp_size_t i = 1;
         while (i < n && mp[i] == 0) i++;
@@ -361,7 +362,7 @@ static inline int lmmp_mont_sp_init_(lmmp_mont_sp_t* mc, mp_srcptr mp, mp_size_t
  * @param mc 稀疏蒙域上下文（须已完成 lmmp_mont_sp_init_ 且 form != 0）
  * @warning sep(dst,tp)，dst 与 mc->m 分离
  */
-static inline void lmmp_mont_sp_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_sp_t* restrict mc) {
+static inline void lmmp_mont_sp_redc_(mp_ptr restrict dst, mp_ptr restrict tp, const lmmp_mont_sp_t* restrict mc) {
     mp_size_t n = mc->n, n2 = 2 * n;
     mp_size_t p = mc->p;
     mp_limb_t kv0 = mc->kv0, kv1 = mc->kv1;
@@ -448,14 +449,14 @@ static inline mp_size_t lmmp_powmod_odd_mont_need_(mp_size_t n, mp_bitcnt_t eb) 
  *       调用可复用 ninv 与 FFT 变换缓存（同模数批量模幂/素性检验轮）
  */
 void lmmp_powmod_odd_mont_(
-    mp_ptr          restrict u,
-    mp_srcptr       restrict bp,
-    mp_srcptr       restrict ep,
-    mp_size_t                 en,
-    lmmp_mont_t* restrict     mc,
-    mp_ptr          restrict b2,
-    mp_ptr          restrict prod,
-    mp_ptr          restrict pp
+    mp_ptr       restrict u,
+    mp_srcptr    restrict bp,
+    mp_srcptr    restrict ep,
+    mp_size_t             en,
+    lmmp_mont_t* restrict mc,
+    mp_ptr       restrict b2,
+    mp_ptr       restrict prod,
+    mp_ptr       restrict pp
 );
 
 #endif /* __LMMP_POWMOD_H__ */

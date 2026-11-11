@@ -59,10 +59,6 @@ static inline ulong to_mont64(ulong x, ulong R2, ulong m, ulong m_inv) {
     return mont64_reduce((u128)x * R2, m, m_inv);
 }
 
-static inline ulong from_mont64(ulong x, ulong m, ulong m_inv) {
-    return mont64_reduce(x, m, m_inv);
-}
-
 static inline ulong mont64_mul(ulong a, ulong b, ulong m, ulong m_inv) {
     return mont64_reduce((u128)a * b, m, m_inv);
 }
@@ -81,10 +77,6 @@ static inline ulong mont63_R2(ulong m) {
 
 static inline ulong to_mont63(ulong x, ulong R2, ulong m, ulong m_inv) {
     return mont63_reduce((u128)x * R2, m, m_inv);
-}
-
-static inline ulong from_mont63(ulong x, ulong m, ulong m_inv) {
-    return mont63_reduce(x, m, m_inv);
 }
 
 static inline ulong mont63_mul(ulong a, ulong b, ulong m, ulong m_inv) {
