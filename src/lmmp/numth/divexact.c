@@ -290,7 +290,8 @@ void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr rest
             lmmp_debug_assert(hi == 0);
         }
 #else
-        if (hi) {
+        /* 末轮 i+dn==nn 时 hi 必为 0 */
+        if (hi && i + dn < nn) {
             lmmp_dec_1(np + i + dn, hi);
         }
 #endif

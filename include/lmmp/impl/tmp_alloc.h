@@ -57,13 +57,17 @@ static inline void* lmmp_temp_heap_alloc_(lmmp_alloc_marker* pmarker, size_t siz
     const size_t offset = LMMP_ROUND_UP_MULTIPLE(HSIZE, LMMP_MAX_ALIGN);
 #undef HSIZE
     void* p = global_heap.alloc(size + offset);
-#if LMMP_DEBUG_MEMORY_CHECK == 1
+    /* 默认分配器为裸 malloc，失败返回 NULL；OOM 须无条件中止（对齐
+       lmmp_alloc 契约），否则下面的链表头写入即空指针崩溃 */
     if (p == NULL) {
+#if LMMP_DEBUG_MEMORY_CHECK == 1
         char msg[128];
         snprintf(msg, sizeof(msg), "Memory allocation failure (trying to allocate: %zu bytes)", size);
         lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
-    }
+#else
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Memory allocation failure", __func__, __LINE__);
 #endif
+    }
     *(void**)p = pmarker->heap_marker;
     pmarker->heap_marker = p;
     return (mp_byte_t*)p + offset;
@@ -91,14 +95,17 @@ static inline void* lmmp_temp_stack_alloc_(lmmp_alloc_marker* pmarker, size_t si
     mp_byte_t* p = (mp_byte_t*)(lmmp_tmpmem_ctx.stack_top);
     size_t offset = LMMP_ROUND_UP_MULTIPLE(size, LMMP_MAX_ALIGN);
     mp_byte_t* new_top = p + offset;
-#if LMMP_DEBUG_STACK_OVERFLOW_CHECK == 1
+    /* 越界检查无条件保留：越过后将静默破坏相邻堆，宁可中止 */
     if (new_top > (mp_byte_t*)(lmmp_tmpmem_ctx.stack_end)) {
+#if LMMP_DEBUG_STACK_OVERFLOW_CHECK == 1
         char msg[128];
         snprintf(msg, sizeof(msg), "Stack overflow (trying to allocate: %zu bytes, stack remaining: %zu bytes)", offset,
                  (size_t)((mp_byte_t*)lmmp_tmpmem_ctx.stack_end - (mp_byte_t*)lmmp_tmpmem_ctx.stack_top));
         lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, msg, __func__, __LINE__);
-    }
+#else
+        lmmp_abort(LMMP_ERROR_MEMORY_ALLOC_FAILURE, "Stack overflow", __func__, __LINE__);
 #endif
+    }
     lmmp_tmpmem_ctx.stack_top = new_top;
     if (pmarker->stack_marker == NULL)
         pmarker->stack_marker = p;

@@ -298,7 +298,8 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
     mp_size_t nr = (na + (mp_size_t)root - 1) / (mp_size_t)root;  // 根长
 
     // 平凡域：A < 2^(64na) <= 2^root → 根为 1
-    if ((ulong)na * LIMB_BITS <= root) {
+    // 除法形式等价于 (ulong)na * LIMB_BITS <= root 且避免大 na 乘法回绕
+    if (na <= root / LIMB_BITS) {
         dsts[0] = 1;
         if (dstr) {
             lmmp_copy(dstr, numa, na);
@@ -318,6 +319,7 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
         return;
     }
 
+    // 位长上限 2^64：na < 2^58 时无回绕（2^58 limb = 2^61 字节，现实不可分配）
     ulong bl = LIMB_BITS * (ulong)(na - 1) + (ulong)lmmp_limb_bits_(numa[na - 1]);
 
     /*

@@ -399,6 +399,10 @@ void* lmmp_alloc(size_t size) {
 #if LMMP_DEBUG_MEMORY_CHECK == 1
 void* lmmp_realloc(void* oldptr, size_t new_size, const char* func, int line) {
     void* ret = lmmp_realloc_debug(oldptr, new_size, func, line);
+#if LMMP_DEBUG_MEMORY_LEAK == 1
+    if (oldptr == NULL)
+        heap_alloc_count++;
+#endif
     return ret;
 }
 #else
@@ -413,6 +417,10 @@ void* lmmp_realloc(void* oldptr, size_t new_size) {
     if (ret == NULL) {
         lmmp_memory_abort(new_size, __func__, __LINE__);
     }
+#if LMMP_DEBUG_MEMORY_LEAK == 1
+    if (oldptr == NULL)
+        heap_alloc_count++;
+#endif
     return ret;
 }
 #endif // LMMP_DEBUG_MEMORY_CHECK == 1

@@ -140,8 +140,10 @@ static mp_size_t lmmp_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n
     ulong t = 1;
     uint v;
     mp_bitcnt_t cnt = 0;
-    for (uint i = n - r + 1; i <= n; ++i) {
-        ctz_shr_u32(v, i, cnt);
+    // 需注意 n==UINT_MAX 的情况
+    uint ibase = n - r + 1;
+    for (uint k = 0; k < r; ++k) {
+        ctz_shr_u32(v, ibase + k, cnt);
         t *= v;
         if (t > MP_UINT_MAX) {
             limbs[limbn++] = t;

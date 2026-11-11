@@ -227,7 +227,12 @@ static inline void lmmp_mont_init_(
 ) {
     mc->n = n;
     mc->m = mp;
-    mc->fold = n >= REDC_MERSENNE_CACHE_THRESHOLD ? 2 : (n >= REDC_MERSENNE_THRESHOLD ? 1 : 0);
+    /* basecase 档不进折叠路径，fold 置 0：避免 REDC_MERSENNE_THRESHOLD <
+       REDC_BASECASE_THRESHOLD 时（当前默认 40 < 41）basecase 分支残留
+       未配套的 fold=1 死状态；mont_redc_ 与此处的档位判定保持同一谓词 */
+    mc->fold = n < REDC_BASECASE_THRESHOLD ? 0
+             : n >= REDC_MERSENNE_CACHE_THRESHOLD ? 2
+             : (n >= REDC_MERSENNE_THRESHOLD ? 1 : 0);
     mc->msz = mc->fold == 2 ? lmmp_fft_next_size_((2 * n + 1) >> 1)
             : mc->fold == 1 ? lmmp_mersenne_next_size_((2 * n + 1) >> 1) : 0;
     mc->mcache_on = 0;

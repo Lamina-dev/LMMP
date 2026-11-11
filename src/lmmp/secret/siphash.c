@@ -61,6 +61,9 @@ uint64_t lmmp_siphash24_(mp_srcptr in, mp_size_t inlen, srckey128_t key) {
     uint64_t v2 = 0x6c7967656e657261ULL ^ k0;
     uint64_t v3 = 0x7465646279746573ULL ^ k1;
 
+    if (in == NULL || inlen == 0)
+        inlen = 0;
+
     const uint64_t* data = (const uint64_t*)in;
     const uint64_t* end = data + inlen;
 
