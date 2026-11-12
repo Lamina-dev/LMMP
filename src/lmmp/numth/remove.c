@@ -74,6 +74,7 @@ static inline mp_size_t try_div_(mp_ptr qp, mp_ptr rp, mp_srcptr divp, mp_size_t
 mp_size_t lmmp_remove_(mp_ptr np, mp_size_t* restrict nn, mp_srcptr dp, mp_size_t dn) {
     lmmp_param_assert(np != NULL && *nn > 0);
     lmmp_param_assert(dp != NULL && dn > 0);
+    lmmp_param_assert(((dn - 1) | (dp[0] - 1)) != 0);
 
     mp_srcptr pd_pow[MAX_EXP];
     mp_size_t pn_pow[MAX_EXP];

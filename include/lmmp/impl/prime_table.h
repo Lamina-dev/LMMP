@@ -107,7 +107,8 @@ static inline ulong lmmp_prime_size_(ulong n) {
  * @brief 初始化全局素数表
  * @param n 素数表大小（含n）
  * @warning 会自动扩容，可以重入；当 n < PRIME_SHORT_TABLE_N 时，将会直接返回
- * @note 仅存储奇素数
+ * @note mod-30 轮位图存储：每字节存 30 个数中与 30 互素的 8 个候选
+ *       （密度 4/15 bit/数，为奇数编码的 8/15），3、5 及其倍数结构性不入位图
  */
 void lmmp_prime_int_table_init_(uint n);
 
@@ -150,7 +151,8 @@ void lmmp_prime_cache_init_(prime_cache_t* cache, uint n);
 /**
  * @brief 素数表缓存更新（从小到大遍历全局质数表）
  * @param cache 缓存结构体
- * @note 缓存只存储奇素数，当遍历到全局质数表末尾或者达到设置的范围时，is_end 置为 1
+ * @note 缓存只存储奇素数；3、5 不在 mod-30 位图内，首次解码时补入。
+ *       当遍历到全局质数表末尾或者达到设置的范围时，is_end 置为 1
  */
 void lmmp_prime_cache_next_(prime_cache_t* cache);
 

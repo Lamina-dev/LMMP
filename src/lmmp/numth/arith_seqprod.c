@@ -35,7 +35,7 @@ mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m) {
     lmmp_param_assert(n > 0);
     lmmp_param_assert(m > 1);
     /*
-    P = x(x+m)...(x+nm) = m^(n+1) * Γ(x/m+n+1)/Γ(x/m)
+    P = x(x+m)...(x+nm) = m^(n+1) * gamma(x/m+n+1)/gamma(x/m)
     log2(P) = [(n+1)ln(m) + lgamma(x/m+n+1) - lgamma(x/m)] / ln2
     由 x+n*m <= 2^32-1 的约束，lgamma参数不超过2^31，估计误差远小于1bit。
     位数 = floor(log2(P))+1，故取floor+1。
@@ -45,7 +45,8 @@ mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m) {
     double lp = ((double)(n + 1) * log((double)m) + lgamma(a + (double)(n + 1)) - lgamma(a)) / ln2;
     mp_size_t rn1 = (((uint64_t)floor(lp) + 1) + LIMB_BITS - 1) / LIMB_BITS + 2;
     // 共有n+1个数，每个数的位数最多为uint，一个limb最多可以容纳两个uint乘积
-    mp_size_t rn2 = (n + 1) / 2 + 1;
+    // 奇部积至多 ceil((n+1)/2) limb，shl 进位无条件写 dst[shw+bn] 需再留 1 limb
+    mp_size_t rn2 = (n + 1) / 2 + 2;
     return LMMP_MIN(rn1, rn2);
 }
 

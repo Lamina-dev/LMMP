@@ -92,6 +92,25 @@ TEST_CASE("numth/fac", factorial) {
         }
         lmmp_free(dst);
     }
+
+    // 筛表路径（n > 65535 触发 lmmp_prime_int_table_init_ 的 mod-30 位图）：
+    // 递推链过长，改用三素数独立模锚点（素数集错误必致模值不等）
+    {
+        u32 n = 100003;
+        mp_bitcnt_t bits = 0;
+        mp_size_t need = lmmp_factorial_size_(n, &bits);
+        mp_ptr dst = alloc_limbs(need + 2);
+        lmmp_zero(dst, need + 2);
+        lmmp_factorial_(dst, bits, need, n);
+        mp_size_t rn = norm_len(dst, need + 2);
+        for (int pi = 0; pi < MOD_P_CNT; ++pi) {
+            u64 p = MOD_P[pi];
+            u64 m = 1;
+            for (u32 i = 2; i <= n; ++i) m = mulmod32(m, i % p, p);
+            TEST_CHECK_EQ(mod32(dst, rn, (u32)p), m);
+        }
+        lmmp_free(dst);
+    }
     lmmp_free(expect);
 }
 

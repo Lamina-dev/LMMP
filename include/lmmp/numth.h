@@ -1160,12 +1160,12 @@ LMMP_API mp_size_t lmmp_arith_seqprod_size_(uint x, uint n, uint m);
 LMMP_API mp_size_t lmmp_arith_seqprod_(mp_ptr dst, mp_size_t rn, uint x, uint n, uint m);
 
 /**
- * @brief 除去[np,nn]中的[dp,dn]的因子
+ * @brief 除去 [np,nn] 中的 [dp,dn] 的因子
  * @param np 被除数指针，将会被修改为除去因子后的数
  * @param nn 被除数指针的 limb 长度，将会被修改除去因子后的长度
  * @param dp 除数指针
  * @param dn 除数指针的 limb 长度
- * @warning np!=NULL, nn>0, dp!=NULL, dn>0
+ * @warning np!=NULL, nn>0, dp!=NULL, dn>0, [dp,dn]!=1
  * @note 如果[np,nn]能被[dp,dn]整除，则[np,nn]将被修改为除去因子后的数，nn将被修改为除去因子后的长度。
  *       如果不能被整除，则[np,nn]保持不变，并返回0。
  * @return [np,nn]中被[dp,dn]除去的因子的个数，如果不能被整除，则返回0

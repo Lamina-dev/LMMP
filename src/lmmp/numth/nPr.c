@@ -106,8 +106,10 @@ static mp_size_t lmmp_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n
     ulong t = 1;
     uint v;
     mp_bitcnt_t cnt = 0;
-    for (uint i = n - r + 1; i <= n; ++i) {
-        ctz_shr_u32(v, i, cnt);
+    // 需注意 n==UINT_MAX 的情况
+    uint ibase = n - r + 1;
+    for (uint k = 0; k < r; ++k) {
+        ctz_shr_u32(v, ibase + k, cnt);
         t *= v;
         if (t > MP_UINT_MAX) {
             limbs[limbn++] = t;
@@ -289,8 +291,10 @@ mp_size_t lmmp_odd_nPr_ulong_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong 
         rn = 1;
         ulong v;
         mp_bitcnt_t cnt;
-        for (ulong i = n - r + 1; i <= n; ++i) {
-            ctz_shr_u64(v, i, cnt);
+        // 需注意 n==UINT_MAX 的情况
+        ulong ibase = n - r + 1;
+        for (ulong k = 0; k < r; ++k) {
+            ctz_shr_u64(v, ibase + k, cnt);
             if (v != 1) {
                 mul_1(dst, rn, v);
             }
@@ -302,8 +306,9 @@ mp_size_t lmmp_odd_nPr_ulong_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong 
     mp_size_t limbn = 0;
     ulong v;
     mp_bitcnt_t cnt;
-    for (ulong t = n - r + 1; t <= n; ++t) {
-        ctz_shr_u64(v, t, cnt);
+    ulong ibase = n - r + 1;
+    for (ulong k = 0; k < r; ++k) {
+        ctz_shr_u64(v, ibase + k, cnt);
         if (v != 1)
             limbs[limbn++] = v;
     }

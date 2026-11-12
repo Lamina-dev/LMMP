@@ -40,7 +40,7 @@ mp_bitcnt_t lmmp_extract_bits_(mp_srcptr restrict num, mp_size_t n, mp_limb_t* r
     } else {
         int lb = lmmp_limb_bits_(num[n - 1]);
         if (lb < bits) {
-            *ext = num[n - 1] << (bits - lb);
+            *ext = lb ? (num[n - 1] << (bits - lb)) : 0;
             *ext |= num[n - 2] >> (LIMB_BITS - bits + lb);
             return LIMB_BITS * (n - 1) - (bits - lb);
         } else if (lb == bits) {

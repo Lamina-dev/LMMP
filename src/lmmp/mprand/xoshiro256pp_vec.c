@@ -128,39 +128,6 @@ void lmmp_xoshiro256ppx8_fill_(mp_ptr restrict dst, mp_size_t n, xoshiro256ppx8_
         dst[i + 7] = r7;
     }
 
-    rng->s0[0] = a0;
-    rng->s0[1] = a1;
-    rng->s0[2] = a2;
-    rng->s0[3] = a3;
-    rng->s0[4] = a4;
-    rng->s0[5] = a5;
-    rng->s0[6] = a6;
-    rng->s0[7] = a7;
-    rng->s1[0] = b0;
-    rng->s1[1] = b1;
-    rng->s1[2] = b2;
-    rng->s1[3] = b3;
-    rng->s1[4] = b4;
-    rng->s1[5] = b5;
-    rng->s1[6] = b6;
-    rng->s1[7] = b7;
-    rng->s2[0] = c0;
-    rng->s2[1] = c1;
-    rng->s2[2] = c2;
-    rng->s2[3] = c3;
-    rng->s2[4] = c4;
-    rng->s2[5] = c5;
-    rng->s2[6] = c6;
-    rng->s2[7] = c7;
-    rng->s3[0] = d0;
-    rng->s3[1] = d1;
-    rng->s3[2] = d2;
-    rng->s3[3] = d3;
-    rng->s3[4] = d4;
-    rng->s3[5] = d5;
-    rng->s3[6] = d6;
-    rng->s3[7] = d7;
-
     /* 尾部（n%8）：多产出一块仅取所需（各流锁步推进的延续；块体与
        主循环同构展开，尾部冷路径无需向量化） */
     if (i < n) {
@@ -220,7 +187,50 @@ void lmmp_xoshiro256ppx8_fill_(mp_ptr restrict dst, mp_size_t n, xoshiro256ppx8_
         c5 ^= t5;
         c6 ^= t6;
         c7 ^= t7;
+        d0 = rotl(d0, 45);
+        d1 = rotl(d1, 45);
+        d2 = rotl(d2, 45);
+        d3 = rotl(d3, 45);
+        d4 = rotl(d4, 45);
+        d5 = rotl(d5, 45);
+        d6 = rotl(d6, 45);
+        d7 = rotl(d7, 45);
         mp_limb_t rr[8] = {r0, r1, r2, r3, r4, r5, r6, r7};
         for (mp_size_t k = 0; i + k < n; k++) dst[i + k] = rr[k];
     }
+
+    /* 状态写回须在尾部块之后：尾部同样推进了一步，写回提前会使
+       下次 fill 重复尾部块输出（违背"推进 ceil(n/8) 步"契约） */
+    rng->s0[0] = a0;
+    rng->s0[1] = a1;
+    rng->s0[2] = a2;
+    rng->s0[3] = a3;
+    rng->s0[4] = a4;
+    rng->s0[5] = a5;
+    rng->s0[6] = a6;
+    rng->s0[7] = a7;
+    rng->s1[0] = b0;
+    rng->s1[1] = b1;
+    rng->s1[2] = b2;
+    rng->s1[3] = b3;
+    rng->s1[4] = b4;
+    rng->s1[5] = b5;
+    rng->s1[6] = b6;
+    rng->s1[7] = b7;
+    rng->s2[0] = c0;
+    rng->s2[1] = c1;
+    rng->s2[2] = c2;
+    rng->s2[3] = c3;
+    rng->s2[4] = c4;
+    rng->s2[5] = c5;
+    rng->s2[6] = c6;
+    rng->s2[7] = c7;
+    rng->s3[0] = d0;
+    rng->s3[1] = d1;
+    rng->s3[2] = d2;
+    rng->s3[3] = d3;
+    rng->s3[4] = d4;
+    rng->s3[5] = d5;
+    rng->s3[6] = d6;
+    rng->s3[7] = d7;
 }
