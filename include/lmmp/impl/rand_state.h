@@ -129,33 +129,6 @@ LMMP_INLINE void lmmp_xoshiro256pp_srandom(xoshiro256pp_state* rng, mp_limb_t se
     // 由于mix64为双射，故不可能为全零状态
 }
 
-typedef struct {
-    mp_limb_t s0[8];  // 第 j 流的 s0 = s0[j]
-    mp_limb_t s1[8];
-    mp_limb_t s2[8];
-    mp_limb_t s3[8];  // 各流状态必须初始化为非全零值
-} xoshiro256ppx8_state;
-
-/**
- * @brief xoshiro256pp 向量化后端播种
- * @param rng 状态指针
- * @param seed 低熵种子
- * @note 第 j 流第 m 个状态字 = mix64(seed + (4j+m)*C)；mix64 双射
- *       保证每流 4 个互异输入至多一个零 limb，全零流不存在
- */
-void lmmp_xoshiro256ppx8_srandom(xoshiro256ppx8_state* rng, mp_limb_t seed);
-
-/**
- * @brief xoshiro256pp 向量化后端批量填充
- * @param dst 输出指针（n 个limb）
- * @param n 填充长度
- * @param rng 状态指针（函数内推进 ceil(n/8) 步，各流锁步）
- * @warning n>0 时 dst!=NULL, sep(dst, rng)
- */
-void lmmp_xoshiro256ppx8_fill_(mp_ptr restrict dst, mp_size_t n, xoshiro256ppx8_state* restrict rng);
-
-#define XOSHIRO_VEC_MIN 128
-
 #define PCG64_LE_MULTIPLIER 6364136223846793005ULL
 #define PCG64_LE_INCREMENT 1442695040888963407ULL
 

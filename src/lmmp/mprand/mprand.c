@@ -62,23 +62,17 @@ mp_size_t lmmp_seed_random_(mp_ptr restrict dst, mp_size_t n, mp_limb_t seed, un
             dst[i] = lmmp_pcg64_128_random(&rng);
         }
     } else {
-        if (n < XOSHIRO_VEC_MIN) {
-            xoshiro256pp_state rng;
-            lmmp_xoshiro256pp_srandom(&rng, seed);
-            mp_size_t i = 0;
-            for (; i + 3 < n; i += 4) {
-                dst[i + 0] = lmmp_xoshiro256pp_random(&rng);
-                dst[i + 1] = lmmp_xoshiro256pp_random(&rng);
-                dst[i + 2] = lmmp_xoshiro256pp_random(&rng);
-                dst[i + 3] = lmmp_xoshiro256pp_random(&rng);
-            }
-            for (; i < n; ++i) {
-                dst[i] = lmmp_xoshiro256pp_random(&rng);
-            }
-        } else {
-            xoshiro256ppx8_state rng;
-            lmmp_xoshiro256ppx8_srandom(&rng, seed);
-            lmmp_xoshiro256ppx8_fill_(dst, n, &rng);
+        xoshiro256pp_state rng;
+        lmmp_xoshiro256pp_srandom(&rng, seed);
+        mp_size_t i = 0;
+        for (; i + 3 < n; i += 4) {
+            dst[i + 0] = lmmp_xoshiro256pp_random(&rng);
+            dst[i + 1] = lmmp_xoshiro256pp_random(&rng);
+            dst[i + 2] = lmmp_xoshiro256pp_random(&rng);
+            dst[i + 3] = lmmp_xoshiro256pp_random(&rng);
+        }
+        for (; i < n; ++i) {
+            dst[i] = lmmp_xoshiro256pp_random(&rng);
         }
     }
     while (n > 0 && dst[n - 1] == 0) {
