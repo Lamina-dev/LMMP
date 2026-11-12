@@ -64,7 +64,10 @@ uint64_t lmmp_siphash24_(mp_srcptr in, mp_size_t inlen, srckey128_t key) {
     if (in == NULL || inlen == 0)
         inlen = 0;
 
-    const uint64_t* data = (const uint64_t*)in;
+    // in 为 NULL 时以占位对象为基（inlen 已归零，不会解引用），
+    // 避免对 NULL 指针做 +0 运算与关系比较
+    uint64_t null_base;
+    const uint64_t* data = in != NULL ? (const uint64_t*)in : &null_base;
     const uint64_t* end = data + inlen;
 
     const uint64_t* limit = data + (inlen & ~3ULL);

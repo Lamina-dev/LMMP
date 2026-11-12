@@ -140,8 +140,19 @@ void lmmp_prime_int_table_init_(uint n) {
     uint limit_idx = wheel_leq_idx(n); // 有效位上界（含），对应 <= n 的最大 wheel 数
     uint skip_num = 0, skip_to = 0;    // 扩容时旧区域之后的第一个 wheel 数及其位下标
     if (old_max != 0) {
-        skip_num = old_max + 1 + bump30[(old_max + 1) % 30];
-        skip_to = WHEEL_IDX(skip_num);
+        // 宽类型算后继 wheel 数：old_max 贴近 2^32 时 uint 中间量回绕，得到
+        // 失配的 (skip_num,skip_to) 会使重定位标到素数自身（13..29 被清位）
+        ulong sk = (ulong)old_max + 1 + bump30[((ulong)old_max + 1) % 30];
+        if (sk <= MP_UINT_MAX) {
+            skip_num = (uint)sk;
+            skip_to = WHEEL_IDX(skip_num);
+        } else {
+            // uint 域内已无后继 wheel 数，新区域无数可标：MP_UINT_MAX 作域外
+            // 哨兵，重定位 m = p*ceil(UINT_MAX/p) >= UINT_MAX > p^2 恒超 end，
+            // 各素数经既有 idx>=end 路径直接跳过标记（每素数一条除法链）
+            skip_num = MP_UINT_MAX;
+            skip_to = (uint)-1;
+        }
     }
 
     ushort sqrt_n = n > 4294836225 ? 0xffff : (ushort)sqrt(n);
