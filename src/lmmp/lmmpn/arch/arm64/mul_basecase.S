@@ -51,7 +51,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     cmp     x23, #1
     b.ne    Lmb_seed
 
-    // nb == 1: dst[0..na] = numa * numb[0]
+    // nb == 1: [dst, na+1] = [numa, na] * numb[0]
     ldr     x3, [x22]
     mov     x0, x19
     mov     x1, x20
@@ -60,7 +60,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     str     x0, [x19, x21, lsl #3]      // dst[na] = carry
     b       Lmb_done
 
-    // seed mul_2: dst[0..na+1] = numa * (numb[0], numb[1]); rp load-free
+    // seed mul_2: [dst, na+2] = [numa, na] * (numb[0], numb[1]); rp load-free
 Lmb_seed:
     ldp     x4, x5, [x22]               // v0, v1
     mov     x12, xzr                    // cy0 = 0
@@ -69,7 +69,7 @@ Lmb_seed:
     mov     x1, x20
     mov     x2, x21
     tbz     x2, #0, Ls_1
-    ldr     x6, [x1], #8                // u_0
+    ldr     x6, [x1], #8                // u0
     mul     x8, x6, x4                  // lo0
     umulh   x9, x6, x4                  // hi0
     mul     x10, x6, x5                 // lo1
@@ -83,14 +83,14 @@ Lmb_seed:
 
 Ls_1:
     tbz     x2, #1, Ls_2
-    ldp     x6, x7, [x1], #16           // u_0, u_1
+    ldp     x6, x7, [x1], #16           // u0, u1
     mul     x8, x6, x4
     umulh   x9, x6, x4
     mul     x10, x6, x5
     umulh   x11, x6, x5
     adds    x9, x9, x10                 // h
     adcs    x11, x11, xzr               // h2
-    adds    x8, x8, x12                 // s_0 = lo0 + cy0
+    adds    x8, x8, x12                 // s0 = lo0 + cy0
     adcs    x12, x9, x13                // cy0
     adcs    x13, x11, xzr               // cy1
     str     x8, [x0], #8
@@ -100,7 +100,7 @@ Ls_1:
     umulh   x11, x7, x5
     adds    x9, x9, x10                 // h
     adcs    x11, x11, xzr               // h2
-    adds    x8, x8, x12                 // s_1 = lo0 + cy0
+    adds    x8, x8, x12                 // s1 = lo0 + cy0
     adcs    x12, x9, x13                // cy0
     adcs    x13, x11, xzr               // cy1
     str     x8, [x0], #8
@@ -111,15 +111,15 @@ Ls_2:
 .p2align 4
 
 Ls_top:
-    ldp     x6, x7, [x1], #32           // u_0, u_1
-    ldp     x16, x17, [x1, #-16]        // u_2, u_3
+    ldp     x6, x7, [x1], #32           // u0, u1
+    ldp     x16, x17, [x1, #-16]        // u2, u3
     mul     x8, x6, x4
     umulh   x9, x6, x4
     mul     x10, x6, x5
     umulh   x11, x6, x5
     adds    x9, x9, x10                 // h
     adcs    x11, x11, xzr               // h2
-    adds    x8, x8, x12                 // s_0 = lo0 + cy0
+    adds    x8, x8, x12                 // s0 = lo0 + cy0
     adcs    x12, x9, x13                // cy0
     adcs    x13, x11, xzr               // cy1
     mul     x9, x7, x4
@@ -128,7 +128,7 @@ Ls_top:
     umulh   x14, x7, x5
     adds    x10, x10, x11               // h'
     adcs    x14, x14, xzr               // h2'
-    adds    x9, x9, x12                 // s_1
+    adds    x9, x9, x12                 // s1
     adcs    x12, x10, x13               // cy0
     adcs    x13, x14, xzr               // cy1
     stp     x8, x9, [x0], #16
@@ -138,7 +138,7 @@ Ls_top:
     umulh   x11, x16, x5
     adds    x9, x9, x10                 // h
     adcs    x11, x11, xzr               // h2
-    adds    x8, x8, x12                 // s_2
+    adds    x8, x8, x12                 // s2
     adcs    x12, x9, x13                // cy0
     adcs    x13, x11, xzr               // cy1
     mul     x9, x17, x4
@@ -147,7 +147,7 @@ Ls_top:
     umulh   x14, x17, x5
     adds    x10, x10, x11               // h'
     adcs    x14, x14, xzr               // h2'
-    adds    x9, x9, x12                 // s_3
+    adds    x9, x9, x12                 // s3
     adcs    x12, x10, x13               // cy0
     adcs    x13, x14, xzr               // cy1
     stp     x8, x9, [x0], #16
@@ -167,7 +167,7 @@ Ls_end:
     add     x26, x19, #16               // dst walker at j
 .p2align 4
 
-Lmb_pair:                               // dst[j..j+na+1] += numa*(numb[j],numb[j+1])
+Lmb_pair:                               // [dst+j, na+2] += [numa, na]*(numb[j],numb[j+1])
     ldp     x4, x5, [x25], #16          // v0, v1
     mov     x0, x26                     // rp = dst + j
     mov     x1, x20                     // up = numa
@@ -181,26 +181,26 @@ Lmb_pair:                               // dst[j..j+na+1] += numa*(numb[j],numb[
     mul     x10, x6, x5                 // lo1
     umulh   x11, x6, x5                 // hi1
     ldr     x14, [x0]
-    adds    x8, x8, x14                 // t = lo0 + rp     c1
+    adds    x8, x8, x14                 // t = lo0 + rp
     adcs    x9, x9, x10                 // h = hi0 + lo1 + c1
     adcs    x11, x11, xzr               // h2 = hi1 + c2
-    adds    x8, x8, x12                 // s = t + cy0      c4
+    adds    x8, x8, x12                 // s = t + cy0
     str     x8, [x0], #8
     adcs    x12, x9, x13                // cy0 = h + cy1 + c4
     adcs    x13, x11, xzr               // cy1 = h2 + c5
 
 Lp_1:
     tbz     x2, #1, Lp_2
-    ldp     x6, x7, [x1], #16           // u_0, u_1
+    ldp     x6, x7, [x1], #16           // u0, u1
     ldr     x14, [x0]
     mul     x8, x6, x4
     umulh   x9, x6, x4
     mul     x10, x6, x5
     umulh   x11, x6, x5
-    adds    x8, x8, x14                 // t = lo0 + rp     c1
+    adds    x8, x8, x14                 // t = lo0 + rp
     adcs    x9, x9, x10                 // h = hi0 + lo1 + c1
     adcs    x11, x11, xzr               // h2 = hi1 + c2
-    adds    x8, x8, x12                 // s = t + cy0      c4
+    adds    x8, x8, x12                 // s = t + cy0
     str     x8, [x0], #8
     adcs    x12, x9, x13                // cy0
     adcs    x13, x11, xzr               // cy1
@@ -223,17 +223,17 @@ Lp_2:
 .p2align 4
 
 Lp_top:
-    ldp     x6, x7, [x1], #32           // u_0, u_1
-    ldp     x16, x17, [x1, #-16]        // u_2, u_3
-    ldp     x14, x15, [x0]              // rp_0, rp_1
+    ldp     x6, x7, [x1], #32           // u0, u1
+    ldp     x16, x17, [x1, #-16]        // u2, u3
+    ldp     x14, x15, [x0]              // rp0, rp1
     mul     x8, x6, x4                  // lo0
     umulh   x9, x6, x4                  // hi0
     mul     x10, x6, x5                 // lo1
     umulh   x11, x6, x5                 // hi1
-    adds    x8, x8, x14                 // t = lo0 + rp     c1
+    adds    x8, x8, x14                 // t = lo0 + rp
     adcs    x9, x9, x10                 // h = hi0 + lo1 + c1
     adcs    x11, x11, xzr               // h2 = hi1 + c2
-    adds    x8, x8, x12                 // s = t + cy0      c4
+    adds    x8, x8, x12                 // s = t + cy0
     adcs    x12, x9, x13                // cy0 = h + cy1 + c4
     adcs    x13, x11, xzr               // cy1 = h2 + c5
     mul     x9, x7, x4                  // lo0'
@@ -243,11 +243,11 @@ Lp_top:
     adds    x9, x9, x15                 // t' = lo0' + rp
     adcs    x10, x10, x11               // h' = hi0' + lo1' + c1
     adcs    x14, x14, xzr               // h2' = hi1' + c2
-    adds    x9, x9, x12                 // s' = t' + cy0     c4
+    adds    x9, x9, x12                 // s' = t' + cy0
     adcs    x12, x10, x13               // cy0 = h' + cy1 + c4
     adcs    x13, x14, xzr               // cy1 = h2' + c5
     stp     x8, x9, [x0], #16
-    ldp     x14, x15, [x0]              // rp_2, rp_3
+    ldp     x14, x15, [x0]              // rp2, rp3
     mul     x8, x16, x4                 // lo0
     umulh   x9, x16, x4                 // hi0
     mul     x10, x16, x5                // lo1
@@ -284,7 +284,7 @@ Lp_end:
 Lmb_odd_check:
     cmp     x24, x23
     b.hs    Lmb_done                    // nb even: done
-    // odd leftover row: dst[j..j+na] += numa * numb[j]
+    // odd leftover row: [dst+j, na+1] += [numa, na] * numb[j]
     ldr     x3, [x22, x24, lsl #3]      // v = numb[j]
     add     x0, x19, x24, lsl #3        // rp = dst + j
     mov     x1, x20
@@ -292,26 +292,26 @@ Lmb_odd_check:
     adds    x15, xzr, xzr               // carry = 0, C = 0
     tbz     x2, #0, Lmb_am_bx0          // n mod 2 == 0
     ldr     x4, [x1], #8                // up[0]
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
+    mul     x8, x4, x3                  // lo0
+    umulh   x12, x4, x3                 // hi0
     ldr     x4, [x0]
-    adds    x8, x4, x8                  // s_0 = rp[0] + lo_0
-    cinc    x15, x12, cs                // carry = hi_0 + C
+    adds    x8, x4, x8                  // s0 = rp[0] + lo0
+    cinc    x15, x12, cs                // carry = hi0 + C
     str     x8, [x0], #8
 
 Lmb_am_bx0:                             // first two limbs
     tbz     x2, #1, Lmb_am_2
     ldp     x4, x5, [x1], #16           // up[0], up[1]
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
-    mul     x9, x5, x3                  // lo_1
-    umulh   x13, x5, x3                 // hi_1
-    adds    x8, x8, x15                 // s_0 = lo_0 + carry
-    adcs    x9, x9, x12                 // s_1 = lo_1 + hi_0 + C
+    mul     x8, x4, x3                  // lo0
+    umulh   x12, x4, x3                 // hi0
+    mul     x9, x5, x3                  // lo1
+    umulh   x13, x5, x3                 // hi1
+    adds    x8, x8, x15                 // s0 = lo0 + carry
+    adcs    x9, x9, x12                 // s1 = lo1 + hi0 + C
     ldp     x4, x5, [x0]                // rp[0], rp[1]
-    adc     x15, x13, xzr               // carry = hi_1 + C
-    adds    x8, x4, x8                  // s_0 += rp[0]
-    adcs    x9, x5, x9                  // s_1 += rp[1]
+    adc     x15, x13, xzr               // carry = hi1 + C
+    adds    x8, x4, x8                  // s0 += rp[0]
+    adcs    x9, x5, x9                  // s1 += rp[1]
     cinc    x15, x15, cs                // carry += C
     stp     x8, x9, [x0], #16
 
@@ -330,36 +330,36 @@ Lmb_am_le3:
 Lmb_am_top:                             // for each 4 limb: s_j += rp[j]
     ldp     x4, x5, [x1], #32
     ldp     x6, x7, [x1, #-16]
-    adds    x8, x16, x8                 // s_0 += rp[0]
-    adcs    x9, x17, x9                 // s_1 += rp[1]
+    adds    x8, x16, x8                 // s0 += rp[0]
+    adcs    x9, x17, x9                 // s1 += rp[1]
     stp     x8, x9, [x0], #32
-    adcs    x10, x12, x10               // s_2 += rp[2]
-    adcs    x11, x13, x11               // s_3 += rp[3]
+    adcs    x10, x12, x10               // s2 += rp[2]
+    adcs    x11, x13, x11               // s3 += rp[3]
     stp     x10, x11, [x0, #-16]
     cinc    x15, x15, cs                // carry += C
 
 Lmb_am_mid:                             // products, carry chain
     sub     x2, x2, #1
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
-    mul     x9, x5, x3                  // lo_1
-    umulh   x13, x5, x3                 // hi_1
-    adds    x8, x8, x15                 // s_0 = lo_0 + carry
-    mul     x10, x6, x3                 // lo_2
-    umulh   x14, x6, x3                 // hi_2
-    adcs    x9, x9, x12                 // s_1 = lo_1 + hi_0 + C
-    mul     x11, x7, x3                 // lo_3
-    umulh   x15, x7, x3                 // hi_3
-    adcs    x10, x10, x13               // s_2 = lo_2 + hi_1 + C
+    mul     x8, x4, x3                  // lo0
+    umulh   x12, x4, x3                 // hi0
+    mul     x9, x5, x3                  // lo1
+    umulh   x13, x5, x3                 // hi1
+    adds    x8, x8, x15                 // s0 = lo0 + carry
+    mul     x10, x6, x3                 // lo2
+    umulh   x14, x6, x3                 // hi2
+    adcs    x9, x9, x12                 // s1 = lo1 + hi0 + C
+    mul     x11, x7, x3                 // lo3
+    umulh   x15, x7, x3                 // hi3
+    adcs    x10, x10, x13               // s2 = lo2 + hi1 + C
     ldp     x16, x17, [x0]              // rp[0], rp[1]
-    adcs    x11, x11, x14               // s_3 = lo_3 + hi_2 + C
+    adcs    x11, x11, x14               // s3 = lo3 + hi2 + C
     ldp     x12, x13, [x0, #16]         // rp[2], rp[3]
-    adc     x15, x15, xzr               // carry = hi_3 + C
+    adc     x15, x15, xzr               // carry = hi3 + C
     cbnz    x2, Lmb_am_top
-    adds    x8, x16, x8                 // last: s_0 += rp[0]
-    adcs    x9, x17, x9                 // s_1 += rp[1]
-    adcs    x10, x12, x10               // s_2 += rp[2]
-    adcs    x11, x13, x11               // s_3 += rp[3]
+    adds    x8, x16, x8                 // last: s0 += rp[0]
+    adcs    x9, x17, x9                 // s1 += rp[1]
+    adcs    x10, x12, x10               // s2 += rp[2]
+    adcs    x11, x13, x11               // s3 += rp[3]
     stp     x8, x9, [x0]
     stp     x10, x11, [x0, #16]
     cinc    x0, x15, cs                 // x0 = carry + C

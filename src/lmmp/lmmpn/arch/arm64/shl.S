@@ -36,7 +36,7 @@
 ASM_GSYM(lmmp_shl_c_):
 
 Lshl_ent:
-    cbz     x3, Lshl_copy           // shl == 0, copy
+    cbz     x3, Lshl_copy            // shl == 0, copy
     sub     x7, x3, #64              // k - 64
     neg     x5, x7                   // x5 = s = 64 - shl
     dup     v0.2d, x3                // k
@@ -52,11 +52,11 @@ Lshl_v4:                             // main loop, 4 limbs
     ldr     q4, [x1], #16            // B = [a_{i+2}, a_{i+3}]
     ushl    v5.2d, v3.2d, v0.2d      // hiA = A << k
     ushl    v6.2d, v3.2d, v1.2d      // loA = A >> s
-    ext     v3.16b, v2.16b, v6.16b, #8 // [lo_prev[1], loA[0]]
+    ext     v3.16b, v2.16b, v6.16b, #8
     ushl    v7.2d, v4.2d, v0.2d      // hiB
     ushl    v4.2d, v4.2d, v1.2d      // loB
     orr     v5.16b, v5.16b, v3.16b   // outA
-    ext     v3.16b, v6.16b, v4.16b, #8 // [loA[1], loB[0]]
+    ext     v3.16b, v6.16b, v4.16b, #8
     str     q5, [x0], #16
     orr     v7.16b, v7.16b, v3.16b   // outB
     str     q7, [x0], #16

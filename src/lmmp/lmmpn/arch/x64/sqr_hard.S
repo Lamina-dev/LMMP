@@ -155,7 +155,7 @@ ASM_GSYM(lmmp_sqr_hard_4_):
     push    r12
     push    r13
     push    r15
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mov     r10d, 0
     mov     r12d, 0
@@ -170,7 +170,7 @@ ASM_GSYM(lmmp_sqr_hard_4_):
     mov     r11d, 0
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     rdx, [rsi+8]
     mulx    rcx, rax, [rsi+16]
     adcx    r9, rax
@@ -182,7 +182,7 @@ ASM_GSYM(lmmp_sqr_hard_4_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     rdx, [rsi+16]
     mulx    r11, r15, [rsi+24]
     adox    r13, r11
@@ -258,7 +258,7 @@ ASM_GSYM(lmmp_sqr_hard_5_):
     push    r13
     push    r14
     push    r15
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mov     r12d, 0
     mov     r13d, 0
@@ -276,7 +276,7 @@ ASM_GSYM(lmmp_sqr_hard_5_):
     mov     r11d, 0
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     rdx, [rsi+8]
     mulx    rcx, rax, [rsi+16]
     mulx    r11, r15, [rsi+24]
@@ -291,7 +291,7 @@ ASM_GSYM(lmmp_sqr_hard_5_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     rdx, [rsi+16]
     mulx    rcx, rax, [rsi+24]
     adcx    r12, rax
@@ -303,7 +303,7 @@ ASM_GSYM(lmmp_sqr_hard_5_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     rdx, [rsi+24]
     mulx    r11, r15, [rsi+32]
     adox    rbx, r11
@@ -391,8 +391,8 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 96                 // M[c]=[rsp+8c], c=1..10
-    // --- row 0: a_0 ---
+    sub     rsp, 96                 // M[c]=[rsp+8c], c=[1|10]
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mov     r13d, 0
     mov     r14d, 0
@@ -411,7 +411,7 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     mov     r11d, 0
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     ebp, 0
@@ -433,7 +433,7 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     rdx, [rsi+16]
@@ -450,7 +450,7 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     rdx, [rsi+24]
@@ -464,7 +464,7 @@ ASM_GSYM(lmmp_sqr_hard_6_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     rdx, [rsi+32]
@@ -587,8 +587,8 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 112                // M[c]=[rsp+8c], c=1..12
-    // --- row 0: a_0 ---
+    sub     rsp, 112                // M[c]=[rsp+8c], c=[1|12]
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mov     r14d, 0
     mov     ebx, 0
@@ -608,7 +608,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     mov     r11d, 0
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     ebp, 0
@@ -633,7 +633,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9d, 0
@@ -655,7 +655,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     rdx, [rsi+24]
@@ -672,7 +672,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     rdx, [rsi+32]
@@ -686,7 +686,7 @@ ASM_GSYM(lmmp_sqr_hard_7_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rdx, [rsi+40]
@@ -823,9 +823,9 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 128                // M[c]=[rsp+8c], c=1..14
+    sub     rsp, 128                // M[c]=[rsp+8c], c=[1|14]
     mov     QWORD PTR [rsp+72], 0   // M[9] = 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mov     ebx, 0
     mulx    r8, rbp, [rsi+8]
@@ -848,7 +848,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     mov     r15, [rsp+72]
     adcx    r15, r11
     mov     [rsp+72], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -876,7 +876,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9d, 0
@@ -901,7 +901,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12d, 0
@@ -923,7 +923,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     rdx, [rsi+32]
@@ -940,7 +940,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rdx, [rsi+40]
@@ -954,7 +954,7 @@ ASM_GSYM(lmmp_sqr_hard_8_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     rdx, [rsi+48]
@@ -1105,11 +1105,11 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 144                // M[c]=[rsp+8c], c=1..16
+    sub     rsp, 144                // M[c]=[rsp+8c], c=[1|16]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
     mov     QWORD PTR [rsp+88], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -1135,7 +1135,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     mov     r15, [rsp+80]
     adcx    r15, r11
     mov     [rsp+80], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -1168,7 +1168,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adcx    r8, r11
     adcx    r15, r11
     mov     [rsp+88], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -1196,7 +1196,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12d, 0
@@ -1221,7 +1221,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14d, 0
@@ -1243,7 +1243,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rdx, [rsi+40]
@@ -1260,7 +1260,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     rdx, [rsi+48]
@@ -1274,7 +1274,7 @@ ASM_GSYM(lmmp_sqr_hard_9_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     rdx, [rsi+56]
@@ -1439,12 +1439,12 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 160                // M[c]=[rsp+8c], c=1..18
+    sub     rsp, 160                // M[c]=[rsp+8c], c=[1|18]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
     mov     QWORD PTR [rsp+104], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -1475,7 +1475,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     mov     r15, [rsp+88]
     adcx    r15, r11
     mov     [rsp+88], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -1513,7 +1513,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     mov     [rsp+88], rdx
     adcx    r15, r11
     mov     [rsp+96], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -1546,7 +1546,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adcx    r10, r11
     adcx    r15, r11
     mov     [rsp+104], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -1574,7 +1574,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14d, 0
@@ -1599,7 +1599,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     ebp, 0
@@ -1621,7 +1621,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     rdx, [rsi+48]
@@ -1638,7 +1638,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     rdx, [rsi+56]
@@ -1652,7 +1652,7 @@ ASM_GSYM(lmmp_sqr_hard_10_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     rdx, [rsi+64]
@@ -1831,13 +1831,13 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 176                // M[c]=[rsp+8c], c=1..20
+    sub     rsp, 176                // M[c]=[rsp+8c], c=[1|20]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
     mov     QWORD PTR [rsp+120], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -1873,7 +1873,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     mov     r15, [rsp+96]
     adcx    r15, r11
     mov     [rsp+96], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -1916,7 +1916,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     mov     [rsp+96], rdx
     adcx    r15, r11
     mov     [rsp+104], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -1954,7 +1954,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     mov     [rsp+104], rdx
     adcx    r15, r11
     mov     [rsp+112], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -1987,7 +1987,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adcx    r13, r11
     adcx    r15, r11
     mov     [rsp+120], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -2015,7 +2015,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     ebp, 0
@@ -2040,7 +2040,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9d, 0
@@ -2062,7 +2062,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     rdx, [rsi+56]
@@ -2079,7 +2079,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     rdx, [rsi+64]
@@ -2093,7 +2093,7 @@ ASM_GSYM(lmmp_sqr_hard_11_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rdx, [rsi+72]
@@ -2286,14 +2286,14 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 192                // M[c]=[rsp+8c], c=1..22
+    sub     rsp, 192                // M[c]=[rsp+8c], c=[1|22]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
     mov     QWORD PTR [rsp+136], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -2334,7 +2334,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     mov     r15, [rsp+104]
     adcx    r15, r11
     mov     [rsp+104], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -2382,7 +2382,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     mov     [rsp+104], rax
     adcx    r15, r11
     mov     [rsp+112], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -2425,7 +2425,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     mov     [rsp+112], rdx
     adcx    r15, r11
     mov     [rsp+120], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -2463,7 +2463,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     mov     [rsp+120], rdx
     adcx    r15, r11
     mov     [rsp+128], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -2496,7 +2496,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adcx    rbx, r11
     adcx    r15, r11
     mov     [rsp+136], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -2524,7 +2524,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9d, 0
@@ -2549,7 +2549,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12d, 0
@@ -2571,7 +2571,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     rdx, [rsi+64]
@@ -2588,7 +2588,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rdx, [rsi+72]
@@ -2602,7 +2602,7 @@ ASM_GSYM(lmmp_sqr_hard_12_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     rdx, [rsi+80]
@@ -2780,16 +2780,16 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 208                // M[c]=[rsp+8c], c=1..24
+    sub     rsp, 208                // M[c]=[rsp+8c], c=[1|24]
     xorps   xmm0, xmm0
     mov     QWORD PTR [rsp+0], 0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
     mov     QWORD PTR [rsp+152], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -2835,7 +2835,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     r15, [rsp+112]
     adcx    r15, r11
     mov     [rsp+112], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -2888,7 +2888,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     [rsp+112], rcx
     adcx    r15, r11
     mov     [rsp+120], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -2936,7 +2936,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     [rsp+120], rax
     adcx    r15, r11
     mov     [rsp+128], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -2979,7 +2979,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     [rsp+128], rdx
     adcx    r15, r11
     mov     [rsp+136], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -3017,7 +3017,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     mov     [rsp+136], rdx
     adcx    r15, r11
     mov     [rsp+144], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -3050,7 +3050,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adcx    r8, r11
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -3078,7 +3078,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12d, 0
@@ -3103,7 +3103,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14d, 0
@@ -3125,7 +3125,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rdx, [rsi+72]
@@ -3142,7 +3142,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     rdx, [rsi+80]
@@ -3156,7 +3156,7 @@ ASM_GSYM(lmmp_sqr_hard_13_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     rdx, [rsi+88]
@@ -3342,16 +3342,16 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 224                // M[c]=[rsp+8c], c=1..26
+    sub     rsp, 224                // M[c]=[rsp+8c], c=[1|26]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
     mov     QWORD PTR [rsp+168], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -3402,7 +3402,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     r15, [rsp+120]
     adcx    r15, r11
     mov     [rsp+120], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -3460,7 +3460,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     [rsp+120], rax
     adcx    r15, r11
     mov     [rsp+128], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -3513,7 +3513,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     [rsp+128], rcx
     adcx    r15, r11
     mov     [rsp+136], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -3561,7 +3561,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     [rsp+136], rax
     adcx    r15, r11
     mov     [rsp+144], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -3604,7 +3604,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     [rsp+144], rdx
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -3642,7 +3642,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     mov     [rsp+152], rdx
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -3675,7 +3675,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adcx    r10, r11
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -3703,7 +3703,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14d, 0
@@ -3728,7 +3728,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     ebp, 0
@@ -3750,7 +3750,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     rdx, [rsi+80]
@@ -3767,7 +3767,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     rdx, [rsi+88]
@@ -3781,7 +3781,7 @@ ASM_GSYM(lmmp_sqr_hard_14_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     rdx, [rsi+96]
@@ -3981,18 +3981,18 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 240                // M[c]=[rsp+8c], c=1..28
+    sub     rsp, 240                // M[c]=[rsp+8c], c=[1|28]
     xorps   xmm0, xmm0
     mov     QWORD PTR [rsp+0], 0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
-    movdqu  [rsp+168], xmm0         // M[21..22] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
+    movdqu  [rsp+168], xmm0         // zero M c=[21|22]
     mov     QWORD PTR [rsp+184], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -4048,7 +4048,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     r15, [rsp+128]
     adcx    r15, r11
     mov     [rsp+128], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -4111,7 +4111,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+128], rcx
     adcx    r15, r11
     mov     [rsp+136], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -4169,7 +4169,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+136], rax
     adcx    r15, r11
     mov     [rsp+144], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -4222,7 +4222,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+144], rcx
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -4270,7 +4270,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+152], rax
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -4313,7 +4313,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+160], rdx
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -4351,7 +4351,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     mov     [rsp+168], rdx
     adcx    r15, r11
     mov     [rsp+176], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -4384,7 +4384,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adcx    r13, r11
     adcx    r15, r11
     mov     [rsp+184], r15
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14, [rsp+184]
@@ -4412,7 +4412,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     ebp, 0
@@ -4437,7 +4437,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     r9d, 0
@@ -4459,7 +4459,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     rdx, [rsi+88]
@@ -4476,7 +4476,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     rdx, [rsi+96]
@@ -4490,7 +4490,7 @@ ASM_GSYM(lmmp_sqr_hard_15_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 13: a_13 ---
+    // --- row 13: a13 ---
     mov     [rsp+200], rbp
     mov     [rsp+208], r8
     mov     rdx, [rsi+104]
@@ -4698,18 +4698,18 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 256                // M[c]=[rsp+8c], c=1..30
+    sub     rsp, 256                // M[c]=[rsp+8c], c=[1|30]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
-    movdqu  [rsp+168], xmm0         // M[21..22] = 0
-    movdqu  [rsp+184], xmm0         // M[23..24] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
+    movdqu  [rsp+168], xmm0         // zero M c=[21|22]
+    movdqu  [rsp+184], xmm0         // zero M c=[23|24]
     mov     QWORD PTR [rsp+200], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -4770,7 +4770,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     r15, [rsp+136]
     adcx    r15, r11
     mov     [rsp+136], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -4838,7 +4838,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+136], rax
     adcx    r15, r11
     mov     [rsp+144], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -4901,7 +4901,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+144], rcx
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -4959,7 +4959,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+152], rax
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -5012,7 +5012,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+160], rcx
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -5060,7 +5060,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+168], rax
     adcx    r15, r11
     mov     [rsp+176], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -5103,7 +5103,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+176], rdx
     adcx    r15, r11
     mov     [rsp+184], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -5141,7 +5141,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     mov     [rsp+184], rdx
     adcx    r15, r11
     mov     [rsp+192], r15
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14, [rsp+184]
@@ -5174,7 +5174,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adcx    rbx, r11
     adcx    r15, r11
     mov     [rsp+200], r15
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rbp, [rsp+200]
@@ -5202,7 +5202,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     r9d, 0
@@ -5227,7 +5227,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     r12d, 0
@@ -5249,7 +5249,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     rdx, [rsi+96]
@@ -5266,7 +5266,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 13: a_13 ---
+    // --- row 13: a13 ---
     mov     [rsp+200], rbp
     mov     [rsp+208], r8
     mov     rdx, [rsi+104]
@@ -5280,7 +5280,7 @@ ASM_GSYM(lmmp_sqr_hard_16_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 14: a_14 ---
+    // --- row 14: a14 ---
     mov     [rsp+216], r9
     mov     [rsp+224], r10
     mov     rdx, [rsi+112]
@@ -5502,20 +5502,20 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 272                // M[c]=[rsp+8c], c=1..32
+    sub     rsp, 272                // M[c]=[rsp+8c], c=[1|32]
     xorps   xmm0, xmm0
     mov     QWORD PTR [rsp+0], 0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
-    movdqu  [rsp+168], xmm0         // M[21..22] = 0
-    movdqu  [rsp+184], xmm0         // M[23..24] = 0
-    movdqu  [rsp+200], xmm0         // M[25..26] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
+    movdqu  [rsp+168], xmm0         // zero M c=[21|22]
+    movdqu  [rsp+184], xmm0         // zero M c=[23|24]
+    movdqu  [rsp+200], xmm0         // zero M c=[25|26]
     mov     QWORD PTR [rsp+216], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -5581,7 +5581,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     r15, [rsp+144]
     adcx    r15, r11
     mov     [rsp+144], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -5654,7 +5654,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+144], rcx
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -5722,7 +5722,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+152], rax
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -5785,7 +5785,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+160], rcx
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -5843,7 +5843,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+168], rax
     adcx    r15, r11
     mov     [rsp+176], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -5896,7 +5896,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+176], rcx
     adcx    r15, r11
     mov     [rsp+184], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -5944,7 +5944,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+184], rax
     adcx    r15, r11
     mov     [rsp+192], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -5987,7 +5987,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+192], rdx
     adcx    r15, r11
     mov     [rsp+200], r15
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14, [rsp+184]
@@ -6025,7 +6025,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     mov     [rsp+200], rdx
     adcx    r15, r11
     mov     [rsp+208], r15
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rbp, [rsp+200]
@@ -6058,7 +6058,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adcx    r8, r11
     adcx    r15, r11
     mov     [rsp+216], r15
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     r9, [rsp+216]
@@ -6086,7 +6086,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     r12d, 0
@@ -6111,7 +6111,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adox    r12, r11
     adcx    r10, r11
     adcx    r12, r11
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     r14d, 0
@@ -6133,7 +6133,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 13: a_13 ---
+    // --- row 13: a13 ---
     mov     [rsp+200], rbp
     mov     [rsp+208], r8
     mov     rdx, [rsi+104]
@@ -6150,7 +6150,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 14: a_14 ---
+    // --- row 14: a14 ---
     mov     [rsp+216], r9
     mov     [rsp+224], r10
     mov     rdx, [rsi+112]
@@ -6164,7 +6164,7 @@ ASM_GSYM(lmmp_sqr_hard_17_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 15: a_15 ---
+    // --- row 15: a15 ---
     mov     [rsp+232], r12
     mov     [rsp+240], r13
     mov     rdx, [rsi+120]
@@ -6394,20 +6394,20 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 288                // M[c]=[rsp+8c], c=1..34
+    sub     rsp, 288                // M[c]=[rsp+8c], c=[1|34]
     xorps   xmm0, xmm0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
-    movdqu  [rsp+168], xmm0         // M[21..22] = 0
-    movdqu  [rsp+184], xmm0         // M[23..24] = 0
-    movdqu  [rsp+200], xmm0         // M[25..26] = 0
-    movdqu  [rsp+216], xmm0         // M[27..28] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
+    movdqu  [rsp+168], xmm0         // zero M c=[21|22]
+    movdqu  [rsp+184], xmm0         // zero M c=[23|24]
+    movdqu  [rsp+200], xmm0         // zero M c=[25|26]
+    movdqu  [rsp+216], xmm0         // zero M c=[27|28]
     mov     QWORD PTR [rsp+232], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -6478,7 +6478,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     r15, [rsp+152]
     adcx    r15, r11
     mov     [rsp+152], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -6556,7 +6556,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+152], rax
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -6629,7 +6629,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+160], rcx
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -6697,7 +6697,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+168], rax
     adcx    r15, r11
     mov     [rsp+176], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -6760,7 +6760,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+176], rcx
     adcx    r15, r11
     mov     [rsp+184], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -6818,7 +6818,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+184], rax
     adcx    r15, r11
     mov     [rsp+192], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -6871,7 +6871,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+192], rcx
     adcx    r15, r11
     mov     [rsp+200], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -6919,7 +6919,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+200], rax
     adcx    r15, r11
     mov     [rsp+208], r15
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14, [rsp+184]
@@ -6962,7 +6962,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+208], rdx
     adcx    r15, r11
     mov     [rsp+216], r15
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rbp, [rsp+200]
@@ -7000,7 +7000,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     mov     [rsp+216], rdx
     adcx    r15, r11
     mov     [rsp+224], r15
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     r9, [rsp+216]
@@ -7033,7 +7033,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adcx    r10, r11
     adcx    r15, r11
     mov     [rsp+232], r15
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     r12, [rsp+232]
@@ -7061,7 +7061,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adox    r13, r11
     adcx    r12, r11
     adcx    r13, r11
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     r14d, 0
@@ -7086,7 +7086,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adox    r14, r11
     adcx    r13, r11
     adcx    r14, r11
-    // --- row 13: a_13 ---
+    // --- row 13: a13 ---
     mov     [rsp+200], rbp
     mov     [rsp+208], r8
     mov     ebp, 0
@@ -7108,7 +7108,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 14: a_14 ---
+    // --- row 14: a14 ---
     mov     [rsp+216], r9
     mov     [rsp+224], r10
     mov     rdx, [rsi+112]
@@ -7125,7 +7125,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 15: a_15 ---
+    // --- row 15: a15 ---
     mov     [rsp+232], r12
     mov     [rsp+240], r13
     mov     rdx, [rsi+120]
@@ -7139,7 +7139,7 @@ ASM_GSYM(lmmp_sqr_hard_18_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 16: a_16 ---
+    // --- row 16: a16 ---
     mov     [rsp+248], r14
     mov     [rsp+256], rbx
     mov     rdx, [rsi+128]
@@ -7383,22 +7383,22 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     push    r13
     push    r14
     push    r15
-    sub     rsp, 304                // M[c]=[rsp+8c], c=1..36
+    sub     rsp, 304                // M[c]=[rsp+8c], c=[1|36]
     xorps   xmm0, xmm0
     mov     QWORD PTR [rsp+0], 0
-    movdqu  [rsp+72], xmm0          // M[9..10] = 0
-    movdqu  [rsp+88], xmm0          // M[11..12] = 0
-    movdqu  [rsp+104], xmm0         // M[13..14] = 0
-    movdqu  [rsp+120], xmm0         // M[15..16] = 0
-    movdqu  [rsp+136], xmm0         // M[17..18] = 0
-    movdqu  [rsp+152], xmm0         // M[19..20] = 0
-    movdqu  [rsp+168], xmm0         // M[21..22] = 0
-    movdqu  [rsp+184], xmm0         // M[23..24] = 0
-    movdqu  [rsp+200], xmm0         // M[25..26] = 0
-    movdqu  [rsp+216], xmm0         // M[27..28] = 0
-    movdqu  [rsp+232], xmm0         // M[29..30] = 0
+    movdqu  [rsp+72], xmm0          // zero M c=[9|10]
+    movdqu  [rsp+88], xmm0          // zero M c=[11|12]
+    movdqu  [rsp+104], xmm0         // zero M c=[13|14]
+    movdqu  [rsp+120], xmm0         // zero M c=[15|16]
+    movdqu  [rsp+136], xmm0         // zero M c=[17|18]
+    movdqu  [rsp+152], xmm0         // zero M c=[19|20]
+    movdqu  [rsp+168], xmm0         // zero M c=[21|22]
+    movdqu  [rsp+184], xmm0         // zero M c=[23|24]
+    movdqu  [rsp+200], xmm0         // zero M c=[25|26]
+    movdqu  [rsp+216], xmm0         // zero M c=[27|28]
+    movdqu  [rsp+232], xmm0         // zero M c=[29|30]
     mov     QWORD PTR [rsp+248], 0
-    // --- row 0: a_0 ---
+    // --- row 0: a0 ---
     mov     rdx, [rsi+0]
     mulx    r8, rbp, [rsi+8]
     xor     r11d, r11d
@@ -7474,7 +7474,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     r15, [rsp+160]
     adcx    r15, r11
     mov     [rsp+160], r15
-    // --- row 1: a_1 ---
+    // --- row 1: a1 ---
     mov     [rsp+8], rbp
     mov     [rsp+16], r8
     mov     rbp, [rsp+72]
@@ -7557,7 +7557,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+160], rcx
     adcx    r15, r11
     mov     [rsp+168], r15
-    // --- row 2: a_2 ---
+    // --- row 2: a2 ---
     mov     [rsp+24], r9
     mov     [rsp+32], r10
     mov     r9, [rsp+88]
@@ -7635,7 +7635,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+168], rax
     adcx    r15, r11
     mov     [rsp+176], r15
-    // --- row 3: a_3 ---
+    // --- row 3: a3 ---
     mov     [rsp+40], r12
     mov     [rsp+48], r13
     mov     r12, [rsp+104]
@@ -7708,7 +7708,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+176], rcx
     adcx    r15, r11
     mov     [rsp+184], r15
-    // --- row 4: a_4 ---
+    // --- row 4: a4 ---
     mov     [rsp+56], r14
     mov     [rsp+64], rbx
     mov     r14, [rsp+120]
@@ -7776,7 +7776,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+184], rax
     adcx    r15, r11
     mov     [rsp+192], r15
-    // --- row 5: a_5 ---
+    // --- row 5: a5 ---
     mov     [rsp+72], rbp
     mov     [rsp+80], r8
     mov     rbp, [rsp+136]
@@ -7839,7 +7839,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+192], rcx
     adcx    r15, r11
     mov     [rsp+200], r15
-    // --- row 6: a_6 ---
+    // --- row 6: a6 ---
     mov     [rsp+88], r9
     mov     [rsp+96], r10
     mov     r9, [rsp+152]
@@ -7897,7 +7897,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+200], rax
     adcx    r15, r11
     mov     [rsp+208], r15
-    // --- row 7: a_7 ---
+    // --- row 7: a7 ---
     mov     [rsp+104], r12
     mov     [rsp+112], r13
     mov     r12, [rsp+168]
@@ -7950,7 +7950,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+208], rcx
     adcx    r15, r11
     mov     [rsp+216], r15
-    // --- row 8: a_8 ---
+    // --- row 8: a8 ---
     mov     [rsp+120], r14
     mov     [rsp+128], rbx
     mov     r14, [rsp+184]
@@ -7998,7 +7998,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+216], rax
     adcx    r15, r11
     mov     [rsp+224], r15
-    // --- row 9: a_9 ---
+    // --- row 9: a9 ---
     mov     [rsp+136], rbp
     mov     [rsp+144], r8
     mov     rbp, [rsp+200]
@@ -8041,7 +8041,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+224], rdx
     adcx    r15, r11
     mov     [rsp+232], r15
-    // --- row 10: a_10 ---
+    // --- row 10: a10 ---
     mov     [rsp+152], r9
     mov     [rsp+160], r10
     mov     r9, [rsp+216]
@@ -8079,7 +8079,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     mov     [rsp+232], rdx
     adcx    r15, r11
     mov     [rsp+240], r15
-    // --- row 11: a_11 ---
+    // --- row 11: a11 ---
     mov     [rsp+168], r12
     mov     [rsp+176], r13
     mov     r12, [rsp+232]
@@ -8112,7 +8112,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adcx    r13, r11
     adcx    r15, r11
     mov     [rsp+248], r15
-    // --- row 12: a_12 ---
+    // --- row 12: a12 ---
     mov     [rsp+184], r14
     mov     [rsp+192], rbx
     mov     r14, [rsp+248]
@@ -8140,7 +8140,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adox    rbx, r11
     adcx    r14, r11
     adcx    rbx, r11
-    // --- row 13: a_13 ---
+    // --- row 13: a13 ---
     mov     [rsp+200], rbp
     mov     [rsp+208], r8
     mov     ebp, 0
@@ -8165,7 +8165,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adox    rbp, r11
     adcx    rbx, r11
     adcx    rbp, r11
-    // --- row 14: a_14 ---
+    // --- row 14: a14 ---
     mov     [rsp+216], r9
     mov     [rsp+224], r10
     mov     r9d, 0
@@ -8187,7 +8187,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adox    r8, r11
     adcx    rbp, r11
     adcx    r8, r11
-    // --- row 15: a_15 ---
+    // --- row 15: a15 ---
     mov     [rsp+232], r12
     mov     [rsp+240], r13
     mov     rdx, [rsi+120]
@@ -8204,7 +8204,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adox    r9, r11
     adcx    r8, r11
     adcx    r9, r11
-    // --- row 16: a_16 ---
+    // --- row 16: a16 ---
     mov     [rsp+248], r14
     mov     [rsp+256], rbx
     mov     rdx, [rsi+128]
@@ -8218,7 +8218,7 @@ ASM_GSYM(lmmp_sqr_hard_19_):
     adox    r10, r11
     adcx    r9, r11
     adcx    r10, r11
-    // --- row 17: a_17 ---
+    // --- row 17: a17 ---
     mov     [rsp+264], rbp
     mov     [rsp+272], r8
     mov     rdx, [rsi+136]

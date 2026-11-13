@@ -69,18 +69,18 @@ Lshr_pro:
     cbz     x9, Lshr_left
 .p2align 4
 
-Lshr_v4:                             // main loop, 2 pairs/iter
-    ldr     q5, [x1], #16            // B
-    ushl    v6.2d, v5.2d, v1.2d      // LB
-    ushl    v7.2d, v5.2d, v0.2d      // RB
+Lshr_v4:                               // main loop, 2 pairs/iter
+    ldr     q5, [x1], #16              // B
+    ushl    v6.2d, v5.2d, v1.2d        // LB
+    ushl    v7.2d, v5.2d, v0.2d        // RB
     ext     v5.16b, v4.16b, v6.16b, #8
-    orr     v5.16b, v3.16b, v5.16b   // outA = RA | mix
+    orr     v5.16b, v3.16b, v5.16b     // outA = RA | mix
     str     q5, [x0], #16
-    ldr     q5, [x1], #16            // C (lookahead)
-    ushl    v4.2d, v5.2d, v1.2d      // LC (new LA)
-    ushl    v3.2d, v5.2d, v0.2d      // RC (new RA)
+    ldr     q5, [x1], #16              // C (lookahead)
+    ushl    v4.2d, v5.2d, v1.2d        // LC (new LA)
+    ushl    v3.2d, v5.2d, v0.2d        // RC (new RA)
     ext     v5.16b, v6.16b, v4.16b, #8 // [LB[1], LC[0]]
-    orr     v5.16b, v7.16b, v5.16b   // outB = RB | mix
+    orr     v5.16b, v7.16b, v5.16b     // outB = RB | mix
     str     q5, [x0], #16
     subs    x9, x9, #1
     b.ne    Lshr_v4

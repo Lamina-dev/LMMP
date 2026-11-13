@@ -171,7 +171,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     add     rbp, 2
     jnc     .Lm2tp
 
-.Lm2ed:                             // write dst[na-1..na+1]
+.Lm2ed:                             // write [dst+na-1, 3]
     mul     r9
     add     r10, rax
     mov     r13, rdx
@@ -320,7 +320,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     add     rbp, 4
     jnc     .Ltop
 
-.Lend:                              // write dst[na-1..na+1]
+.Lend:                              // write [dst+na-1, 3]
     mul     r8
     add     r15, r11
     adc     r13, 0
@@ -359,7 +359,7 @@ ASM_GSYM(lmmp_mul_basecase_):
 
 .Lm1rem1:                           // na mod 4 == 1
     mulx    r11, rax, [rsi + rbp*8] // p0 = a0*b0
-    add     rax, r10                // s_0 = lo0 + carry
+    add     rax, r10                // s0 = lo0 + carry
     mov     [rdi + rbp*8], rax
     adc     r11, 0
     mov     r10, r11
@@ -400,15 +400,15 @@ ASM_GSYM(lmmp_mul_basecase_):
 .Lm1loop:                                  // mul_1 seed, 4 limbs/iter
     mulx    r11, rax, [rsi + rbp*8]        // p0
     mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1
-    add     rax, r10                       // s_0 = lo0 + carry
+    add     rax, r10                       // s0 = lo0 + carry
     mov     [rdi + rbp*8], rax
-    adc     r12, r11                       // s_1
+    adc     r12, r11                       // s1
     mov     [rdi + rbp*8 + 8], r12
     mulx    r11, rax, [rsi + rbp*8 + 16]   // p2
-    adc     rax, r9                        // s_2
+    adc     rax, r9                        // s2
     mov     [rdi + rbp*8 + 16], rax
     mulx    r9,  r12, [rsi + rbp*8 + 24]   // p3
-    adc     r12, r11                       // s_3
+    adc     r12, r11                       // s3
     mov     [rdi + rbp*8 + 24], r12
     adc     r9, 0                          // carry = hi3 + CF
     mov     r10, r9

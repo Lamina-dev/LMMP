@@ -64,14 +64,14 @@ ASM_GSYM(lmmp_mul_1_):
 .Ldo_rem3:
     mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]   // p1 = a1*x
-    add     rax, r10                     // s_0 = lo0 + carry
+    add     rax, r10                     // s0 = lo0 + carry
     mov     [rdi + r9*8], rax
-    adc     rbx, r11                     // s_1 = lo1 + hi0 + CF
+    adc     rbx, r11                     // s1 = lo1 + hi0 + CF
     mov     [rdi + r9*8 + 8], rbx
     adc     r8, 0                        // carry = hi1 + CF
     mov     r10, r8
     mulx    r11, rax, [rsi + r9*8 + 16]  // p2 = a2*x
-    add     rax, r10                     // s_2 = lo2 + carry
+    add     rax, r10                     // s2 = lo2 + carry
     mov     [rdi + r9*8 + 16], rax
     adc     r11, 0
     mov     r10, r11
@@ -81,9 +81,9 @@ ASM_GSYM(lmmp_mul_1_):
 .Ldo_rem2:                               // na mod 4 == 2
     mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]   // p1 = a1*x
-    add     rax, r10                     // s_0 = lo0 + carry
+    add     rax, r10                     // s0 = lo0 + carry
     mov     [rdi + r9*8], rax
-    adc     rbx, r11                     // s_1 = lo1 + hi0 + CF
+    adc     rbx, r11                     // s1 = lo1 + hi0 + CF
     mov     [rdi + r9*8 + 8], rbx
     adc     r8, 0
     mov     r10, r8
@@ -92,7 +92,7 @@ ASM_GSYM(lmmp_mul_1_):
 
 .Ldo_rem1:                               // na mod 4 == 1
     mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
-    add     rax, r10                     // s_0 = lo0 + carry
+    add     rax, r10                     // s0 = lo0 + carry
     mov     [rdi + r9*8], rax
     adc     r11, 0
     mov     r10, r11
@@ -107,15 +107,15 @@ ASM_GSYM(lmmp_mul_1_):
 .Lloop4:                                    // main loop, 4 limbs
     mulx    r11, rax, [rsi + r9*8]          // p0 = a0*x
     mulx    r8,  rbx, [rsi + r9*8 + 8]      // p1 = a1*x
-    add     rax, r10                        // s_0 = lo0 + carry
+    add     rax, r10                        // s0 = lo0 + carry
     mov     [rdi + r9*8], rax
-    adc     rbx, r11                        // s_1 = lo1 + hi0 + CF
+    adc     rbx, r11                        // s1 = lo1 + hi0 + CF
     mov     [rdi + r9*8 + 8], rbx
     mulx    r11, rax, [rsi + r9*8 + 16]     // p2 = a2*x
-    adc     rax, r8                         // s_2 = lo2 + hi1 + CF
+    adc     rax, r8                         // s2 = lo2 + hi1 + CF
     mov     [rdi + r9*8 + 16], rax
     mulx    r8,  rbx, [rsi + r9*8 + 24]     // p3 = a3*x
-    adc     rbx, r11                        // s_3 = lo3 + hi2 + CF
+    adc     rbx, r11                        // s3 = lo3 + hi2 + CF
     mov     [rdi + r9*8 + 24], rbx
     adc     r8, 0
     mov     r10, r8                         // carry = hi3 + CF

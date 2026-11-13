@@ -221,7 +221,7 @@ ASM_GSYM(lmmp_sqr_basecase_):
     add     rcx, 2
     jnc     .Lm2tp
 
-.Lm2ed:                            // write dst[na-1..na+1]
+.Lm2ed:                            // write [dst+na-1, 3]
     mul     r8
     add     r10, rax
     mov     rbp, rdx
@@ -398,9 +398,9 @@ ASM_GSYM(lmmp_sqr_basecase_):
 
 .Lsqr_diag:                        // dst *= 2, then add a_i^2
     pop     rcx                    // rcx = 1-na
-    mov     rax, [rsi+rcx*8-8]     // a_0
+    mov     rax, [rsi+rcx*8-8]     // a0
     shl     rcx, 1                 // rcx = 2(1-na)
-    mul     rax                    // a_0^2
+    mul     rax                    // a0^2
     mov     [rdi+rcx*8-8], rax
     xor     rbx, rbx               // carry collector
     test    cl, 2

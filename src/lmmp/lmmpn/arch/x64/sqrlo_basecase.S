@@ -105,9 +105,9 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     lea     rbx, [rdx - 1]
     neg     rbx                   // rbx = 1-n
 
-    mov     r9, [rsi + rbx*8 - 8] // r9 = a_0
-    mov     rax, [rsi + rbx*8]    // rax = a_1
-    mul     r9                    // rdx:rax = a_0 * a_1
+    mov     r9, [rsi + rbx*8 - 8] // r9 = a0
+    mov     rax, [rsi + rbx*8]    // rax = a1
+    mul     r9                    // rdx:rax = a0 * a1
 
     test    bl, 1
     jnz     .Lmul1_odd
@@ -283,9 +283,9 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
 // diag: dst = 2*dst + sum a_i^2*B^2i, CF chain live, r10 = pending
 .Ldiag:
     mov     rax, [r12]
-    mul     rax                   // rdx:rax = a_0^2
-    mov     [r13], rax            // dst[0] = lo(a_0^2)
-    mov     r10, rdx              // pending = hi(a_0^2)
+    mul     rax                   // rdx:rax = a0^2
+    mov     [r13], rax            // dst[0] = lo(a0^2)
+    mov     r10, rdx              // pending = hi(a0^2)
     lea     rdi, [r13 + 8]        // &dst[1]
     lea     rsi, [r12 + 8]        // &a[1]
     lea     rcx, [r14 - 1]

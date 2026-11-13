@@ -36,23 +36,23 @@
 .p2align 2
 ASM_GSYM(lmmp_div_1_):
 // x1=extra(0), x2=numa, x3=na, x4=x
-    cbz     x0, Ldiv1_to_mod        // dstq==NULL -> mod_1_
+    cbz     x0, Ldiv1_to_mod         // dstq==NULL -> mod_1_
     mov     x4, x3
     mov     x3, x2
     mov     x2, x1
     mov     x1, #0
-    cbz     x3, Ldiv_fz             // na==0, zero quotient
+    cbz     x3, Ldiv_fz              // na==0, zero quotient
     stp     x29, x30, [sp, #-80]!
     mov     x29, sp
     stp     x19, x20, [sp, #16]
     stp     x21, x22, [sp, #32]
     stp     x23, x24, [sp, #48]
-    sub     x21, x3, #1             // x21 = na-1
+    sub     x21, x3, #1              // x21 = na-1
     add     x7, x21, x1
-    add     x20, x2, x21, lsl #3    // x20 = &numa[na-1]
-    add     x19, x0, x7, lsl #3     // x19 = &dstq[na-1+extra]
-    mov     x24, x1                 // x24 = extra, 0 here
-    mov     x22, x4                 // x22 = divisor x
+    add     x20, x2, x21, lsl #3     // x20 = &numa[na-1]
+    add     x19, x0, x7, lsl #3      // x19 = &dstq[na-1+extra]
+    mov     x24, x1                  // x24 = extra, 0 here
+    mov     x22, x4                  // x22 = divisor x
     tbnz    x4, #63, Ldiv_normalised // MSB(x)=1 -> normalised
 
 // unnormalised: d = x << k, m = inv(d) - 2^64

@@ -202,7 +202,7 @@ ASM_GSYM(lmmp_addmul_2_):
     add     rbp, 4
     jnc     .Ltop
 
-.Lend:                              // write numa[n-1..n]
+.Lend:                              // write [numa+n-1, 2]
     mul     r8
     add     r15, r11
     adc     r13, 0

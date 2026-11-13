@@ -122,8 +122,8 @@ ASM_GSYM(lmmp_shl_):
 .Lvec:
     test    r8, 1
     jz      .Lpairs
-    vmovdqu ymm0, [rdx - 32]        // A = a[i+1..i+4]
-    vmovdqu ymm1, [rdx - 40]        // A' = a[i..i+3]
+    vmovdqu ymm0, [rdx - 32]        // A = [a+i+1, 4]
+    vmovdqu ymm1, [rdx - 40]        // A' = [a+i, 4]
     vpsllq  ymm2, ymm0, xmm4        // A << k
     vpsrlq  ymm3, ymm1, xmm5        // A' >> s
     vpor    ymm2, ymm2, ymm3
