@@ -30,508 +30,157 @@
 // ======================================
 // lmmp_mod_2_
 // ======================================
-// x19=numb, x20=numa, x21=bl, x22=bh, x24/x25=k
+// x19=numb, x20=&numa[i], x21=cnt, x22=bl, x23=bh
+// x24=m, x25=r_hi, x26=r_lo, x27=k, x28=64-k, x8=lo<<k
 .globl ASM_GSYM(lmmp_mod_2_)
 .p2align 2
 ASM_GSYM(lmmp_mod_2_):
-    stp     x28, x27, [sp, #-96]!
-    stp     x26, x25, [sp, #16]
-    stp     x24, x23, [sp, #32]
-    stp     x22, x21, [sp, #48]
-    stp     x20, x19, [sp, #64]
-    stp     x29, x30, [sp, #80]
-    add     x29, sp, #80
-    mov     x19, x2
+    stp     x29, x30, [sp, #-96]!
+    stp     x19, x20, [sp, #16]
+    stp     x21, x22, [sp, #32]
+    stp     x23, x24, [sp, #48]
+    stp     x25, x26, [sp, #64]
+    stp     x27, x28, [sp, #80]
+    mov     x19, x2                 // numb
     mov     x20, x0
-    ldp     x21, x22, [x2]
-    clz     x24, x22
-    subs    x26, x1, #2
-    b.ne    LBB3_3
-    cbz     x24, LBB3_7
-    mov     w8, #64
-    sub     x23, x8, x24
-    lsl     x8, x22, x24
-    lsr     x9, x21, #1
-    mvn     w10, w24
-    lsr     x9, x9, x10
-    orr     x22, x8, x9
-    lsl     x21, x21, x24
-    neg     x8, x24
-    ldp     x11, x9, [x20]
-    lsr     x20, x9, x8
-    lsl     x8, x9, x24
-    lsr     x9, x11, #1
-    lsr     x9, x9, x10
-    orr     x25, x8, x9
-    lsl     x26, x11, x24
-    mov     x0, x22
-    mov     x1, x21
+    add     x20, x20, x1, lsl #3
+    sub     x20, x20, #8            // &numa[na-1]
+    ldp     x22, x23, [x2]          // b0, b1
+    mov     x21, x1                 // na
+    clz     x27, x23                // k
+    cbz     x27, Lmod_n             // MSB(bh)=1 -> normalised
+
+// unnormalised: b<<k, m = inv_2_1_(bh,bl)
+Lmod_u:
+    neg     x28, x27                // 64-k
+    lsl     x0, x23, x27
+    lsr     x1, x22, x28
+    orr     x23, x0, x1             // bh'
+    lsl     x22, x22, x27           // bl'
+    mov     x0, x23
+    mov     x1, x22
     bl      ASM_GSYM(lmmp_inv_2_1_)
-    mul     x8, x0, x20
-    umulh   x9, x0, x20
-    adds    x8, x25, x8
-    adc     x9, x20, x9
-    mvn     x10, x9
-    subs    x11, x26, x21
-    mul     x12, x9, x21
-    umulh   x9, x9, x21
-    sbc     x13, x25, xzr
-    subs    x11, x11, x12
-    madd    x10, x22, x10, x13
-    sbc     x9, x10, x9
-    cmp     x9, x8
-    csel    x8, xzr, x21, lo
-    csel    x10, xzr, x22, lo
-    adds    x8, x8, x11
-    adc     x9, x10, x9
-    subs    x10, x8, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x9
-    cmp     x8, x21
-    ccmp    x9, x22, #2, lo
-    csel    x10, x8, x10, ls
-    csel    x11, x9, x11, ls
-    cmp     x9, x22
-    csel    x8, x8, x10, lo
-    csel    x9, x9, x11, lo
-    lsr     x8, x8, x24
-    lsl     x10, x9, x23
-    orr     x8, x10, x8
-    str     x8, [x19]
-    lsr     x8, x9, x24
-    b       LBB3_24
+    mov     x24, x0                 // m
+    ldr     x7, [x20], #-8          // top limb
+    lsr     x25, x7, x28            // r_hi = top>>(64-k)
+    ldr     x9, [x20], #-8          // second limb
+    lsl     x1, x7, x27
+    lsr     x10, x9, x28
+    orr     x26, x1, x10            // r_lo = top<<k|second>>(64-k)
+    lsl     x8, x9, x27             // lo<<k of second
+    subs    x21, x21, #2
+    b.eq    Lmod_u2                 // na==2, single step
+    b       Lmod_utop
 
-// na>2, unnormalised: d = b << k
-LBB3_3:
-    mov     x23, x1
-    cbz     x24, LBB3_10
-    mov     w8, #64
-    sub     x25, x8, x24
-    lsl     x8, x22, x24
-    lsr     x9, x21, #1
-    mvn     w27, w24
-    lsr     x9, x9, x27
-    orr     x22, x8, x9
-    lsl     x21, x21, x24
-    mov     x0, x22
-    mov     x1, x21
+Lmod_u2:
+    b       Lmod_ulast              // a0 = lo<<k, x21==0
+
+// normalised: first pair < 2b -> one conditional subtract
+Lmod_n:
+    ldr     x26, [x20], #-8         // top limb
+    ldr     x9, [x20], #-8          // second limb
+    subs    x2, x9, x22
+    sbcs    x1, x26, x23
+    csel    x25, x1, x26, cs        // r_hi
+    csel    x26, x2, x9, cs         // r_lo
+    subs    x21, x21, #2
+    b.eq    Lmod_fin_n              // na==2 done, no inv needed
+    mov     x0, x23
+    mov     x1, x22
     bl      ASM_GSYM(lmmp_inv_2_1_)
-    add     x8, x20, x23, lsl #3
-    ldur    x9, [x8, #-8]
-    neg     x10, x24
-    lsr     x10, x9, x10
-    ldr     x11, [x20, x26, lsl #3]
-    lsr     x12, x11, #1
-    lsr     x12, x12, x27
-    lsl     x9, x9, x24
-    orr     x9, x9, x12
-    ldur    x8, [x8, #-24]
-    lsr     x8, x8, #1
-    lsr     x8, x8, x27
-    lsl     x11, x11, x24
-    orr     x8, x11, x8
-    mul     x11, x10, x0
-    umulh   x12, x10, x0
-    adds    x11, x9, x11
-    adc     x10, x10, x12
-    mvn     x12, x10
-    subs    x8, x8, x21
-    mul     x13, x10, x21
-    umulh   x10, x10, x21
-    sbc     x9, x9, xzr
-    subs    x8, x8, x13
-    madd    x9, x22, x12, x9
-    sbc     x9, x9, x10
-    cmp     x9, x11
-    csel    x10, xzr, x21, lo
-    csel    x11, xzr, x22, lo
-    adds    x8, x10, x8
-    adc     x9, x11, x9
-    subs    x10, x8, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x9
-    cmp     x8, x21
-    ccmp    x9, x22, #2, lo
-    csel    x10, x8, x10, ls
-    csel    x11, x9, x11, ls
-    cmp     x9, x22
-    csel    x8, x8, x10, lo
-    csel    x9, x9, x11, lo
-    sub     x10, x23, #3
-    cmp     x26, #2
-    b.lo    LBB3_23
-    tbnz    w10, #0, LBB3_19
-    sub     x12, x23, #3
-    mov     x10, x26
-    cmp     x23, #4
-    b.ne    LBB3_20
-    b       LBB3_22
+    mov     x24, x0                 // m
+    b       Lmod_ntop
 
-// na==2 normalised: 128-bit compare/sub
-LBB3_7:
-    ldp     x8, x9, [x20]
-    cmp     x9, x22
-    b.lo    LBB3_18
-    ccmp    x8, x21, #2, eq
-    b.lo    LBB3_18
-    subs    x8, x8, x21
-    str     x8, [x19]
-    ldr     x8, [x20, #8]
-    sbc     x8, x8, x22
-    b       LBB3_24
+.p2align 4
+// main loop (normalised): x9 = next limb
+Lmod_ntop:
+    ldr     x9, [x20], #-8
+Lmod_ncore:
+    mul     x10, x24, x25           // lo(m*r_hi)
+    umulh   x11, x24, x25           // hi(m*r_hi)
+    adds    x12, x26, x10
+    adc     x13, x25, x11           // q = r_hi+hi+r_lo>>64
+    mul     x14, x22, x13           // lo(bl*q)
+    umulh   x15, x22, x13           // hi(bl*q)
+    mul     x16, x23, x13           // bh*q
+    subs    x17, x9, x14            // z_lo = a0-lo
+    sbc     x26, x26, x15           // z_hi = r_lo-hi-borrow
+    sub     x26, x26, x16           //      - bh*q
+    subs    x17, x17, x22           // z_lo -= bl
+    sbc     x25, x26, x23           // z_hi -= bh-borrow
+    cmp     x25, x12                // z_hi vs q_lo
+    csel    x14, xzr, x22, lo       // z_hi<q_lo: +0
+    csel    x15, xzr, x23, lo       // else: +b
+    cinc    x13, x13, lo            // q += borrow
+    adds    x26, x17, x14           // r_lo
+    adc     x25, x25, x15           // r_hi
+    cmp     x25, x23                // r >= b?
+    b.lo    Lmod_nok
+    ccmp    x26, x22, #2, eq        // r_hi==bh: cmp lo; >bh: C=1
+    b.lo    Lmod_nok
+    subs    x26, x26, x22
+    sbc     x25, x25, x23           // r -= b
+Lmod_nok:
+    subs    x21, x21, #1
+    b.hi    Lmod_ntop
+    b       Lmod_fin_n
 
-// normalised path
-LBB3_10:
-    mov     x0, x22
-    mov     x1, x21
-    bl      ASM_GSYM(lmmp_inv_2_1_)
-    add     x8, x20, x23, lsl #3
-    ldur    x8, [x8, #-8]
-    ldr     x9, [x20, x26, lsl #3]
-    subs    x10, x9, x21
-    sbc     x11, x8, x22
-    cmp     x11, x8
-    csel    x8, x10, x9, lo
-    csel    x9, xzr, x22, lo
-    add     x9, x9, x11
-    cmp     x8, x10
-    cinc    x9, x9, lo
-    subs    x10, x8, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x9
-    cmp     x9, x22
-    ccmp    x8, x21, #2, ls
-    csel    x10, x8, x10, lo
-    csel    x11, x9, x11, lo
-    cmp     x9, x22
-    csel    x10, x8, x10, lo
-    csel    x11, x9, x11, lo
-    sub     x9, x23, #3
-    cmp     x26, #2
-    b.lo    LBB3_17
-    tbz     w9, #0, LBB3_13
-    ldr     x8, [x20, x9, lsl #3]
-    mul     x9, x11, x0
-    umulh   x12, x11, x0
-    adds    x9, x10, x9
-    adc     x11, x11, x12
-    mvn     x12, x11
-    madd    x10, x22, x12, x10
-    subs    x8, x8, x21
-    cset    w12, lo
-    mul     x13, x11, x21
-    umulh   x11, x11, x21
-    sub     x10, x10, x11
-    subs    x8, x8, x13
-    sbc     x10, x10, x12
-    cmp     x10, x9
-    csel    x9, xzr, x21, lo
-    csel    x11, xzr, x22, lo
-    adds    x8, x9, x8
-    adc     x9, x11, x10
-    subs    x10, x8, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x9
-    cmp     x9, x22
-    ccmp    x8, x21, #2, ls
-    csel    x10, x8, x10, lo
-    csel    x11, x9, x11, lo
-    cmp     x9, x22
-    csel    x10, x8, x10, lo
-    csel    x11, x9, x11, lo
-    sub     x9, x23, #4
+.p2align 4
+// main loop (unnormalised): a0 = (prev<<k)|(next>>(64-k))
+Lmod_utop:
+    ldr     x9, [x20], #-8
+    lsr     x10, x9, x28
+    lsl     x11, x9, x27
+    orr     x9, x8, x10
+    mov     x8, x11
+Lmod_ucore:
+    mul     x10, x24, x25           // lo(m*r_hi)
+    umulh   x11, x24, x25           // hi(m*r_hi)
+    adds    x12, x26, x10
+    adc     x13, x25, x11           // q = r_hi+hi+r_lo>>64
+    mul     x14, x22, x13           // lo(bl*q)
+    umulh   x15, x22, x13           // hi(bl*q)
+    mul     x16, x23, x13           // bh*q
+    subs    x17, x9, x14            // z_lo = a0-lo
+    sbc     x26, x26, x15           // z_hi = r_lo-hi-borrow
+    sub     x26, x26, x16           //      - bh*q
+    subs    x17, x17, x22           // z_lo -= bl
+    sbc     x25, x26, x23           // z_hi -= bh-borrow
+    cmp     x25, x12                // z_hi vs q_lo
+    csel    x14, xzr, x22, lo       // z_hi<q_lo: +0
+    csel    x15, xzr, x23, lo       // else: +b
+    cinc    x13, x13, lo            // q += borrow
+    adds    x26, x17, x14           // r_lo
+    adc     x25, x25, x15           // r_hi
+    cmp     x25, x23                // r >= b?
+    b.lo    Lmod_uok
+    ccmp    x26, x22, #2, eq        // r_hi==bh: cmp lo; >bh: C=1
+    b.lo    Lmod_uok
+    subs    x26, x26, x22
+    sbc     x25, x25, x23           // r -= b
+Lmod_uok:
+    subs    x21, x21, #1
+    b.hi    Lmod_utop
+    b.lo    Lmod_fin_u
+Lmod_ulast:                         // last step: a0 = prev<<k
+    mov     x9, x8
+    b       Lmod_ucore
 
-// normalised unrolled loop entry
-LBB3_13:
-    cmp     x23, #4
-    b.eq    LBB3_16
-    add     x8, x9, #1
-    add     x9, x20, x9, lsl #3
-
-// divide step x2: q = hi(m*r_hi)+r_hi+a_lo; z = a - q*d
-LBB3_15:
-    mul     x12, x11, x0
-    umulh   x13, x11, x0
-    adds    x12, x10, x12
-    adc     x11, x11, x13
-    mvn     x13, x11
-    madd    x10, x22, x13, x10
-    ldp     x14, x13, [x9, #-8]
-    subs    x13, x13, x21
-    umulh   x15, x11, x21
-    sub     x10, x10, x15
-    cset    w15, lo
-    mul     x11, x11, x21
-    subs    x11, x13, x11
-    sbc     x10, x10, x15
-    cmp     x10, x12
-    csel    x12, xzr, x21, lo
-    csel    x13, xzr, x22, lo
-    adds    x11, x12, x11
-    adc     x10, x13, x10
-    subs    x12, x11, x21
-    csetm   x13, lo
-    sub     x13, x13, x22
-    add     x13, x13, x10
-    cmp     x10, x22
-    ccmp    x11, x21, #2, ls
-    csel    x12, x11, x12, lo
-    csel    x13, x10, x13, lo
-    cmp     x10, x22
-    csel    x11, x11, x12, lo
-    csel    x10, x10, x13, lo
-    mul     x12, x10, x0
-    umulh   x13, x10, x0
-    adds    x12, x11, x12
-    adc     x10, x10, x13
-    mvn     x13, x10
-    madd    x11, x22, x13, x11
-    subs    x13, x14, x21
-    cset    w14, lo
-    mul     x15, x10, x21
-    umulh   x10, x10, x21
-    sub     x10, x11, x10
-    subs    x11, x13, x15
-    sbc     x10, x10, x14
-    cmp     x10, x12
-    csel    x12, xzr, x21, lo
-    csel    x13, xzr, x22, lo
-    adds    x11, x12, x11
-    adc     x12, x13, x10
-    sub     x9, x9, #16
-    subs    x10, x11, x21
-    csetm   x13, lo
-    sub     x13, x13, x22
-    add     x13, x13, x12
-    cmp     x12, x22
-    ccmp    x11, x21, #2, ls
-    csel    x10, x11, x10, lo
-    csel    x13, x12, x13, lo
-    cmp     x12, x22
-    csel    x10, x11, x10, lo
-    csel    x11, x12, x13, lo
-    sub     x8, x8, #2
-    cmp     x8, #1
-    b.hi    LBB3_15
-
-LBB3_16:
-    mov     x9, #0
-
-// normalised: last step
-LBB3_17:
-    ldr     x8, [x20, x9, lsl #3]
-    mul     x9, x0, x11
-    umulh   x12, x0, x11
-    adds    x9, x10, x9
-    adc     x11, x11, x12
-    mvn     x12, x11
-    madd    x10, x22, x12, x10
-    subs    x8, x8, x21
-    cset    w12, lo
-    mul     x13, x11, x21
-    umulh   x11, x11, x21
-    sub     x10, x10, x11
-    subs    x8, x8, x13
-    sbc     x10, x10, x12
-    cmp     x10, x9
-    csel    x9, xzr, x21, lo
-    csel    x11, xzr, x22, lo
-    adds    x8, x9, x8
-    adc     x9, x11, x10
-    subs    x10, x8, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x9
-    cmp     x9, x22
-    ccmp    x8, x21, #2, ls
-    csel    x10, x8, x10, lo
-    csel    x11, x9, x11, lo
-    cmp     x9, x22
-    csel    x10, x8, x10, lo
-    csel    x8, x9, x11, lo
-    str     x10, [x19]
-    b       LBB3_24
-
-// a < b: r = a
-LBB3_18:
-    str     x8, [x19]
-    ldr     x8, [x20, #8]
-    b       LBB3_24
-
-// first step, odd adjust; a_lo = lo<<k|hi>>(64-k)
-LBB3_19:
-    ldr     x11, [x20, x10, lsl #3]
-    lsl     x11, x11, x24
-    add     x12, x20, x26, lsl #3
-    ldur    x12, [x12, #-16]
-    lsr     x12, x12, x25
-    orr     x11, x12, x11
-    mul     x12, x9, x0
-    umulh   x13, x9, x0
-    adds    x12, x8, x12
-    adc     x9, x9, x13
-    mvn     x13, x9
-    madd    x8, x22, x13, x8
-    subs    x11, x11, x21
-    cset    w13, lo
-    mul     x14, x9, x21
-    umulh   x9, x9, x21
-    sub     x8, x8, x9
-    subs    x9, x11, x14
-    sbc     x8, x8, x13
-    cmp     x8, x12
-    csel    x11, xzr, x21, lo
-    csel    x12, xzr, x22, lo
-    adds    x9, x11, x9
-    adc     x11, x12, x8
-    subs    x8, x9, x21
-    csetm   x12, lo
-    sub     x12, x12, x22
-    add     x12, x12, x11
-    cmp     x9, x21
-    ccmp    x11, x22, #2, lo
-    csel    x8, x9, x8, ls
-    csel    x12, x11, x12, ls
-    cmp     x11, x22
-    csel    x8, x9, x8, lo
-    csel    x9, x11, x12, lo
-    sub     x12, x23, #4
-    cmp     x23, #4
-    b.eq    LBB3_22
-
-// unnormalised 2x unrolled loop
-LBB3_20:
-    add     x11, x20, x12, lsl #3
-    add     x12, x12, #1
-
-// divide step x2, shifted a_lo
-LBB3_21:
-    ldr     x13, [x11]
-    lsl     x13, x13, x24
-    add     x10, x20, x10, lsl #3
-    ldur    x10, [x10, #-16]
-    lsr     x10, x10, x25
-    orr     x10, x10, x13
-    mul     x13, x9, x0
-    umulh   x14, x9, x0
-    adds    x13, x8, x13
-    adc     x9, x9, x14
-    mvn     x14, x9
-    madd    x8, x22, x14, x8
-    subs    x10, x10, x21
-    cset    w14, lo
-    mul     x15, x9, x21
-    umulh   x9, x9, x21
-    sub     x8, x8, x9
-    subs    x9, x10, x15
-    sbc     x8, x8, x14
-    cmp     x8, x13
-    csel    x10, xzr, x21, lo
-    csel    x13, xzr, x22, lo
-    adds    x9, x10, x9
-    adc     x8, x13, x8
-    subs    x10, x9, x21
-    csetm   x13, lo
-    sub     x13, x13, x22
-    add     x13, x13, x8
-    cmp     x9, x21
-    ccmp    x8, x22, #2, lo
-    csel    x10, x9, x10, ls
-    csel    x13, x8, x13, ls
-    cmp     x8, x22
-    csel    x9, x9, x10, lo
-    csel    x8, x8, x13, lo
-    ldp     x10, x13, [x11, #-16]!
-    sub     x12, x12, #2
-    lsl     x13, x13, x24
-    lsr     x10, x10, x25
-    orr     x10, x10, x13
-    mul     x13, x8, x0
-    umulh   x14, x8, x0
-    adds    x13, x9, x13
-    adc     x8, x8, x14
-    mvn     x14, x8
-    madd    x9, x22, x14, x9
-    subs    x10, x10, x21
-    cset    w14, lo
-    mul     x15, x8, x21
-    umulh   x8, x8, x21
-    sub     x8, x9, x8
-    subs    x9, x10, x15
-    sbc     x8, x8, x14
-    cmp     x8, x13
-    csel    x10, xzr, x21, lo
-    csel    x13, xzr, x22, lo
-    adds    x9, x10, x9
-    adc     x10, x13, x8
-    subs    x8, x9, x21
-    csetm   x13, lo
-    sub     x13, x13, x22
-    add     x13, x13, x10
-    cmp     x9, x21
-    ccmp    x10, x22, #2, lo
-    csel    x8, x9, x8, ls
-    csel    x13, x10, x13, ls
-    cmp     x10, x22
-    csel    x8, x9, x8, lo
-    csel    x9, x10, x13, lo
-    mov     x10, x12
-    cmp     x12, #1
-    b.hi    LBB3_21
-
-LBB3_22:
-    mov     x10, #0
-
-// unnormalised: last step + r >> k
-LBB3_23:
-    ldr     x10, [x20, x10, lsl #3]
-    lsl     x10, x10, x24
-    mul     x11, x9, x0
-    umulh   x12, x9, x0
-    adds    x11, x8, x11
-    adc     x9, x9, x12
-    mvn     x12, x9
-    madd    x8, x22, x12, x8
-    subs    x10, x10, x21
-    cset    w12, lo
-    mul     x13, x9, x21
-    umulh   x9, x9, x21
-    sub     x8, x8, x9
-    subs    x9, x10, x13
-    sbc     x8, x8, x12
-    cmp     x8, x11
-    csel    x10, xzr, x21, lo
-    csel    x11, xzr, x22, lo
-    adds    x9, x10, x9
-    adc     x8, x11, x8
-    subs    x10, x9, x21
-    csetm   x11, lo
-    sub     x11, x11, x22
-    add     x11, x11, x8
-    cmp     x9, x21
-    ccmp    x8, x22, #2, lo
-    csel    x10, x9, x10, ls
-    csel    x11, x8, x11, ls
-    cmp     x8, x22
-    csel    x9, x9, x10, lo
-    csel    x8, x8, x11, lo
-    lsr     x9, x9, x24
-    lsl     x10, x8, x25
-    orr     x9, x10, x9
-    str     x9, [x19]
-    lsr     x8, x8, x24
-
-// remainder hi limb, restore and return
-LBB3_24:
-    str     x8, [x19, #8]
-    ldp     x29, x30, [sp, #80]
-    ldp     x20, x19, [sp, #64]
-    ldp     x22, x21, [sp, #48]
-    ldp     x24, x23, [sp, #32]
-    ldp     x26, x25, [sp, #16]
-    ldp     x28, x27, [sp], #96
+// r >>= k, store [numb,2]
+Lmod_fin_u:
+    lsr     x0, x26, x27
+    lsl     x1, x25, x28
+    orr     x0, x0, x1
+    lsr     x1, x25, x27
+    stp     x0, x1, [x19]
+    b       Lmod_epi
+Lmod_fin_n:
+    stp     x26, x25, [x19]
+Lmod_epi:
+    ldp     x27, x28, [sp, #80]
+    ldp     x25, x26, [sp, #64]
+    ldp     x23, x24, [sp, #48]
+    ldp     x21, x22, [sp, #32]
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #96
     ret
