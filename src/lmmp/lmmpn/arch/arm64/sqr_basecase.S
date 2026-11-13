@@ -4,7 +4,7 @@
 //
 //  LMMP is free software: you can redistribute it and/or modify it
 //  under the terms of the GNU Lesser General Public License as
-//  published by the Free Software Foundation; either version 3 of
+//  published by the Free Software Foundation, either version 3 of
 //  the License, or (at your option) any later version.
 //
 //  This library is distributed in the hope that it will be useful,
@@ -30,237 +30,305 @@
 // ======================================
 // lmmp_sqr_basecase_
 // ======================================
+// x19=dst, x20=numa, x21=na, x22=row len
+// kernel temps: x4=v0, x5=v1, x12=cy0, x13=cy1, x6/x7/x16/x17=u,
+// x8/x9/x10/x11/x14/x15=prod+sums, x0/x1/x2=rp/up/len walkers
 .globl ASM_GSYM(lmmp_sqr_basecase_)
 .p2align 2
 ASM_GSYM(lmmp_sqr_basecase_):
     cmp     x2, #3
     b.ls    Lsqr_le3                 // na <= 3 small path
-    ldr     x3, [x1],#8              // a0
-    sub     x2, x2, #1               // remain = na - 1
-    mul     x6, x3, x3               // lo(a0^2)
-    umulh   x4, x3, x3               // hi(a0^2)
-    str     x6, [x0],#8              // dst[0] = lo(a0^2)
-    lsl     x3, x3, 1                // multiplier = 2a0
-    lsl     x2, x2, #3               // x2 = byte length
-    lsr     x16, x2, #5              // x16 = size >> 2
-    tbnz    x2, #3, Lsqr_mbx1        // n mod 2 == 1
 
-Lsqr_mbx0:
-    adds    x11, x4, xzr             // entry carry, C = 0
-    tbz     x2, #4, Lsqr_mb00
+    stp     x29, x30, [sp, #-64]!    // save regs
+    stp     x19, x20, [sp, #16]
+    stp     x21, x22, [sp, #32]
+    mov     x19, x0                  // dst
+    mov     x20, x1                  // numa
+    mov     x21, x2                  // na
 
-Lsqr_mb10:                           // n mod 4 == 2
-    ldp     x4, x5, [x1],#16         // a1, a2
-    mul     x8, x4, x3               // lo_0
-    umulh   x10, x4, x3              // hi_0
-    cbz     x16, Lsqr_m2e            // n == 2, tail
-    ldp     x6, x7, [x1],#16         // prefetch a3, a4
-    mul     x9, x5, x3               // lo_1
-    b       Lsqr_mmid-8              // enter mid loop
+    // seed pair (a[0], a[1]): corner at col 1, mul over [numa+2, n-2]
+    ldp     x4, x5, [x20]            // v0, v1
+    mul     x6, x4, x5               // corner lo
+    umulh   x7, x4, x5               // corner hi (<= B-2)
+    str     x6, [x19, #8]            // dst[1] = corner lo (fresh)
+    mov     x12, x7                  // cy0 = corner hi
+    mov     x13, xzr                 // cy1 = 0
+    add     x0, x19, #16             // rp = dst + 2
+    add     x1, x20, #16             // up = a + 2
+    sub     x2, x21, #2              // len = n - 2
+    tbz     x2, #0, Lsq_s1
+    ldr     x6, [x1], #8             // u_0
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    adds    x9, x9, x10              // h = hi0 + lo1  (c1 = 0)
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = lo0 + cy0
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
 
-Lsqr_mbx1:                           // leading single limb
-    ldr     x7, [x1],#8
-    mul     x9, x7, x3               // lo_0
-    umulh   x11, x7, x3              // hi_0
-    adds    x9, x9, x4               // s_0 = lo_0 + carry
-    str     x9, [x0],#8
-    tbnz    x2, #4, Lsqr_mb10        // n mod 4 == 2
+Lsq_s1:
+    tbz     x2, #1, Lsq_s2
+    ldp     x6, x7, [x1], #16        // u_0, u_1
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s_0 = lo0 + cy0
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    str     x8, [x0], #8
+    mul     x8, x7, x4
+    umulh   x9, x7, x4
+    mul     x10, x7, x5
+    umulh   x11, x7, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s_1
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    str     x8, [x0], #8
 
-Lsqr_mb00:                           // n mod 4 == 0
-    ldp     x6, x7, [x1],#16         // a1, a2
-    mul     x8, x6, x3               // lo_0
-    umulh   x10, x6, x3              // hi_0
-    ldp     x4, x5, [x1],#16         // prefetch a3, a4
-    mul     x9, x7, x3               // lo_1
-    adcs    x12, x8, x11             // s_0 = lo_0 + carry + C
-    umulh   x11, x7, x3              // hi_1
-    sub     x16, x16, #1
-    cbz     x16, Lsqr_mend           // last pair only
+Lsq_s2:
+    lsr     x2, x2, #2
+    cbz     x2, Lsq_send
 .p2align 4
 
-Lsqr_mtop:                           // main loop (upper)
-    mul     x8, x4, x3               // lo_2
-    ldp     x6, x7, [x1],#16         // next pair
-    adcs    x13, x9, x10             // s_1 = lo_1 + hi_0 + C
-    umulh   x10, x4, x3              // hi_2
-    mul     x9, x5, x3               // lo_3
-    stp     x12, x13, [x0],#16       // store s_0, s_1
-    adcs    x12, x8, x11             // s_2 = lo_2 + hi_1 + C
-    umulh   x11, x5, x3              // hi_3
+Lsq_stop:
+    ldp     x6, x7, [x1], #32        // u_0, u_1
+    ldp     x16, x17, [x1, #-16]     // u_2, u_3
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s_0 = lo0 + cy0
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x7, x4
+    umulh   x10, x7, x4
+    mul     x11, x7, x5
+    umulh   x14, x7, x5
+    adds    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s_1
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    mul     x8, x16, x4
+    umulh   x9, x16, x4
+    mul     x10, x16, x5
+    umulh   x11, x16, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s_2
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x17, x4
+    umulh   x10, x17, x4
+    mul     x11, x17, x5
+    umulh   x14, x17, x5
+    adds    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s_3
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    subs    x2, x2, #1
+    b.ne    Lsq_stop
 
-Lsqr_mmid:                           // main loop (lower)
-    mul     x8, x6, x3
-    ldp     x4, x5, [x1],#16
-    adcs    x13, x9, x10
-    umulh   x10, x6, x3
-    mul     x9, x7, x3
-    stp     x12, x13, [x0],#16
-    adcs    x12, x8, x11
-    umulh   x11, x7, x3
-    sub     x16, x16, #1
-    cbnz    x16, Lsqr_mtop
+Lsq_send:
+    str     x12, [x0]                // col n = cy0
+    str     x13, [x0, #8]            // col n+1 = cy1
+    sub     x22, x21, #2             // seed row len
 
-Lsqr_mend:                           // tail: last prefetched pair
-    mul     x8, x4, x3               // lo_0
-    adcs    x13, x9, x10             // s_1 = lo_1 + hi_0 + C
-    umulh   x10, x4, x3              // hi_0
-    stp     x12, x13, [x0],#16
+    // pair rows m >= 1: v = (a[2m], a[2m+1]), corner at col 4m+1,
+    // addmul_2 over [numa+2m+2, n-2m-2] at rp = dst+4m+2
+Lsq_trans:                           // row end ptrs + len done -> next row
+    sub     x0, x0, x22, lsl #3      // rp += 32 (next row)
+    add     x0, x0, #32
+    sub     x1, x1, x22, lsl #3      // up += 16 (next row)
+    add     x1, x1, #16
+    subs    x22, x22, #2             // len = n - 2m - 4
+    b.le    Lsq_last                 // len <= 0 done (len 1 = 1-limb row)
+    ldp     x4, x5, [x1, #-16]       // v = (a[2m], a[2m+1])
+    mul     x6, x4, x5               // corner lo
+    umulh   x7, x4, x5               // corner hi
+    ldr     x8, [x0, #-8]            // anchor dst[4m+1]
+    adds    x8, x8, x6
+    str     x8, [x0, #-8]
+    cinc    x12, x7, cs              // cy0 = corner hi + c (<= B-1)
+    mov     x13, xzr                 // cy1 = 0
+    mov     x2, x22                  // len
+    tbz     x22, #0, Lsq_p1
+    ldr     x6, [x1], #8
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    ldr     x14, [x0]
+    adds    x8, x8, x14              // t = lo0 + rp     c1
+    adcs    x9, x9, x10              // h = hi0 + lo1 + c1
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = t + cy0      c4
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0 = h + cy1 + c4
+    adcs    x13, x11, xzr            // cy1 = h2 + c5
 
-Lsqr_m2e:                            // 2-limb tail
-    mul     x9, x5, x3               // lo_1
-    adcs    x12, x8, x11             // s_0 = lo_0 + hi_prev + C
-    umulh   x11, x5, x3              // hi_1
-    adcs    x13, x9, x10             // s_1 = lo_1 + hi_0 + C
-    stp     x12, x13, [x0],#16
-    adc     x11, x11, xzr            // top carry
-    str     x11, [x0],#8
+Lsq_p1:
+    tbz     x22, #1, Lsq_p2
+    ldp     x6, x7, [x1], #16        // u_0, u_1
+    ldr     x14, [x0]
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x8, x8, x14              // t = lo0 + rp     c1
+    adcs    x9, x9, x10              // h = hi0 + lo1 + c1
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = t + cy0      c4
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    ldr     x14, [x0]
+    mul     x8, x7, x4
+    umulh   x9, x7, x4
+    mul     x10, x7, x5
+    umulh   x11, x7, x5
+    adds    x8, x8, x14              // t
+    adcs    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
 
-Lsqr_outer:                          // outer loop: top limb a_{L-1}
-    sub     x2, x2, #8               // byte length -= 8
-    sub     x0, x0, x2               // x0 = dst + L
-    sub     x1, x1, x2               // x1 = numa + L
-    ldp     x6, x7, [x1,#-16]        // a_{L-2}, a_{L-1}
-    ldr     x3, [x0,#-8]             // dst[L-1]
-    and     x8, x7, x6, asr 63       // fix 2a_{L-2} overflow
-    mul     x9, x7, x7               // lo(a_{L-1}^2)
-    adds    x3, x3, x8               // overflow fix
-    umulh   x4, x7, x7               // hi(a_{L-1}^2)
-    adc     x4, x4, xzr
-    adds    x3, x3, x9               // dst[L-1] += lo(a_{L-1}^2)
-    str     x3, [x0,#-8]
-    adc     x17, x4, xzr             // carry = hi + C
-    adds    xzr, x6, x6              // C = 2a_{L-2} overflow
-    adc     x3, x7, x7               // multiplier = 2a_{L-1}
-    cmp     x2, #16
-    beq     Lsqr_cor2                // 2 limbs left
-    lsr     x16, x2, #5              // 4-limb size
-    tbz     x2, #3, Lsqr_bx0
-
-Lsqr_bx1:                            // odd remain: leading limb
-    ldr     x4, [x1],#8
-    mul     x8, x4, x3               // lo_0
-    umulh   x4, x4, x3               // hi_0
-    tbz     x2, #4, Lsqr_b01
-
-Lsqr_b11:                            // n mod 4 == 3
-    ldp     x5, x6, [x1],#16
-    ldp     x12, x13, [x0]           // rp[0], rp[1]
-    ldr     x14, [x0,#16]            // rp[2]
-    mul     x9, x5, x3               // lo_1
-    umulh   x5, x5, x3               // hi_1
-    mul     x10, x6, x3              // lo_2
-    umulh   x6, x6, x3               // hi_2
-    adds    x8, x12, x8              // s_0 = rp[0] + lo_0
-    adcs    x4, x13, x4              // s_1 = rp[1] + hi_0 + C
-    adcs    x5, x14, x5              // s_2 = rp[2] + hi_1 + C
-    adc     x6, x6, xzr              // tmp carry
-    adds    x8, x8, x17              // s_0 += outer carry
-    adcs    x4, x4, x9               // s_1 += lo_1 + C
-    adcs    x5, x5, x10              // s_2 += lo_2 + C
-    adc     x17, x6, xzr             // new carry
-    stp     x8, x4, [x0],#16
-    str     x5, [x0],#8
-    cbnz    x16, Lsqr_top
-    b       Lsqr_end
-
-Lsqr_b01:                            // single leading limb
-    ldr     x12, [x0]
-    adds    x8, x12, x8              // s_0 = rp[0] + lo_0
-    adc     x4, x4, xzr
-    adds    x8, x8, x17              // s_0 += outer carry
-    adc     x17, x4, xzr
-    str     x8, [x0],#8
-    b       Lsqr_top
-
-Lsqr_bx0:                            // even remain
-    ldp     x4, x5, [x1],#16         // prefetch a0, a1
-    tbz     x2, #4, Lsqr_top+4       // enter mid loop
-
-Lsqr_b10:                            // n mod 4 == 2
-    ldp     x12, x13, [x0]           // rp[0], rp[1]
-    mul     x8, x4, x3               // lo_0
-    umulh   x4, x4, x3               // hi_0
-    mul     x9, x5, x3               // lo_1
-    umulh   x5, x5, x3               // hi_1
-    adds    x8, x12, x8              // s_0 = rp[0] + lo_0
-    adcs    x4, x13, x4              // s_1 = rp[1] + hi_0 + C
-    adc     x5, x5, xzr              // tmp carry
-    adds    x8, x8, x17              // s_0 += outer carry
-    adcs    x4, x4, x9               // s_1 += lo_1 + C
-    adc     x17, x5, xzr             // new carry
-    stp     x8, x4, [x0],#16
+Lsq_p2:
+    lsr     x2, x2, #2
+    cbz     x2, Lsq_pend
 .p2align 4
 
-Lsqr_top:                            // addmul main loop: rp[j] += numa[j]*2a_i
-    ldp     x4, x5, [x1],#16
-    ldp     x6, x7, [x1],#16
-    ldp     x12, x13, [x0]           // rp[0], rp[1]
-    ldp     x14, x15, [x0,#16]       // rp[2], rp[3]
-    mul     x8, x4, x3               // lo_0
-    umulh   x4, x4, x3               // hi_0
-    mul     x9, x5, x3               // lo_1
-    umulh   x5, x5, x3               // hi_1
-    mul     x10, x6, x3              // lo_2
-    umulh   x6, x6, x3               // hi_2
-    mul     x11, x7, x3              // lo_3
-    umulh   x7, x7, x3               // hi_3
-    adds    x8, x12, x8              // s_0 = rp[0] + lo_0
-    adcs    x4, x13, x4              // s_1 = rp[1] + hi_0 + C
-    adcs    x5, x14, x5              // s_2 = rp[2] + hi_1 + C
-    adcs    x6, x15, x6              // s_3 = rp[3] + hi_2 + C
-    adc     x7, x7, xzr              // tmp carry
-    adds    x8, x8, x17              // s_0 += outer carry
-    adcs    x4, x4, x9               // s_1 += lo_1 + C
-    adcs    x5, x5, x10              // s_2 += lo_2 + C
-    adcs    x6, x6, x11              // s_3 += lo_3 + C
-    adc     x17, x7, xzr             // new carry
-    stp     x8, x4, [x0],#16
-    stp     x5, x6, [x0],#16
-    sub     x16, x16, #1
-    cbnz    x16, Lsqr_top
+Lsq_ptop:
+    ldp     x6, x7, [x1], #32        // u_0, u_1
+    ldp     x16, x17, [x1, #-16]     // u_2, u_3
+    ldp     x14, x15, [x0]           // rp_0, rp_1
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    adds    x8, x8, x14              // t = lo0 + rp     c1
+    adcs    x9, x9, x10              // h = hi0 + lo1 + c1
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = t + cy0      c4
+    adcs    x12, x9, x13             // cy0 = h + cy1 + c4
+    adcs    x13, x11, xzr            // cy1 = h2 + c5
+    mul     x9, x7, x4               // lo0'
+    umulh   x10, x7, x4              // hi0'
+    mul     x11, x7, x5              // lo1'
+    umulh   x14, x7, x5              // hi1'
+    adds    x9, x9, x15              // t' = lo0' + rp
+    adcs    x10, x10, x11            // h' = hi0' + lo1' + c1
+    adcs    x14, x14, xzr            // h2' = hi1' + c2
+    adds    x9, x9, x12              // s' = t' + cy0     c4
+    adcs    x12, x10, x13            // cy0 = h' + cy1 + c4
+    adcs    x13, x14, xzr            // cy1 = h2' + c5
+    stp     x8, x9, [x0], #16
+    ldp     x14, x15, [x0]           // rp_2, rp_3
+    mul     x8, x16, x4              // lo0
+    umulh   x9, x16, x4              // hi0
+    mul     x10, x16, x5             // lo1
+    umulh   x11, x16, x5             // hi1
+    adds    x8, x8, x14              // t
+    adcs    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x17, x4              // lo0'
+    umulh   x10, x17, x4             // hi0'
+    mul     x11, x17, x5             // lo1'
+    umulh   x14, x17, x5             // hi1'
+    adds    x9, x9, x15              // t'
+    adcs    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s'
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    subs    x2, x2, #1
+    b.ne    Lsq_ptop
 
-Lsqr_end:
-    str     x17, [x0],#8             // carry -> dst top
-    b       Lsqr_outer
+Lsq_pend:
+    str     x12, [x0]                // col n+2m = cy0
+    str     x13, [x0, #8]            // col n+2m+1 = cy1
+    b       Lsq_trans
 
-Lsqr_cor2:                           // corner: last two limbs
-    ldp     x10, x11, [x1]           // a0, a1
-    ldp     x12, x13, [x0]           // rp[0], rp[1]
-    mul     x8, x10, x3              // lo(a0*2a1)
-    umulh   x4, x10, x3              // hi(a0*2a1)
-    mul     x9, x11, x3              // lo(a1*2a1)
-    umulh   x5, x11, x3              // hi(a1*2a1)
-    adds    x8, x12, x8              // s_0 = rp[0] + lo
-    adcs    x4, x13, x4              // s_1 = rp[1] + hi_0 + C
-    adc     x5, x5, xzr
-    adds    x8, x8, x17              // s_0 += carry
-    adcs    x13, x4, x9              // s_1 += lo_1 + C
-    adc     x12, x5, xzr
-    str     x8, [x0]
-    and     x8, x10, x7, asr 63      // fix 2a0 overflow
-    mul     x9, x10, x10             // lo(a0^2)
-    adds    x13, x13, x8             // dst[1] += fix
-    umulh   x4, x10, x10             // hi(a0^2)
-    adc     x4, x4, xzr
-    adds    x13, x13, x9
-    adc     x17, x4, xzr             // carry
-    adds    xzr, x7, x7              // C = 2a0 overflow
-    adc     x3, x10, x10             // multiplier = 2a0
-    mul     x8, x11, x3              // lo(a1*2a0)
-    umulh   x4, x11, x3              // hi(a1*2a0)
-    adds    x8, x12, x8              // dst[2] += lo
-    adc     x4, x4, xzr
-    adds    x8, x8, x17              // += carry
-    adc     x3, x4, xzr
-    stp     x13, x8, [x0,#8]         // store dst[1], dst[2]
-    and     x2, x11, x10, asr 63     // fix overflow
-    mul     x5, x11, x11             // lo(a1^2)
-    adds    x3, x3, x2
-    umulh   x4, x11, x11             // hi(a1^2)
-    adc     x4, x4, xzr
-    adds    x3, x3, x5               // dst[3] += lo(a1^2)
-    adc     x4, x4, xzr
-    stp     x3, x4, [x0,#24]         // store dst[3], dst[4]
+Lsq_last:
+    tbz     x21, #0, Lsq_ceven       // n even: final corner; n odd: zero top
+    lsl     x8, x21, #4
+    sub     x8, x8, #8               // &dst[2n-1]
+    str     xzr, [x19, x8]
+    b       Lsq_diag
+
+Lsq_ceven:                           // corner a[n-2]*a[n-1] at col 2n-3
+    sub     x8, x21, #1
+    ldr     x5, [x20, x8, lsl #3]    // a[n-1]
+    sub     x8, x8, #1
+    ldr     x4, [x20, x8, lsl #3]    // a[n-2]
+    mul     x6, x4, x5
+    umulh   x7, x4, x5
+    lsl     x8, x21, #4
+    sub     x8, x8, #24              // &dst[2n-3]
+    ldr     x9, [x19, x8]
+    adds    x9, x9, x6               // dst[2n-3] += lo
+    str     x9, [x19, x8]
+    cinc    x9, x7, cs               // v = hi + c (<= B-1, no further carry)
+    add     x8, x8, #8
+    str     x9, [x19, x8]            // dst[2n-2] = v (store: sole content)
+    add     x8, x8, #8
+    str     xzr, [x19, x8]           // dst[2n-1] = 0
+
+    // fused tail: dst = 2*T + diag, extr doubling (each limb <= B-1)
+    // plus a_i^2 lo/hi on a single adcs chain (col sums <= 2B-1)
+Lsq_diag:
+    ldr     x6, [x20]                // a[0]
+    mul     x10, x6, x6              // lo(a[0]^2)
+    umulh   x11, x6, x6              // hi(a[0]^2)
+    str     x10, [x19]               // dst[0] = lo (T[0] = 0)
+    ldr     x9, [x19, #8]            // T[1]
+    extr    x13, x9, xzr, #63        // 2*T[1]
+    mov     x5, x9                   // prev
+    adds    x13, x13, x11            // + hi(a[0]^2), chain C starts
+    str     x13, [x19, #8]
+    add     x0, x19, #16
+    add     x1, x20, #8
+    sub     x2, x21, #1              // pairs left = n - 1
+    cbz     x2, Lsq_dend
+.p2align 4
+
+Lsq_dtop:
+    ldr     x6, [x1], #8             // a[i]
+    ldp     x8, x9, [x0]             // T[2i], T[2i+1]
+    extr    x12, x8, x5, #63         // 2*T[2i] | T[2i-1] MSB
+    extr    x13, x9, x8, #63         // 2*T[2i+1] | T[2i] MSB
+    mov     x5, x9                   // prev = T[2i+1]
+    mul     x10, x6, x6              // lo(a[i]^2)
+    umulh   x11, x6, x6              // hi(a[i]^2)
+    adcs    x12, x12, x10            // + lo (chain from prev pair)
+    adcs    x13, x13, x11            // + hi
+    stp     x12, x13, [x0], #16
+    sub     x2, x2, #1               // no flags: keep the chain carry
+    cbnz    x2, Lsq_dtop
+
+Lsq_dend:
+    ldp     x21, x22, [sp, #32]      // restore regs, ret
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #64
     ret
 
 Lsqr_le3:                            // na == 1: dst = a0^2
