@@ -297,6 +297,18 @@ LMMP_API mp_limb_t lmmp_subshl1_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, m
 LMMP_API mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b);
 
 /**
+ * @brief 乘以双limb并累加 [numa,n] += [numb,n] * [bp,2]
+ * @param numa 被加数指针（前 n limb 就地累加结果，第 n+1 limb 直接覆写）
+ * @param numb 乘数数组指针
+ * @param n limb长度
+ * @param bp 双limb乘数（2 个limb）
+ * @warning n>0, eqsep(numa,numb), sep(numa,bp), numb!=NULL, bp!=NULL
+ * @return 第 n+1 limb（最高溢出 limb）
+ * @note 第 n limb 写入 numa[n]（覆写而非累加该处旧值）
+ */
+LMMP_API mp_limb_t lmmp_addmul_2_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_srcptr bp);
+
+/**
  * @brief 乘以单limb并累减操作 [numa,n] -= [numb,n] * b
  * @param numa 被减数指针（结果也存储在此）
  * @param numb 乘数指针
