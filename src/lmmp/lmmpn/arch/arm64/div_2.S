@@ -202,12 +202,6 @@ Ldiv2_to_mod:                       // remap: mod_2_(numa, na, numb)
     mov     x2, x3
     b       ASM_GSYM(lmmp_mod_2_)
 
-// ----------------------------------------------------------------------
-// mp_limb_t lmmp_div_2_s_(mp_ptr dstq, mp_ptr numa, mp_size_t na, mp_srcptr numb);
-//   qh:[dstq,na-2] = [numa,na] div [numb,2], [numa,2] = remainder
-//
-//   dstq=x0, numa=x1, na=x2, numb=x3
-// ----------------------------------------------------------------------
 
 // ======================================
 // lmmp_div_2_s_
