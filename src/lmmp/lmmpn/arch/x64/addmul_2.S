@@ -41,9 +41,6 @@ ASM_GSYM(lmmp_addmul_2_):
     push    rbx
     push    rbp
     push    r12
-    push    r13
-    push    r14
-    push    r15
 
 #ifdef LMMP_WINDOWS
     mov     rdi, rcx                // numa -> rdi
@@ -52,185 +49,205 @@ ASM_GSYM(lmmp_addmul_2_):
     mov     rcx, r9                 // bp -> rcx
 #endif
 
-    test    rdx, rdx                // n == 0: return 0 (rdx = 0)
-    jz      .Lret
+    test    rdx, rdx                // n == 0: return 0
+    jz      .Lret0
 
-    mov     r9, [rcx]               // b0 = bp[0]
-    mov     r8, [rcx + 8]           // b1 = bp[1]
-
-    mov     rbx, rdx                // rbx = -n
-    neg     rbx
-    lea     rsi, [rsi + rdx*8]      // rsi = numb + n
-    lea     rdi, [rdi + rdx*8]      // rdi = numa + n
+    mov     r9, [rcx]               // v0 = bp[0]
+    mov     r8, [rcx + 8]           // v1 = bp[1]
 
     cmp     rdx, 1
     jne     .Lgen
 
-// n == 1: [numa,2] += [numb,1] * (b0 + b1*B), return limb 2
-    mov     r11, [rsi - 8]          // s = numb[0] (cached: eqsep-safe)
+// n == 1: [numa,2] += [numb,1] * (v0 + v1*B), return limb 2
+.Lone:
+    mov     r11, [rsi]              // u = numb[0] (cached: eqsep-safe)
     mov     rax, r11
     mul     r9
-    add     rax, [rdi - 8]
+    add     rax, [rdi]
     adc     rdx, 0
-    mov     [rdi - 8], rax
+    mov     [rdi], rax
     mov     r10, rdx                // r10 = limb 1 partial
     mov     rax, r11
     mul     r8
     add     rax, r10
     adc     rdx, 0
-    mov     [rdi], rax              // numa[1] = limb 1
-    jmp     .Lret                   // return rdx = limb 2
+    mov     [rdi + 8], rax          // numa[1] = limb 1
+    jmp     .Lretdx                 // return rdx = limb 2
 
-.Lgen:                              // n >= 2: numa += numb * (b0, b1)
-    mov     rax, [rsi + rbx*8]
-    mul     r9                      // seed numb[0]*b0
-    test    bl, 1                   // n mod 4
-    jnz     .La1x1
+// per limb (u = up[i]; lo0/hi0 = u*v0, l1/hi1 = u*v1):
+//   t  = lo0 + rp            out c1
+//   h  = hi0 + l1 + c1       out c2
+//   h2 = hi1 + c2            out c3 = 0 always
+//   s  = t + cy0             out c4
+//   cy0 = h + cy1 + c4       out c5
+//   cy1 = h2 + c5            out c6 = 0 always
+// hi(u*v) <= B-2 bounds h2, cy1 < B and excludes c2 = 1 with hi1 = B-2,
+// so plain adds may break the flag chain at s and in the next limb.
+// The (h,h2) pair of limb j becomes (cy0,cy1) of limb j+1.
 
-.La1x0:
-    mov     r14, [rdi + rbx*8]
-    xor     r10, r10
+.Lgen:                              // n >= 2: numa += numb * (v0, v1)
     mov     r11, rdx
-    test    bl, 2
-    jnz     .La110
+    shr     r11, 2                  // 4-limb groups after head
+    test    dl, 3
+    jz      .Le0                    // n%4 == 0
+    test    dl, 1
+    jz      .Le2                    // n%4 == 2
+    test    dl, 2
+    jz      .Le1                    // n%4 == 1
+    jmp     .Le3                    // n%4 == 3
 
-.La100:
-    lea     rbp, [rbx + 2]
-    add     r14, rax
-    adc     r11, 0
-    mov     rax, [rsi + rbx*8]
-    mul     r8
-    mov     r15, [rdi + rbx*8 + 8]
-    jmp     .Llo0
-
-.La110:
-    lea     rbp, [rbx]
-    xor     r13, r13
-    jmp     .Llo2
-
-.La1x1:
-    mov     r15, [rdi + rbx*8]
+// n%4 == 0: (cy0,cy1) = (0,0), loop covers [numa, n]
+.Le0:
+    mov     rdx, r9
+    xor     r10, r10
     xor     r12, r12
-    xor     r11, r11
-    test    bl, 2
-    jz      .La111
-
-.La101:
-    lea     rbp, [rbx + 3]
-    mov     r13, rdx
-    add     r15, rax
-    mov     rax, [rsi + rbx*8]
-    adc     r13, 0
     jmp     .Ltop
 
-.La111:
-    lea     rbp, [rbx + 1]
-    jmp     .Llo3
+// n%4 == 1: limb 0 has (cy0,cy1) = (0,0), emits (r10,r12)
+.Le1:
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]              // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    mov     [rdi], rax              // rp = t  (cy0 = 0)
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    jmp     .Ltop
+
+// n%4 == 2: limb 0 has (cy0,cy1) = (0,0) -> (rcx,rbp); limb 1 -> (r10,r12)
+.Le2:
+    mov     rdx, r9
+    mulx    rcx, rax, [rsi]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]              // t = lo0 + rp
+    adc     rcx, rbx                // h = hi0 + l1 + c1
+    adc     rbp, 0                  // h2 = hi1 + c2
+    mov     [rdi], rax              // rp = t  (cy0 = 0)
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]              // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    add     rax, rcx                // s = t + cy0
+    adc     r10, rbp                // cy0 = h + cy1 + c4
+    adc     r12, 0                  // cy1 = h2 + c5
+    mov     [rdi], rax              // rp = s
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Ltail
+    jmp     .Ltop
+
+// n%4 == 3: limb 0 has (cy0,cy1) = (0,0) -> (r10,r12); limbs 1,2 rotate
+.Le3:
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]              // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    mov     [rdi], rax              // rp = t  (cy0 = 0)
+    mulx    rcx, rax, [rsi + 8]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 8]
+    add     rax, [rdi + 8]          // t = lo0 + rp
+    adc     rcx, rbx                // h = hi0 + l1 + c1
+    adc     rbp, 0                  // h2 = hi1 + c2
+    add     rax, r10                // s = t + cy0
+    adc     rcx, r12                // cy0 = h + cy1 + c4
+    adc     rbp, 0                  // cy1 = h2 + c5
+    mov     [rdi + 8], rax          // rp = s
+    mulx    r12, rbx, [rsi + 16]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 16]
+    add     rax, [rdi + 16]         // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    add     rax, rcx                // s = t + cy0
+    adc     r10, rbp                // cy0 = h + cy1 + c4
+    adc     r12, 0                  // cy1 = h2 + c5
+    mov     [rdi + 16], rax         // rp = s
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Ltail
+    jmp     .Ltop
 
 .p2align 4
-.Ltop:                              // inner loop, 4 limbs
-    mov     r14, [rdi + rbp*8 - 16]
-    mul     r8
-    mov     r10, rdx
-    add     r14, rax
-    adc     r10, 0
-    add     r15, r11
-    adc     r13, 0
-    add     r14, r12
-    adc     r10, 0
-    mov     rax, [rsi + rbp*8 - 16]
-    mul     r9
-    add     r14, rax
-    mov     r11, rdx
-    adc     r11, 0
-    mov     rax, [rsi + rbp*8 - 16]
-    mul     r8
-    mov     [rdi + rbp*8 - 24], r15
-    mov     r15, [rdi + rbp*8 - 8]
-    add     r14, r13
-    adc     r11, 0
+.Ltop:                              // inner loop, 4 limbs, pair rotates
+    mulx    rcx, rax, [rsi]         // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]              // t = lo0 + rp
+    adc     rcx, rbx                // h = hi0 + l1 + c1
+    adc     rbp, 0                  // h2 = hi1 + c2
+    add     rax, r10                // s = t + cy0
+    adc     rcx, r12                // cy0 = h + cy1 + c4
+    adc     rbp, 0                  // cy1 = h2 + c5
+    mov     [rdi], rax
 
-.Llo0:
-    mov     r12, rdx
-    mov     [rdi + rbp*8 - 16], r14
-    add     r15, rax
-    adc     r12, 0
-    mov     rax, [rsi + rbp*8 - 8]
-    add     r15, r10
-    adc     r12, 0
-    mul     r9
+    mulx    r12, rbx, [rsi + 8]     // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]
+    add     rax, [rdi + 8]          // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    add     rax, rcx                // s = t + cy0
+    adc     r10, rbp                // cy0 = h + cy1 + c4
+    adc     r12, 0                  // cy1 = h2 + c5
+    mov     [rdi + 8], rax
 
-.Llo3:
-    add     r15, rax
-    mov     r13, rdx
-    adc     r13, 0
-    mov     rax, [rsi + rbp*8 - 8]
-    mul     r8
-    add     r15, r11
-    mov     r14, [rdi + rbp*8]
-    adc     r13, 0
-    mov     r10, rdx
-    add     r14, rax
-    adc     r10, 0
-    mov     rax, [rsi + rbp*8]
-    mul     r9
-    add     r14, r12
-    mov     [rdi + rbp*8 - 8], r15
-    mov     r11, rdx
-    adc     r10, 0
+    mulx    rcx, rax, [rsi + 16]    // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 16]
+    add     rax, [rdi + 16]         // t = lo0 + rp
+    adc     rcx, rbx                // h = hi0 + l1 + c1
+    adc     rbp, 0                  // h2 = hi1 + c2
+    add     rax, r10                // s = t + cy0
+    adc     rcx, r12                // cy0 = h + cy1 + c4
+    adc     rbp, 0                  // cy1 = h2 + c5
+    mov     [rdi + 16], rax
 
-.Llo2:
-    add     r14, rax
-    adc     r11, 0
-    mov     rax, [rsi + rbp*8]
-    add     r14, r13
-    adc     r11, 0
-    mul     r8
-    mov     r15, [rdi + rbp*8 + 8]
-    add     r15, rax
-    mov     r12, rdx
-    adc     r12, 0
-    mov     rax, [rsi + rbp*8 + 8]
-    mov     [rdi + rbp*8], r14
-    mul     r9
-    add     r15, r10
-    mov     r13, rdx
-    adc     r12, 0
-    add     r15, rax
-    mov     rax, [rsi + rbp*8 + 8]
-    adc     r13, 0
-    add     rbp, 4
-    jnc     .Ltop
+    mulx    r12, rbx, [rsi + 24]    // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 24]
+    add     rax, [rdi + 24]         // t = lo0 + rp
+    adc     r10, rbx                // h = hi0 + l1 + c1
+    adc     r12, 0                  // h2 = hi1 + c2
+    add     rax, rcx                // s = t + cy0
+    adc     r10, rbp                // cy0 = h + cy1 + c4
+    adc     r12, 0                  // cy1 = h2 + c5
+    mov     [rdi + 24], rax
 
-.Lend:                              // write [numa+n-1, 2]
-    mul     r8
-    add     r15, r11
-    adc     r13, 0
-    add     rax, r12
-    adc     rdx, 0
-    mov     [rdi - 8], r15
-    add     rax, r13
-    adc     rdx, 0
-    mov     [rdi], rax              // numa[n] = limb n
-                                    // rdx = limb n+1
+    lea     rsi, [rsi + 32]
+    lea     rdi, [rdi + 32]
+    dec     r11
+    jnz     .Ltop
+
+.Ltail:                             // last pair is always (r10,r12)
+    mov     [rdi], r10              // numa[n] = limb n
+    mov     rax, r12                // return limb n+1
 
 .Lret:
-    mov     rax, rdx
-#ifdef LMMP_WINDOWS
-    pop     r15
-    pop     r14
-    pop     r13
     pop     r12
     pop     rbp
     pop     rbx
+#ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
-#else
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbp
-    pop     rbx
 #endif
     ret
+.Lret0:
+    xor     eax, eax
+    jmp     .Lret
+.Lretdx:
+    mov     rax, rdx
+    jmp     .Lret

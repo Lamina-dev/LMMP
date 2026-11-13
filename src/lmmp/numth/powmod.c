@@ -60,7 +60,7 @@ void lmmp_mont_redc_(mp_ptr restrict dst, mp_ptr restrict tp, lmmp_mont_t* restr
     mp_ptr restrict hi;
 
     if (n < REDC_BASECASE_THRESHOLD) {
-        mp_limb_t cy = lmmp_mont_redc_bc_(dst, tp, mc->m, n, mc->ninv1);
+        mp_limb_t cy = lmmp_mont_redc_bc_(dst, tp, mc->m, n, mc->ninv1, mc->ninv2);
         if (cy) {
             /* 值 >= B^n > m，减 m 必然可行；借位恰好抵消进位 limb */
             (void)lmmp_sub_n_(dst, dst, mc->m, n);
@@ -131,7 +131,7 @@ mp_limb_t lmmp_redc_(
     if (n < REDC_BASECASE_THRESHOLD) {
         mp_ptr restrict up = TALLOC_TYPE(2 * n, mp_limb_t);
         lmmp_copy(up, tp, 2 * n);
-        mp_limb_t cy = lmmp_mont_redc_bc_(dst, up, mp, n, ninv[0]);
+        mp_limb_t cy = lmmp_mont_redc_bc_(dst, up, mp, n, ninv[0], n > 1 ? ninv[1] : 0);
         TEMP_FREE;
         return cy;
     }
