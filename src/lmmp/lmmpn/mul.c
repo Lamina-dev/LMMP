@@ -28,22 +28,26 @@
 
 /*
         Areas where the different toom algorithms can be called
-0    1/6  1/5 1/4  1/3 2/5  1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
+0    1/6  1/5 1/4  1/3 2/5 9/20 1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
 
-                             (-------------------(xxxxxxxxxx|  toom22
-                    (------------(xxxxxxxxxxxxxxx|----------)  toom32
-               (----(xxxxxxxxxxxx|-------)                     toom42
-                                         (-------(xxxxxxxxxx|  toom33
-(xxxxxxxxxxxxxxxxxxx|                                          toom42-unblanced
+                                 (-------------------(xxxxxxxxxx|  toom22
+                    (----------------(xxxxxxxxxxxxxxx|----------)  toom32
+               (----(xxxxxxxxxxxxxxxx|-------)                     toom42
+                                             (-------(xxxxxxxxxx|  toom33
+(xxxxxxxxxxxxxxxxxxx|                                              toom42-unblanced
 
-                                             (---(xxxxxxxxxx|  toom44
-                             (-------(xxxxxxxxxxx|----------)  toom43
-                        (--(xxxxxxxxx|-------)                 toom53
-           (--------(xxxxxx|-)                                 toom52
-      (----(xxxxxxxx|---)  |                                   toom62
-(xxxxxxxxxx|               |                                   toom62-unblanced
-                          9/20
-0    1/6  1/5 1/4  1/3 2/5  1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
+                                                 (---(xxxxxxxxxx|  toom44
+                                 (-------(xxxxxxxxxxx|----------)  toom43
+                        (---(xxxxxxxxxxxx|-------)                 toom53
+           (--------(xxxxxxx|----)                                 toom52
+      (----(xxxxxxxx|---)                                          toom62
+(xxxxxxxxxx|                                                       toom62-unblanced
+
+                      (xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx|  toom6h
+
+               (xxxxxx|-----------------------------------------)  toom8h
+                     6/17
+0    1/6  1/5 1/4  1/3 2/5 9/20 1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
 */
 
 void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {

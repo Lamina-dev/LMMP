@@ -122,11 +122,11 @@ static inline mp_size_t lmmp_mont_need_(mp_size_t n, int anchors) {
  *       即 hi 的第 j limb 恰位于 W[(j+n) mod msz]，旋转载出即得
  */
 static inline void lmmp_mont_fold_hi_(
-    mp_ptr    restrict hi,
-    mp_ptr     restrict V,
-    mp_srcptr restrict  L,
-    mp_size_t             n,
-    mp_size_t           msz
+    mp_ptr    restrict  hi,
+    mp_ptr    restrict   V,
+    mp_srcptr restrict   L,
+    mp_size_t            n,
+    mp_size_t          msz
 ) {
     mp_size_t fn = msz - n; /* hi 中线性对位部分长度（取自 V+n） */
     mp_size_t sn = n - fn;  /* hi 中环绕部分长度（取自 V 头部） */

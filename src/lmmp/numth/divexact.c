@@ -122,21 +122,19 @@ static inline void lmmp_mullo_n_(
 }
 
 static void lmmp_divexact_mu_run_(
-    mp_ptr               dst,
-    mp_srcptr             np,
-    mp_size_t             nn,
-    mp_srcptr restrict    dp,
-    mp_size_t             dn,
-    mp_srcptr restrict  dinv,
-    mp_size_t             in,
-    mp_ptr    restrict    tp /* [0,dn)=rp 滚动余数, [dn,dn+2*(dn+in))=积/mullo scratch */
+    mp_ptr              dst,
+    mp_srcptr            np,
+    mp_size_t            nn,
+    mp_srcptr restrict   dp,
+    mp_size_t            dn,
+    mp_srcptr restrict dinv,
+    mp_size_t            in,
+    mp_ptr    restrict   tp
 ) {
     mp_size_t qn = nn - dn + 1;
     mp_size_t pn = dn + in;
 
-    /* 主积三档：朴素 | 梅森分发（不缓存）| 梅森缓存（仅 fft） */
     int ms_mode = dn >= DIVEXACT_MERSENNE_CACHE_THRESHOLD ? 2 : (dn >= DIVEXACT_MERSENNE_THRESHOLD ? 1 : 0);
-    /* 缓存档取 fft 可行尺寸（缓存仅 fft），朴素/分发档取梅森细粒度（低 padding） */
     mp_size_t m = ms_mode == 2 ? lmmp_fft_next_size_(pn) : (ms_mode == 1 ? lmmp_mersenne_next_size_(pn) : 0);
     int use_lcache = in >= MULLO_DC_THRESHOLD;
     fft_gr_cache mctx;
@@ -144,8 +142,8 @@ static void lmmp_divexact_mu_run_(
     fft_mullo_cache lctx;
     int lflag = 0;
 
-#define rp   (tp)
-#define prod (tp + dn)
+#define rp   (tp)      // [tp,           dn]
+#define prod (tp + dn) // [tp+dn, 3*dn+2*in]
 
     mp_limb_t cy = 0;
     mp_ptr qp = dst;
@@ -192,7 +190,6 @@ static void lmmp_divexact_mu_run_(
         qn -= in;
     }
 
-    /* 末块：余 qn<=in 位商；np 只剩 qn-(dn-in) limb 消费额度 */
     if (ms_mode == 2) {
         if (mflag == 0) {
             lmmp_mul_mersenne_cache_init_(prod, m, qp, in, dp, dn, &mctx);
