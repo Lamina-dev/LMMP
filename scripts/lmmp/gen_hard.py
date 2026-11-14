@@ -24,7 +24,9 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
 
 算法结构:
   x64  mul, N<=8 : 寄存器整行累加(mulx+adcx/adox 双进位链, 行间寄存器环轮转)
-  x64  mul, N>=9 : 种子 mul_1 + 展开 addmul_2(双乘数交错列) + 尾部直存
+  x64  mul, N>=9 : p7 进位保存形态 (mul_basecase.S 行族全展开): 种子 mul_2
+                   + addmul_2 行对(cy0/cy1 全 limb 对银行轮转, mulx+add 双
+                   mem-operand, 逐 limb v0/v1 相位换 rdx) + 奇 n 末行 addmul_1
   x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉积列累加
                    (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
   arm64 mul      : 种子 mul_1 + 展开 addmul_1, 双链批结构
@@ -302,33 +304,171 @@ def x64_mul_tier1(n):
     return "\n".join(b)
 
 
-def x64_mul_tier2(n):
-    """n >= 9: numb 分块, 每块一趟寄存器方案 (乘法总量恰为 n^2).
-    pass 0 纯写; pass >= 1 终化列 RMW, 列完成进位累积进 pc 寄存器 (<=3),
-    pass 尾部以线性 adc 链消化. am 序列保持逐积单排: 无空闲第二 lo 传送
-    带, 借 rreg 需行首清零且 mulx 对中须夹入消费指令 (hi 滞后一积才被
-    CF 链消费), 实测交错式配对反慢 7%~25%, 弃."""
-    ring = X64_RING_POOL[:7]  # 7 个, 最大块 6 用满
-    scr, rreg = X64_RING_POOL[7], X64_RING_POOL[8]
-    zero, pcreg = "rbx", "rbp"
-    used = set(X64_RING_POOL) | {scr, zero, pcreg}
-
+def x64_mul_tier2_p7_seed2(n):
+    """n >= 9: p7 进位保存形态 (mul_basecase.S 行族全展开, 2026-11-15 实测定形).
+    偶 n: 种子 mul_2 (limb 0 特化 + p7 cy 对) -> addmul_2 行对 (.Lk4 逐字转录).
+    奇 n: 种子 mul_3 (三乘子, 7 标志操作布线消 addmul_1 尾行, 2026-11-15 实测
+    快 2.2-2.9%) -> addmul_2 行对.
+    进位对银行轮转: 偶 limb 出 (rcx,rbp) / 奇 limb 出 (r10,r12), mulx 目的恒写
+    另一银行 (先消费后复用); rdx 相位逐 limb 换; 每个 add 的 CF 被紧随 adc
+    消费 (自归一化布线). mul_3 进位三重对银行周期 3 轮转 (P1/P2/P3 零对齐 mov),
+    c4=0 (hi<=B-2) 与 c7=0 (全 B-1 级联互斥) 两边界论证."""
+    used = {"rbx", "rbp", "r12", "r14"} | ({"r13", "r15"} if n % 2 == 1 else set())
     b = []
-    b.append("    // rdi=dst rsi=numa rcx=numb rdx=v")
+    b.append("    // rdi=dst rsi=numa r14=numb r9=v0 r8=v1" + (" r13=v2" if n % 2 == 1 else ""))
+    b.append("    // cy pair banks: even limb (rcx,rbp), odd limb (r10,r12)")
     b.append(x64_prologue(used, 3))
-    b.append("    xor     %-24s// CF=OF=0" % ("%s, %s" % (e32(zero), e32(zero))))
-    # 均衡分块: 每块 <= 6 (n>=9 时每块 >= 3)
-    nparts = (n + 5) // 6
-    base, extra = divmod(n, nparts)
-    offs = []
-    off = 0
-    for q in range(nparts):
-        s = base + (1 if q < extra else 0)
-        offs.append((off, s))
-        off += s
-    for p, (off, s) in enumerate(offs):
-        b.append("    // === pass %d: [numb+%d, %d] x numa, w=%d ===" % (p, off, s, s))
-        ring, scr = x64_mul_regpass(b, ring, scr, zero, pcreg, rreg, n, s, off, True, p > 0, None)
+    b.append("    mov     r14, rcx                // numb")
+
+    # ---- seed: 偶 n mul_2 (dst[0,n+2) = numa*(b0,b1)); 奇 n mul_3 ----
+    if n % 2 == 1:
+        # mul_3: v0=r9 v1=r8 v2=r13; a_k*b0 -> col k,k+1; b1 -> k+1,k+2; b2 -> k+2,k+3
+        # limb 0: col0 = lo(a0*b0); 出三重对 (r10,r12,r11)
+        b.append("    mov     r9, [r14]")
+        b.append("    mov     r8, [r14+8]")
+        b.append("    mov     r13, [r14+16]")
+        b.append("    mov     rdx, r9")
+        b.append("    mulx    r10, rax, [rsi]")
+        b.append("    mov     [rdi], rax")
+        b.append("    mov     rdx, r8")
+        b.append("    mulx    r12, rbx, [rsi]")
+        b.append("    add     r10, rbx                // cy0 = hi0 + lo1")
+        b.append("    mov     rdx, r13")
+        b.append("    mulx    r11, rbx, [rsi]")
+        b.append("    adc     r12, rbx                // cy1 = hi1 + lo2 + c")
+        b.append("    adc     r11, 0                  // cy2 = hi2 + c2")
+        for k in range(1, n):
+            src = 8 * k
+            pat = (k - 1) % 3
+            if pat == 0:
+                # P1: in (r10,r12,r11) -> out (rcx,r10,rbx)
+                b.append("    mov     rdx, r9")
+                b.append("    mulx    rcx, rax, [rsi+%d]" % src)
+                b.append("    add     rax, r10              // s = lo1 + cy0")
+                b.append("    mov     rdx, r8")
+                b.append("    mulx    r10, rbx, [rsi+%d]" % src)
+                b.append("    adc     rcx, rbx              // h1 += lo2 + c1")
+                b.append("    mov     rdx, r13")
+                b.append("    mulx    rbx, r15, [rsi+%d]" % src)
+                b.append("    adc     r10, r15              // t2 += lo3 + c2")
+                b.append("    adc     rbx, 0                // h3 += c3 (c4=0)")
+                b.append("    add     rcx, r12              // cy0' = h1 + cy1")
+                b.append("    adc     r10, r11              // cy1' = t2 + cy2 + c5")
+                b.append("    adc     rbx, 0                // cy2' += c6 (c7=0)")
+                b.append("    mov     [rdi+%d], rax" % (8 * k))
+            elif pat == 1:
+                # P2: in (rcx,r10,rbx) -> out (r12,rcx,rbp)
+                b.append("    mov     rdx, r9")
+                b.append("    mulx    r12, rax, [rsi+%d]" % src)
+                b.append("    add     rax, rcx              // s = lo1 + cy0")
+                b.append("    mov     rdx, r8")
+                b.append("    mulx    rcx, rbp, [rsi+%d]" % src)
+                b.append("    adc     r12, rbp              // h1 += lo2 + c1")
+                b.append("    mov     rdx, r13")
+                b.append("    mulx    rbp, r15, [rsi+%d]" % src)
+                b.append("    adc     rcx, r15              // t2 += lo3 + c2")
+                b.append("    adc     rbp, 0                // h3 += c3")
+                b.append("    add     r12, r10              // cy0' = h1 + cy1")
+                b.append("    adc     rcx, rbx              // cy1' = t2 + cy2 + c5")
+                b.append("    adc     rbp, 0                // cy2' += c6")
+                b.append("    mov     [rdi+%d], rax" % (8 * k))
+            else:
+                # P3: in (r12,rcx,rbp) -> out (r10,r12,r11)
+                b.append("    mov     rdx, r9")
+                b.append("    mulx    r10, rax, [rsi+%d]" % src)
+                b.append("    add     rax, r12              // s = lo1 + cy0")
+                b.append("    mov     rdx, r8")
+                b.append("    mulx    r12, r11, [rsi+%d]" % src)
+                b.append("    adc     r10, r11              // h1 += lo2 + c1")
+                b.append("    mov     rdx, r13")
+                b.append("    mulx    r11, r15, [rsi+%d]" % src)
+                b.append("    adc     r12, r15              // t2 += lo3 + c2")
+                b.append("    adc     r11, 0                // h3 += c3")
+                b.append("    add     r10, rcx              // cy0' = h1 + cy1")
+                b.append("    adc     r12, rbp              // cy1' = t2 + cy2 + c5")
+                b.append("    adc     r11, 0                // cy2' += c6")
+                b.append("    mov     [rdi+%d], rax" % (8 * k))
+        trio = {0: ("rcx", "r10", "rbx"), 1: ("r12", "rcx", "rbp"), 2: ("r10", "r12", "r11")}[(n - 2) % 3]
+        b.append("    mov     [rdi+%d], %s" % (8 * n, trio[0]))
+        b.append("    mov     [rdi+%d], %s" % (8 * (n + 1), trio[1]))
+        b.append("    mov     [rdi+%d], %s" % (8 * (n + 2), trio[2]))
+        m = 3
+    else:
+        b.append("    mov     r9, [r14]")
+        b.append("    mov     r8, [r14+8]")
+        # limb 0: col 0 = lo(a0*v0); out pair (rcx,rbp)
+        b.append("    mov     rdx, r9")
+        b.append("    mulx    rcx, rax, [rsi]")
+        b.append("    mov     [rdi], rax")
+        b.append("    mov     rdx, r8")
+        b.append("    mulx    rbp, rbx, [rsi]")
+        b.append("    add     rcx, rbx                // cy0 = hi0 + lo1")
+        b.append("    adc     rbp, 0                  // cy1 = hi1 + c")
+        for k in range(1, n):
+            if k % 2 == 1:
+                b.append("    mulx    r12, rbx, [rsi+%d]" % (8 * k))
+                b.append("    mov     rdx, r9")
+                b.append("    mulx    r10, rax, [rsi+%d]" % (8 * k))
+                b.append("    add     rax, rcx              // s = lo0 + cy0")
+                b.append("    adc     r10, rbx              // h = hi0 + lo1 + c1")
+                b.append("    adc     r12, 0                // h2 = hi1 + c2")
+                b.append("    adc     r10, rbp              // cy0 = h + cy1")
+                b.append("    adc     r12, 0")
+                b.append("    mov     [rdi+%d], rax" % (8 * k))
+            else:
+                b.append("    mulx    rcx, rax, [rsi+%d]" % (8 * k))
+                b.append("    mov     rdx, r8")
+                b.append("    mulx    rbp, rbx, [rsi+%d]" % (8 * k))
+                b.append("    add     rax, r10              // s = lo0 + cy0")
+                b.append("    adc     rcx, rbx              // h = hi0 + lo1 + c1")
+                b.append("    adc     rbp, 0                // h2 = hi1 + c2")
+                b.append("    adc     rcx, r12              // cy0 = h + cy1")
+                b.append("    adc     rbp, 0")
+                b.append("    mov     [rdi+%d], rax" % (8 * k))
+        b.append("    mov     [rdi+%d], r10" % (8 * n))
+        b.append("    mov     [rdi+%d], r12" % (8 * (n + 1)))
+        m = 2
+
+    # ---- addmul_2 rows: [dst+m,m+n+2) += numa * (b_m,b_{m+1}) ----
+    while m + 2 <= n:
+        b.append("    mov     r9, [r14+%d]" % (8 * m))
+        b.append("    mov     r8, [r14+%d]" % (8 * (m + 1)))
+        b.append("    mov     rdx, r9")
+        b.append("    xor     r10d, r10d")
+        b.append("    xor     r12d, r12d")
+        for k in range(n):
+            off = 8 * (m + k)
+            if k % 2 == 0:
+                b.append("    mulx    rcx, rax, [rsi+%d]" % (8 * k))
+                b.append("    mov     rdx, r8")
+                b.append("    mulx    rbp, rbx, [rsi+%d]" % (8 * k))
+                b.append("    add     rax, [rdi+%d]" % off)
+                b.append("    adc     rcx, rbx              // h = hi0 + l1 + c1")
+                b.append("    adc     rbp, 0                // h2 = hi1 + c2")
+                b.append("    add     rax, r10              // s = t + cy0")
+                b.append("    adc     rcx, r12              // cy0 = h + cy1")
+                b.append("    adc     rbp, 0")
+                b.append("    mov     [rdi+%d], rax" % off)
+            else:
+                b.append("    mulx    r12, rbx, [rsi+%d]" % (8 * k))
+                b.append("    mov     rdx, r9")
+                b.append("    mulx    r10, rax, [rsi+%d]" % (8 * k))
+                b.append("    add     rax, [rdi+%d]" % off)
+                b.append("    adc     r10, rbx              // h = hi0 + l1 + c1")
+                b.append("    adc     r12, 0                // h2 = hi1 + c2")
+                b.append("    add     rax, rcx              // s = t + cy0")
+                b.append("    adc     r10, rbp              // cy0 = h + cy1")
+                b.append("    adc     r12, 0")
+                b.append("    mov     [rdi+%d], rax" % off)
+        if n % 2 == 1:
+            b.append("    mov     [rdi+%d], rcx" % (8 * (m + n)))
+            b.append("    mov     [rdi+%d], rbp" % (8 * (m + n + 1)))
+        else:
+            b.append("    mov     [rdi+%d], r10" % (8 * (m + n)))
+            b.append("    mov     [rdi+%d], r12" % (8 * (m + n + 1)))
+        m += 2
+
+
     b.append(x64_epilogue(used, 3))
     return "\n".join(b)
 
@@ -353,7 +493,7 @@ def gen_x64_mul():
         elif n <= 8:
             parts.append(x64_mul_tier1(n))
         else:
-            parts.append(x64_mul_tier2(n))
+            parts.append(x64_mul_tier2_p7_seed2(n))
         parts.append("")
     return "\n".join(parts)
 
