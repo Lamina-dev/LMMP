@@ -186,161 +186,183 @@ ASM_GSYM(lmmp_mullo_basecase_):
 
     lea     rcx, [rcx + 8]         // numb++
     inc     rbx                    // rbx = -(n-1)
-    sub     rsi, 8                 // rsi = numa + (n-1)
+    add     rsi, 8                 // rsi = numa + n + 1 (row anchor)
 
     PUSH_EXTRA
     push    r15
-    push    r8                     // remaining cols
 
-// ======================================
-// two-column outer loop
-// ======================================
+    mov     r15, rbx               // r15 = -(n-1)
+    mov     r14, rcx               // r14 = numb
+
+// two-column outer loop, p7 carry-save rows
+// r15 = -L, r14 = numb, rsi = numa+L+2 anchor, rdi = dst+n
 .p2align 4
 .Louter2:
-    cmp     rbx, -4
-    jg      .Ltail                 // L < 4
+    cmp     r15, -4
+    jg      .Ltailconv
 
-    mov     r9, [rcx]              // m0 = numb[j]
-    mov     r8, [rcx + 8]          // m1 = numb[j+1]
-    mov     rax, [rsi + rbx*8]     // rax = numa[0]
-    mul     r9
-    test    bl, 1
-    jnz     .a2x1
+    mov     r9, [r14]                // v0 = numb[j]
+    mov     r8, [r14 + 8]            // v1 = numb[j+1]
+    lea     r14, [r14 + 16]
+    lea     rsi, [rsi + r15*8 - 16]  // up = [numa,L]
+    lea     rdi, [rdi + r15*8]       // rp = [dst+j,n-j]
+    mov     rax, r15
+    neg     rax                      // rax = L
+    mov     r11, rax
+    shr     r11, 2                   // 4-limb groups
+    test    al, 3
+    jz      .Lh0
+    test    al, 1
+    jz      .Lh2
+    test    al, 2
+    jz      .Lh1
+    jmp     .Lh3
 
-.a2x0:
-    mov     r14, [rdi + rbx*8]     // dst[j]
-    xor     r10, r10
-    mov     r11, rdx
-    test    bl, 2
-    jnz     .a210
+.Lh0:                              // L%4 == 0
+    mov     rdx, r9
+    xor     r10d, r10d
+    xor     r12d, r12d
+    jmp     .Lk4
 
-.a200:
-    lea     rbp, [rbx + 2]
-    add     r14, rax
-    adc     r11, 0
-    mov     rax, [rsi + rbx*8]
-    mul     r8
-    mov     r15, [rdi + rbx*8 + 8]
-    jmp     .a2lo0
+.Lh1:                              // L%4 == 1
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Larow
+    jmp     .Lk4
 
-.a210:
-    lea     rbp, [rbx]
-    xor     r13, r13
-    jmp     .a2lo2
+.Lh2:                              // L%4 == 2
+    mov     rdx, r9
+    mulx    rcx, rax, [rsi]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]
+    adc     rcx, rbx
+    adc     rbp, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Larow
+    jmp     .Lk4
 
-.a2x1:
-    mov     r15, [rdi + rbx*8]
-    xor     r12, r12
-    xor     r11, r11
-    test    bl, 2
-    jz      .a211
-
-.a201:
-    lea     rbp, [rbx + 3]
-    mov     r13, rdx
-    add     r15, rax
-    mov     rax, [rsi + rbx*8]
-    adc     r13, 0
-    jmp     .a2top
-
-.a211:
-    lea     rbp, [rbx + 1]
-    jmp     .a2lo3
+.Lh3:                              // L%4 == 3
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    mov     [rdi], rax
+    mulx    rcx, rax, [rsi + 8]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r12
+    adc     rbp, 0
+    mov     [rdi + 8], rax
+    mulx    r12, rbx, [rsi + 16]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 16], rax
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Larow
+    jmp     .Lk4
 
 .p2align 4
-.a2top:                            // inner loop, 4 limbs
-    mov     r14, [rdi + rbp*8 - 16]
-    mul     r8
-    mov     r10, rdx
-    add     r14, rax
-    adc     r10, 0
-    add     r15, r11
-    adc     r13, 0
-    add     r14, r12
-    adc     r10, 0
-    mov     rax, [rsi + rbp*8 - 16]
-    mul     r9
-    add     r14, rax
-    mov     r11, rdx
-    adc     r11, 0
-    mov     rax, [rsi + rbp*8 - 16]
-    mul     r8
-    mov     [rdi + rbp*8 - 24], r15
-    mov     r15, [rdi + rbp*8 - 8]
-    add     r14, r13
-    adc     r11, 0
-.a2lo0:
-    mov     r12, rdx
-    mov     [rdi + rbp*8 - 16], r14
-    add     r15, rax
-    adc     r12, 0
-    mov     rax, [rsi + rbp*8 - 8]
-    add     r15, r10
-    adc     r12, 0
-    mul     r9
-.a2lo3:
-    add     r15, rax
-    mov     r13, rdx
-    adc     r13, 0
-    mov     rax, [rsi + rbp*8 - 8]
-    mul     r8
-    add     r15, r11
-    mov     r14, [rdi + rbp*8]
-    adc     r13, 0
-    mov     r10, rdx
-    add     r14, rax
-    adc     r10, 0
-    mov     rax, [rsi + rbp*8]
-    mul     r9
-    add     r14, r12
-    mov     [rdi + rbp*8 - 8], r15
-    mov     r11, rdx
-    adc     r10, 0
-.a2lo2:
-    add     r14, rax
-    adc     r11, 0
-    mov     rax, [rsi + rbp*8]
-    add     r14, r13
-    adc     r11, 0
-    mul     r8
-    mov     r15, [rdi + rbp*8 + 8]
-    add     r15, rax
-    mov     r12, rdx
-    adc     r12, 0
-    mov     rax, [rsi + rbp*8 + 8]
-    mov     [rdi + rbp*8], r14
-    mul     r9
-    add     r15, r10
-    mov     r13, rdx
-    adc     r12, 0
-    add     r15, rax
-    mov     rax, [rsi + rbp*8 + 8]
-    adc     r13, 0
-    add     rbp, 4
-    jnc     .a2top
+.Lk4:                              // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)
+    mulx    rcx, rax, [rsi]        // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]             // t = lo0 + rp
+    adc     rcx, rbx               // h = hi0 + l1 + c1
+    adc     rbp, 0                 // h2 = hi1 + c2
+    add     rax, r10               // s = t + cy0
+    adc     rcx, r12               // cy0 = h + cy1 + c4
+    adc     rbp, 0                 // cy1 = h2 + c5
+    mov     [rdi], rax
 
-.a2end:
-    mul     r8                     // dummy mul
-    add     r15, r11
-    adc     r13, 0
-    add     rax, r12
-    adc     rdx, 0
-    mov     [rdi - 8], r15         // dst[n-1]
-    add     rax, r13
-    adc     rdx, 0
-    // carry discarded
+    mulx    r12, rbx, [rsi + 8]    // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 8], rax
 
-    sub     QWORD PTR [rsp], 2     // cols -= 2
-    lea     rcx, [rcx + 16]        // numb += 2
-    lea     rsi, [rsi - 16]        // numa -= 2, L -= 2
-    add     rbx, 2                 // rbx = -(L-2)
+    mulx    rcx, rax, [rsi + 16]   // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r12
+    adc     rbp, 0
+    mov     [rdi + 16], rax
+
+    mulx    r12, rbx, [rsi + 24]   // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 24]
+    add     rax, [rdi + 24]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 24], rax
+
+    lea     rsi, [rsi + 32]
+    lea     rdi, [rdi + 32]
+    dec     r11
+    jnz     .Lk4
+
+.Larow:                            // carry discarded (truncated product)
+    add     r15, 2                 // L -= 2
     jmp     .Louter2
 
-// ======================================
 // tail: single-multiplier columns
-// ======================================
-.Ltail:
-    pop     r8                     // remaining cols
+.Ltailconv:
+    sub     rsi, 16                // rsi = numa + L
+    mov     rbx, r15               // rbx = -L
+    mov     rcx, r14               // rcx = numb
+    neg     r15
+    mov     r8, r15                // r8 = L remaining cols
     pop     r15
 
 .Louter:                           // dst += numa * numb[j] (low part)
