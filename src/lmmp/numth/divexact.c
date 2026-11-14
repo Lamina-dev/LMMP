@@ -268,35 +268,91 @@ void lmmp_divexact_unbalance_(
     TEMP_FREE;
 }
 
-void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr restrict dp, mp_size_t dn, mp_limb_t dinv) {
+void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr restrict dp, mp_size_t dn) {
     lmmp_param_assert(dst != NULL && np != NULL && dp != NULL);
     lmmp_param_assert(dn > 0);
     lmmp_param_assert(nn >= dn);
     lmmp_param_assert((dp[0] & 1) != 0);
-    lmmp_param_assert((dp[0] * dinv) == 1);
-    mp_size_t i;
-    mp_limb_t q;
-    mp_limb_t hi;
-    mp_size_t qn = nn - dn + 1;
-    for (i = 0; i < qn; i++) {
-        q = dinv * np[i];
-        hi = lmmp_submul_1_(np + i, dp, dn, q);
-        lmmp_debug_assert(np[i] == 0);
-#if LMMP_DEBUG_ASSERT_CHECK == 1
-        // 末轮hi必定为 0
-        if (hi && i + dn < nn) {
-            lmmp_dec_1(np + i + dn, hi);
-        } else {
-            lmmp_debug_assert(hi == 0);
+
+    const mp_size_t qn = nn - dn + 1;
+
+    if (dn == 1) {
+        lmmp_divexact_1_(dst, np, nn, dp[0], lmmp_binvert_ulong_(dp[0]));
+        if (dst != np) {
+            lmmp_zero(np, nn);
         }
-#else
-        /* 末轮 i+dn==nn 时 hi 必为 0 */
-        if (hi && i + dn < nn) {
-            lmmp_dec_1(np + i + dn, hi);
-        }
-#endif
-        dst[i] = q;
+        return;
     }
+
+    /* 有效宽度：商 Q = N*D^(-1) mod B^qn 只需 d 的低 min(dn, qn) limb */
+    const mp_size_t D = dn < qn ? dn : qn;
+
+    const mp_limb_t ninv1 = 0 - lmmp_binvert_ulong_(dp[0]);
+    const mp_limb_t e = _umul64to64hi_(dp[0], ninv1) + 1;
+    const mp_limb_t ninv2 = ninv1 * e + dp[1] * ninv1 * ninv1;
+    lmmp_debug_assert(dp[0] * ninv1 == ~(mp_limb_t)0);
+
+    /* 商流式取负：Q_true = -Q mod B^qn = ~Q + 1，negc 为借位链 */
+    mp_limb_t negc = 1;
+#define LMMP_DIVX_PUT(k, qv)           \
+    do {                               \
+        mp_limb_t _q_ = (qv);          \
+        dst[k] = ~_q_ + negc;          \
+        negc &= (mp_limb_t)(_q_ == 0); \
+    } while (0)
+
+    mp_ptr up = np;
+    mp_size_t i = 0;
+    mp_limb_t cy = 0;
+
+    for (; qn - i >= D + 2; i += 2, up += 2) {
+        mp_limb_t q[2], qh;
+        _umul64to128_(up[0], ninv1, &q[0], &qh);
+        q[1] = qh + up[0] * ninv2 + up[1] * ninv1;
+        const mp_limb_t sv = up[D];
+        const mp_limb_t chi = lmmp_addmul_2_(up, dp, D, q);
+        mp_limb_t s = sv + up[D];
+        mp_limb_t c = s < sv;
+        s += cy;
+        c += s < cy;
+        up[D] = s;
+        mp_limb_t t = up[D + 1] + chi;
+        cy = t < chi;
+        t += c;
+        cy += t < c;
+        up[D + 1] = t;
+        lmmp_debug_assert(up[0] == 0 && up[1] == 0);
+        LMMP_DIVX_PUT(i, q[0]);
+        LMMP_DIVX_PUT(i + 1, q[1]);
+    }
+
+    if (qn - i == D + 1) {
+        const mp_limb_t q = up[0] * ninv1;
+        const mp_limb_t hi = lmmp_addmul_1_(up, dp, D, q);
+        up[D] += hi + cy;
+        lmmp_debug_assert(up[0] == 0);
+        LMMP_DIVX_PUT(i, q);
+        i++;
+        up++;
+    }
+
+    for (mp_size_t w = qn - i; w >= 2; w -= 2, i += 2, up += 2) {
+        mp_limb_t q[2], qh;
+        _umul64to128_(up[0], ninv1, &q[0], &qh);
+        q[1] = qh + up[0] * ninv2 + up[1] * ninv1;
+        lmmp_addmul_2_(up, dp, w, q);
+        lmmp_debug_assert(up[0] == 0 && up[1] == 0);
+        LMMP_DIVX_PUT(i, q[0]);
+        LMMP_DIVX_PUT(i + 1, q[1]);
+    }
+    if (i < qn) {
+        const mp_limb_t q = up[0] * ninv1;
+        up[0] = 0;
+        LMMP_DIVX_PUT(i, q);
+    }
+#undef LMMP_DIVX_PUT
+
+    lmmp_zero(np + qn, nn - qn);
 }
 
 void lmmp_divexact_divide_(mp_ptr restrict dst, mp_srcptr restrict np, mp_size_t nn, mp_srcptr restrict dp, mp_size_t dn) {
@@ -345,11 +401,10 @@ void lmmp_divexact_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr restrict d
     } else {
         mp_size_t qn = nn - dn + 1;
         if (nn < DIVEXACT_NN_THRESHOLD && dn < DIVEXACT_BASECASE_THRESHOLD) {
-            mp_limb_t dinv = lmmp_binvert_ulong_(dp[0]);
             TEMP_DECL;
             mp_ptr restrict tp = TALLOC_TYPE(nn, mp_limb_t);
             lmmp_copy(tp, np, nn);
-            lmmp_divexact_basecase_(dst, tp, nn, dp, dn, dinv);
+            lmmp_divexact_basecase_(dst, tp, nn, dp, dn);
             TEMP_FREE;
         } else if (qn < dn) {
             TEMP_DECL;

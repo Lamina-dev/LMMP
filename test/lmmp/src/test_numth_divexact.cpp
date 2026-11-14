@@ -149,8 +149,7 @@ TEST_CASE("numth/divexact", divexact_basecase_divide_cross) {
             // 朴素精确除法
             mp_ptr dst3 = alloc_limbs(qn + 1), np3 = alloc_limbs(nn);
             memcpy(np3, np, nn * 8);
-            mp_limb_t d0inv = lmmp_binvert_ulong_(d[0]);
-            lmmp_divexact_basecase_(dst3, np3, nn, d, dn, d0inv);
+            lmmp_divexact_basecase_(dst3, np3, nn, d, dn);
             TEST_CHECK_EQ(memcmp(dst3, q, q_actual * 8), 0);
             TEST_CHECK_EQ(dst3[q_actual], 0u);
 
