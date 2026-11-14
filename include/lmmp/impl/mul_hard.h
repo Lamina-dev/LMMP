@@ -74,32 +74,52 @@ LMMP_DECL_SQR_HARD(19)
 
 /**
  * @brief 硬编码平衡乘法跳转表, [i] 即 lmmp_mul_hard_i_, 下标 0 为 NULL
- * @note 供按短乘数长度固化调用的场景(如不平衡乘法分块累加)使用,
- *        避免循环内反复经过 lmmp_mul_hard_n_ 的 switch 分发
+ * @note 调用点原地取函数指针直接调用(单次 call 进入目标), 省去经分派函数
+ *        中转的又一次 call; 按短乘数长度固化调用的场景(如不平衡乘法分块
+ *        累加)可将指针外提出循环; 下标必须满足 0 < i <= LMMP_MUL_HARD_MAX_N
  */
 extern void (*const lmmp_mul_hard_fns_[LMMP_MUL_HARD_MAX_N + 1])(mp_ptr dst, mp_srcptr numa, mp_srcptr numb);
 
 /**
- * @brief 硬编码平衡乘法调度器 [dst,2n] = [numa,n] * [numb,n]
+ * @brief 硬编码平衡平方跳转表, [i] 即 lmmp_sqr_hard_i_, 下标 0 为 NULL
+ * @note 同 lmmp_mul_hard_fns_; 下标必须满足 0 < i <= LMMP_MUL_HARD_MAX_N
+ */
+extern void (*const lmmp_sqr_hard_fns_[LMMP_MUL_HARD_MAX_N + 1])(mp_ptr dst, mp_srcptr numa);
+
+/**
+ * @brief 硬编码平衡乘法分派 [dst,2n] = [numa,n] * [numb,n]
  * @param dst 结果输出指针
  * @param numa 第一个乘数
  * @param numb 第二个乘数
  * @param n 操作数 limb 长度
  * @warning 0 < n, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL;
- *          n <= LMMP_MUL_HARD_MAX_N 时走硬编码分支, 其余回落 mul_basecase
+ *          n <= LMMP_MUL_HARD_MAX_N 时查表直调硬编码函数, 其余回落 mul_basecase
  * @return 无
  */
-void lmmp_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
+static inline void __lmmp_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
+    if (n <= LMMP_MUL_HARD_MAX_N)
+        lmmp_mul_hard_fns_[n](dst, numa, numb);
+    else
+        lmmp_mul_basecase_(dst, numa, n, numb, n);
+}
 
 /**
- * @brief 硬编码平衡平方调度器 [dst,2n] = [numa,n]^2
+ * @brief 硬编码平衡平方分派 [dst,2n] = [numa,n]^2
  * @param dst 结果输出指针
  * @param numa 输入操作数
  * @param n 操作数 limb 长度
  * @warning 0 < n, sep(dst,numa), dst!=NULL, numa!=NULL;
- *          n <= LMMP_MUL_HARD_MAX_N 时走硬编码分支, 其余回落 sqr_basecase
+ *          n <= LMMP_MUL_HARD_MAX_N 时查表直调硬编码函数, 其余回落 sqr_basecase
  * @return 无
  */
-void lmmp_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
+static inline void __lmmp_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n) {
+    if (n <= LMMP_MUL_HARD_MAX_N)
+        lmmp_sqr_hard_fns_[n](dst, numa);
+    else
+        lmmp_sqr_basecase_(dst, numa, n);
+}
+
+#define lmmp_mul_hard_n_ __lmmp_mul_hard_n_
+#define lmmp_sqr_hard_n_ __lmmp_sqr_hard_n_
 
 #endif /* __LMMP_IMPL_MUL_HARD_H__ */

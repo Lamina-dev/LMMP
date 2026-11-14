@@ -55,7 +55,6 @@ static const tune_module_t g_modules[] = {
     {"sqr_toom8", "sqr8,SQR_TOOM8_THRESHOLD", "SQR_TOOM8_THRESHOLD", tune_run_sqr_toom8},
     {"mul_fft", "MUL_FFT_THRESHOLD", "MUL_FFT_THRESHOLD", tune_run_mul_fft},
     {"sqr_fft", "SQR_FFT_THRESHOLD", "SQR_FFT_THRESHOLD", tune_run_sqr_fft},
-    {"mul_unbalanced_hard", "mul_hard_unb,MUL_UNBALANCED_HARD_THRESHOLD", "MUL_UNBALANCED_HARD_THRESHOLD", tune_run_mul_unbalanced_hard},
     {"mullo_basecase", "mullo,MULLO_BASECASE_THRESHOLD", "MULLO_BASECASE_THRESHOLD", tune_run_mullo_basecase},
     {"mullo_dc", "MULLO_DC_THRESHOLD", "MULLO_DC_THRESHOLD", tune_run_mullo_dc},
     {"div_divide", "DIV_DIVIDE_THRESHOLD", "DIV_DIVIDE_THRESHOLD", tune_run_div_divide},
