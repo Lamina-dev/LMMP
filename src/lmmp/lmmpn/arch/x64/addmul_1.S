@@ -90,32 +90,32 @@ ASM_GSYM(lmmp_addmul_1_):
 
 .p2align 4
 .Lloop4:                            // main loop, 4 limbs
-    mulx    r12, rax, [rsi]         // lo_0, hi_0
-    mulx    r13, rbx, [rsi+8]       // lo_1, hi_1
-    mulx    r15, rbp, [rsi+16]      // lo_2, hi_2
-    mulx    r11, r8,  [rsi+24]      // lo_3, hi_3
+    mulx    r12, rax, [rsi]         // lo0, hi0
+    mulx    r13, rbx, [rsi+8]       // lo1, hi1
+    mulx    r15, rbp, [rsi+16]      // lo2, hi2
+    mulx    r11, r8,  [rsi+24]      // lo3, hi3
 
-    adcx    rax, r9                 // s_0 = lo_0 + carry
+    adcx    rax, r9                 // s0 = lo0 + carry
     adox    r12, r14
-    adcx    rbx, r12                // s_1 = lo_1 + hi_0 + C
+    adcx    rbx, r12                // s1 = lo1 + hi0 + C
     adox    r13, r14
-    adcx    rbp, r13                // s_2 = lo_2 + hi_1 + C
+    adcx    rbp, r13                // s2 = lo2 + hi1 + C
     adox    r15, r14
-    adcx    r8, r15                 // s_3 = lo_3 + hi_2 + C
+    adcx    r8, r15                 // s3 = lo3 + hi2 + C
     adox    r11, r14
 
-    adcx    r11, r14                // hi_3 += C, CF = 0
+    adcx    r11, r14                // hi3 += C, CF = 0
 
-    add     rax, [rdi]              // s_0 += rp[0]
+    add     rax, [rdi]              // s0 += rp[0]
     mov     [rdi], rax
-    adcx    rbx, [rdi+8]            // s_1 += rp[1]
+    adcx    rbx, [rdi+8]            // s1 += rp[1]
     mov     [rdi+8], rbx
-    adcx    rbp, [rdi+16]           // s_2 += rp[2]
+    adcx    rbp, [rdi+16]           // s2 += rp[2]
     mov     [rdi+16], rbp
-    adcx    r8, [rdi+24]            // s_3 += rp[3]
+    adcx    r8, [rdi+24]            // s3 += rp[3]
     mov     [rdi+24], r8
 
-    adcx    r11, r14                // carry = hi_3 + C
+    adcx    r11, r14                // carry = hi3 + C
     mov     r9, r11
 
     lea     rdi, [rdi+32]

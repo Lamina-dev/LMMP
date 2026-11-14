@@ -136,6 +136,82 @@ TEST_CASE("asm/mul1", mul_1_addmul_submul_random_inplace) {
     }
 }
 
+TEST_CASE("asm/addmul2", addmul_2_vs_composition_and_fullmul) {
+    u64 seed = 0xa44a2badcafe01ull;
+    auto run = [&](mp_ptr a, mp_ptr rp, mp_size_t n, mp_limb_t v0, mp_limb_t v1) {
+        // 被测:asm/C addmul_2,契约为 [rp,n+1] 覆写 rp[n] + 返回第 n+1 limb
+        mp_ptr r1 = alloc_limbs(n + 3), r2 = alloc_limbs(n + 3), r3 = alloc_limbs(n + 3),
+               t = alloc_limbs(n + 2);
+        mp_ptr vv = alloc_limbs(2);
+        vv[0] = v0; vv[1] = v1;
+        memset(r1, 0xCC, (n + 3) * 8);
+        memcpy(r1, rp, n * 8);
+        mp_limb_t tail0 = r1[n + 2];
+        u64 ret1 = lmmp_addmul_2_(r1, a, n, vv);
+
+        // 参考 1:两遍 addmul_1 组合(同计算另一路径)
+        memset(r2, 0xCC, (n + 3) * 8);
+        memcpy(r2, rp, n * 8);
+        r2[n] = 0;
+        mp_limb_t cy0 = lmmp_addmul_1_(r2, a, n, v0);
+        mp_limb_t cy1 = lmmp_addmul_1_(r2 + 1, a, n, v1);
+        mp_limb_t hn = r2[n] + cy0;
+        r2[n] = hn;
+        u64 ret2 = cy1 + (mp_limb_t)(hn < cy0);
+
+        // 参考 2:mul_ 全乘 + add_n 组合(n==1 时换算子序保持 na>=nb)
+        if (n == 1) lmmp_mul_(t, vv, 2, a, 1);
+        else lmmp_mul_(t, a, n, vv, 2);
+        mp_limb_t c = lmmp_add_n_(r3, rp, t, n);
+        mp_limb_t e2 = t[n] + c;
+        r3[n] = e2;
+        u64 ret3 = t[n + 1] + (mp_limb_t)(e2 < c);
+
+        TEST_CHECK_EQ(memcmp(r1, r2, (n + 1) * 8), 0);
+        TEST_CHECK_EQ(ret1, ret2);
+        TEST_CHECK_EQ(memcmp(r1, r3, (n + 1) * 8), 0);
+        TEST_CHECK_EQ(ret1, ret3);
+        // 写入长度契约:n+2 limb 之外不得写
+        TEST_CHECK_EQ(r1[n + 2], tail0);
+
+        // eqsep 原位形态:与同值分离形(r4=a 值拷贝,numb 仍读 a)交叉
+        mp_ptr r4 = alloc_limbs(n + 1), a2 = alloc_limbs(n + 1);
+        memcpy(r4, a, n * 8);
+        memcpy(a2, a, n * 8);
+        u64 ret4 = lmmp_addmul_2_(r4, r4, n, vv);
+        u64 ret5 = lmmp_addmul_2_(a2, a, n, vv);
+        TEST_CHECK_EQ(ret4, ret5);
+        TEST_CHECK_EQ(memcmp(r4, a2, (n + 1) * 8), 0);
+
+        lmmp_free(r1); lmmp_free(r2); lmmp_free(r3); lmmp_free(r4); lmmp_free(a2);
+        lmmp_free(t); lmmp_free(vv);
+    };
+
+    for (mp_size_t n = 1; n <= 65; ++n) {
+        for (int iter = 0; iter < 16; ++iter) {
+            mp_ptr a = alloc_limbs(n), rp = alloc_limbs(n);
+            random_limbs(a, n, seed, false);
+            random_limbs(rp, n, seed, false);
+            mp_limb_t v[2] = {xorshift64(seed) | 1, xorshift64(seed) | 1};
+            run(a, rp, n, v[0], v[1]);
+            lmmp_free(a); lmmp_free(rp);
+        }
+    }
+    // 极端输入:全 FF / 全 0 / v 极值(进位保存不变量边界情形)
+    for (mp_size_t n = 1; n <= 33; ++n) {
+        mp_ptr a = alloc_limbs(n), rp = alloc_limbs(n);
+        memset(a, 0xFF, n * 8);
+        memset(rp, 0xFF, n * 8);
+        run(a, rp, n, ~(mp_limb_t)0, ~(mp_limb_t)0);
+        memset(rp, 0, n * 8);
+        run(a, rp, n, ~(mp_limb_t)0, ~(mp_limb_t)0);
+        memset(a, 0, n * 8);
+        run(a, rp, n, ~(mp_limb_t)0, 1);
+        run(a, rp, n, 1, ~(mp_limb_t)0);
+        lmmp_free(a); lmmp_free(rp);
+    }
+}
+
 TEST_CASE("asm/shift", shl_shr_carry_random) {
     u64 seed = 0xc1c2c3c4c5c6c7c8ull;
     for (mp_size_t n = 1; n <= 17; ++n) {

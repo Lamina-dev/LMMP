@@ -96,6 +96,24 @@ mp_limb_t lmmp_addmul_1_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_limb_t b) 
     return cl;
 }
 
+mp_limb_t lmmp_addmul_2_(mp_ptr numa, mp_srcptr numb, mp_size_t n, mp_srcptr bp) {
+    mp_limb_t b0 = bp[0], b1 = bp[1];
+    mp_limb_t alo = 0, ahi = 0;
+    mp_size_t i = 0;
+
+    /* 双 limb 滚动累加器 alo*B^i + ahi*B^(i+1)：t 收纳本位（含 numa[i] 与 b0 行），
+       u 收纳上位（b1 行 + t 进位），两项各 < B^2 无 u128 回绕 */
+    for (; i < n; i++) {
+        __uint128_t t = (__uint128_t)numb[i] * b0 + numa[i] + alo;
+        __uint128_t u = (__uint128_t)numb[i] * b1 + ahi + (mp_limb_t)(t >> 64);
+        numa[i] = (mp_limb_t)t;
+        alo = (mp_limb_t)u;
+        ahi = (mp_limb_t)(u >> 64);
+    }
+    numa[n] = alo;
+    return ahi;
+}
+
 /*
     双借位分解（与 addmul_1 的 add/adc 结构对称，便于编译器生成短进位链）：
 

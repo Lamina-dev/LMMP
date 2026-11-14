@@ -41,9 +41,9 @@
         u = t_hi + mulhi(q, m) + [t_lo!=0]
 
     高半积 mulhi(q,m) 的三种来源（按规模分层）：
-      1. basecase（n < REDC_BASECASE_THRESHOLD）：链式 Hensel 归约——
-         n 次 addmul_1 逐 limb 消零（q_j = up[0]*ninv1 mod B），成本约一次
-         basecase 乘法，且只需单 limb 逆元（其 clobber 输入的特性见各调用点）；
+      1. basecase（n < REDC_BASECASE_THRESHOLD）：链式 Hensel 归约消零，
+         成本约一次 basecase 乘法（其 clobber 输入的特性见各调用点）。
+         addmul_2 双 limb 步进。
       2. 全积取高半：lmmp_mul_n_ 后读高 n limb（中尺寸段）；
       3. 梅森折叠（n >= REDC_MERSENNE_CACHE_THRESHOLD）：由于 (q*m) mod B^n
          = -t_lo mod B^n 是已知量 L，与 binvert_mulhi_ 同构——先算 V = q*m
@@ -75,6 +75,7 @@ typedef struct {
     mp_srcptr m;     /* 模数 */
     mp_ptr ninv;     /* -m^(-1) mod B^n（basecase 层不使用，为 NULL） */
     mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用）              */
+    mp_limb_t ninv2; /* -m^(-1) mod B^2 的高 limb（basecase 层专用）      */
     int fold;        /* 折叠模式：2=梅森缓存(fft)，1=梅森分发(不缓存)，0=朴素全积 */
 
     mp_size_t msz;   /* 折叠尺寸（fold 时有效）                        */
@@ -146,31 +147,38 @@ static inline void lmmp_mont_fold_hi_(
 }
 
 /**
- * @brief basecase REDC：链式 Hensel 归约，逐 limb 消零
+ * @brief basecase REDC：链式 Hensel 归约，addmul_2 双 limb 步进消零
  * @param dst 结果指针（n 个limb），接收 ([up,2n] + q*m)/B^n 的低 n limb
  * @param up 输入兼工作区（2n 个limb，出口被破坏）
  * @param m 模数（n 个limb）
  * @param n 操作数长度
  * @param ninv1 -m^(-1) mod B（单 limb）
+ * @param ninv2 -m^(-1) mod B^2 的高 limb（n == 1 时不会读到）
  * @warning sep(dst,up), n < REDC_BASECASE_THRESHOLD 时才是优选路径
  * @return 进位（[0|1]），返回值:[dst,n] 即 REDC 结果 < 2m（t < B^n*m 时）
- * @note 每轮 q = up[0]*ninv1 mod B 使 up[0] 恰好归零，addmul_1 的进位
- *       存入刚清零的 limb；n 轮后高半与累积进位的低半相加即得结果。
- *       总成本 n 次 addmul_1 ≈ 一次 basecase 乘法
  */
 static inline mp_limb_t lmmp_mont_redc_bc_(
     mp_ptr    restrict   dst,
     mp_ptr    restrict    up,
     mp_srcptr restrict     m,
     mp_size_t              n,
-    mp_limb_t          ninv1
+    mp_limb_t          ninv1,
+    mp_limb_t          ninv2
 ) {
     mp_ptr restrict up0 = up;
-    for (mp_size_t j = n; j > 0; j--) {
-        mp_limb_t cy = lmmp_addmul_1_(up, m, n, up[0] * ninv1);
-        lmmp_debug_assert(up[0] == 0);
-        up[0] = cy;
+    if (n & 1) {
+        up[0] = lmmp_addmul_1_(up, m, n, up[0] * ninv1);
         up++;
+    }
+    for (mp_size_t j = n & ~(mp_size_t)1; j >= 2; j -= 2) {
+        mp_limb_t q[2], qh;
+        _umul64to128_(up[0], ninv1, &q[0], &qh);
+        q[1] = qh + up[0] * ninv2 + up[1] * ninv1;
+        mp_limb_t upn = up[n]; /* addmul_2 覆写 up[n]，先保存 */
+        up[1] = lmmp_addmul_2_(up, m, n, q);
+        up[0] = up[n];         /* 第 n limb 搬移停入清零槽（折叠消权重差） */
+        up[n] = upn;
+        up += 2;
     }
     return lmmp_add_n_(dst, up0 + n, up0, n);
 }
@@ -249,10 +257,18 @@ static inline void lmmp_mont_init_(
     if (n < REDC_BASECASE_THRESHOLD) {
         mc->ninv = NULL;
         mc->ninv1 = 0 - lmmp_binvert_ulong_(mp[0]);
+        if (n > 1) {
+            /* ninv2 = -m^(-1) mod B^2 的高 limb：由 m*ninv1 ≡ -1 mod B 展开
+               （e = hi(mp[0]*ninv1)+1），n == 1 时 stride-2 用不到，不读 m[1] */
+            mp_limb_t e = _umul64to64hi_(mp[0], mc->ninv1) + 1;
+            mc->ninv2 = mc->ninv1 * e + mp[1] * mc->ninv1 * mc->ninv1;
+        } else {
+            mc->ninv2 = 0;
+        }
         mc->q = mc->Lbuf = mc->hi = mc->mscratch = mc->mulhi = mc->V = NULL;
     } else {
         mp_size_t core = anchors ? 2 * n : 0;
-        mc->ninv1 = 0;
+        mc->ninv1 = mc->ninv2 = 0;
         mc->ninv = arena + core;
         mc->q = arena + core + n;
         mc->mscratch = arena + core + 2 * n;

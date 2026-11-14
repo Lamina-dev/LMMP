@@ -25,6 +25,7 @@ set(LMMP_BENCH_SRCS
     src/bench_asm.cpp
     src/bench_numth_prime.cpp
     src/bench_numth_powmod.cpp
+    src/bench_numth_divexact.cpp
 )
 
 add_executable(LmmpBenchmark ${LMMP_BENCH_SRCS})

@@ -91,36 +91,36 @@ ASM_GSYM(lmmp_submul_1_):
 
 .p2align 4
 .Lloop4:                            // main loop, 4 limbs
-    mulx    r12, rax, [rsi]         // lo_0, hi_0
-    mulx    r13, rbx, [rsi+8]       // lo_1, hi_1
-    mulx    r15, rbp, [rsi+16]      // lo_2, hi_2
-    mulx    r11, r8,  [rsi+24]      // lo_3, hi_3
+    mulx    r12, rax, [rsi]         // lo0, hi0
+    mulx    r13, rbx, [rsi+8]       // lo1, hi1
+    mulx    r15, rbp, [rsi+16]      // lo2, hi2
+    mulx    r11, r8,  [rsi+24]      // lo3, hi3
 
-    adcx    rax, r9                 // s_0 = lo_0 + borrow
+    adcx    rax, r9                 // s0 = lo0 + borrow
     adox    r12, r14
-    adcx    rbx, r12                // s_1 = lo_1 + hi_0 + C
+    adcx    rbx, r12                // s1 = lo1 + hi0 + C
     adox    r13, r14
-    adcx    rbp, r13                // s_2 = lo_2 + hi_1 + C
+    adcx    rbp, r13                // s2 = lo2 + hi1 + C
     adox    r15, r14
-    adcx    r8, r15                 // s_3 = lo_3 + hi_2 + C
+    adcx    r8, r15                 // s3 = lo3 + hi2 + C
     adox    r11, r14
 
-    adcx    r11, r14                // hi_3 += C, CF = 0
+    adcx    r11, r14                // hi3 += C, CF = 0
 
     mov     r12, [rdi]              // rp[0]
-    sub     r12, rax                // rp[0] -= s_0
+    sub     r12, rax                // rp[0] -= s0
     mov     [rdi], r12
     mov     r13, [rdi+8]            // rp[1]
-    sbb     r13, rbx                // rp[1] -= s_1 + b0
+    sbb     r13, rbx                // rp[1] -= s1 + b0
     mov     [rdi+8], r13
     mov     r15, [rdi+16]           // rp[2]
-    sbb     r15, rbp                // rp[2] -= s_2 + b1
+    sbb     r15, rbp                // rp[2] -= s2 + b1
     mov     [rdi+16], r15
     mov     r10, [rdi+24]           // rp[3]
-    sbb     r10, r8                 // rp[3] -= s_3 + b2
+    sbb     r10, r8                 // rp[3] -= s3 + b2
     mov     [rdi+24], r10
 
-    adcx    r11, r14                // borrow = hi_3 + b3
+    adcx    r11, r14                // borrow = hi3 + b3
     mov     r9, r11
 
     lea     rdi, [rdi+32]

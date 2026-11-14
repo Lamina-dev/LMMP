@@ -105,9 +105,9 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     lea     rbx, [rdx - 1]
     neg     rbx                   // rbx = 1-n
 
-    mov     r9, [rsi + rbx*8 - 8] // r9 = a_0
-    mov     rax, [rsi + rbx*8]    // rax = a_1
-    mul     r9                    // rdx:rax = a_0 * a_1
+    mov     r9, [rsi + rbx*8 - 8] // r9 = a0
+    mov     rax, [rsi + rbx*8]    // rax = a1
+    mul     r9                    // rdx:rax = a0 * a1
 
     test    bl, 1
     jnz     .Lmul1_odd
@@ -136,7 +136,7 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     test    rbp, rbp
     js      .Lmul1_l1
     mov     [rdi - 8], rax        // w=1 (n == 2): dst[1] = lo(a0*a1)
-    jmp     .Lrow
+    jmp     .Lrow_entry
 
 .Lmul1_odd_3mod4:                 // rbx = 3 (mod 4)
     lea     rbp, [rbx + 1]
@@ -182,14 +182,250 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     mov     [rdi - 8], r11        // dst[n-1]
     // carry discarded
 
-// row loop: window [2j+1-n, -1], rdi = dst+n, rsi = numa+n-8j
-.p2align 4
+// two-column rows: r12 = j+2-n, r13 = &a[j+1], r14 = &dst[2j+1]
+// row = [numa+j+1,L] x (a[j], a[j+1]) with up[0]*v1 omitted,
+// plus tail limb a[j] * a[n-1-j] into dst[n-1]; carry at col n discarded
+.Lrow_entry:
+    cmp     rbx, -6               // rbx = 1-n: n <= 7 keeps classic rows
+    jge     .Lrow_old
+    add     rbx, 2                // rbx = 3-n (row j=1)
+    jns     .Ldiag
+
+    push    r15
+    push    r12                     // numa (diag wants it in r12)
+    push    r13                     // dst
+    push    r14                     // n
+    mov     r12, rbx                // r12 = j+2-n
+    lea     r13, [rsi + rbx*8 - 8]  // r13 = &a[2]
+    lea     r14, [rdi + rbx*8]      // r14 = &dst[3]
+
 .Lrow:
+    mov     r9, [r13 - 8]         // v0 = a[j]
+    mov     r8, [r13]             // v1 = a[j+1]
+    lea     rax, [r12 + 1]
+    neg     rax                   // rax = L = n-2j-2
+    jz      .Lrow0
+    lea     rsi, [r13]            // up = &a[j+1]
+    lea     rdi, [r14]            // rp = &dst[2j+1]
+    mov     r11, rax
+    dec     r11                   // L-1 kernel limbs
+    shr     r11, 2                // 4-limb groups
+    test    al, 3                 // dispatch on L mod 4
+    jz      .Lh0
+    test    al, 1
+    jz      .Lh2
+    test    al, 2
+    jz      .Lh1
+    jmp     .Lh3
+
+// limb 0 is v0-only: up[0]*v1 = a[j+1]*a[j+1] belongs to the diag pass, not rows
+.Lh0:                             // L%4 == 0: special, B, A, B
+    mov     rdx, r9
+    mulx    rcx, rax, [rsi]
+    add     rax, [rdi]
+    adc     rcx, 0                // cy0 = hi0 + c1
+    mov     [rdi], rax            // cy1 = 0
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mov     rdx, r8
+    mulx    r15, rbx, [rsi]       // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, 0                // cy1 = 0
+    adc     r15, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    rcx, rax, [rsi]       // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r15
+    adc     rbp, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    r15, rbx, [rsi]       // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r15, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
+
+.Lh1:                             // L%4 == 1: special only
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, 0                // cy0 = hi0 + c1
+    xor     r15d, r15d            // cy1 = 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
+
+.Lh2:                             // L%4 == 2: special, B
+    mov     rdx, r9
+    mulx    rcx, rax, [rsi]
+    add     rax, [rdi]
+    adc     rcx, 0                // cy0 = hi0 + c1
+    mov     [rdi], rax            // cy1 = 0
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mov     rdx, r8
+    mulx    r15, rbx, [rsi]       // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, 0                // cy1 = 0
+    adc     r15, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
+
+.Lh3:                             // L%4 == 3: special, A, B
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, 0                // cy0 = hi0 + c1
+    mov     [rdi], rax            // cy1 = 0
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    rcx, rax, [rsi]       // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, 0                // cy1 = 0
+    adc     rbp, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    r15, rbx, [rsi]       // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r15, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
+
+.p2align 4
+.Lk4:                             // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)
+    mulx    rcx, rax, [rsi]       // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]            // t = lo0 + rp
+    adc     rcx, rbx              // h = hi0 + l1 + c1
+    adc     rbp, 0                // h2 = hi1 + c2
+    add     rax, r10              // s = t + cy0
+    adc     rcx, r15              // cy0 = h + cy1 + c4
+    adc     rbp, 0                // cy1 = h2 + c5
+    mov     [rdi], rax
+
+    mulx    r15, rbx, [rsi + 8]   // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r15, 0
+    mov     [rdi + 8], rax
+
+    mulx    rcx, rax, [rsi + 16]  // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r15
+    adc     rbp, 0
+    mov     [rdi + 16], rax
+
+    mulx    r15, rbx, [rsi + 24]  // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 24]
+    add     rax, [rdi + 24]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r15, 0
+    mov     [rdi + 24], rax
+
+    lea     rsi, [rsi + 32]
+    lea     rdi, [rdi + 32]
+    dec     r11
+    jnz     .Lk4
+
+.Lkt:                             // rsi = &a[n-1-j], rdi = &dst[n-1]
+    mulx    rbx, rax, [rsi]       // rdx = v0: a[j] * a[n-1-j]
+    add     rax, [rdi]            // lo + dst[n-1]
+    adc     rbx, 0                // h = hi0 + c1
+    add     rax, r10              // + cy0; col n carry discarded
+    mov     [rdi], rax
+    lea     r13, [r13 + 16]
+    lea     r14, [r14 + 32]
+    add     r12, 4
+    js      .Lrow
+    pop     r14                   // n
+    pop     r13                   // dst
+    pop     r12                   // numa
+    pop     r15
+    jmp     .Ldiag
+
+.Lrow0:                           // L == 0 (last row): a[j]*a[j+1]
+    mov     rax, [r13]            // a[j+1]
+    mul     r9                    // a[j]
+    add     [r14], rax            // dst[n-1] += lo; carry discarded
+    pop     r14                   // n
+    pop     r13                   // dst
+    pop     r12                   // numa
+    pop     r15
+    jmp     .Ldiag
+
+// classic single-multiplier rows, kept for n <= 7 (two-column form loses there)
+.Lrow_old:
     add     rbx, 2                // next base = 2j+1-n
-    jns     .Ldiag                // base >= 0: rows done
+    jns     .Ldiag
     sub     rsi, 8
-    mov     r9, [rsi + rbx*8 - 8] // r9 = a_j
-    mov     rax, [rsi + rbx*8]    // rax = a_{j+1}
+    mov     r9, [rsi + rbx*8 - 8] // r9 = a[j]
+    mov     rax, [rsi + rbx*8]    // rax = a[j+1]
     mul     r9
 
     test    bl, 1
@@ -223,7 +459,7 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     adc     r10, 0
     mov     [rdi - 8], r11
     // hi discarded
-    jmp     .Lrow
+    jmp     .Lrow_old
 
 .Lrow_odd_3mod4:                  // rbx = 3 (mod 4)
     lea     rbp, [rbx + 1]
@@ -278,14 +514,14 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     adc     rdx, 0
     mov     [rdi - 8], r11
     // carry discarded
-    jmp     .Lrow
+    jmp     .Lrow_old
 
-// diag: dst = 2*dst + sum a_i^2*B^2i, CF chain live, r10 = pending
+// diag: dst = 2*dst + sum a[i]^2*B^2i, CF chain live, r10 = pending
 .Ldiag:
     mov     rax, [r12]
-    mul     rax                   // rdx:rax = a_0^2
-    mov     [r13], rax            // dst[0] = lo(a_0^2)
-    mov     r10, rdx              // pending = hi(a_0^2)
+    mul     rax                   // rdx:rax = a0^2
+    mov     [r13], rax            // dst[0] = lo(a0^2)
+    mov     r10, rdx              // pending = hi(a0^2)
     lea     rdi, [r13 + 8]        // &dst[1]
     lea     rsi, [r12 + 8]        // &a[1]
     lea     rcx, [r14 - 1]
@@ -304,12 +540,12 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     adc     r8, r8
     adc     r9, r9
     setc    bl                    // save CF
-    mul     rax                   // rdx:rax = a_i^2
+    mul     rax                   // rdx:rax = a[i]^2
     add     r8, r10               // odd += pending
-    adc     r9, rax               // even += lo(a_i^2)
+    adc     r9, rax               // even += lo(a[i]^2)
     mov     [rdi], r8
     mov     [rdi + 8], r9
-    lea     r10, [rdx + rbx]      // pending = hi(a_i^2) + c
+    lea     r10, [rdx + rbx]      // pending = hi(a[i]^2) + c
     lea     rdi, [rdi + 16]
     lea     rsi, [rsi + 8]
     dec     ecx

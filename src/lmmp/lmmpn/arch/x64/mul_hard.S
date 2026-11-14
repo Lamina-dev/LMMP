@@ -1015,7 +1015,7 @@ ASM_GSYM(lmmp_mul_hard_9_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -1177,7 +1177,7 @@ ASM_GSYM(lmmp_mul_hard_9_):
     mov     [rdi+88], r10
     mov     [rdi+96], r11
     mov     [rdi+104], r12
-    // === pass 1: numb[5..9) x numa, w=4 ===
+    // === pass 1: [numb+5, 4] x numa, w=4 ===
     mov     rdx, [rsi+0]
     mulx    r8, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -1441,7 +1441,7 @@ ASM_GSYM(lmmp_mul_hard_10_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -1621,7 +1621,7 @@ ASM_GSYM(lmmp_mul_hard_10_):
     mov     [rdi+96], r11
     mov     [rdi+104], r12
     mov     [rdi+112], r13
-    // === pass 1: numb[5..10) x numa, w=5 ===
+    // === pass 1: [numb+5, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r9, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -1942,7 +1942,7 @@ ASM_GSYM(lmmp_mul_hard_11_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..6) x numa, w=6 ===
+    // === pass 0: [numb+0, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -2173,7 +2173,7 @@ ASM_GSYM(lmmp_mul_hard_11_):
     mov     [rdi+112], r12
     mov     [rdi+120], r14
     mov     [rdi+128], r13
-    // === pass 1: numb[6..11) x numa, w=5 ===
+    // === pass 1: [numb+6, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r9, rax, [rcx+48]
     mov     rdx, [rdi+48]
@@ -2522,7 +2522,7 @@ ASM_GSYM(lmmp_mul_hard_12_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..6) x numa, w=6 ===
+    // === pass 0: [numb+0, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -2774,7 +2774,7 @@ ASM_GSYM(lmmp_mul_hard_12_):
     mov     [rdi+120], r14
     mov     [rdi+128], r13
     mov     [rdi+136], rax
-    // === pass 1: numb[6..12) x numa, w=6 ===
+    // === pass 1: [numb+6, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    r10, r8, [rcx+48]
     mov     rdx, [rdi+48]
@@ -3189,7 +3189,7 @@ ASM_GSYM(lmmp_mul_hard_13_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -3423,7 +3423,7 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mov     [rdi+120], rax
     mov     [rdi+128], r8
     mov     [rdi+136], r9
-    // === pass 1: numb[5..9) x numa, w=4 ===
+    // === pass 1: [numb+5, 4] x numa, w=4 ===
     mov     rdx, [rsi+0]
     mulx    r12, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -3752,7 +3752,7 @@ ASM_GSYM(lmmp_mul_hard_13_):
     mov     rdx, r8
     adc     rdx, 0
     mov     [rdi+168], rdx
-    // === pass 2: numb[9..13) x numa, w=4 ===
+    // === pass 2: [numb+9, 4] x numa, w=4 ===
     mov     rdx, [rsi+0]
     mulx    r12, r14, [rcx+72]
     mov     rdx, [rdi+72]
@@ -4116,7 +4116,7 @@ ASM_GSYM(lmmp_mul_hard_14_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -4368,7 +4368,7 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mov     [rdi+128], r8
     mov     [rdi+136], r9
     mov     [rdi+144], r10
-    // === pass 1: numb[5..10) x numa, w=5 ===
+    // === pass 1: [numb+5, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r13, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -4766,7 +4766,7 @@ ASM_GSYM(lmmp_mul_hard_14_):
     mov     rdx, r9
     adc     rdx, 0
     mov     [rdi+184], rdx
-    // === pass 2: numb[10..14) x numa, w=4 ===
+    // === pass 2: [numb+10, 4] x numa, w=4 ===
     mov     rdx, [rsi+0]
     mulx    r12, r14, [rcx+80]
     mov     rdx, [rdi+80]
@@ -5155,7 +5155,7 @@ ASM_GSYM(lmmp_mul_hard_15_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -5425,7 +5425,7 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mov     [rdi+136], r9
     mov     [rdi+144], r10
     mov     [rdi+152], r11
-    // === pass 1: numb[5..10) x numa, w=5 ===
+    // === pass 1: [numb+5, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -5851,7 +5851,7 @@ ASM_GSYM(lmmp_mul_hard_15_):
     mov     rdx, r11
     adc     rdx, 0
     mov     [rdi+192], rdx
-    // === pass 2: numb[10..15) x numa, w=5 ===
+    // === pass 2: [numb+10, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+80]
     mov     rdx, [rdi+80]
@@ -6312,7 +6312,7 @@ ASM_GSYM(lmmp_mul_hard_16_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..6) x numa, w=6 ===
+    // === pass 0: [numb+0, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -6648,7 +6648,7 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mov     [rdi+152], r9
     mov     [rdi+160], r10
     mov     [rdi+168], r11
-    // === pass 1: numb[6..11) x numa, w=5 ===
+    // === pass 1: [numb+6, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r13, r12, [rcx+48]
     mov     rdx, [rdi+48]
@@ -7102,7 +7102,7 @@ ASM_GSYM(lmmp_mul_hard_16_):
     mov     rdx, r11
     adc     rdx, 0
     mov     [rdi+208], rdx
-    // === pass 2: numb[11..16) x numa, w=5 ===
+    // === pass 2: [numb+11, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r12, [rcx+88]
     mov     rdx, [rdi+88]
@@ -7591,7 +7591,7 @@ ASM_GSYM(lmmp_mul_hard_17_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..6) x numa, w=6 ===
+    // === pass 0: [numb+0, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -7948,7 +7948,7 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mov     [rdi+160], r10
     mov     [rdi+168], r11
     mov     [rdi+176], r12
-    // === pass 1: numb[6..12) x numa, w=6 ===
+    // === pass 1: [numb+6, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+48]
     mov     rdx, [rdi+48]
@@ -8483,7 +8483,7 @@ ASM_GSYM(lmmp_mul_hard_17_):
     mov     rdx, r12
     adc     rdx, 0
     mov     [rdi+224], rdx
-    // === pass 2: numb[12..17) x numa, w=5 ===
+    // === pass 2: [numb+12, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+96]
     mov     rdx, [rdi+96]
@@ -9000,7 +9000,7 @@ ASM_GSYM(lmmp_mul_hard_18_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..6) x numa, w=6 ===
+    // === pass 0: [numb+0, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -9378,7 +9378,7 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mov     [rdi+168], r11
     mov     [rdi+176], r12
     mov     [rdi+184], r14
-    // === pass 1: numb[6..12) x numa, w=6 ===
+    // === pass 1: [numb+6, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    r8, r13, [rcx+48]
     mov     rdx, [rdi+48]
@@ -9944,7 +9944,7 @@ ASM_GSYM(lmmp_mul_hard_18_):
     mov     rdx, r13
     adc     rdx, 0
     mov     [rdi+232], rdx
-    // === pass 2: numb[12..18) x numa, w=6 ===
+    // === pass 2: [numb+12, 6] x numa, w=6 ===
     mov     rdx, [rsi+0]
     mulx    r9, rax, [rcx+96]
     mov     rdx, [rdi+96]
@@ -10545,7 +10545,7 @@ ASM_GSYM(lmmp_mul_hard_19_):
     push    r14
     push    r15
     xor     ebx, ebx                // CF=OF=0
-    // === pass 0: numb[0..5) x numa, w=5 ===
+    // === pass 0: [numb+0, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    rax, r14, [rcx+0]
     mov     [rdi+0], r14
@@ -10887,7 +10887,7 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mov     [rdi+168], r13
     mov     [rdi+176], rax
     mov     [rdi+184], r8
-    // === pass 1: numb[5..10) x numa, w=5 ===
+    // === pass 1: [numb+5, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r11, r14, [rcx+40]
     mov     rdx, [rdi+40]
@@ -11425,7 +11425,7 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mov     rdx, r12
     adc     rdx, 0
     mov     [rdi+224], rdx
-    // === pass 2: numb[10..15) x numa, w=5 ===
+    // === pass 2: [numb+10, 5] x numa, w=5 ===
     mov     rdx, [rsi+0]
     mulx    r8, r14, [rcx+80]
     mov     rdx, [rdi+80]
@@ -11963,7 +11963,7 @@ ASM_GSYM(lmmp_mul_hard_19_):
     mov     rdx, r9
     adc     rdx, 0
     mov     [rdi+264], rdx
-    // === pass 3: numb[15..19) x numa, w=4 ===
+    // === pass 3: [numb+15, 4] x numa, w=4 ===
     mov     rdx, [rsi+0]
     mulx    r12, r14, [rcx+120]
     mov     rdx, [rdi+120]

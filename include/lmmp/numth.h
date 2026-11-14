@@ -175,17 +175,16 @@ LMMP_API void lmmp_divexact_2_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr
 LMMP_API void lmmp_divexact_unbalance_(mp_ptr dst, mp_srcptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_ptr dinv);
 
 /**
- * @brief 精确除法（[dst,nn]=[np,nn]/[dp,dn]，且余数必须为0），朴素算法
+ * @brief 精确除法（[dst,nn-dn+1]=[np,nn]/[dp,dn]，且余数必须为0），朴素算法
  * @param dst 结果指针（长度为 nn-dn+1 个limb）
  * @param np 被除数指针（长度为 nn 个limb），将会被覆写为全零
  * @param nn 被除数的 limb 长度
  * @param dp 除数指针（长度为 dn 个limb）
- * @param dn 结除数的 limb 长度
- * @param dinv 除数低位dp[0]关于B的逆元
- * @warning dp[0]%2==1, d[0]*dinv==1 mod 2^64, nn>=dn>0, dst!=NULL, np!=NULL, dp!=NULL, eqsep(dst,np), sep(dp,[dst|np])
+ * @param dn 除数的 limb 长度
+ * @warning dp[0]%2==1, nn>=dn>0, dst!=NULL, np!=NULL, dp!=NULL, eqsep(dst,np), sep(dp,[dst|np])
  * @note 若dst==np，将会覆写 [dst,nn] 区域，其中 [dst,nn-dn+1] 为商，[dst+nn-dn+1,dn-1] 将会被覆写为0
  */
-LMMP_API void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn, mp_limb_t dinv);
+LMMP_API void lmmp_divexact_basecase_(mp_ptr dst, mp_ptr np, mp_size_t nn, mp_srcptr dp, mp_size_t dn);
 
 /**
  * @brief 精确除法（[dst,nn]=[np,nn]/[dp,dn]，且余数必须为0），分治算法

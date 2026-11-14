@@ -4,7 +4,7 @@
 //
 //  LMMP is free software: you can redistribute it and/or modify it
 //  under the terms of the GNU Lesser General Public License as
-//  published by the Free Software Foundation; either version 3 of
+//  published by the Free Software Foundation, either version 3 of
 //  the License, or (at your option) any later version.
 //
 //  This library is distributed in the hope that it will be useful,
@@ -30,134 +30,261 @@
 // ======================================
 // lmmp_mullo_basecase_
 // ======================================
+// x19=dst, x20=numa, x21=n, x22=row len, x23=numb walker, x3=numb
+// kernel temps: x4=v0, x5=v1, x12=cy0, x13=cy1, x6/x7/x16/x17=u,
+// x8/x9/x10/x11/x14/x15=prod+sums, x0/x1/x2=rp/up/len walkers
 .globl ASM_GSYM(lmmp_mullo_basecase_)
 .p2align 2
 ASM_GSYM(lmmp_mullo_basecase_):
-    stp     x26, x25, [sp, #-80]!       // save regs
-    stp     x24, x23, [sp, #16]
-    stp     x22, x21, [sp, #32]
-    stp     x20, x19, [sp, #48]
-    stp     x29, x30, [sp, #64]
-    add     x29, sp, #64
-    mov     x22, x2                     // x22 = numb
-    mov     x19, x0                     // x19 = dst
-    ldr     x8, [x1]                    // numa[0]
-    subs    x2, x3, #1                  // n - 1
-    ldr     x9, [x22, x2, lsl #3]       // numb[n-1]
-    mul     x24, x9, x8                 // x24 = lo(numa[0]*numb[n-1])
-    b.eq    Lmo_4                       // n == 1
-    mov     x21, x3                     // x21 = n
-    mov     x20, x1                     // x20 = numa
-    ldr     x23, [x22]                  // numb[0]
-    ldr     x25, [x1, x2, lsl #3]       // numa[n-1]
-    mov     x0, x19
-    mov     x1, x20
-    mov     x2, x21
-    sub     x2, x2, #1
-    mov     x3, x23
-    bl      ASM_GSYM(lmmp_mul_1_)       // dst[0..n-1) = numa[0..n-1)*numb[0]
-    add     x8, x0, x24                 // mul_1 carry + x24
-    madd    x24, x25, x23, x8           // x24 += numa[n-1]*numb[0]
-    add     x19, x19, #8                // rp = dst + 1
-    subs    x21, x21, #2                // remain = n - 2
-    b.eq    Lmo_4                       // n == 2
-    add     x23, x22, #8                // &numb[1]
-.p2align 4
+    cmp     x3, #1
+    b.ne    Lmo_main
 
-Lmo_3:                                  // dst[j..] += numa[0..len)*numb[j]
-    ldr     x22, [x23], #8              // v = numb[j]
-    ldr     x25, [x20, x21, lsl #3]     // numa[len]
-    mov     x0, x19                     // rp = dst + j
-    mov     x1, x20                     // up = numa
-    mov     x2, x21                     // len
-    mov     x3, x22                     // v
-    adds    x15, xzr, xzr               // carry = 0, C = 0
-    tbz     x2, #0, Lmo_am_bx0          // len mod 2 == 0
-    ldr     x4, [x1], #8                // up[0]
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
-    ldr     x4, [x0]
-    adds    x8, x4, x8                  // s_0 = rp[0] + lo_0
-    cinc    x15, x12, cs                // carry = hi_0 + C
+    // n == 1: dst[0] = lo(a0*b0)
+    ldr     x8, [x1]
+    ldr     x9, [x2]
+    mul     x10, x8, x9
+    str     x10, [x0]
+    ret
+
+Lmo_main:
+    stp     x29, x30, [sp, #-64]!    // save regs
+    stp     x19, x20, [sp, #16]
+    stp     x21, x22, [sp, #32]
+    stp     x23, x24, [sp, #48]
+    mov     x19, x0                  // dst
+    mov     x20, x1                  // numa
+    mov     x21, x3                  // n
+    mov     x3, x2                   // numb preserved in x3
+
+    // seed pair (b[0], b[1]): mul over [numa, n], tail dropped
+    ldp     x4, x5, [x2]             // v0, v1
+    mov     x12, xzr                 // cy0 = 0
+    mov     x13, xzr                 // cy1 = 0
+    mov     x0, x19                  // rp = dst
+    mov     x1, x20                  // up = numa
+    mov     x2, x21                  // len = n
+    tbz     x2, #0, Lmo_s1
+    ldr     x6, [x1], #8             // u0
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    adds    x9, x9, x10              // h = hi0 + lo1  (c1 = 0)
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = lo0 + cy0
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+
+Lmo_s1:
+    tbz     x2, #1, Lmo_s2
+    ldp     x6, x7, [x1], #16        // u0, u1
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s0
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    str     x8, [x0], #8
+    mul     x8, x7, x4
+    umulh   x9, x7, x4
+    mul     x10, x7, x5
+    umulh   x11, x7, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s1
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
     str     x8, [x0], #8
 
-Lmo_am_bx0:                             // first two limbs
-    tbz     x2, #1, Lmo_am_2
-    ldp     x4, x5, [x1], #16           // up[0], up[1]
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
-    mul     x9, x5, x3                  // lo_1
-    umulh   x13, x5, x3                 // hi_1
-    adds    x8, x8, x15                 // s_0 = lo_0 + carry
-    adcs    x9, x9, x12                 // s_1 = lo_1 + hi_0 + C
-    ldp     x4, x5, [x0]                // rp[0], rp[1]
-    adc     x15, x13, xzr               // carry = hi_1 + C
-    adds    x8, x4, x8                  // s_0 += rp[0]
-    adcs    x9, x5, x9                  // s_1 += rp[1]
-    cinc    x15, x15, cs                // carry += C
-    stp     x8, x9, [x0], #16
-
-Lmo_am_2:
-    lsr     x2, x2, #2                  // remain 4-limbs size
-    cbz     x2, Lmo_am_le3              // size == 0
-    ldp     x4, x5, [x1], #32           // first a0, a1
-    ldp     x6, x7, [x1, #-16]          // first a2, a3
-    b       Lmo_am_mid
-
-Lmo_am_le3:
-    mov     x0, x15                     // carry
-    b       Lmo_am_end
+Lmo_s2:
+    lsr     x2, x2, #2
+    cbz     x2, Lmo_send             // tail stores dropped (truncation)
 .p2align 4
 
-Lmo_am_top:                             // for each 4 limb: s_j += rp[j]
-    ldp     x4, x5, [x1], #32
-    ldp     x6, x7, [x1, #-16]
-    adds    x8, x16, x8                 // s_0 += rp[0]
-    adcs    x9, x17, x9                 // s_1 += rp[1]
-    stp     x8, x9, [x0], #32
-    adcs    x10, x12, x10               // s_2 += rp[2]
-    adcs    x11, x13, x11               // s_3 += rp[3]
-    stp     x10, x11, [x0, #-16]
-    cinc    x15, x15, cs                // carry += C
+Lmo_stop:
+    ldp     x6, x7, [x1], #32        // u0, u1
+    ldp     x16, x17, [x1, #-16]     // u2, u3
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s0
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x7, x4
+    umulh   x10, x7, x4
+    mul     x11, x7, x5
+    umulh   x14, x7, x5
+    adds    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s1
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    mul     x8, x16, x4
+    umulh   x9, x16, x4
+    mul     x10, x16, x5
+    umulh   x11, x16, x5
+    adds    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s2
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x17, x4
+    umulh   x10, x17, x4
+    mul     x11, x17, x5
+    umulh   x14, x17, x5
+    adds    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s3
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    subs    x2, x2, #1
+    b.ne    Lmo_stop
 
-Lmo_am_mid:                             // products, carry chain
-    sub     x2, x2, #1
-    mul     x8, x4, x3                  // lo_0
-    umulh   x12, x4, x3                 // hi_0
-    mul     x9, x5, x3                  // lo_1
-    umulh   x13, x5, x3                 // hi_1
-    adds    x8, x8, x15                 // s_0 = lo_0 + carry
-    mul     x10, x6, x3                 // lo_2
-    umulh   x14, x6, x3                 // hi_2
-    adcs    x9, x9, x12                 // s_1 = lo_1 + hi_0 + C
-    mul     x11, x7, x3                 // lo_3
-    umulh   x15, x7, x3                 // hi_3
-    adcs    x10, x10, x13               // s_2 = lo_2 + hi_1 + C
-    ldp     x16, x17, [x0]              // rp[0], rp[1]
-    adcs    x11, x11, x14               // s_3 = lo_3 + hi_2 + C
-    ldp     x12, x13, [x0, #16]         // rp[2], rp[3]
-    adc     x15, x15, xzr               // carry = hi_3 + C
-    cbnz    x2, Lmo_am_top
-    adds    x8, x16, x8                 // last: s_0 += rp[0]
-    adcs    x9, x17, x9                 // s_1 += rp[1]
-    adcs    x10, x12, x10               // s_2 += rp[2]
-    adcs    x11, x13, x11               // s_3 += rp[3]
-    stp     x8, x9, [x0]
-    stp     x10, x11, [x0, #16]
-    cinc    x0, x15, cs                 // x0 = carry + C
+Lmo_send:
+    sub     x22, x21, #2             // pending pair row len (j = 2)
+    add     x23, x3, #16             // numb walker at j = 2
+    sub     x0, x0, x22, lsl #3      // rp of pending row (dst + 16)
+    sub     x1, x1, x21, lsl #3      // up = numa (seed walked [numa, n])
+    cmp     x22, #2
+    b.lt    Lmo_left                 // n == 2 done, n == 3 leftover only
 
-Lmo_am_end:                             // x24 = numa[len]*v + carry + x24
-    add     x8, x0, x24
-    madd    x24, x25, x22, x8
-    add     x19, x19, #8                // next column
-    subs    x21, x21, #1                // remain -= 1
-    b.ne    Lmo_3
+    // pair rows j = 2, 4, ...: v = (b[j], b[j+1]) over [numa, n-j]
+Lmo_row:
+    ldp     x4, x5, [x23], #16       // v0, v1
+    mov     x12, xzr                 // cy0 = 0
+    mov     x13, xzr                 // cy1 = 0
+    mov     x2, x22                  // len = n - j
+    tbz     x22, #0, Lmo_p1
+    ldr     x6, [x1], #8
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    ldr     x14, [x0]
+    adds    x8, x8, x14              // t = lo0 + rp
+    adcs    x9, x9, x10              // h = hi0 + lo1 + c1
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = t + cy0
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
 
-Lmo_4:                                  // dst[n-1] = x24
-    str     x24, [x19]
-    ldp     x29, x30, [sp, #64]         // restore regs, ret
-    ldp     x20, x19, [sp, #48]
-    ldp     x22, x21, [sp, #32]
-    ldp     x24, x23, [sp, #16]
-    ldp     x26, x25, [sp], #80
+Lmo_p1:
+    tbz     x22, #1, Lmo_p2
+    ldp     x6, x7, [x1], #16        // u0, u1
+    ldr     x14, [x0]
+    mul     x8, x6, x4
+    umulh   x9, x6, x4
+    mul     x10, x6, x5
+    umulh   x11, x6, x5
+    adds    x8, x8, x14              // t
+    adcs    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    ldr     x14, [x0]
+    mul     x8, x7, x4
+    umulh   x9, x7, x4
+    mul     x10, x7, x5
+    umulh   x11, x7, x5
+    adds    x8, x8, x14              // t
+    adcs    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s
+    str     x8, [x0], #8
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+
+Lmo_p2:
+    lsr     x2, x2, #2
+    cbz     x2, Lmo_pend             // tail stores dropped
+.p2align 4
+
+Lmo_ptop:
+    ldp     x6, x7, [x1], #32        // u0, u1
+    ldp     x16, x17, [x1, #-16]     // u2, u3
+    ldp     x14, x15, [x0]           // rp0, rp1
+    mul     x8, x6, x4               // lo0
+    umulh   x9, x6, x4               // hi0
+    mul     x10, x6, x5              // lo1
+    umulh   x11, x6, x5              // hi1
+    adds    x8, x8, x14              // t = lo0 + rp
+    adcs    x9, x9, x10              // h = hi0 + lo1 + c1
+    adcs    x11, x11, xzr            // h2 = hi1 + c2
+    adds    x8, x8, x12              // s = t + cy0
+    adcs    x12, x9, x13             // cy0 = h + cy1 + c4
+    adcs    x13, x11, xzr            // cy1 = h2 + c5
+    mul     x9, x7, x4               // lo0'
+    umulh   x10, x7, x4              // hi0'
+    mul     x11, x7, x5              // lo1'
+    umulh   x14, x7, x5              // hi1'
+    adds    x9, x9, x15              // t'
+    adcs    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s'
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    ldp     x14, x15, [x0]           // rp2, rp3
+    mul     x8, x16, x4              // lo0
+    umulh   x9, x16, x4              // hi0
+    mul     x10, x16, x5             // lo1
+    umulh   x11, x16, x5             // hi1
+    adds    x8, x8, x14              // t
+    adcs    x9, x9, x10              // h
+    adcs    x11, x11, xzr            // h2
+    adds    x8, x8, x12              // s
+    adcs    x12, x9, x13             // cy0
+    adcs    x13, x11, xzr            // cy1
+    mul     x9, x17, x4              // lo0'
+    umulh   x10, x17, x4             // hi0'
+    mul     x11, x17, x5             // lo1'
+    umulh   x14, x17, x5             // hi1'
+    adds    x9, x9, x15              // t'
+    adcs    x10, x10, x11            // h'
+    adcs    x14, x14, xzr            // h2'
+    adds    x9, x9, x12              // s'
+    adcs    x12, x10, x13            // cy0
+    adcs    x13, x14, xzr            // cy1
+    stp     x8, x9, [x0], #16
+    subs    x2, x2, #1
+    b.ne    Lmo_ptop
+
+Lmo_pend:                            // tail stores dropped (truncation)
+    sub     x0, x0, x22, lsl #3      // rp += 16 (next row)
+    add     x0, x0, #16
+    sub     x1, x1, x22, lsl #3      // up = numa
+    subs    x22, x22, #2
+    cmp     x22, #2
+    b.ge    Lmo_row
+
+Lmo_left:                            // n odd: dst[n-1] += lo(a[0]*b[n-1])
+    tbnz    x21, #0, Lmo_odd
+    b       Lmo_done                 // n == 2: seed row was everything
+
+Lmo_odd:
+    sub     x8, x21, #1
+    ldr     x9, [x3, x8, lsl #3]     // b[n-1]
+    ldr     x10, [x20]
+    mul     x11, x10, x9
+    ldr     x12, [x19, x8, lsl #3]
+    add     x12, x12, x11
+    str     x12, [x19, x8, lsl #3]   // carry dropped
+
+Lmo_done:
+    ldp     x23, x24, [sp, #48]      // restore regs, ret
+    ldp     x21, x22, [sp, #32]
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #64
     ret

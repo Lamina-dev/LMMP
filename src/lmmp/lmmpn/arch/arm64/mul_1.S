@@ -45,22 +45,22 @@ Lm1_bx0:
 
 Lm1_b10:                                // n mod 4 == 2
     ldp     x4, x5, [x1]                // a0, a1
-    mul     x8, x4, x3                  // lo_0
-    umulh   x10, x4, x3                 // hi_0
+    mul     x8, x4, x3                  // lo0
+    umulh   x10, x4, x3                 // hi0
     cbz     x17, Lm1_2                  // n == 2, ret
     ldp     x6, x7, [x1, #16]!          // prefetch a2, a3
-    mul     x9, x5, x3                  // lo_1
+    mul     x9, x5, x3                  // lo1
     b       Lm1_mid-8                   // enter mid loop
 
 Lm1_2:                                  // n == 2 tail
-    mul     x9, x5, x3                  // lo_1
+    mul     x9, x5, x3                  // lo1
     b       Lm1_2e
 
 Lm1_bx1:                                // leading single limb
     ldr     x7, [x1], #8
-    mul     x9, x7, x3                  // lo_0
-    umulh   x11, x7, x3                 // hi_0
-    adds    x9, x9, x4                  // s_0 = lo_0 + carry
+    mul     x9, x7, x3                  // lo0
+    umulh   x11, x7, x3                 // hi0
+    adds    x9, x9, x4                  // s0 = lo0 + carry
     str     x9, [x0], #8
     tbnz    x2, #1, Lm1_b10             // n mod 4 == 2
 
@@ -69,50 +69,50 @@ Lm1_b01:
 
 Lm1_b00:                                // n mod 4 == 0
     ldp     x6, x7, [x1]                // a0, a1
-    mul     x8, x6, x3                  // lo_0
-    umulh   x10, x6, x3                 // hi_0
+    mul     x8, x6, x3                  // lo0
+    umulh   x10, x6, x3                 // hi0
     ldp     x4, x5, [x1, #16]           // a2, a3
-    mul     x9, x7, x3                  // lo_1
-    adcs    x12, x8, x11                // s_0 = lo_0 + hi_prev + C
-    umulh   x11, x7, x3                 // hi_1
+    mul     x9, x7, x3                  // lo1
+    adcs    x12, x8, x11                // s0 = lo0 + hi_prev + C
+    umulh   x11, x7, x3                 // hi1
     add     x0, x0, #16
     sub     x17, x17, #1
     cbz     x17, Lm1_end                // last pair only
 .p2align 4
 
 Lm1_top:                                // main loop (upper)
-    mul     x8, x4, x3                  // lo_2
+    mul     x8, x4, x3                  // lo2
     ldp     x6, x7, [x1, #32]!          // next pair
-    adcs    x13, x9, x10                // s_1 = lo_1 + hi_0 + C
-    umulh   x10, x4, x3                 // hi_2
-    mul     x9, x5, x3                  // lo_3
-    stp     x12, x13, [x0, #-16]        // store s_0, s_1
-    adcs    x12, x8, x11                // s_2 = lo_2 + hi_1 + C
-    umulh   x11, x5, x3                 // hi_3
+    adcs    x13, x9, x10                // s1 = lo1 + hi0 + C
+    umulh   x10, x4, x3                 // hi2
+    mul     x9, x5, x3                  // lo3
+    stp     x12, x13, [x0, #-16]        // store s0, s1
+    adcs    x12, x8, x11                // s2 = lo2 + hi1 + C
+    umulh   x11, x5, x3                 // hi3
 
 Lm1_mid:                                // main loop (lower)
-    mul     x8, x6, x3                  // lo_0
+    mul     x8, x6, x3                  // lo0
     ldp     x4, x5, [x1, #16]           // next pair
-    adcs    x13, x9, x10                // s_3 = lo_3 + hi_2 + C
-    umulh   x10, x6, x3                 // hi_0
-    mul     x9, x7, x3                  // lo_1
-    stp     x12, x13, [x0], #32         // store s_2, s_3
-    adcs    x12, x8, x11                // s_0 = lo_0 + hi_3 + C
-    umulh   x11, x7, x3                 // hi_1
+    adcs    x13, x9, x10                // s3 = lo3 + hi2 + C
+    umulh   x10, x6, x3                 // hi0
+    mul     x9, x7, x3                  // lo1
+    stp     x12, x13, [x0], #32         // store s2, s3
+    adcs    x12, x8, x11                // s0 = lo0 + hi3 + C
+    umulh   x11, x7, x3                 // hi1
     sub     x17, x17, #1
     cbnz    x17, Lm1_top
 
 Lm1_end:                                // tail: last prefetched pair
-    mul     x8, x4, x3                  // lo_0
-    adcs    x13, x9, x10                // s_1 = lo_1 + hi_0 + C
-    umulh   x10, x4, x3                 // hi_0
-    mul     x9, x5, x3                  // lo_1
-    stp     x12, x13, [x0, #-16]        // store s_0, s_1
+    mul     x8, x4, x3                  // lo0
+    adcs    x13, x9, x10                // s1 = lo1 + hi0 + C
+    umulh   x10, x4, x3                 // hi0
+    mul     x9, x5, x3                  // lo1
+    stp     x12, x13, [x0, #-16]        // store s0, s1
 
 Lm1_2e:                                 // 2-limb tail
-    adcs    x12, x8, x11                // s_0 = lo_0 + hi_prev + C
-    umulh   x11, x5, x3                 // hi_1
-    adcs    x13, x9, x10                // s_1 = lo_1 + hi_0 + C
+    adcs    x12, x8, x11                // s0 = lo0 + hi_prev + C
+    umulh   x11, x5, x3                 // hi1
+    adcs    x13, x9, x10                // s1 = lo1 + hi0 + C
     stp     x12, x13, [x0]
 
 Lm1_1:

@@ -21,6 +21,7 @@ EXPORTS
     lmmp_add_n_sub_n_
 
     lmmp_addmul_1_
+    lmmp_addmul_2_
     lmmp_submul_1_
 
     lmmp_addshl1_n_

@@ -151,7 +151,7 @@ ASM_GSYM(lmmp_divexact_by9_):
     mov     r8, rdx
 #endif
     movabs  r11, 0x8E38E38E38E38E39      // INV9
-    xor     eax, eax                    // c = 0
+    xor     eax, eax                     // c = 0
     mov     rcx, r8
     and     rcx, 3
     jz      .Lby9_groups
