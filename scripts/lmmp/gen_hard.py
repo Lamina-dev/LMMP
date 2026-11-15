@@ -31,7 +31,7 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
                    (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
   arm64 mul      : 种子对 mul_2 + 展开 addmul_2 行对 (两列进位保存), 奇 n 尾行 addmul_1
                    (链1: s_k=lo_k+hi_{k-1}+C; 链2: dst+=s; carry 走 x15)
-  arm64 sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 2a 乘数单趟
+  arm64 sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N=4..7: 2a 乘数单趟; N>=8: 两列行对 + 融合 extr 对角收尾
                    (m_i = 2a_i + ov_{i-1}, ov 由 bit63 现场生成; 对角即时
                    折叠, 无整体倍增/对角 pass)
 
@@ -1117,10 +1117,10 @@ def arm64_row_batches(b, k0, m, col0, seed, cin0=None):
             b.append("    str     x8, [x0, #%d]" % (8 * c))
 
 
-def arm64_tc_limb1(b, k, c, seed):
+def arm64_tc_limb1(b, k, c, seed, uoff=0):
     """两列核单 limb (奇长行首): u=x6, 一对积 (v0,v1)*u 两链进位保存。
     seed: 无 rp 读 (s = lo0 + cy0); RMW: t = lo0 + rp 先行。"""
-    b.append("    ldr     x6, [x1, #%d]" % (8 * k))
+    b.append("    ldr     x6, [x1, #%d]" % (8 * (uoff + k)))
     if not seed:
         b.append("    ldr     x14, [x0, #%d]" % (8 * c))
     b.append("    mul     x8, x6, x4")
@@ -1139,10 +1139,10 @@ def arm64_tc_limb1(b, k, c, seed):
     b.append("    str     x8, [x0, #%d]" % (8 * c))
 
 
-def arm64_tc_limb2(b, k, c, seed):
+def arm64_tc_limb2(b, k, c, seed, uoff=0):
     """两列核 2-limb 组: u=x6,x7; RMW 行预读 rp=x14,x15; x14 于消费后复用为 hi1'。
     调度与 mullo/sqr_basecase 行内核同构 (c3/c6 恒 0, s-adds 断链合法)。"""
-    b.append("    ldp     x6, x7, [x1, #%d]" % (8 * k))
+    b.append("    ldp     x6, x7, [x1, #%d]" % (8 * (uoff + k)))
     if not seed:
         b.append("    ldp     x14, x15, [x0, #%d]" % (8 * c))
     b.append("    mul     x8, x6, x4")
@@ -1413,6 +1413,94 @@ def arm64_sqr_rows_2a(n):
     return "\n".join(b)
 
 
+def arm64_sqr_tc_row(b, m, n, seed):
+    """sqr 行对 m: v=(a[2m], a[2m+1]), 角 col 4m+1 (种子直存 dst[1], 其余 RMW 锚定),
+    kernel u=a[2m+2..n-1] len n-2m-2, rp 基 col 4m+2; cy0/cy1 直存 col n+2m/n+2m+1
+    (前行未触列)。几何逐字同 sqr_basecase.S。"""
+    if seed:
+        b.append("    ldp     x4, x5, [x1]")
+        b.append("    mul     x6, x4, x5")
+        b.append("    umulh   x7, x4, x5")
+        b.append("    str     x6, [x0, #8]")
+        b.append("    mov     x12, x7")
+        b.append("    mov     x13, xzr")
+    else:
+        b.append("    ldp     x4, x5, [x1, #%d]" % (8 * 2 * m))
+        b.append("    mul     x6, x4, x5")
+        b.append("    umulh   x7, x4, x5")
+        b.append("    ldr     x8, [x0, #%d]" % (8 * (4 * m + 1)))
+        b.append("    adds    x8, x8, x6")
+        b.append("    str     x8, [x0, #%d]" % (8 * (4 * m + 1)))
+        b.append("    cinc    x12, x7, cs")
+        b.append("    mov     x13, xzr")
+    ln = n - 2 * m - 2
+    c, k = 4 * m + 2, 0
+    if ln % 2:
+        arm64_tc_limb1(b, k, c, seed, 2 * m + 2)
+        k, c = 1, c + 1
+    while k < ln:
+        arm64_tc_limb2(b, k, c, seed, 2 * m + 2)
+        k, c = k + 2, c + 2
+    b.append("    str     x12, [x0, #%d]" % (8 * (n + 2 * m)))
+    b.append("    str     x13, [x0, #%d]" % (8 * (n + 2 * m + 1)))
+
+
+def arm64_sqr_tc_diag(b, n):
+    """融合收尾: dst = 2*T + diag, extr 翻倍 + a_i^2 单 adcs 链 (展开自 Lsq_diag)。
+    x5 跨对持 T[2i-1]。"""
+    b.append("    ldr     x6, [x1]")
+    b.append("    mul     x10, x6, x6")
+    b.append("    umulh   x11, x6, x6")
+    b.append("    str     x10, [x0]")
+    b.append("    ldr     x9, [x0, #8]")
+    b.append("    extr    x13, x9, xzr, #63")
+    b.append("    mov     x5, x9")
+    b.append("    adds    x13, x13, x11")
+    b.append("    str     x13, [x0, #8]")
+    for i in range(1, n):
+        b.append("    ldr     x6, [x1, #%d]" % (8 * i))
+        b.append("    ldp     x8, x9, [x0, #%d]" % (8 * 2 * i))
+        b.append("    extr    x12, x8, x5, #63")
+        b.append("    extr    x13, x9, x8, #63")
+        b.append("    mov     x5, x9")
+        b.append("    mul     x10, x6, x6")
+        b.append("    umulh   x11, x6, x6")
+        b.append("    adcs    x12, x12, x10")
+        b.append("    adcs    x13, x13, x11")
+        b.append("    stp     x12, x13, [x0, #%d]" % (8 * 2 * i))
+
+
+def arm64_sqr_tc(n):
+    """两列行对 + 融合对角收尾 (sqr_basecase.S 几何的全展开形态)。
+    种子对 (a0,a1) 角 dst[1] 直存 + kernel 新鲜覆盖; 行对 m>=1 角 RMW 锚定 +
+    kernel 累加; 末段 n 偶 = 末角 a[n-2]a[n-1] col 2n-3 (hi+c 直存 col 2n-2),
+    n 奇 = dst[2n-1]=0; 收尾 dst = 2T + diag。"""
+    b = []
+    b.append("    // x0=dst x1=numa x4=v0 x5=v1 x12=cy0 x13=cy1")
+    b.append("    // x6/x7=u x8/x9/x10/x11/x14=prod x5=diag prev")
+    arm64_sqr_tc_row(b, 0, n, True)
+    m = 1
+    while n - 2 * m - 2 >= 1:
+        arm64_sqr_tc_row(b, m, n, False)
+        m += 1
+    if n % 2:
+        b.append("    str     xzr, [x0, #%d]" % (8 * (2 * n - 1)))
+    else:
+        b.append("    ldr     x4, [x1, #%d]" % (8 * (n - 2)))
+        b.append("    ldr     x5, [x1, #%d]" % (8 * (n - 1)))
+        b.append("    mul     x6, x4, x5")
+        b.append("    umulh   x7, x4, x5")
+        b.append("    ldr     x9, [x0, #%d]" % (8 * (2 * n - 3)))
+        b.append("    adds    x9, x9, x6")
+        b.append("    str     x9, [x0, #%d]" % (8 * (2 * n - 3)))
+        b.append("    cinc    x9, x7, cs")
+        b.append("    str     x9, [x0, #%d]" % (8 * (2 * n - 2)))
+        b.append("    str     xzr, [x0, #%d]" % (8 * (2 * n - 1)))
+    arm64_sqr_tc_diag(b, n)
+    b.append("    ret")
+    return "\n".join(b)
+
+
 def gen_arm64_sqr():
     parts = [COPYRIGHT, """
 //
@@ -1433,8 +1521,10 @@ def gen_arm64_sqr():
             parts.append(arm64_sqr_n2())
         elif n == 3:
             parts.append(arm64_sqr_n3())
-        else:
+        elif n < 8:
             parts.append(arm64_sqr_rows_2a(n))
+        else:
+            parts.append(arm64_sqr_tc(n))
         parts.append("")
     return "\n".join(parts)
 
