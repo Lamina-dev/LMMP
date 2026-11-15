@@ -13,7 +13,7 @@
 //  GNU Lesser General Public License for more details.
 //
 //  You should have received a copy of the GNU Lesser General Public
-//  License along with this library; if not, see
+//  License along with this library.  If not, see
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -218,9 +218,44 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     jz      .Lh2
     test    al, 2
     jz      .Lh1
-    jmp     .Lh3
 
 // limb 0 is v0-only: up[0]*v1 = a[j+1]*a[j+1] belongs to the diag pass, not rows
+.Lh3:                             // L%4 == 3: special, A, B
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, 0                // cy0 = hi0 + c1
+    mov     [rdi], rax            // cy1 = 0
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    rcx, rax, [rsi]       // rdx = v0
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi]
+    add     rax, [rdi]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, 0                // cy1 = 0
+    adc     rbp, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    mulx    r15, rbx, [rsi]       // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r15, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r15, 0
+    mov     [rdi], rax
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
+
 .Lh0:                             // L%4 == 0: special, B, A, B
     mov     rdx, r9
     mulx    rcx, rax, [rsi]
@@ -306,43 +341,6 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     lea     rdi, [rdi + 8]
     test    r11, r11
     jz      .Lkt
-    jmp     .Lk4
-
-.Lh3:                             // L%4 == 3: special, A, B
-    mov     rdx, r9
-    mulx    r10, rax, [rsi]
-    add     rax, [rdi]
-    adc     r10, 0                // cy0 = hi0 + c1
-    mov     [rdi], rax            // cy1 = 0
-    lea     rsi, [rsi + 8]
-    lea     rdi, [rdi + 8]
-    mulx    rcx, rax, [rsi]       // rdx = v0
-    mov     rdx, r8
-    mulx    rbp, rbx, [rsi]
-    add     rax, [rdi]
-    adc     rcx, rbx
-    adc     rbp, 0
-    add     rax, r10
-    adc     rcx, 0                // cy1 = 0
-    adc     rbp, 0
-    mov     [rdi], rax
-    lea     rsi, [rsi + 8]
-    lea     rdi, [rdi + 8]
-    mulx    r15, rbx, [rsi]       // rdx = v1
-    mov     rdx, r9
-    mulx    r10, rax, [rsi]
-    add     rax, [rdi]
-    adc     r10, rbx
-    adc     r15, 0
-    add     rax, rcx
-    adc     r10, rbp
-    adc     r15, 0
-    mov     [rdi], rax
-    lea     rsi, [rsi + 8]
-    lea     rdi, [rdi + 8]
-    test    r11, r11
-    jz      .Lkt
-    jmp     .Lk4
 
 .p2align 4
 .Lk4:                             // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)

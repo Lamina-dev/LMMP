@@ -13,7 +13,7 @@
 //  GNU Lesser General Public License for more details.
 //
 //  You should have received a copy of the GNU Lesser General Public
-//  License along with this library; if not, see
+//  License along with this library.  If not, see
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -102,80 +102,153 @@ ASM_GSYM(lmmp_mul_basecase_):
 
 // nb even: dst = numa * [numb,2] (mul_2)
 .Ldo_mul_2:
-    mov     rax, [rsi + rbx*8]      // rax = numa[0]
-    mov     r9, [rcx]               // r9 = numb[0]
-    mul     r9                      // rdx:rax = numa[0] * numb[0]
-    mov     r14, [rcx + 8]          // r14 = numb[1]
+    push    r15
+    mov     r9, [rcx]               // v0 = numb[0]
+    mov     r14, [rcx + 8]          // v1 = numb[1]
+    lea     rsi, [rsi + rbx*8]      // rsi = numa
+    lea     rdi, [rdi + rbx*8]      // rdi = dst
+    mov     r11, rbx
+    neg     r11
+    shr     r11, 2                  // groups = na/4
+    mov     rax, rbx
+    and     eax, 3                  // (-na) mod 4
+    jz      .Lm2e0
+    cmp     eax, 2
+    je      .Lm2e2
+    jb      .Lm2e3                  // na mod 4 == 3
 
-    test    bl, 1                   // na parity
-    jnz     .Lm2b1
+.Lm2e1:                             // na mod 4 == 1: limb 0 -> (rbp,r13)
+    mov     rdx, r9
+    mulx    rbp, rax, [rsi]
+    mov     [rdi], rax              // dst[0] = lo0
+    mov     rdx, r14
+    mulx    r13, r15, [rsi]
+    add     rbp, r15                // cy0 = hi0 + lo1 -> c
+    adc     r13, 0                  // cy1 = hi1 + c
+    mov     r10, rbp
+    mov     r12, r13
+    lea     rsi, [rsi + 8]
+    lea     rdi, [rdi + 8]
+    test    r11, r11
+    jz      .Lm2fin
+    mov     rdx, r9
+    jmp     .Lm2top
 
-.Lm2b0:                             // na even
-    lea     rbp, [rbx]
-    xor     r10, r10
-    mov     r12, rax
-    mov     r11, rdx
-    jmp     .Lm2l0
+.Lm2e0:                             // na mod 4 == 0: (cy0,cy1) = (0,0)
+    xor     r10d, r10d
+    xor     r12d, r12d
+    mov     rdx, r9
+    jmp     .Lm2top
 
-.Lm2b1:                             // na odd
-    lea     rbp, [rbx + 1]
-    xor     r11, r11
-    xor     r12, r12
-    mov     r10, rax
-    mov     r13, rdx
-    jmp     .Lm2l1
+.Lm2e2:                             // na mod 4 == 2: limbs 0,1 -> (r10,r12)
+    mov     rdx, r9
+    mulx    rbp, rax, [rsi]
+    mov     [rdi], rax
+    mov     rdx, r14
+    mulx    r13, r15, [rsi]
+    add     rbp, r15
+    adc     r13, 0                  // limb 0 -> (rbp,r13)
+    mulx    r12, r15, [rsi + 8]     // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]
+    add     r10, r15                // h -> c2
+    adc     r12, 0                  // h2 -> c3 (0)
+    add     rax, rbp                // s -> c4
+    adc     r10, r13                // cy0'
+    adc     r12, 0                  // cy1'
+    mov     [rdi + 8], rax          // limb 1 -> (r10,r12)
+    lea     rsi, [rsi + 16]
+    lea     rdi, [rdi + 16]
+    test    r11, r11
+    jz      .Lm2fin
+    mov     rdx, r9
+    jmp     .Lm2top
+
+.Lm2e3:                             // na mod 4 == 3: limbs 0,1,2 -> (rbp,r13)
+    mov     rdx, r9
+    mulx    rbp, rax, [rsi]
+    mov     [rdi], rax
+    mov     rdx, r14
+    mulx    r13, r15, [rsi]
+    add     rbp, r15
+    adc     r13, 0                  // limb 0 -> (rbp,r13)
+    mulx    r12, r15, [rsi + 8]     // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]
+    add     r10, r15                // h
+    adc     r12, 0                  // h2
+    add     rax, rbp                // s
+    adc     r10, r13                // cy0'
+    adc     r12, 0                  // cy1'
+    mov     [rdi + 8], rax          // limb 1 -> (r10,r12)
+    mulx    rbp, rax, [rsi + 16]    // rdx = v0
+    mov     rdx, r14
+    mulx    r13, r15, [rsi + 16]
+    add     rbp, r15                // h
+    adc     r13, 0                  // h2
+    add     rax, r10                // s
+    adc     rbp, r12                // cy0'
+    adc     r13, 0                  // cy1'  -> limb 2 -> (rbp,r13)
+    mov     [rdi + 16], rax
+    mov     r10, rbp
+    mov     r12, r13
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Lm2fin
+    mov     rdx, r9
 
 .p2align 4
-.Lm2tp:                             // mul_2 loop, 2 limbs
-    mul     r9
-    add     r10, rax
-    mov     r13, rdx
-    adc     r13, 0
+.Lm2top:                            // 4 limbs/group, consumes (r10,r12), rdx = v0
+    mulx    rbp, rax, [rsi]         // lo0=rax hi0=rbp
+    mov     rdx, r14
+    mulx    r13, r15, [rsi]         // lo1=r15 hi1=r13
+    add     rbp, r15                // h = hi0 + lo1 -> c2
+    adc     r13, 0                  // h2 = hi1 + c2 -> c3 (0)
+    add     rax, r10                // s = lo0 + cy0 -> c4
+    adc     rbp, r12                // cy0' = h + cy1 + c4 -> c5
+    adc     r13, 0                  // cy1' = h2 + c5 -> c6 (0)
+    mov     [rdi], rax
 
-.Lm2l1:
-    mov     rax, [rsi + rbp*8 - 8]
-    mul     r14
-    add     r10, r11
-    adc     r13, 0
-    add     r12, rax
-    mov     [rdi + rbp*8 - 8], r10
-    mov     r10, rdx
-    adc     r10, 0
-    mov     rax, [rsi + rbp*8]
-    mul     r9
-    add     r12, rax
-    mov     r11, rdx
-    adc     r11, 0
-    add     r12, r13
+    mulx    r12, r15, [rsi + 8]     // rdx = v1: lo1=r15 hi1=r12
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 8]     // lo0=rax hi0=r10
+    add     r10, r15                // h
+    adc     r12, 0                  // h2
+    add     rax, rbp                // s
+    adc     r10, r13                // cy0'
+    adc     r12, 0                  // cy1'
+    mov     [rdi + 8], rax
 
-.Lm2l0:
-    mov     rax, [rsi + rbp*8]
-    adc     r11, 0
-    mul     r14
-    mov     [rdi + rbp*8], r12
-    add     r10, rax
-    mov     r12, rdx
-    mov     rax, [rsi + rbp*8 + 8]
-    adc     r12, 0
-    add     rbp, 2
-    jnc     .Lm2tp
+    mulx    rbp, rax, [rsi + 16]    // rdx = v0
+    mov     rdx, r14
+    mulx    r13, r15, [rsi + 16]
+    add     rbp, r15                // h
+    adc     r13, 0                  // h2
+    add     rax, r10                // s
+    adc     rbp, r12                // cy0'
+    adc     r13, 0                  // cy1'
+    mov     [rdi + 16], rax
 
-.Lm2ed:                             // write [dst+na-1, 3]
-    mul     r9
-    add     r10, rax
-    mov     r13, rdx
-    adc     r13, 0
-    mov     rax, [rsi - 8]
-    mul     r14
-    add     r10, r11
-    adc     r13, 0
-    add     r12, rax
-    mov     [rdi - 8], r10
-    adc     rdx, 0
-    add     r12, r13
-    mov     [rdi], r12
-    adc     rdx, 0
-    mov     [rdi + 8], rdx
+    mulx    r12, r15, [rsi + 24]    // rdx = v1
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 24]
+    add     r10, r15                // h
+    adc     r12, 0                  // h2
+    add     rax, rbp                // s
+    adc     r10, r13                // cy0'
+    adc     r12, 0                  // cy1'
+    mov     [rdi + 24], rax
+
+    lea     rsi, [rsi + 32]
+    lea     rdi, [rdi + 32]
+    dec     r11
+    jnz     .Lm2top
+
+.Lm2fin:                            // write [dst+na,2]
+    mov     [rdi], r10
+    mov     [rdi + 8], r12
+    pop     r15
 
     sub     r8, 2                   // nb -= 2
     jz      .Lret5
@@ -212,7 +285,41 @@ ASM_GSYM(lmmp_mul_basecase_):
     jz      .Lh2
     test    al, 2
     jz      .Lh1
-    jmp     .Lh3
+
+.Lh3:                               // na%4 == 3: limb 0 -> (r10,r12); limbs 1,2 rotate
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    mov     [rdi], rax
+    mulx    rcx, rax, [rsi + 8]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r12
+    adc     rbp, 0
+    mov     [rdi + 8], rax
+    mulx    r12, rbx, [rsi + 16]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 16], rax
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Lkt
+    jmp     .Lk4
 
 .Lh0:                               // na%4 == 0: (cy0,cy1) = (0,0), loop covers [numa,na]
     mov     rdx, r9
@@ -260,42 +367,6 @@ ASM_GSYM(lmmp_mul_basecase_):
     lea     rdi, [rdi + 8]
     test    r11, r11
     jz      .Lkt
-    jmp     .Lk4
-
-.Lh3:                               // na%4 == 3: limb 0 -> (r10,r12); limbs 1,2 rotate
-    mov     rdx, r8
-    mulx    r12, rbx, [rsi]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi]
-    add     rax, [rdi]
-    adc     r10, rbx
-    adc     r12, 0
-    mov     [rdi], rax
-    mulx    rcx, rax, [rsi + 8]
-    mov     rdx, r8
-    mulx    rbp, rbx, [rsi + 8]
-    add     rax, [rdi + 8]
-    adc     rcx, rbx
-    adc     rbp, 0
-    add     rax, r10
-    adc     rcx, r12
-    adc     rbp, 0
-    mov     [rdi + 8], rax
-    mulx    r12, rbx, [rsi + 16]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi + 16]
-    add     rax, [rdi + 16]
-    adc     r10, rbx
-    adc     r12, 0
-    add     rax, rcx
-    adc     r10, rbp
-    adc     r12, 0
-    mov     [rdi + 16], rax
-    lea     rsi, [rsi + 24]
-    lea     rdi, [rdi + 24]
-    test    r11, r11
-    jz      .Lkt
-    jmp     .Lk4
 
 .p2align 4
 .Lk4:                               // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)
@@ -353,9 +424,7 @@ ASM_GSYM(lmmp_mul_basecase_):
     mov     [rdi + 8], r12
     sub     r15, 2
     jnz     .Lrow
-
     pop     r15
-    jmp     .Lret5
 
 .Lret5:
     POP_EXTRA

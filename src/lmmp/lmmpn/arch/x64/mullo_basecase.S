@@ -13,7 +13,7 @@
 //  GNU Lesser General Public License for more details.
 //
 //  You should have received a copy of the GNU Lesser General Public
-//  License along with this library; if not, see
+//  License along with this library.  If not, see
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -219,7 +219,41 @@ ASM_GSYM(lmmp_mullo_basecase_):
     jz      .Lh2
     test    al, 2
     jz      .Lh1
-    jmp     .Lh3
+
+.Lh3:                              // L%4 == 3
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    mov     [rdi], rax
+    mulx    rcx, rax, [rsi + 8]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r12
+    adc     rbp, 0
+    mov     [rdi + 8], rax
+    mulx    r12, rbx, [rsi + 16]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 16], rax
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Larow
+    jmp     .Lk4
 
 .Lh0:                              // L%4 == 0
     mov     rdx, r9
@@ -267,42 +301,6 @@ ASM_GSYM(lmmp_mullo_basecase_):
     lea     rdi, [rdi + 8]
     test    r11, r11
     jz      .Larow
-    jmp     .Lk4
-
-.Lh3:                              // L%4 == 3
-    mov     rdx, r8
-    mulx    r12, rbx, [rsi]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi]
-    add     rax, [rdi]
-    adc     r10, rbx
-    adc     r12, 0
-    mov     [rdi], rax
-    mulx    rcx, rax, [rsi + 8]
-    mov     rdx, r8
-    mulx    rbp, rbx, [rsi + 8]
-    add     rax, [rdi + 8]
-    adc     rcx, rbx
-    adc     rbp, 0
-    add     rax, r10
-    adc     rcx, r12
-    adc     rbp, 0
-    mov     [rdi + 8], rax
-    mulx    r12, rbx, [rsi + 16]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi + 16]
-    add     rax, [rdi + 16]
-    adc     r10, rbx
-    adc     r12, 0
-    add     rax, rcx
-    adc     r10, rbp
-    adc     r12, 0
-    mov     [rdi + 16], rax
-    lea     rsi, [rsi + 24]
-    lea     rdi, [rdi + 24]
-    test    r11, r11
-    jz      .Larow
-    jmp     .Lk4
 
 .p2align 4
 .Lk4:                              // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)
