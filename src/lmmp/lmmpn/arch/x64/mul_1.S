@@ -23,6 +23,9 @@
 //
 //   Windows: dst=rcx, numa=rdx, na=r8, x=r9
 //   SysV:    dst=rdi, numa=rsi, na=rdx, x=rcx
+//
+// Loop structure transcribed from GMP 6.3 mpn/x86_64/coreihwl/mul_1.asm
+// (loop authored by David Harvey and Torbjorn Granlund).
 
 #include "lmmp_asm.h"
 
@@ -38,92 +41,121 @@ ASM_GSYM(lmmp_mul_1_):
     push    rsi
     push    rdi
     push    rbx
+    push    rbp
+    push    r12
     mov     rdi, rcx                // SysV:
     mov     rsi, rdx                //   rdi=dst, rsi=numa,
     mov     rdx, r9                 //   rdx=x (mulx implied)
 #else
     push    rbx
+    push    rbp
+    push    r12
     mov     r8, rdx                 // r8 = na
     mov     rdx, rcx                // x -> rdx
 #endif
+    test    r8, r8
+    jz      .Lret0
 
-    lea     rsi, [rsi + r8*8]       // src end
-    lea     rdi, [rdi + r8*8]       // dst end
-    mov     r9, r8
-    neg     r9                      // r9 = -na
-    xor     r10d, r10d              // carry = 0
+    mov     rbp, r8
+    shr     rbp, 2                  // groups = na/4
 
-    mov     eax, r8d
-    and     eax, 3                  // na mod 4
-    jz      .Lcheck_post            // n mod 4 == 0
-    cmp     eax, 2
-    je      .Ldo_rem2
-    jb      .Ldo_rem1               // na mod 4 == 1
-    // na mod 4 == 3
+    test    r8d, 1
+    jnz     .Lbx1
 
-.Ldo_rem3:
-    mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
-    mulx    r8,  rbx, [rsi + r9*8 + 8]   // p1 = a1*x
-    add     rax, r10                     // s0 = lo0 + carry
-    mov     [rdi + r9*8], rax
-    adc     rbx, r11                     // s1 = lo1 + hi0 + CF
-    mov     [rdi + r9*8 + 8], rbx
-    adc     r8, 0                        // carry = hi1 + CF
-    mov     r10, r8
-    mulx    r11, rax, [rsi + r9*8 + 16]  // p2 = a2*x
-    add     rax, r10                     // s2 = lo2 + carry
-    mov     [rdi + r9*8 + 16], rax
-    adc     r11, 0
-    mov     r10, r11
-    add     r9, 3
-    jmp     .Lcheck_post
+.Lbx0:
+    test    r8d, 2                  // CF = 0
+    jnz     .Lb10
 
-.Ldo_rem2:                               // na mod 4 == 2
-    mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
-    mulx    r8,  rbx, [rsi + r9*8 + 8]   // p1 = a1*x
-    add     rax, r10                     // s0 = lo0 + carry
-    mov     [rdi + r9*8], rax
-    adc     rbx, r11                     // s1 = lo1 + hi0 + CF
-    mov     [rdi + r9*8 + 8], rbx
-    adc     r8, 0
-    mov     r10, r8
-    add     r9, 2
-    jmp     .Lcheck_post
+.Lb00:                              // na%4 == 0
+    mulx    r8,  r9,  [rsi]         // p0: r9=lo0,  r8=hi0
+    mulx    r10, r11, [rsi+8]       // p1: r11=lo1, r10=hi1
+    mulx    r12, rcx, [rsi+16]      // p2: rcx=lo2, r12=hi2
+    lea     rdi, [rdi-32]
+    jmp     .Llo0
 
-.Ldo_rem1:                               // na mod 4 == 1
-    mulx    r11, rax, [rsi + r9*8]       // p0 = a0*x
-    add     rax, r10                     // s0 = lo0 + carry
-    mov     [rdi + r9*8], rax
-    adc     r11, 0
-    mov     r10, r11
-    add     r9, 1
-    // fall through
+.Lb10:                              // na%4 == 2
+    mulx    r12, rcx, [rsi]         // p0: rcx=lo0, r12=hi0
+    mulx    rax, rbx, [rsi+8]       // p1: rbx=lo1,  rax=hi1
+    lea     rdi, [rdi-16]
+    test    rbp, rbp                // CF = 0
+    jz      .Lcj2
+    mulx    r8,  r9,  [rsi+16]      // group p0
+    lea     rsi, [rsi+16]
+    jmp     .Llo2
 
-.Lcheck_post:
-    test    r9, r9
-    jz      .Ldone
+.Lbx1:
+    test    r8d, 2
+    jnz     .Lb11
 
-.p2align 4
-.Lloop4:                                    // main loop, 4 limbs
-    mulx    r11, rax, [rsi + r9*8]          // p0 = a0*x
-    mulx    r8,  rbx, [rsi + r9*8 + 8]      // p1 = a1*x
-    add     rax, r10                        // s0 = lo0 + carry
-    mov     [rdi + r9*8], rax
-    adc     rbx, r11                        // s1 = lo1 + hi0 + CF
-    mov     [rdi + r9*8 + 8], rbx
-    mulx    r11, rax, [rsi + r9*8 + 16]     // p2 = a2*x
-    adc     rax, r8                         // s2 = lo2 + hi1 + CF
-    mov     [rdi + r9*8 + 16], rax
-    mulx    r8,  rbx, [rsi + r9*8 + 24]     // p3 = a3*x
-    adc     rbx, r11                        // s3 = lo3 + hi2 + CF
-    mov     [rdi + r9*8 + 24], rbx
-    adc     r8, 0
-    mov     r10, r8                         // carry = hi3 + CF
-    add     r9, 4
-    jnz     .Lloop4
+.Lb01:                              // na%4 == 1
+    mulx    rax, rbx, [rsi]         // p0: rbx=lo0, rax=hi0
+    lea     rdi, [rdi-24]
+    test    rbp, rbp                // CF = 0
+    jz      .Lcj1
+    mulx    r8,  r9,  [rsi+8]       // group p0
+    lea     rsi, [rsi+8]
+    jmp     .Llo1
 
-.Ldone:
-    mov     rax, r10                        // ret carry
+.Lb11:                              // na%4 == 3
+    mulx    r10, r11, [rsi]         // p0: r11=lo0, r10=hi0
+    mulx    r12, rcx, [rsi+8]       // p1: rcx=lo1, r12=hi1
+    mulx    rax, rbx, [rsi+16]      // p2: rbx=lo2, rax=hi2
+    lea     rdi, [rdi-8]
+    test    rbp, rbp                // CF = 0
+    jz      .Lcj3
+    lea     rsi, [rsi+24]
+    jmp     .Llo3
+
+.p2align 5
+.Ltop:
+    lea     rdi, [rdi+32]
+    mov     [rdi], r9               // s0 (link at .Llo1)
+    adc     r11, r8                 // s1 = lo1 + hi0 + CF
+.Llo3:
+    mulx    r8,  r9,  [rsi]         // next p0
+    mov     [rdi+8], r11            // s1
+    adc     rcx, r10                // s2 = lo2 + hi1 + CF
+.Llo2:
+    mov     [rdi+16], rcx           // s2
+    adc     rbx, r12                // s3 = lo3 + hi2 + CF
+.Llo1:
+    mulx    r10, r11, [rsi+8]       // next p1
+    adc     r9, rax                 // s0' = lo0' + hi3 + CF
+    mulx    r12, rcx, [rsi+16]      // next p2
+    mov     [rdi+24], rbx           // s3
+.Llo0:
+    mulx    rax, rbx, [rsi+24]      // next p3
+    lea     rsi, [rsi+32]
+    dec     rbp                     // CF preserved
+    jnz     .Ltop
+
+.Lend:
+    lea     rdi, [rdi+32]
+    mov     [rdi], r9               // s0
+    adc     r11, r8                 // s1
+.Lcj3:
+    mov     [rdi+8], r11            // s1
+    adc     rcx, r10                // s2
+.Lcj2:
+    mov     [rdi+16], rcx           // s2
+    adc     rbx, r12                // s3
+.Lcj1:
+    mov     [rdi+24], rbx           // s3
+    adc     rax, 0                  // carry = hi3 + CF
+
+    pop     r12
+    pop     rbp
+    pop     rbx
+#ifdef LMMP_WINDOWS
+    pop     rdi
+    pop     rsi
+#endif
+    ret
+
+.Lret0:
+    xor     eax, eax
+    pop     r12
+    pop     rbp
     pop     rbx
 #ifdef LMMP_WINDOWS
     pop     rdi

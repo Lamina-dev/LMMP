@@ -23,6 +23,8 @@
 //
 //   Windows: numa=rcx, numb=rdx, n=r8, b=r9
 //   SysV:    numa=rdi, numb=rsi, n=rdx, b=rcx
+//
+// Loop structure transcribed from GMP 6.3 mpn/x86_64/alderlake/addmul_1.asm.
 
 #include "lmmp_asm.h"
 
@@ -38,108 +40,129 @@ ASM_GSYM(lmmp_addmul_1_):
     push    rsi
     push    rdi
     push    rbx
-    push    rbp
     push    r12
     push    r13
-    push    r14
-    push    r15
     mov     rdi, rcx                // SysV:
     mov     rsi, rdx                //   rdi=rp, rsi=up,
-    mov     rdx, r9                 //   rdx=vl (mulx implied)
+    mov     rdx, r9                 //   rdx=v0 (mulx implied)
+    mov     rcx, r8                 //   rcx=n
 #else
     push    rbx
-    push    rbp
     push    r12
     push    r13
-    push    r14
-    push    r15
-    mov     r8, rdx                 // r8 = n
-    mov     rdx, rcx                // vl -> rdx
+    mov     rax, rdx
+    mov     rdx, rcx
+    mov     rcx, rax                // rcx=n, rdx=v0
 #endif
-
-    xor     r9d, r9d                // carry = 0
-    xor     r14d, r14d              // zero
-    test    r8, r8
-    jz      .Lret
-
-    mov     rcx, r8
-    and     r8d, 3                  // leftover = n & 3
-    shr     rcx, 2                  // groups = n >> 2
-
-    test    r8, r8                  // leftover limbs
-    jz      .Lmain
-    xor     eax, eax                // CF = 0, OF = 0
-
-.Lscalar:                           // one limb: s = rp + lo + carry
-    mulx    r12, rax, [rsi]         // p = up[i]*vl
-    adcx    rax, [rdi]              // s = rp[i] + lo
-    adox    rax, r9                 // s += carry
-    mov     [rdi], rax
-    adcx    r12, r14                // carry = hi + o1
-    adox    r12, r14                // carry += o2
-    mov     r9, r12
-    lea     rdi, [rdi+8]
-    lea     rsi, [rsi+8]
-    dec     r8
-    jnz     .Lscalar
-
-.Lmain:
     test    rcx, rcx
-    jz      .Lret
-    xor     eax, eax                // CF = 0, OF = 0
+    jz      .Lret0
 
-.p2align 4
-.Lloop4:                            // main loop, 4 limbs
-    mulx    r12, rax, [rsi]         // lo0, hi0
-    mulx    r13, rbx, [rsi+8]       // lo1, hi1
-    mulx    r15, rbp, [rsi+16]      // lo2, hi2
-    mulx    r11, r8,  [rsi+24]      // lo3, hi3
+    mov     eax, ecx
+    and     eax, 3                  // CF = OF = 0
+    jz      .Lb0
+    cmp     eax, 2
+    jl      .Lb1
+    je      .Lb2
 
-    adcx    rax, r9                 // s0 = lo0 + carry
-    adox    r12, r14
-    adcx    rbx, r12                // s1 = lo1 + hi0 + C
-    adox    r13, r14
-    adcx    rbp, r13                // s2 = lo2 + hi1 + C
-    adox    r15, r14
-    adcx    r8, r15                 // s3 = lo3 + hi2 + C
-    adox    r11, r14
+.Lb3:                               // n%4 == 3
+    mulx    r10, r11, [rsi]         // p0: r11=lo0, r10=hi0
+    mulx    r12, r13, [rsi+8]       // p1: r13=lo1, r12=hi1
+    mulx    rax, rbx, [rsi+16]      // p2: rbx=lo2,  rax=hi2
+    inc     rcx
+    lea     rsi, [rsi-8]
+    lea     rdi, [rdi-24]
+    jmp     .Llo3
 
-    adcx    r11, r14                // hi3 += C, CF = 0
+.Lb0:                               // n%4 == 0
+    mulx    r8,  r9,  [rsi]         // p0: r9=lo0,  r8=hi0
+    mulx    r10, r11, [rsi+8]       // p1: r11=lo1, r10=hi1
+    mulx    r12, r13, [rsi+16]      // p2: r13=lo2, r12=hi2
+    lea     rdi, [rdi-16]
+    jmp     .Llo0
 
-    add     rax, [rdi]              // s0 += rp[0]
-    mov     [rdi], rax
-    adcx    rbx, [rdi+8]            // s1 += rp[1]
+.Lb2:                               // n%4 == 2
+    mulx    r12, r13, [rsi]         // p0: r13=lo0, r12=hi0
+    mulx    rax, rbx, [rsi+8]       // p1: rbx=lo1,  rax=hi1
+    lea     rcx, [rcx-2]
+    jrcxz   .Ln2
+    mulx    r8,  r9,  [rsi+16]      // p2: r9=lo2, r8=hi2
+    lea     rsi, [rsi+16]
+    jmp     .Llo2
+.Ln2:
+    jmp     .Lwd2
+
+.Lb1:                               // n%4 == 1
+    mulx    rax, rbx, [rsi]         // p0: rbx=lo0, rax=hi0
+    sub     rcx, 1                  // also clears CF (no borrow), OF
+    jrcxz   .Ln1
+    mulx    r8,  r9,  [rsi+8]       // p1: r9=lo1,  r8=hi1
+    mulx    r10, r11, [rsi+16]      // p2: r11=lo2, r10=hi2
+    lea     rsi, [rsi+8]
+    lea     rdi, [rdi-8]
+    jmp     .Llo1
+.Ln1:
+    add     rbx, [rdi]              // s0 = lo0 + rp[0]
+    adc     rax, 0                  // carry = hi0 + CF
+    mov     [rdi], rbx
+    jmp     .Lfin
+
+.p2align 5
+.Ltop:
+    mulx    r8,  r9,  [rsi]         // next p0
+    adcx    r13, r10                // prod chain
+    mov     [rdi-8], r11
+.Llo2:
+    adox    r13, [rdi]              // rp chain
+    mulx    r10, r11, [rsi+8]
+    adcx    rbx, r12
+    mov     [rdi], r13
+.Llo1:
+    adox    rbx, [rdi+8]
+    mulx    r12, r13, [rsi+16]
+    adcx    r9, rax
     mov     [rdi+8], rbx
-    adcx    rbp, [rdi+16]           // s2 += rp[2]
-    mov     [rdi+16], rbp
-    adcx    r8, [rdi+24]            // s3 += rp[3]
-    mov     [rdi+24], r8
-
-    adcx    r11, r14                // carry = hi3 + C
-    mov     r9, r11
-
-    lea     rdi, [rdi+32]
+.Llo0:
+    adox    r9, [rdi+16]
+    mulx    rax, rbx, [rsi+24]
+    adcx    r11, r8
+    mov     [rdi+16], r9
+.Llo3:
+    adox    r11, [rdi+24]
     lea     rsi, [rsi+32]
-    dec     rcx
-    jnz     .Lloop4
+    lea     rdi, [rdi+32]
+    lea     rcx, [rcx-4]
+    jrcxz   .Lend
+    jmp     .Ltop
 
-.Lret:
-    mov     rax, r9                 // ret carry
-#ifdef LMMP_WINDOWS
-    pop     r15
-    pop     r14
+.Lend:
+    adcx    r13, r10
+    mov     [rdi-8], r11
+.Lwd2:
+    adox    r13, [rdi]
+    adcx    rbx, r12
+    mov     [rdi], r13
+    adox    rbx, [rdi+8]
+    adcx    rax, rcx                // rcx = 0 here: carry = hi + CF
+    adox    rax, rcx                // carry += OF
+    mov     [rdi+8], rbx
+
+.Lfin:
     pop     r13
     pop     r12
-    pop     rbp
     pop     rbx
+#ifdef LMMP_WINDOWS
     pop     rdi
     pop     rsi
-#else
-    pop     r15
-    pop     r14
+#endif
+    ret
+
+.Lret0:
+    xor     eax, eax
     pop     r13
     pop     r12
-    pop     rbp
     pop     rbx
+#ifdef LMMP_WINDOWS
+    pop     rdi
+    pop     rsi
 #endif
     ret
