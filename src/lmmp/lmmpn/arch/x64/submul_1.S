@@ -23,6 +23,8 @@
 //
 //   Windows: numa=rcx, numb=rdx, n=r8, b=r9
 //   SysV:    numa=rdi, numb=rsi, n=rdx, b=rcx
+//
+// Loop structure transcribed from GMP 6.3 mpn/x86_64/alderlake/submul_1.asm.
 
 #include "lmmp_asm.h"
 
@@ -37,114 +39,100 @@ ASM_GSYM(lmmp_submul_1_):
 #ifdef LMMP_WINDOWS
     push    rsi
     push    rdi
-    push    rbx
-    push    rbp
-    push    r12
-    push    r13
-    push    r14
-    push    r15
     mov     rdi, rcx                // SysV:
     mov     rsi, rdx                //   rdi=rp, rsi=up,
-    mov     rdx, r9                 //   rdx=vl (mulx implied)
+    mov     rdx, r9                 //   rdx=v0 (mulx implied)
+    mov     rcx, r8                 //   rcx=n
 #else
-    push    rbx
-    push    rbp
-    push    r12
-    push    r13
-    push    r14
-    push    r15
-    mov     r8, rdx                 // r8 = n
-    mov     rdx, rcx                // vl -> rdx
+    mov     rax, rdx
+    mov     rdx, rcx
+    mov     rcx, rax                // rcx=n, rdx=v0
 #endif
-
-    xor     r9d, r9d                // borrow = 0
-    xor     r14d, r14d              // zero
-    test    r8, r8
-    jz      .Lret
-
-    mov     rcx, r8
-    and     r8d, 3                  // leftover = n & 3
-    shr     rcx, 2                  // groups = n >> 2
-
-    test    r8, r8                  // leftover limbs
-    jz      .Lmain
-    xor     eax, eax                // CF = 0, OF = 0
-
-.Lscalar:                           // one limb: rp[i] -= lo + borrow
-    mulx    r12, rax, [rsi]         // p = up[i]*vl
-    adcx    rax, r9                 // t = lo + borrow
-    adcx    r12, r14                // borrow = hi + o1
-    mov     r13, [rdi]              // rp[i]
-    sub     r13, rax                // rp[i] -= t
-    mov     [rdi], r13
-    adcx    r12, r14                // borrow += o2
-    mov     r9, r12
-    lea     rdi, [rdi+8]
-    lea     rsi, [rsi+8]
-    dec     r8
-    jnz     .Lscalar
-
-.Lmain:
     test    rcx, rcx
-    jz      .Lret
-    xor     eax, eax                // CF = 0, OF = 0
+    jz      .Lret0
 
-.p2align 4
-.Lloop4:                            // main loop, 4 limbs
-    mulx    r12, rax, [rsi]         // lo0, hi0
-    mulx    r13, rbx, [rsi+8]       // lo1, hi1
-    mulx    r15, rbp, [rsi+16]      // lo2, hi2
-    mulx    r11, r8,  [rsi+24]      // lo3, hi3
+    test    ecx, 1
+    jz      .Lbx0
 
-    adcx    rax, r9                 // s0 = lo0 + borrow
-    adox    r12, r14
-    adcx    rbx, r12                // s1 = lo1 + hi0 + C
-    adox    r13, r14
-    adcx    rbp, r13                // s2 = lo2 + hi1 + C
-    adox    r15, r14
-    adcx    r8, r15                 // s3 = lo3 + hi2 + C
-    adox    r11, r14
+.Lbx1:
+    mulx    rax, r9, [rsi]          // p0: r9=lo0, rax=hi0
+    test    ecx, 2
+    stc                             // CF=1 (complement chain +1), OF=0
+    jz      .Lb01
 
-    adcx    r11, r14                // hi3 += C, CF = 0
+.Lb11:                              // n%4 == 3
+    lea     rcx, [rcx+1]
+    lea     rsi, [rsi+16]
+    lea     rdi, [rdi+16]
+    jmp     .Llo3
 
-    mov     r12, [rdi]              // rp[0]
-    sub     r12, rax                // rp[0] -= s0
-    mov     [rdi], r12
-    mov     r13, [rdi+8]            // rp[1]
-    sbb     r13, rbx                // rp[1] -= s1 + b0
-    mov     [rdi+8], r13
-    mov     r15, [rdi+16]           // rp[2]
-    sbb     r15, rbp                // rp[2] -= s2 + b1
-    mov     [rdi+16], r15
-    mov     r10, [rdi+24]           // rp[3]
-    sbb     r10, r8                 // rp[3] -= s3 + b2
-    mov     [rdi+24], r10
+.Lb01:                              // n%4 == 1
+    lea     rcx, [rcx+3]
+    jmp     .Llo1
 
-    adcx    r11, r14                // borrow = hi3 + b3
-    mov     r9, r11
+.Lbx0:
+    mulx    r8,  r9, [rsi]          // p0: r9=lo0, r8=hi0
+    test    ecx, 2
+    stc                             // CF=1, OF=0
+    jz      .Lb00
 
-    lea     rdi, [rdi+32]
+.Lb10:                              // n%4 == 2
+    lea     rsi, [rsi+8]
+    lea     rdi, [rdi+8]
+    lea     rcx, [rcx+2]
+    jmp     .Llo2
+
+.Lb00:                              // n%4 == 0
+    lea     rsi, [rsi+24]
+    lea     rdi, [rdi+24]
+    jmp     .Llo0
+
+.p2align 5
+.Ltop:
     lea     rsi, [rsi+32]
-    dec     rcx
-    jnz     .Lloop4
+    lea     rdi, [rdi+32]
+    mulx    r8,  r9, [rsi-24]       // p(k)
+    adox    r9,  rax                // s = lo + hi(k-1) + OF
+.Llo0:
+    not     r9                      // complement of s
+    adcx    r9,  [rdi-24]           // rp + ~s + CF  (CF = 1-borrow)
+    mov     [rdi-24], r9
+    mulx    rax, r9, [rsi-16]       // p(k+1)
+    adox    r9,  r8
+.Llo3:
+    not     r9
+    adcx    r9,  [rdi-16]
+    mov     [rdi-16], r9
+    mulx    r8,  r9, [rsi-8]        // p(k+2)
+    adox    r9,  rax
+.Llo2:
+    not     r9
+    adcx    r9,  [rdi-8]
+    mov     [rdi-8], r9
+    mulx    rax, r9, [rsi]          // p(k+3)
+    adox    r9,  r8
+.Llo1:
+    not     r9
+    adcx    r9,  [rdi]
+    mov     [rdi], r9
+    lea     rcx, [rcx-4]
+    jrcxz   .Lend
+    jmp     .Ltop
 
-.Lret:
-    mov     rax, r9                 // ret borrow
+.Lend:
+    adox    rax, rcx                // T = hi(last) + OF   (rcx = 0)
+    sbb     rax, -1                 // ret = T + 1 - CF = T + borrow
+
 #ifdef LMMP_WINDOWS
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbp
-    pop     rbx
     pop     rdi
     pop     rsi
-#else
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbp
-    pop     rbx
+#endif
+    ret
+
+.Lret0:
+    xor     eax, eax
+#ifdef LMMP_WINDOWS
+    pop     rdi
+    pop     rsi
 #endif
     ret
