@@ -29,7 +29,7 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
                    mem-operand, 逐 limb v0/v1 相位换 rdx) + 奇 n 末行 addmul_1
   x64  sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 交叉积列累加
                    (8 列寄存器窗口+adcx/adox 双链, 计划式发射) -> 倍增 -> 对角
-  arm64 mul      : 种子 mul_1 + 展开 addmul_1, 双链批结构
+  arm64 mul      : 种子对 mul_2 + 展开 addmul_2 行对 (两列进位保存), 奇 n 尾行 addmul_1
                    (链1: s_k=lo_k+hi_{k-1}+C; 链2: dst+=s; carry 走 x15)
   arm64 sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N>=4: 2a 乘数单趟
                    (m_i = 2a_i + ov_{i-1}, ov 由 bit63 现场生成; 对角即时
@@ -1117,25 +1117,101 @@ def arm64_row_batches(b, k0, m, col0, seed, cin0=None):
             b.append("    str     x8, [x0, #%d]" % (8 * c))
 
 
+def arm64_tc_limb1(b, k, c, seed):
+    """两列核单 limb (奇长行首): u=x6, 一对积 (v0,v1)*u 两链进位保存。
+    seed: 无 rp 读 (s = lo0 + cy0); RMW: t = lo0 + rp 先行。"""
+    b.append("    ldr     x6, [x1, #%d]" % (8 * k))
+    if not seed:
+        b.append("    ldr     x14, [x0, #%d]" % (8 * c))
+    b.append("    mul     x8, x6, x4")
+    b.append("    umulh   x9, x6, x4")
+    b.append("    mul     x10, x6, x5")
+    b.append("    umulh   x11, x6, x5")
+    if seed:
+        b.append("    adds    x9, x9, x10")
+    else:
+        b.append("    adds    x8, x8, x14")
+        b.append("    adcs    x9, x9, x10")
+    b.append("    adcs    x11, x11, xzr")
+    b.append("    adds    x8, x8, x12")
+    b.append("    adcs    x12, x9, x13")
+    b.append("    adcs    x13, x11, xzr")
+    b.append("    str     x8, [x0, #%d]" % (8 * c))
+
+
+def arm64_tc_limb2(b, k, c, seed):
+    """两列核 2-limb 组: u=x6,x7; RMW 行预读 rp=x14,x15; x14 于消费后复用为 hi1'。
+    调度与 mullo/sqr_basecase 行内核同构 (c3/c6 恒 0, s-adds 断链合法)。"""
+    b.append("    ldp     x6, x7, [x1, #%d]" % (8 * k))
+    if not seed:
+        b.append("    ldp     x14, x15, [x0, #%d]" % (8 * c))
+    b.append("    mul     x8, x6, x4")
+    b.append("    umulh   x9, x6, x4")
+    b.append("    mul     x10, x6, x5")
+    b.append("    umulh   x11, x6, x5")
+    if seed:
+        b.append("    adds    x9, x9, x10")
+    else:
+        b.append("    adds    x8, x8, x14")
+        b.append("    adcs    x9, x9, x10")
+    b.append("    adcs    x11, x11, xzr")
+    b.append("    adds    x8, x8, x12")
+    b.append("    adcs    x12, x9, x13")
+    b.append("    adcs    x13, x11, xzr")
+    b.append("    mul     x9, x7, x4")
+    b.append("    umulh   x10, x7, x4")
+    b.append("    mul     x11, x7, x5")
+    b.append("    umulh   x14, x7, x5")
+    if seed:
+        b.append("    adds    x10, x10, x11")
+    else:
+        b.append("    adds    x9, x9, x15")
+        b.append("    adcs    x10, x10, x11")
+    b.append("    adcs    x14, x14, xzr")
+    b.append("    adds    x9, x9, x12")
+    b.append("    adcs    x12, x10, x13")
+    b.append("    adcs    x13, x14, xzr")
+    b.append("    stp     x8, x9, [x0, #%d]" % (8 * c))
+
+
+def arm64_tc_row(b, m, n, seed):
+    """行对 m: v=(b[2m], b[2m+1]), rp 基列 2m, len n。
+    顶列 2m+n / 2m+n+1 为前行未触列, cy0/cy1 直存。"""
+    b.append("    // row %d: cols [%d, %d]" % (m, 2 * m, 2 * m + n + 1))
+    if seed:
+        b.append("    ldp     x4, x5, [x2]")
+        b.append("    mov     x12, xzr")
+        b.append("    mov     x13, xzr")
+    else:
+        b.append("    ldp     x4, x5, [x2, #%d]" % (8 * 2 * m))
+        b.append("    mov     x12, xzr")
+        b.append("    mov     x13, xzr")
+    c, k = 2 * m, 0
+    if n % 2:
+        arm64_tc_limb1(b, 0, c, seed)
+        k, c = 1, c + 1
+    while k < n:
+        arm64_tc_limb2(b, k, c, seed)
+        k, c = k + 2, c + 2
+    b.append("    str     x12, [x0, #%d]" % (8 * (2 * m + n)))
+    b.append("    str     x13, [x0, #%d]" % (8 * (2 * m + n + 1)))
+
+
 def arm64_mul(n):
-    """种子 mul_1(直存) + (n-1) 行展开 addmul_1(双链 RMW), 顶列直存。
-    行 j 写列 [j, j+n-1] RMW + 顶列 j+n 直存 (此前行未触及, 安全)。
-    全 caller-saved 寄存器, 无压栈。"""
+    """种子对 (b0,b1) mul_2 直存 + 行对 m>=1 addmul_2 全展开 RMW,
+    奇 n 尾行 b[n-1] 单乘子双链批。两列进位保存核与 basecase 家族同构,
+    全展开 + 常量偏移免循环/指针税。全 caller-saved 寄存器, 无压栈。"""
     b = []
-    b.append("    // x0=dst x1=numa x2=numb x3=v x15=carry")
-
-    # ---- 种子行 j=0: dst[0..n] = numa * b_0 ----
-    b.append("    ldr     x3, [x2]                 // b_0")
-    arm64_row_batches(b, 0, n, 0, True)
-    b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * n))
-
-    # ---- 行 j = 1..n-1: dst[j..j+n-1] += numa * b_j, 顶列直存 ----
-    for j in range(1, n):
-        b.append("    ldr     x3, [x2, #%d]            // b_%d" % (8 * j, j))
-        b.append("    mov     x15, xzr               // carry = 0")
-        arm64_row_batches(b, 0, n, j, False)
-        b.append("    str     x15, [x0, #%d]           // 顶列" % (8 * (j + n)))
-
+    b.append("    // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1")
+    b.append("    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行")
+    arm64_tc_row(b, 0, n, True)
+    for m in range(1, n // 2):
+        arm64_tc_row(b, m, n, False)
+    if n % 2:
+        b.append("    ldr     x3, [x2, #%d]              // b_%d" % (8 * (n - 1), n - 1))
+        b.append("    mov     x15, xzr")
+        arm64_row_batches(b, 0, n, n - 1, False)
+        b.append("    str     x15, [x0, #%d]" % (8 * (2 * n - 1)))
     b.append("    ret")
     return "\n".join(b)
 
