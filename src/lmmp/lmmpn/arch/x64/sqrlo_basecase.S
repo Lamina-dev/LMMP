@@ -105,6 +105,8 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     lea     rbx, [rdx - 1]
     neg     rbx                   // rbx = 1-n
 
+    cmp     r14, 8
+    jae     .Lsqn                 // n >= 8: new seed
     mov     r9, [rsi + rbx*8 - 8] // r9 = a0
     mov     rax, [rsi + rbx*8]    // rax = a1
     mul     r9                    // rdx:rax = a0 * a1
@@ -563,3 +565,78 @@ ASM_GSYM(lmmp_sqrlo_basecase_):
     POP_EXTRA
     POP_ALL
     ret
+
+// n >= 8 seed: [dst+1,n-1] = [a+1,n-1] x a[0], carry discarded
+.Lsqn:
+    push    r14                          // r14 holds n for .Ldiag
+    lea     r8, [r14 + 3]
+    shr     r8, 2                        // r8 = (n-1)/4 + 1 groups counter
+    mov     rdx, [rsi + rbx*8 - 8]       // rdx = a0
+    mov     rbp, rbx                     // rbp = 1-n (seed index, first limb a[1])
+    mov     eax, ebx
+    and     eax, 3                       // CF = 0
+    jz      .Lsq0
+    cmp     eax, 2
+    je      .Lsq2
+    jb      .Lsq3                        // 3 head limbs
+
+.Lsq1:                                   // 1 head limb (CF = 0 from cmp)
+    mulx    r14, rax, [rsi + rbp*8]
+    mov     [rdi + rbp*8], rax           // s = lo
+    lea     rbp, [rbp + 1]
+    dec     r8
+    jz      .Lsqed
+    jmp     .Lsqloop
+
+.Lsq0:                                   // 0 head limbs
+    xor     r14d, r14d
+    dec     r8
+    jmp     .Lsqloop
+
+.Lsq2:                                   // 2 head limbs (CF = 0 from je)
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r14, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    lea     rbp, [rbp + 2]
+    dec     r8
+    jz      .Lsqed
+    jmp     .Lsqloop
+
+.Lsq3:                                   // 3 head limbs (CF = 1 from jb)
+    clc
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r14, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    lea     rbp, [rbp + 3]
+    dec     r8
+    jz      .Lsqed
+    // fall into .Lsqloop
+
+.p2align 4
+.Lsqloop:                                // mul_1 seed, 4 limbs/iter (carry = (hi, CF))
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    adc     rax, r14                     // s = lo + hi' + CF
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r11, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    mulx    r14, r9, [rsi + rbp*8 + 24]
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 24], r9
+    lea     rbp, [rbp + 4]
+    dec     r8                           // CF preserved
+    jnz     .Lsqloop
+
+.Lsqed:
+    pop     r14
+    jmp     .Lrow_entry

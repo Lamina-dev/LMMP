@@ -103,6 +103,8 @@ ASM_GSYM(lmmp_mullo_basecase_):
     lea     rsi, [rsi + rdx*8]     // rsi = numa + n
     lea     rdi, [rdi + rdx*8]     // rdi = dst + n
 
+    cmp     rdx, 8
+    jae     .Lmun                  // n >= 8: new seed
     mov     r9, [rcx]              // r9 = numb[0]
     mov     rax, [rsi + rbx*8]     // rax = numa[0]
     mul     r9                     // rdx:rax = numa[0] * numb[0]
@@ -180,6 +182,7 @@ ASM_GSYM(lmmp_mullo_basecase_):
     adc     rdx, 0
     mov     [rdi - 8], r11         // dst[n-1]
     // carry discarded
+.Lmudone:
 
     dec     r8                     // r8 = n - 1
     jz      .Lret
@@ -470,3 +473,79 @@ ASM_GSYM(lmmp_mullo_basecase_):
 .Lret:
     POP_ALL
     ret
+
+// n >= 8 seed: [dst,n] = numa x numb[0], carry discarded
+.Lmun:
+    lea     r8, [rdx + 4]
+    shr     r8, 2                        // r8 = n/4 + 1 groups counter
+    mov     rdx, [rcx]                   // rdx = numb[0]
+    push    r12                          // borrow r12 for the seed (PUSH_EXTRA is later)
+    mov     rbp, rbx                     // rbp = -n (seed index)
+    mov     eax, ebx
+    and     eax, 3                       // CF = 0
+    jz      .Lmu0
+    cmp     eax, 2
+    je      .Lmu2
+    jb      .Lmu3                        // n mod 4 == 3
+
+.Lmu1h:                                  // n mod 4 == 1 (CF = 0 from cmp)
+    mulx    r12, rax, [rsi + rbp*8]
+    mov     [rdi + rbp*8], rax           // s0 = lo0
+    lea     rbp, [rbp + 1]
+    dec     r8
+    jz      .Lmued
+    jmp     .Lmuloop
+
+.Lmu0:                                   // n mod 4 == 0
+    xor     r12d, r12d
+    dec     r8
+    jmp     .Lmuloop
+
+.Lmu2:                                   // n mod 4 == 2 (CF = 0 from je)
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r12, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    lea     rbp, [rbp + 2]
+    dec     r8
+    jz      .Lmued
+    jmp     .Lmuloop
+
+.Lmu3:                                   // n mod 4 == 3 (CF = 1 from jb)
+    clc
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r12, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    lea     rbp, [rbp + 3]
+    dec     r8
+    jz      .Lmued
+    // fall into .Lmuloop
+
+.p2align 4
+.Lmuloop:                                // mul_1 seed, 4 limbs/iter (carry = (hi, CF))
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    adc     rax, r12                     // s = lo + hi' + CF
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r11, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    mulx    r12, r9, [rsi + rbp*8 + 24]
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 24], r9
+    lea     rbp, [rbp + 4]
+    dec     r8                           // CF preserved
+    jnz     .Lmuloop
+
+.Lmued:
+    pop     r12
+    // continue into the rows (fall through the shared continuation)
+    jmp     .Lmudone

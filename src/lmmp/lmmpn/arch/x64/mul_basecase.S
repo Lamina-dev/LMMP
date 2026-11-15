@@ -362,79 +362,83 @@ ASM_GSYM(lmmp_mul_basecase_):
     POP_ALL
     ret
 
-// nb odd: dst = numa * numb[0] (mul_1)
+// nb odd: dst = numa * numb[0] (mul_1, carry kept as (hi, CF) across the loop)
 .Ldo_mul_1:
     mov     rdx, [rcx]              // rdx = b0 (mulx implied)
-    xor     r10d, r10d              // carry = 0
+    mov     r10, rbx
+    neg     r10
+    shr     r10, 2
+    inc     r10                     // r10 = na/4 + 1 (dec hits 0 after na/4 passes)
 
     mov     rbp, rbx                // rbp = -na (seed index)
     mov     rax, rbx
-    and     eax, 3                  // (-na) mod 4
-    jz      .Lm1loop
+    and     eax, 3                  // (-na) mod 4, CF = 0
+    jz      .Lm1m0
     cmp     eax, 2
     je      .Lm1rem2
     jb      .Lm1rem3                // na mod 4 == 3
 
-.Lm1rem1:                           // na mod 4 == 1
-    mulx    r11, rax, [rsi + rbp*8] // p0 = a0*b0
-    add     rax, r10                // s0 = lo0 + carry
-    mov     [rdi + rbp*8], rax
-    adc     r11, 0
-    mov     r10, r11
-    add     rbp, 1
-    jmp     .Lm1chk
-
-.Lm1rem2:                                  // na mod 4 == 2
-    mulx    r11, rax, [rsi + rbp*8]        // p0
-    mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1
-    add     rax, r10
-    mov     [rdi + rbp*8], rax
-    adc     r12, r11
-    mov     [rdi + rbp*8 + 8], r12
-    adc     r9, 0
-    mov     r10, r9
-    add     rbp, 2
-    jmp     .Lm1chk
-
-.Lm1rem3:                                  // na mod 4 == 3
-    mulx    r11, rax, [rsi + rbp*8]        // p0
-    mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1
-    add     rax, r10
-    mov     [rdi + rbp*8], rax
-    adc     r12, r11
-    mov     [rdi + rbp*8 + 8], r12
-    mulx    r11, rax, [rsi + rbp*8 + 16]   // p2
-    adc     rax, r9
-    mov     [rdi + rbp*8 + 16], rax
-    adc     r11, 0
-    mov     r10, r11
-    add     rbp, 3
-
-.Lm1chk:
-    test    rbp, rbp
+.Lm1rem1:                           // na mod 4 == 1 (CF = 0 from cmp)
+    mulx    r14, rax, [rsi + rbp*8] // p0: hi0 -> r14 (pending home)
+    mov     [rdi + rbp*8], rax      // s0 = lo0
+    lea     rbp, [rbp + 1]
+    dec     r10                     // CF preserved
     jz      .Lm1ed
+    jmp     .Lm1loop
+
+.Lm1m0:                             // na mod 4 == 0
+    xor     r14d, r14d              // pending hi = 0
+    dec     r10                     // consume the +1 (CF preserved)
+    jmp     .Lm1loop
+
+.Lm1rem2:                                  // na mod 4 == 2 (CF = 0 from je)
+    mulx    r11, rax, [rsi + rbp*8]        // p0: hi0 -> r11
+    mulx    r14, r12, [rsi + rbp*8 + 8]    // p1: hi1 -> r14 (pending)
+    mov     [rdi + rbp*8], rax             // s0 = lo0
+    adc     r12, r11                       // s1 = lo1 + hi0 + CF
+    mov     [rdi + rbp*8 + 8], r12
+    lea     rbp, [rbp + 2]
+    dec     r10
+    jz      .Lm1ed
+    jmp     .Lm1loop
+
+.Lm1rem3:                                  // na mod 4 == 3 (CF = 1 from jb)
+    clc                                    // normalize CF
+    mulx    r11, rax, [rsi + rbp*8]        // p0: hi0 -> r11
+    mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1: hi1 -> r9
+    mov     [rdi + rbp*8], rax             // s0 = lo0
+    adc     r12, r11                       // s1
+    mov     [rdi + rbp*8 + 8], r12
+    mulx    r14, rax, [rsi + rbp*8 + 16]   // p2: hi2 -> r14 (pending)
+    adc     rax, r9                        // s2 = lo2 + hi1 + CF
+    mov     [rdi + rbp*8 + 16], rax
+    lea     rbp, [rbp + 3]
+    dec     r10
+    jz      .Lm1ed
+    // fall into .Lm1loop
 
 .p2align 4
 .Lm1loop:                                  // mul_1 seed, 4 limbs/iter
-    mulx    r11, rax, [rsi + rbp*8]        // p0
-    mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1
-    add     rax, r10                       // s0 = lo0 + carry
+    mulx    r11, rax, [rsi + rbp*8]        // p0: hi0 -> r11
+    mulx    r9,  r12, [rsi + rbp*8 + 8]    // p1: hi1 -> r9
+    adc     rax, r14                       // s0 = lo0 + hi3' + CF
     mov     [rdi + rbp*8], rax
     adc     r12, r11                       // s1
     mov     [rdi + rbp*8 + 8], r12
-    mulx    r11, rax, [rsi + rbp*8 + 16]   // p2
+    mulx    r11, rax, [rsi + rbp*8 + 16]   // p2: hi2 -> r11
     adc     rax, r9                        // s2
     mov     [rdi + rbp*8 + 16], rax
-    mulx    r9,  r12, [rsi + rbp*8 + 24]   // p3
+    mulx    r14, r12, [rsi + rbp*8 + 24]   // p3: hi3 -> r14 (new pending)
     adc     r12, r11                       // s3
     mov     [rdi + rbp*8 + 24], r12
-    adc     r9, 0                          // carry = hi3 + CF
-    mov     r10, r9
-    add     rbp, 4
+    lea     rbp, [rbp + 4]
+    dec     r10                            // CF preserved
     jnz     .Lm1loop
 
 .Lm1ed:
-    mov     [rdi], r10              // dst[na] = carry
+    mov     rax, r14
+    adc     rax, 0                  // carry = hi3 + CF
+    mov     [rdi], rax              // dst[na] = carry
 
     dec     r8                      // nb--
     jz      .Lret5
