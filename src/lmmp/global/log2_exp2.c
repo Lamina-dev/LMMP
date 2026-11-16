@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -45,8 +45,13 @@
     侧 m*7（13/7 项）。lg2 系数按 2^191 尺度截取高 2 limb 存储（c1 =
     1/ln2 > 1 超出定点范围，链与收尾按半尺度 2^63/2^127 推进、结果
     左移 1 位恢复；低 limb 为死数据不存）；xp2 系数均 < 1，按满尺度
-    2^192 截取高 2 limb 存储。128bit 版 B/A 链为单循环双累加器交错
-    Horner——相对全展开 Estrin 代码减半且无寄存器溢出，实测更快。
+    2^192 截取高 2 limb 存储。求值形态：64bit log2 用 Estrin 树
+    （w2/w4 预平方，关键路径 6 级 mul -> 3 级）；128bit 版 B/A 链
+    全展开，非收尾步用 3 乘法舍入 hi128（umul128_tohi128_r，省去
+    a0*b0 全积、以交叉和顶位舍入，|e| <= 1 ulp 且均值近零），每步
+    误差被后续 w^j 衰减（log2 侧 2^-10j、exp2 侧 2^-14j）至预算
+    之下，收尾 1~2 步保留全精度 floor。exp2_64 的 Q 表合成同样用
+    舍入式 hi128（其 1 ulp 误差经 >>64 后 < 2^-63）。
 
     舍入控制：约简变量 u 的定点化为误差主源（~0.7 ulp），其余各级
     floor 系统性偏负，故 64bit 版 B/A 链取 floor 而收尾以 +2^63 /
@@ -217,6 +222,23 @@ static inline __uint128_t umul128_tohi128(__uint128_t a, __uint128_t b) {
     return ((__uint128_t)((uint64_t)(p11 >> 64) + (uint64_t)(w2 >> 64)) << 64) | (uint64_t)w2;
 }
 
+/*
+    hi128(a*b) 的 3 乘法舍入近似（省去 a0*b0）：精确值 = p11 + cy +
+    (mid>>64) + floor((mid_lo + hi(a0*b0))/2^64)，末项进位 ∈{0,1}；
+    以 round(mid_lo/2^64)（mid_lo 顶位）替代，两者均 ∈{0,1}，故
+    |e| <= 1 ulp、均值近零。用于级数链非收尾步——该误差随后被 w
+    的幂衰减到输出预算之下。
+*/
+static inline __uint128_t umul128_tohi128_r(__uint128_t a, __uint128_t b) {
+    uint64_t a0 = (uint64_t)a, a1 = (uint64_t)(a >> 64);
+    uint64_t b0 = (uint64_t)b, b1 = (uint64_t)(b >> 64);
+    __uint128_t p01 = (__uint128_t)a0 * b1;
+    __uint128_t p10 = (__uint128_t)a1 * b0;
+    __uint128_t mid = p01 + p10;
+    uint64_t cy = (mid < p01);
+    return ((__uint128_t)a1 * b1) + (mid >> 64) + ((__uint128_t)cy << 64) + ((uint64_t)mid >> 63);
+}
+
 // r = x + y（128 位；调用点均为 r==x 就地模式，r==y 会丢失进位）
 #define add_u128(r, x, y)                                     \
     do {                                                      \
@@ -282,10 +304,24 @@ uint64_t log2_fixed_64(uint64_t x) {
         limb。B 为奇次项（m=1..13），A 为偶次项（m=2..14），首个截断
         项 m=15 < 2^-75 < 2^-66 预算。
     */
-    uint64_t B = lg2_c27[12][1];
-    for (int k = 10; k >= 0; k -= 2) B = _umul64to64hi_(B, w) + lg2_c27[k][1];
-    uint64_t A = lg2_c27[13][1];
-    for (int k = 11; k >= 1; k -= 2) A = _umul64to64hi_(A, w) + lg2_c27[k][1];
+    /*
+        Estrin 求值树（w2=w^2, w4=w^4）：B/A 各 7/6 次 mulhi 不变，
+        乘法关键路径 6 级 -> 3 级，B/A 两树独立并行。
+    */
+    uint64_t w2 = _umul64to64hi_(w, w);
+    uint64_t w4 = _umul64to64hi_(w2, w2);
+    uint64_t b01 = _umul64to64hi_(lg2_c27[2][1], w) + lg2_c27[0][1];
+    uint64_t b23 = _umul64to64hi_(lg2_c27[6][1], w) + lg2_c27[4][1];
+    uint64_t b45 = _umul64to64hi_(lg2_c27[10][1], w) + lg2_c27[8][1];
+    uint64_t a01 = _umul64to64hi_(lg2_c27[3][1], w) + lg2_c27[1][1];
+    uint64_t a23 = _umul64to64hi_(lg2_c27[7][1], w) + lg2_c27[5][1];
+    uint64_t a45 = _umul64to64hi_(lg2_c27[11][1], w) + lg2_c27[9][1];
+    uint64_t b03 = _umul64to64hi_(b23, w2) + b01;
+    uint64_t a03 = _umul64to64hi_(a23, w2) + a01;
+    uint64_t b46 = _umul64to64hi_(lg2_c27[12][1], w2) + b45;
+    uint64_t a46 = _umul64to64hi_(lg2_c27[13][1], w2) + a45;
+    uint64_t B = _umul64to64hi_(b46, w4) + b03;
+    uint64_t A = _umul64to64hi_(a46, w4) + a03;
 
     // t1 = (v*B)>>64、t2 = (wf*A)>>64，均取 2^127 半尺度
     uint64_t p[2], q[2], t1[2], t2[2];
@@ -339,7 +375,9 @@ uint64_t exp2_fixed_64(uint64_t x) {
     unsigned k = i >> 3, m = i & 7;
     uint64_t t8h = xp2_T8[m][1] + (xp2_T8[m][0] >> 63);
     __uint128_t t8t = ((__uint128_t)(xp2_T8[m][2] + (t8h < xp2_T8[m][1])) << 64) | t8h;
-    __uint128_t qq = umul128_tohi128(((__uint128_t)xp2_T16[k][1] << 64) | xp2_T16[k][0], t8t);
+    // qq 仅供 2^128 尺度合成后舍入取高 64bit，hi128 的 1 ulp（2^-128）
+    // 误差经 >>64 后 < 2^-63，用 3 乘法舍入式即可
+    __uint128_t qq = umul128_tohi128_r(((__uint128_t)xp2_T16[k][1] << 64) | xp2_T16[k][0], t8t);
     uint64_t q0 = xp2_T16[k][0] + (uint64_t)qq;
     uint64_t cy = (q0 < (uint64_t)qq);
     q0 += (uint64_t)t8t;
@@ -372,13 +410,20 @@ void log2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low) {
         下 B 误差预算 ~2^-122，链取双 limb（2^127 半尺度）；首个截断项
         m=27 < 2^-135 < 2^-130 预算。链值以 __uint128_t 局部量保活，
         避免数组形态在循环内产生栈回读写。
+        非收尾步用 3 乘法舍入 hi128（umul128_tohi128_r）：每步 <= 1 ulp
+        误差被后续 wf^j（<= 2^-10j）衰减，j >= 1 即 <= 2^-138，远低于
+        预算；收尾 2 步保留全精度 floor。乘法数 104 -> 84。
     */
     __uint128_t B = ((__uint128_t)lg2_c27[24][1] << 64) | lg2_c27[24][0];
     __uint128_t A = ((__uint128_t)lg2_c27[25][1] << 64) | lg2_c27[25][0];
-    for (int k = 22; k >= 1; k -= 2) {
-        B = umul128_tohi128(B, wf) + (((__uint128_t)lg2_c27[k][1] << 64) | lg2_c27[k][0]);
-        A = umul128_tohi128(A, wf) + (((__uint128_t)lg2_c27[k + 1][1] << 64) | lg2_c27[k + 1][0]);
+    for (int k = 22; k >= 5; k -= 2) {
+        B = umul128_tohi128_r(B, wf) + (((__uint128_t)lg2_c27[k][1] << 64) | lg2_c27[k][0]);
+        A = umul128_tohi128_r(A, wf) + (((__uint128_t)lg2_c27[k + 1][1] << 64) | lg2_c27[k + 1][0]);
     }
+    B = umul128_tohi128_r(B, wf) + (((__uint128_t)lg2_c27[4][1] << 64) | lg2_c27[4][0]);
+    A = umul128_tohi128_r(A, wf) + (((__uint128_t)lg2_c27[5][1] << 64) | lg2_c27[5][0]);
+    B = umul128_tohi128(B, wf) + (((__uint128_t)lg2_c27[2][1] << 64) | lg2_c27[2][0]);
+    A = umul128_tohi128(A, wf) + (((__uint128_t)lg2_c27[3][1] << 64) | lg2_c27[3][0]);
     B = umul128_tohi128(B, wf) + (((__uint128_t)lg2_c27[0][1] << 64) | lg2_c27[0][0]);
     A = umul128_tohi128(A, wf) + (((__uint128_t)lg2_c27[1][1] << 64) | lg2_c27[1][0]);
 
@@ -428,15 +473,20 @@ void exp2_fixed_128(uint64_t* dst, uint64_t high, uint64_t low) {
         c12 -> c2（[11] -> [1]），链双 limb（2^128 满尺度，xp2 系数
         均 < 1）；首个截断项 m=15 < 2^-133 < 2^-130 预算。
     */
+    // 非收尾步用 3 乘法舍入 hi128：每步 <= 1 ulp 误差被后续 wfe^j
+    // （<= 2^-14j）衰减，j >= 1 即 <= 2^-142；收尾步全精度。48 -> 38 乘法。
     __uint128_t B = ((__uint128_t)xp2_c[12][1] << 64) | xp2_c[12][0];
     __uint128_t A = ((__uint128_t)xp2_c[11][1] << 64) | xp2_c[11][0];
-    // 常量小 trip 循环在 -O3 下会被完全展开（代码膨胀 + spill 回潮），
-    // 压回滚动形态
-    #pragma GCC unroll 1
-    for (int k = 10; k >= 1; k -= 2) {
-        B = umul128_tohi128(B, wfe) + (((__uint128_t)xp2_c[k][1] << 64) | xp2_c[k][0]);
-        A = umul128_tohi128(A, wfe) + (((__uint128_t)xp2_c[k - 1][1] << 64) | xp2_c[k - 1][0]);
-    }
+    B = umul128_tohi128_r(B, wfe) + (((__uint128_t)xp2_c[10][1] << 64) | xp2_c[10][0]);
+    A = umul128_tohi128_r(A, wfe) + (((__uint128_t)xp2_c[9][1] << 64) | xp2_c[9][0]);
+    B = umul128_tohi128_r(B, wfe) + (((__uint128_t)xp2_c[8][1] << 64) | xp2_c[8][0]);
+    A = umul128_tohi128_r(A, wfe) + (((__uint128_t)xp2_c[7][1] << 64) | xp2_c[7][0]);
+    B = umul128_tohi128_r(B, wfe) + (((__uint128_t)xp2_c[6][1] << 64) | xp2_c[6][0]);
+    A = umul128_tohi128_r(A, wfe) + (((__uint128_t)xp2_c[5][1] << 64) | xp2_c[5][0]);
+    B = umul128_tohi128_r(B, wfe) + (((__uint128_t)xp2_c[4][1] << 64) | xp2_c[4][0]);
+    A = umul128_tohi128_r(A, wfe) + (((__uint128_t)xp2_c[3][1] << 64) | xp2_c[3][0]);
+    B = umul128_tohi128_r(B, wfe) + (((__uint128_t)xp2_c[2][1] << 64) | xp2_c[2][0]);
+    A = umul128_tohi128_r(A, wfe) + (((__uint128_t)xp2_c[1][1] << 64) | xp2_c[1][0]);
     B = umul128_tohi128(B, wfe) + (((__uint128_t)xp2_c[0][1] << 64) | xp2_c[0][0]);
 
     // S = s*2^192 = t*B + w*A（取 256bit 积高 192bit），sh = s*2^128
