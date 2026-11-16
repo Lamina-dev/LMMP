@@ -44,7 +44,6 @@ extern uint64_t lmmp_tune_SQR_TOOM6_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_TOOM8_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_FFT_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_UNBALANCED_HARD_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;

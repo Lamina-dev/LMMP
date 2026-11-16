@@ -22,28 +22,31 @@
 
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
 #include "../../../include/lmmp/lmmpn.h"
 
 
 /*
         Areas where the different toom algorithms can be called
-0    1/6  1/5 1/4  1/3 2/5  1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
+0    1/6  1/5 1/4  1/3 2/5 9/20 1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
 
-                             (-------------------(xxxxxxxxxx|  toom22
-                    (------------(xxxxxxxxxxxxxxx|----------)  toom32
-               (----(xxxxxxxxxxxx|-------)                     toom42
-                                         (-------(xxxxxxxxxx|  toom33
-(xxxxxxxxxxxxxxxxxxx|                                          toom42-unblanced
+                                 (-------------------(xxxxxxxxxx|  toom22
+                    (----------------(xxxxxxxxxxxxxxx|----------)  toom32
+               (----(xxxxxxxxxxxxxxxx|-------)                     toom42
+                                             (-------(xxxxxxxxxx|  toom33
+(xxxxxxxxxxxxxxxxxxx|                                              toom42-unblanced
 
-                                             (---(xxxxxxxxxx|  toom44
-                             (-------(xxxxxxxxxxx|----------)  toom43
-                        (--(xxxxxxxxx|-------)                 toom53
-           (--------(xxxxxx|-)                                 toom52
-      (----(xxxxxxxx|---)  |                                   toom62
-(xxxxxxxxxx|               |                                   toom62-unblanced
-                          9/20
-0    1/6  1/5 1/4  1/3 2/5  1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
+                                                 (---(xxxxxxxxxx|  toom44
+                                 (-------(xxxxxxxxxxx|----------)  toom43
+                        (---(xxxxxxxxxxxx|-------)                 toom53
+           (--------(xxxxxxx|----)                                 toom52
+      (----(xxxxxxxx|---)                                          toom62
+(xxxxxxxxxx|                                                       toom62-unblanced
+
+                      (xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx|  toom6h
+
+               (xxxxxx|-----------------------------------------)  toom8h
+                     6/17
+0    1/6  1/5 1/4  1/3 2/5 9/20 1/2 5/9 3/5 2/3 3/4 4/5  9/10   1  nb/na
 */
 
 void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
@@ -55,7 +58,7 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
         else
             lmmp_mul_n_(dst, numa, numb, na);
     } else if (nb < MUL_TOOM22_THRESHOLD && !(4 * na < 5 * nb)) {
-        lmmp_mul_basecase_unbalance_(dst, numa, na, numb, nb);
+        lmmp_mul_basecase_(dst, numa, na, numb, nb);
     } else if (((na + nb) >> 1) < MUL_TOOM44_THRESHOLD || 2 * nb < MUL_TOOM44_THRESHOLD) {
         if (na < 3 * nb) {
             if (4 * na < 5 * nb) {
@@ -93,69 +96,6 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
             lmmp_mul_fft_(dst, numa, na, numb, nb);
         else
             lmmp_mul_fft_unbalance_(dst, numa, na, numb, nb);
-    }
-}
-
-void lmmp_mul_basecase_unbalance_(
-    mp_ptr    restrict  dst,
-    mp_srcptr restrict numa,
-    mp_size_t            na,
-    mp_srcptr restrict numb,
-    mp_size_t            nb
-) {
-    lmmp_param_assert(na >= nb);
-    lmmp_param_assert(nb >= 1);
-    if (na <= PART_SIZE || nb <= 2)
-        lmmp_mul_basecase_(dst, numa, na, numb, nb);
-    else if (nb >= MUL_UNBALANCED_HARD_THRESHOLD && nb <= LMMP_MUL_HARD_MAX_N) {
-        void (*mulfn)(mp_ptr, mp_srcptr, mp_srcptr) = lmmp_mul_hard_fns_[nb];
-        TEMP_S_DECL;
-        mp_ptr restrict tp = SALLOC_TYPE(nb, mp_limb_t);
-        mulfn(dst, numa, numb);
-        dst += nb;
-        numa += nb;
-        na -= nb;
-        lmmp_copy(tp, dst, nb);
-        while (na > nb) {
-            mulfn(dst, numa, numb);
-            if (lmmp_add_n_(dst, dst, tp, nb))
-                lmmp_inc(dst + nb);
-            dst += nb;
-            numa += nb;
-            na -= nb;
-            lmmp_copy(tp, dst, nb);
-        }
-        if (na == nb)
-            mulfn(dst, numa, numb);
-        else
-            lmmp_mul_basecase_(dst, numb, nb, numa, na);
-        if (lmmp_add_n_(dst, dst, tp, nb))
-            lmmp_inc(dst + nb);
-        TEMP_S_FREE;
-    } else {
-        TEMP_S_DECL;
-        mp_ptr restrict tp = SALLOC_TYPE(nb, mp_limb_t);
-        lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
-        dst += PART_SIZE;
-        numa += PART_SIZE;
-        na -= PART_SIZE;
-        lmmp_copy(tp, dst, nb);
-        while (na > PART_SIZE) {
-            lmmp_mul_basecase_(dst, numa, PART_SIZE, numb, nb);
-            if (lmmp_add_n_(dst, dst, tp, nb))
-            lmmp_inc(dst + nb);
-            dst += PART_SIZE;
-            numa += PART_SIZE;
-            na -= PART_SIZE;
-            lmmp_copy(tp, dst, nb);
-        }
-        if (na >= nb)
-            lmmp_mul_basecase_(dst, numa, na, numb, nb);
-        else
-            lmmp_mul_basecase_(dst, numb, nb, numa, na);
-        if (lmmp_add_n_(dst, dst, tp, nb))
-            lmmp_inc(dst + nb);
-        TEMP_S_FREE;
     }
 }
 

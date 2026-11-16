@@ -135,17 +135,17 @@ void lmmp_mul_toom6h_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     lmmp_debug_assert(s + t + 3 * (mp_size_t)half > 3);
     lmmp_debug_assert(n > 2);
 
-#define r4 (dst + 3 * n)          /* 3n+1 */
-#define r2 (dst + 7 * n)          /* 3n+1 */
-#define r0 (dst + 11 * n)         /* s+t <= 2n */
-#define r5 (scratch)              /* 3n+1 */
-#define r3 (scratch + 3 * n + 1)  /* 3n+1 */
-#define r1 (scratch + 6 * n + 2)  /* 3n+1 */
-#define v0 (dst + 7 * n)          /* n+1 */
-#define v1 (dst + 8 * n + 1)      /* n+1 */
-#define v2 (dst + 9 * n + 2)      /* n+1 */
-#define v3 (scratch + 9 * n + 3)  /* n+1 */
-#define wsi (scratch + 9 * n + 3) /* 3n+1，与 v3 复用（生命周期不交） */
+#define r4 (dst + 3 * n)           /* 3n+1 */
+#define r2 (dst + 7 * n)           /* 3n+1 */
+#define r0 (dst + 11 * n)          /* s+t <= 2n */
+#define r5 (scratch)               /* 3n+1 */
+#define r3 (scratch + 3 * n + 1)   /* 3n+1 */
+#define r1 (scratch + 6 * n + 2)   /* 3n+1 */
+#define v0 (dst + 7 * n)           /* n+1 */
+#define v1 (dst + 8 * n + 1)       /* n+1 */
+#define v2 (dst + 9 * n + 2)       /* n+1 */
+#define v3 (scratch + 9 * n + 3)   /* n+1 */
+#define wsi (scratch + 9 * n + 3)  /* 3n+1，与 v3 复用（生命周期不交） */
 #define wse (scratch + 10 * n + 4) /* 2n+1 */
 
     /* scratch 总需求 12n+6 limbs；超过 32KiB 自动落池/堆（TALLOC 双轨），

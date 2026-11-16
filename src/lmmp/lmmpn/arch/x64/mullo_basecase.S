@@ -13,7 +13,7 @@
 //  GNU Lesser General Public License for more details.
 //
 //  You should have received a copy of the GNU Lesser General Public
-//  License along with this library; if not, see
+//  License along with this library.  If not, see
 //  <https://www.gnu.org/licenses/>.
 //
 //  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -103,6 +103,8 @@ ASM_GSYM(lmmp_mullo_basecase_):
     lea     rsi, [rsi + rdx*8]     // rsi = numa + n
     lea     rdi, [rdi + rdx*8]     // rdi = dst + n
 
+    cmp     rdx, 8
+    jae     .Lmun                  // n >= 8: new seed
     mov     r9, [rcx]              // r9 = numb[0]
     mov     rax, [rsi + rbx*8]     // rax = numa[0]
     mul     r9                     // rdx:rax = numa[0] * numb[0]
@@ -180,6 +182,7 @@ ASM_GSYM(lmmp_mullo_basecase_):
     adc     rdx, 0
     mov     [rdi - 8], r11         // dst[n-1]
     // carry discarded
+.Lmudone:
 
     dec     r8                     // r8 = n - 1
     jz      .Lret
@@ -216,7 +219,41 @@ ASM_GSYM(lmmp_mullo_basecase_):
     jz      .Lh2
     test    al, 2
     jz      .Lh1
-    jmp     .Lh3
+
+.Lh3:                              // L%4 == 3
+    mov     rdx, r8
+    mulx    r12, rbx, [rsi]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi]
+    add     rax, [rdi]
+    adc     r10, rbx
+    adc     r12, 0
+    mov     [rdi], rax
+    mulx    rcx, rax, [rsi + 8]
+    mov     rdx, r8
+    mulx    rbp, rbx, [rsi + 8]
+    add     rax, [rdi + 8]
+    adc     rcx, rbx
+    adc     rbp, 0
+    add     rax, r10
+    adc     rcx, r12
+    adc     rbp, 0
+    mov     [rdi + 8], rax
+    mulx    r12, rbx, [rsi + 16]
+    mov     rdx, r9
+    mulx    r10, rax, [rsi + 16]
+    add     rax, [rdi + 16]
+    adc     r10, rbx
+    adc     r12, 0
+    add     rax, rcx
+    adc     r10, rbp
+    adc     r12, 0
+    mov     [rdi + 16], rax
+    lea     rsi, [rsi + 24]
+    lea     rdi, [rdi + 24]
+    test    r11, r11
+    jz      .Larow
+    jmp     .Lk4
 
 .Lh0:                              // L%4 == 0
     mov     rdx, r9
@@ -264,42 +301,6 @@ ASM_GSYM(lmmp_mullo_basecase_):
     lea     rdi, [rdi + 8]
     test    r11, r11
     jz      .Larow
-    jmp     .Lk4
-
-.Lh3:                              // L%4 == 3
-    mov     rdx, r8
-    mulx    r12, rbx, [rsi]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi]
-    add     rax, [rdi]
-    adc     r10, rbx
-    adc     r12, 0
-    mov     [rdi], rax
-    mulx    rcx, rax, [rsi + 8]
-    mov     rdx, r8
-    mulx    rbp, rbx, [rsi + 8]
-    add     rax, [rdi + 8]
-    adc     rcx, rbx
-    adc     rbp, 0
-    add     rax, r10
-    adc     rcx, r12
-    adc     rbp, 0
-    mov     [rdi + 8], rax
-    mulx    r12, rbx, [rsi + 16]
-    mov     rdx, r9
-    mulx    r10, rax, [rsi + 16]
-    add     rax, [rdi + 16]
-    adc     r10, rbx
-    adc     r12, 0
-    add     rax, rcx
-    adc     r10, rbp
-    adc     r12, 0
-    mov     [rdi + 16], rax
-    lea     rsi, [rsi + 24]
-    lea     rdi, [rdi + 24]
-    test    r11, r11
-    jz      .Larow
-    jmp     .Lk4
 
 .p2align 4
 .Lk4:                              // inner loop, 4 limbs, pair rotates (kernel = addmul_2.S)
@@ -470,3 +471,79 @@ ASM_GSYM(lmmp_mullo_basecase_):
 .Lret:
     POP_ALL
     ret
+
+// n >= 8 seed: [dst,n] = numa x numb[0], carry discarded
+.Lmun:
+    lea     r8, [rdx + 4]
+    shr     r8, 2                        // r8 = n/4 + 1 groups counter
+    mov     rdx, [rcx]                   // rdx = numb[0]
+    push    r12                          // borrow r12 for the seed (PUSH_EXTRA is later)
+    mov     rbp, rbx                     // rbp = -n (seed index)
+    mov     eax, ebx
+    and     eax, 3                       // CF = 0
+    jz      .Lmu0
+    cmp     eax, 2
+    je      .Lmu2
+    jb      .Lmu3                        // n mod 4 == 3
+
+.Lmu1h:                                  // n mod 4 == 1 (CF = 0 from cmp)
+    mulx    r12, rax, [rsi + rbp*8]
+    mov     [rdi + rbp*8], rax           // s0 = lo0
+    lea     rbp, [rbp + 1]
+    dec     r8
+    jz      .Lmued
+    jmp     .Lmuloop
+
+.Lmu0:                                   // n mod 4 == 0
+    xor     r12d, r12d
+    dec     r8
+    jmp     .Lmuloop
+
+.Lmu2:                                   // n mod 4 == 2 (CF = 0 from je)
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r12, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    lea     rbp, [rbp + 2]
+    dec     r8
+    jz      .Lmued
+    jmp     .Lmuloop
+
+.Lmu3:                                   // n mod 4 == 3 (CF = 1 from jb)
+    clc
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r12, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    lea     rbp, [rbp + 3]
+    dec     r8
+    jz      .Lmued
+    // fall into .Lmuloop
+
+.p2align 4
+.Lmuloop:                                // mul_1 seed, 4 limbs/iter (carry = (hi, CF))
+    mulx    r11, rax, [rsi + rbp*8]
+    mulx    r10, r9, [rsi + rbp*8 + 8]
+    adc     rax, r12                     // s = lo + hi' + CF
+    mov     [rdi + rbp*8], rax
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 8], r9
+    mulx    r11, rax, [rsi + rbp*8 + 16]
+    adc     rax, r10
+    mov     [rdi + rbp*8 + 16], rax
+    mulx    r12, r9, [rsi + rbp*8 + 24]
+    adc     r9, r11
+    mov     [rdi + rbp*8 + 24], r9
+    lea     rbp, [rbp + 4]
+    dec     r8                           // CF preserved
+    jnz     .Lmuloop
+
+.Lmued:
+    pop     r12
+    // continue into the rows (fall through the shared continuation)
+    jmp     .Lmudone

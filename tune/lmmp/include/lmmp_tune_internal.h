@@ -218,7 +218,6 @@ int tune_run_mul_toom8h(void);
 int tune_run_sqr_toom8(void);
 int tune_run_mul_fft(void);
 int tune_run_sqr_fft(void);
-int tune_run_mul_unbalanced_hard(void);
 int tune_run_mullo_basecase(void);
 int tune_run_mullo_dc(void);
 int tune_run_div_divide(void);

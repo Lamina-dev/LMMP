@@ -135,7 +135,7 @@ cmake --build build-tune --parallel 8
 
 - 乘法/平方梯子：`MUL_TOOM22/33/44/6H/8H`、`SQR_TOOM22/33/44/6/8`、
   `MUL_FFT`、`SQR_FFT`（相邻层 lo/hi 互夹，保证梯子严格有序）
-- 不平衡/低位乘法：`MUL_UNBALANCED_HARD`、`MULLO_BASECASE`、`MULLO_DC`、
+- 不平衡/低位乘法：`MULLO_BASECASE`、`MULLO_DC`、
   `MUL_FFT_MODF`、`MULHI_MERSENNE`
 - 梅森族：`MUL/SQR_MERSENNE_DC`、`MUL/SQR_MERSENNE_FFT`、
   `MUL/SQR_MERSENNE_FERMAT`、`DIVEXACT_MERSENNE(_CACHE)`、

@@ -193,17 +193,6 @@
 #define SQR_FFT_THRESHOLD LMMP_DEFAULT_SQR_FFT_THRESHOLD
 #endif
 
-// 不平衡乘法硬编码分块阈值：na > PART_SIZE 且较短乘数长度在
-// [此值, LMMP_MUL_HARD_MAX_N] 时，mul_basecase_unbalance 以短乘数长度分块
-// 并调用硬编码平衡乘累加；其余情形(短乘数过细分块或 na 较小单次直达更优)
-// 走原 mul_basecase 逐列或 PART_SIZE 分块路径
-#define LMMP_DEFAULT_MUL_UNBALANCED_HARD_THRESHOLD 7
-#ifdef LMMP_TUNE
-#define MUL_UNBALANCED_HARD_THRESHOLD lmmp_tune_MUL_UNBALANCED_HARD_THRESHOLD
-#else
-#define MUL_UNBALANCED_HARD_THRESHOLD LMMP_DEFAULT_MUL_UNBALANCED_HARD_THRESHOLD
-#endif
-
 // 低位乘法阈值：低于此规模使用朴素乘法
 #define LMMP_DEFAULT_MULLO_BASECASE_THRESHOLD 32
 #ifdef LMMP_TUNE
@@ -544,7 +533,6 @@ extern uint64_t lmmp_tune_SQR_TOOM6_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_TOOM8_THRESHOLD;
 extern uint64_t lmmp_tune_MUL_FFT_THRESHOLD;
 extern uint64_t lmmp_tune_SQR_FFT_THRESHOLD;
-extern uint64_t lmmp_tune_MUL_UNBALANCED_HARD_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 extern uint64_t lmmp_tune_MULLO_DC_THRESHOLD;
 extern uint64_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
