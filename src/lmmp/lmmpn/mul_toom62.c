@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -56,8 +56,8 @@ Evaluate in:
 */
 
 void lmmp_mul_toom62_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(na >= 3 * nb);
-    lmmp_param_assert(5 * nb >= na);
+    lmmp_param_assert(6 * nb > na);
+    lmmp_param_assert(2 * na > 5 * nb);
 
     mp_size_t n, s, t;
     mp_limb_t cy;
@@ -81,8 +81,8 @@ void lmmp_mul_toom62_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     s = na - 5 * n;
     t = nb - n;
 
-    lmmp_debug_assert(0 < s && s <= n);
-    lmmp_debug_assert(0 < t && t <= n);
+    lmmp_param_assert(0 < s && s <= n);
+    lmmp_param_assert(0 < t && t <= n);
 
     mp_ptr restrict scratch = SALLOC_TYPE(10 * n + 10, mp_limb_t);
 

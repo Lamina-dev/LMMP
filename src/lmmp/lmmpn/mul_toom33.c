@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -60,10 +60,12 @@ vinf=          a2 *         b2  # A(inf)*B(inf)
 void lmmp_mul_toom33_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(nb >= 26);
     lmmp_param_assert(na >= nb);
-    lmmp_param_assert(4 * na <= 5 * nb);
+    lmmp_param_assert(3 * nb > 2 * na);
     TEMP_S_DECL;
     mp_size_t n = (na + 2) / 3, s = na - 2 * n, t = nb - 2 * n;
     int vm1_neg;
+    lmmp_param_assert(s > 0);
+    lmmp_param_assert(t > 0);
     mp_limb_t cy, cy2, vinf0, am1h, bm1h;
     mp_limb_t* restrict tp = SALLOC_TYPE(4 * n + 4, mp_limb_t);
 

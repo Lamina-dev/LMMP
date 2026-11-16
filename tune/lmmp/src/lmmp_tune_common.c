@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -898,6 +898,16 @@ void tune_record_print_summary(void) {
     }
 }
 
+/* mparam.h 架构分块标记：--write 只替换与本机构建宏匹配的块；标记缺失时
+ * 回退为全文件首处匹配（兼容未分块的旧格式）。 */
+#if defined(LMMP_ASM_ARM64)
+#define TUNE_ARCH_BLOCK_TAG "arm64"
+#elif defined(LMMP_ASM_X64)
+#define TUNE_ARCH_BLOCK_TAG "x64"
+#else
+#define TUNE_ARCH_BLOCK_TAG "generic"
+#endif
+
 int tune_write_mparam(const char* path, const char* backup_path) {
     if (g_record_count == 0)
         return 0;
@@ -936,13 +946,40 @@ int tune_write_mparam(const char* path, const char* backup_path) {
         }
     }
 
+    /* 写回窗口限定在本机架构块内：从 ARCH_TUNE_BLOCK_BEGIN:<tag> 起、到其后的
+     * ARCH_TUNE_BLOCK_END 止；窗口外的同名宏（其他架构块）保持不动。 */
+    char block_begin[64];
+    snprintf(block_begin, sizeof(block_begin),
+             "/* ARCH_TUNE_BLOCK_BEGIN:" TUNE_ARCH_BLOCK_TAG " */");
+    const char* win_begin = strstr(buf, block_begin);
+    const char* win_end;
+    if (win_begin != NULL) {
+        const char* end_marker = strstr(win_begin, "/* ARCH_TUNE_BLOCK_END */");
+        win_end = (end_marker != NULL) ? end_marker : buf + strlen(buf);
+    } else {
+        win_begin = buf;
+        win_end = buf + strlen(buf);
+    }
+
     for (size_t i = 0; i < g_record_count; ++i) {
         char default_name[96];
         char needle[128];
         snprintf(default_name, sizeof(default_name), "LMMP_DEFAULT_%s",
                  g_records[i].macro_name);
         snprintf(needle, sizeof(needle), "#define %s ", default_name);
-        char* pos = strstr(buf, needle);
+        const size_t needle_len = strlen(needle);
+        const char* hit = NULL;
+        for (const char* p = win_begin; p + needle_len <= win_end; ) {
+            const char* q = memchr(p, '#', (size_t)(win_end - p));
+            if (q == NULL)
+                break;
+            if (strncmp(q, needle, needle_len) == 0) {
+                hit = q;
+                break;
+            }
+            p = q + 1;
+        }
+        char* pos = (char*)hit;
         if (pos == NULL) {
             fprintf(stderr, "Warning: default literal %s not found; skipped.\n",
                     default_name);

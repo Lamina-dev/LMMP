@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -121,6 +121,9 @@ static void list_modules(void) {
 }
 
 int main(int argc, char** argv) {
+    /* 重定向到文件/管道时默认整块缓冲，进程意外终止会丢失尾部进度；行缓冲
+     * 使日志实时可追。 */
+    setvbuf(stdout, NULL, _IOLBF, 0);
     const char* out_txt = NULL;
     const char* mparam_path = LMMP_SOURCE_DIR "/include/lmmp/impl/mparam.h";
     const char* backup_path = LMMP_SOURCE_DIR "/include/lmmp/impl/mparam.h.tune-bak";

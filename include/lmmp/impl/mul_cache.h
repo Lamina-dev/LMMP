@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -86,13 +86,14 @@ static inline void lmmp_mullo_cache_free_(fft_mullo_cache* ctx) {
  * @brief 费马数模乘法（缓存版） [dst,rn+1]=[numa,na]*[numb,nb] mod B^rn+1
  *        第二个操作数将被缓存
  * @param dst 输出结果缓冲区，长度至少为 rn+1
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((na + nb + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
  * @param ctx 费马数模乘法缓存上下文
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1)
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, lmmp_fft_next_size_(rn)==rn
  * @note [numb,nb]将会被缓存，第二个乘数始终保持不变时，在后续计算中可以调用lmmp_mul_fermat_cache_()函数节省40%的计算时间
  *       numb可以在lmmp_mul_fermat_cache_()函数前被释放，不会影响后续计算
  * @return 无返回值，结果存储在dst中
@@ -115,13 +116,14 @@ void lmmp_mul_fermat_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx);
  * @brief 梅森数模乘法 [dst,rn] = [numa,na]*[numb,nb] mod B^rn-1
  *        第二个操作数将被缓存
  * @param dst 输出结果缓冲区，长度至少为 rn
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((na + nb + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
  * @param ctx 梅森数模乘法缓存上下文
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1)
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, lmmp_fft_next_size_(rn)==rn
  * @note [numb,nb]将会被缓存，第二个乘数始终保持不变时，在后续计算中可以调用lmmp_mul_mersenne_cache_()函数节省40%的计算时间
  *       numb可以在lmmp_mul_mersenne_cache_()函数前被释放，不会影响后续计算
  * @return 无返回值，结果存储在dst中
@@ -144,7 +146,8 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx);
  * @brief FFT乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
  *        第二个操作数将被缓存
  * @param dst 输出结果缓冲区，长度至少为 na+nb
- * @param hn 模运算的阶数参数，hn = lmmp_fft_next_size_((na + nb + 1) >> 1)
+ * @param hn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(hn)==hn）；
+ *           hn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb

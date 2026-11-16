@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -23,7 +23,6 @@
 #include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/toom_interp.h"
-
 
 #define lmmp_mul_n_(dst, numa, numb, n)                    \
     if ((n) < MUL_TOOM22_THRESHOLD)                        \
@@ -53,8 +52,8 @@ Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 */
 
 void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(9 * na <= 20 * nb);
-    lmmp_param_assert(5 * nb <= 3 * na);
+    lmmp_param_assert(5 * nb > 2 * na);
+    lmmp_param_assert(4 * na > 3 * nb);
     mp_size_t n, s, t;
     mp_limb_t cy;
     mp_ptr gp;
@@ -77,6 +76,9 @@ void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     mp_ptr restrict scratch = SALLOC_TYPE(10 * (n + 1), mp_limb_t);
     s = na - 4 * n;
     t = nb - 2 * n;
+
+    lmmp_param_assert(0 < s && s <= n);
+    lmmp_param_assert(0 < t && t <= n);
 
     tmp = SALLOC_TYPE(10 * (n + 1), mp_limb_t);
     as1 = tmp;
@@ -120,7 +122,6 @@ void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
         lmmp_inc_1(ash + s, cy2);
     } else
         ash[n] = 2 * cy + lmmp_addshl1_n_(ash, a4, ash, n);
-
 
     /* Compute bs1 and bsm1.  */
     bs1[n] = lmmp_add_(bs1, b0, n, b2, t); /* b0 + b2 */
@@ -191,11 +192,9 @@ void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     vm1[2 * n] = 0;
     lmmp_mul_n_(vm1, asm1, bsm1, n + ((asm1[n] | bsm1[n]) != 0));
 
-
     /* v1, 2n+1 limbs */
     v1[2 * n] = 0;
     lmmp_mul_n_(v1, as1, bs1, n + ((as1[n] | bs1[n]) != 0));
-
 
     lmmp_mul_n_(v0, a0, b0, n); /* v0, 2n limbs */
 

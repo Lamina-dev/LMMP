@@ -34,9 +34,10 @@ cmake --build build-tune --parallel 8
 
 调优模式与正常动态库构建互斥，不会影响 `dist/` 下的正常产物。
 
-默认阈值只维护 `mparam.h` 中的 `LMMP_DEFAULT_*` 字面量宏。非调优构建的算法
-宏、`lmmp_tune_params.c` 的初始值、`--write` 的写回目标都引用这一组宏；修改
-默认值时只需要改这一处。
+默认阈值维护 `mparam.h` 中的 `LMMP_DEFAULT_*` 字面量宏，按构建架构
+（`LMMP_ASM_X64` / `LMMP_ASM_ARM64` / 无汇编回退）分 x64、arm64、generic
+三块。非调优构建的算法宏、`lmmp_tune_params.c` 的初始值、`--write` 的写回
+目标都解析到与本机构建宏匹配的那一块；跨架构调优互不污染。
 
 ## 运行
 
@@ -71,7 +72,7 @@ cmake --build build-tune --parallel 8
 | `--mad-limit <X>` | 0.25 | `MAD/median` 超过该值时整轮重测 |
 | `--max-retry <N>` | 1 | 不稳定样本的最大重测轮数 |
 | `--out <file>` | `bin/lmmp_tune_results.txt` | 结果文本路径，同时生成同名 `.h` |
-| `--write` | 关 | 写回 `mparam.h` 中的 `LMMP_DEFAULT_*` 并生成 `.tune-bak` 备份 |
+| `--write` | 关 | 写回 `mparam.h` 本机架构块中的 `LMMP_DEFAULT_*` 并生成 `.tune-bak` 备份 |
 
 如只想快速验证构建，可使用
 `--only mul22 --samples 3 --min-ms 1`。
@@ -166,5 +167,6 @@ cmake --build build-tune --parallel 8
   的 lo/hi 相互钳位维持：下层模块先调、其结果作为上层模块的 lo，上层
   hi 夹在更高一层之下。新增梯层时须同步相邻模块的边界。
 - `--write` 是可选的。默认只生成 `bin/lmmp_tune_results.*`，不会修改任何
-  库源码；显式 `--write` 只替换 `LMMP_DEFAULT_*` 字面量宏。
+  库源码；显式 `--write` 只替换与本机构建宏匹配的架构块中的
+  `LMMP_DEFAULT_*` 字面量宏，其他架构块不动。
 - 建议在调优时仔细查看调优结果，并根据需要手动调整阈值。

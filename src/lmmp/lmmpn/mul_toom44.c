@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -23,7 +23,6 @@
 #include "../../../include/lmmp/impl/mul_hard.h"
 #include "../../../include/lmmp/impl/mparam.h"
 #include "../../../include/lmmp/impl/toom_interp.h"
-
 
 #ifdef LMMP_TUNE
 #define MAYBE_mul_basecase 1
@@ -64,7 +63,7 @@ Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 
 void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(na >= nb);
-    lmmp_param_assert(4 * na <= 5 * nb);
+    lmmp_param_assert(4 * nb > 3 * na);
     mp_size_t n, s, t;
     mp_limb_t cy;
     enum toom7_flags flags;
@@ -78,8 +77,6 @@ void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 #define b2 (numb + 2 * n)
 #define b3 (numb + 3 * n)
 
-    lmmp_debug_assert(na >= nb);
-
     n = (na + 3) >> 2;
     TEMP_S_DECL;
     mp_ptr restrict scratch = SALLOC_TYPE(10 * n + 10, mp_limb_t);
@@ -87,9 +84,9 @@ void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     s = na - 3 * n;
     t = nb - 3 * n;
 
-    lmmp_debug_assert(0 < s && s <= n);
-    lmmp_debug_assert(0 < t && t <= n);
-    lmmp_debug_assert(s >= t);
+    lmmp_param_assert(0 < s && s <= n);
+    lmmp_param_assert(0 < t && t <= n);
+    lmmp_param_assert(s >= t);
 
     /* NOTE: The multiplications to v2, vm2, vh and vm1 overwrites the
      * following limb, so these must be computed in order, and we need a
@@ -132,7 +129,6 @@ void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
         lmmp_inc_1(apx + s, cy2);
     } else
         apx[n] = 2 * cy + lmmp_addshl1_n_(apx, a3, apx, n);
-
 
     /* Compute bpx = 8 b0 + 4 b1 + 2 b2 + b3 = (((2*b0 + b1) * 2 + b2) * 2 + b3 */
 
