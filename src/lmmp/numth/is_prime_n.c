@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -25,18 +25,18 @@
     先跑至多 x 轮 1 limb 基底（a ∈ [3,B) 均匀，单轮最廉，尽早拒判），再跑
     至多 y 轮全域（n limb，[2,n-2] 均匀）基底：
         档 | 基底2 MR  | 1 limb 轮 | n limb 轮 | 强 Lucas | 试除上界
-        0  |    √     |     2     |     2     |    -     |    100
-        1  |    √     |     3     |     2     |    -     |    300
-        2  |    √     |     4     |     3     |    -     |   1000
-        3  |    √     |     5     |     4     |    -     |   3000
+        0  |    √     |     3     |     2     |    -     |    100
+        1  |    √     |     4     |     3     |    -     |    300
+        2  |    √     |     5     |     4     |    -     |   1000
+        3  |    √     |     6     |     5     |    -     |   3000
         4  |    √     |     -     |     -     |    √     |   1000
         5  |    √     |     2     |     0     |    √     |   3000
-        6  |    √     |     2     |     1     |    √     |   5000
-        7  |    √     |     3     |     2     |    √     |  10000
+        6  |    √     |     3     |     1     |    √     |   5000
+        7  |    √     |     4     |     2     |    √     |  10000
     各档均先做基底 2 特化 MR；"至多 N 轮"指任一轮检出合数即提前终止，
     实际执行轮数不超过 N。试除上界随强度递增：高强度下幸存者代价更大
     （更多轮次/含 Lucas），更深的初筛以近零代价换更高的提前淘汰率。
-    各档独立基底轮总数（含基底 2）为 s0..s3 = 5/6/8/10、s4..s7 = 1/3/4/6；
+    各档独立基底轮总数（含基底 2）为 s0..s3 = 6/8/10/12、s4..s7 = 1/3/5/7；
     1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
     > (log n)^(1/3)）知窄基底类的最坏/对抗情形弱于全宽随机轮，本"1+n"
     搭配定位于随机候选（keygen）场景。
@@ -57,10 +57,14 @@
 
 
 /* 1 limb 基底随机 MR 轮数上限（检出合数提前终止） */
-static const uchar ipn_r1_rounds[8] = {2, 3, 4, 5, 0, 2, 2, 3};
+static const uchar ipn_r1_rounds[8] = {3, 4, 5, 6, 0, 2, 3, 4};
 
 /* 全域（n limb，[2,n-2] 均匀）基底随机 MR 轮数上限（检出合数提前终止） */
-static const uchar ipn_rn_rounds[8] = {2, 2, 3, 4, 0, 0, 1, 2};
+static const uchar ipn_rn_rounds[8] = {2, 3, 4, 5, 0, 0, 1, 2};
+
+/*
+FIXME: 不使用固定的试除上限，而是根据输入的长度来决定试除多少
+*/
 
 /* 小素数试除上界（N 传给 lmmp_trialdiv_，即试除 <= N 的全部素数） */
 static const ushort ipn_trial_bound[8] = {100, 300, 1000, 3000, 1000, 3000, 5000, 10000};

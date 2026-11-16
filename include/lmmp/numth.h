@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -721,26 +721,27 @@ LMMP_API int lmmp_is_prime_n_(mp_srcptr np, mp_size_t nn, int strength);
  *        合数即提前终止：
  *        | 强度| 基底2 MR | 1 limb 基底 MR | n limb 基底 MR | 强 Lucas |
  *        | --- | ------- | -------------- | -------------- | -------- |
- *        |  0  |   √     |       2        |       2        |    -     |
- *        |  1  |   √     |       3        |       2        |    -     |
- *        |  2  |   √     |       4        |       3        |    -     |
- *        |  3  |   √     |       5        |       4        |    -     |
+ *        |  0  |   √     |       3        |       2        |    -     |
+ *        |  1  |   √     |       4        |       3        |    -     |
+ *        |  2  |   √     |       5        |       4        |    -     |
+ *        |  3  |   √     |       6        |       5        |    -     |
  *        |  4  |   √     |       0        |       0        |    √     |
  *        |  5  |   √     |       2        |       0        |    √     |
- *        |  6  |   √     |       2        |       1        |    √     |
- *        |  7  |   √     |       3        |       2        |    √     |
+ *        |  6  |   √     |       3        |       1        |    √     |
+ *        |  7  |   √     |       4        |       2        |    √     |
  * @warning np!=NULL, nn>2, np[nn-1]>0, np[0]%2==1, 0<=strength<=7
- * @note 不进行试除法，对于含有明显小因子的输入不会早退。建议输入不含小因子或强伪素数、半素数等。
- *       建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
- *       且可以更快的过滤伪素数。该档为 BPSW 型判据（基底 2 MR 叠加强 Lucas）之上增加 2 轮
- *       1 limb 随机基底 MR；其中 Lucas 半部含 BFW vpsp 与 Q-Euler 两项强化检查
- *       （Baillie-Fiori-Wagstaff 2021，素数必然全过），故接受集为标准 BPSW
- *       接受集的子集（合数只可能多拒、不可能少拒）；文档不提供误判率的定量界。
- * @attention 1 limb 基底空间仅 2^64，由 AGP 定理（无穷多合数的最小 MR 见证
- *            > (log n)^(1/3)）知窄基底类在最坏/对抗情形弱于全宽随机轮：本"1+n"
- *            搭配定位于随机候选（keygen）场景，不承诺对抗性输入下的强度保证。
- * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；
- *         2 = 极大概率为素数
+ * @note 1. 不进行试除法，对于含有明显小因子的输入不会早退。建议输入不含小因子或强伪素数、半素数等。
+ *       2. 建议实际使用强度 5 档，能够很好的平衡伪素数和素数的平均耗时，对于真素数不会耗费过长的时间，
+ *          且可以更快的过滤伪素数。该档为 BPSW 型判据（基底 2 MR 叠加强 Lucas）之上增加 2 轮
+ *          1 limb 随机基底 MR；其中 Lucas 半部含 BFW vpsp 与 Q-Euler 两项强化检查
+ *          （Baillie-Fiori-Wagstaff 2021，素数必然全过），故接受集为标准 BPSW 接受集的子集
+ *          （合数只可能多拒、不可能少拒）。
+ *       3. 强卢卡斯判据本身和 MR 测量相当正交，因此强度档大于4时，增加更多轮次 MR 测试存在边际效应，
+ *          并不能无条件的降低 BPSW 条件下的实际误判率。更多的 MR 轮次，只承担早退的任务，对于部分
+ *          伪素数可以更早的返回，而不是进行卢卡斯检验。但对于可能通过的（伪）素数，总时间反而增加。
+ * @attention 1 limb 基底空间仅 2^64，可能存在精心构造的伪素数，使其可以通过 1 limb 基底空间的所有
+ *            MR 测试。此测试主要用于搭配全基底空间快速过滤，不承诺对抗性输入下的强度保证。
+ * @return 0 = 合数；1 = 素数（确定性判据，本契约域不可达）；2 = 极大概率为素数
  */
 LMMP_API int lmmp_is_prime_n_notrial_(mp_srcptr np, mp_size_t nn, int strength);
 
