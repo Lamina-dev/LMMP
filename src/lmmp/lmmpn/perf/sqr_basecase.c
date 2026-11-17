@@ -20,21 +20,28 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#ifndef LMMP_PERF_MULLO_BASECASE_H
-#define LMMP_PERF_MULLO_BASECASE_H
-
 #include "support/perf.h"
+#include "lmmp/lmmpn.h"
 
-static inline double bench_mullo_basecase(mp_size_t n, const bench_options *o) {
-    mp_ptr a = alloc_limbs(n), b = alloc_limbs(n), d = alloc_limbs(n);
-    fill_random(a, n, 0x0f0e0d0c0b0a0908ull + n);
-    fill_random(b, n, 0x0102030405060708ull + n);
+static double bench_sqr_basecase(mp_size_t n, const bench_options *o) {
+    mp_ptr a = alloc_limbs(n), d = alloc_limbs(2 * n + 1);
+    fill_random(a, n, 0x2468ace013579bdfull + n);
     double us;
-    BENCH_MEASURE(us, o, lmmp_mullo_basecase_(d, a, b, n); bench_sink += d[0];);
+    BENCH_MEASURE(us, o, lmmp_sqr_basecase_(d, a, n); bench_sink += d[0];);
     lmmp_free(a);
-    lmmp_free(b);
     lmmp_free(d);
     return us;
 }
 
-#endif
+int main(void) {
+    setvbuf(stdout, NULL, _IONBF, 0);
+    lmmp_global_init();
+    puts("[lmmpn/sqr_basecase]");
+    const mp_size_t SZ[] = {50, 200, 1000};
+    for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {
+        mp_size_t n = SZ[i];
+        report_n("sqr_basecase", n, bench_sqr_basecase(n, &bench_default), 0);
+    }
+    lmmp_global_deinit();
+    return 0;
+}

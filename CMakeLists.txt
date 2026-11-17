@@ -20,6 +20,8 @@
 
 cmake_minimum_required(VERSION 3.20)
 
+include(cmake/LMMPOptions.cmake)
+
 # ==============================================================================
 # 工具链选择与限制（编译器选择须在 project() 之前裁决）
 # ==============================================================================
@@ -32,14 +34,6 @@ if(CMAKE_GENERATOR MATCHES "^Visual Studio")
         "-G \"MinGW Makefiles\". Note the generator is cached per build directory: "
         "reconfigure into a fresh directory after switching.")
 endif()
-
-# 编译器目录：传入包含 GNU/Clang 编译器对（gcc+g++ 或 clang+clang++）的文件夹
-set(LMMP_COMPILER_DIR "" CACHE PATH
-    "Directory containing a GNU/Clang compiler pair (gcc+g++ or clang+clang++). Empty = default compiler.")
-
-# 链接器目录：传入包含链接器的文件夹，按文件名识别风味
-set(LMMP_LINKER_DIR "" CACHE PATH
-    "Directory containing the linker (ld.lld | ld.mold | ld, flavor by name). Empty = toolchain default linker.")
 
 # 编译器在首次配置时固化进构建树（CMake 缓存），同树切换会静默沿用旧编译器，
 # 故此前配置过目录而本次清空时同样显式拒绝。
@@ -114,7 +108,7 @@ if(MSVC OR CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 endif()
 
 # ==============================================================================
-# 可配置选项
+# 目标架构与构建类型
 # ==============================================================================
 set(LMMP_X86_64 FALSE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|x64|X64)$")
@@ -125,52 +119,6 @@ set(LMMP_ARM64 FALSE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64|ARM64|AARCH64)$")
     set(LMMP_ARM64 TRUE)
 endif()
-
-# 汇编模式：GENERIC | X64 | ARM64 | AUTO
-#   GENERIC  不使用汇编，使用通用 C 实现。
-#   X64      使用 x86_64 GAS/LLVM 汇编（Windows/Linux）。
-#   ARM64    使用 arm64 GAS/LLVM 汇编（Linux/macOS，ARMv8.2-A 基线）。
-#   AUTO     按当前平台自动选择最合适的模式；不支持时回退 GENERIC。
-set(LMMP_ASM "AUTO" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO")
-set_property(CACHE LMMP_ASM PROPERTY STRINGS GENERIC X64 ARM64 AUTO)
-# 取值大小写不敏感（统一归一大写，用户可传小写）
-string(TOUPPER "${LMMP_ASM}" _lmmp_asm_norm)
-if(NOT _lmmp_asm_norm STREQUAL "${LMMP_ASM}")
-    set(LMMP_ASM "${_lmmp_asm_norm}" CACHE STRING "Assembly mode: GENERIC | X64 | ARM64 | AUTO" FORCE)
-endif()
-unset(_lmmp_asm_norm)
-
-# 构建目标（默认只构建动态库；test/benchmark/example 为附加构建，开启后
-# 与动态库输出到同一目录，便于以统一产物目录整体引入）
-option(LMMP_BUILD_TESTS "Build LMMP unit tests" OFF)
-option(LMMP_BUILD_BENCHMARKS "Build LMMP benchmarks" OFF)
-option(LMMP_BUILD_EXAMPLES "Build LMMP examples" OFF)
-
-# 统一产物目录：传入后所有构建产物（动态库、导入库与可选的
-# test/benchmark/example 可执行文件）平铺到该目录，不区分配置子目录，
-# 并随库同步对外头文件（include/lmmp），目录即完整可引入形态；
-# 为空时维持源内 dist 布局。建议使用绝对路径。
-set(LMMP_OUTPUT_DIR "" CACHE PATH
-    "Flat output directory for all artifacts (shared lib, import lib, headers, optional tests/benchmarks). Empty = in-tree dist/lmmp/bin/<config>.")
-
-option(LMMP_BUILD_TUNE "Build LMMP tuning programs" OFF)
-
-# 调试选项：由构建系统注入 LMMP_DEBUG_* 宏，不在头文件中直接定义。
-option(LMMP_DEBUG_STACK_OVERFLOW_CHECK "Enable stack overflow check (high overhead)" OFF)
-option(LMMP_DEBUG_ASSERT_CHECK "Enable debug_assert check (medium overhead)" OFF)
-option(LMMP_DEBUG_PARAM_ASSERT_CHECK "Enable parameter assertion check (medium overhead)" OFF)
-option(LMMP_DEBUG_MEMORY_CHECK "Enable full heap/stack memory check (very high overhead)" OFF)
-set(LMMP_MEMORY_MORE_ALLOC_TIMES 1 CACHE STRING "Extra memory allocation factor in tenths (used by memory check)")
-option(LMMP_DEBUG_MEMORY_LEAK "Enable allocation/free statistics (low overhead)" OFF)
-
-# 目标系统：自动识别，也可手动指定 WIN | LIN | MAC（取值大小写不敏感）
-set(TARGET_SYSTEM "AUTO" CACHE STRING "Target system: AUTO | WIN | LIN | MAC")
-set_property(CACHE TARGET_SYSTEM PROPERTY STRINGS AUTO WIN LIN MAC)
-string(TOUPPER "${TARGET_SYSTEM}" _lmmp_ts_norm)
-if(NOT _lmmp_ts_norm STREQUAL "${TARGET_SYSTEM}")
-    set(TARGET_SYSTEM "${_lmmp_ts_norm}" CACHE STRING "Target system: AUTO | WIN | LIN | MAC" FORCE)
-endif()
-unset(_lmmp_ts_norm)
 
 # 构建类型检查
 set(VALID_BUILD_TYPES Debug Release RelWithDebInfo MinSizeRel)
@@ -293,8 +241,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
 endif()
 
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-
 # ==============================================================================
 # 通用编译选项函数
 # ==============================================================================
@@ -333,8 +279,6 @@ function(lmmp_target_setup target)
             $<$<CONFIG:RelWithDebInfo>:-O2 -g -DNDEBUG>
         >
     )
-    message(STATUS "Compile options: GNU/Clang standard options set.")
-
     if(LMMP_ASM_ENABLED)
         # 自定义汇编宏：C/C++/ASM 统一使用，避免依赖 __APPLE__/_WIN32 等编译器宏。
         target_compile_definitions(${target} PRIVATE LMMP_ASM=1)
@@ -392,7 +336,6 @@ function(lmmp_target_setup target)
                 -Wl,-dead_strip
             >
         )
-        message(STATUS "Linker options: Apple ld standard options set.")
         get_target_property(target_type ${target} TYPE)
         if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
             if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
@@ -417,8 +360,6 @@ function(lmmp_target_setup target)
                 -Wl,--strip-all
             >
         )
-        message(STATUS "Linker options: GNU ld style (Linux/MinGW/Windows-GNU-Clang).")
-
         # Linux 共享库：函数符号链接期本地绑定，库内互调免 PLT/GOT 间接，
         # 与编译期 -fno-semantic-interposition 配套（对符号插入式
         # interposition 的显式放弃，与库的 -fvisibility=hidden 策略一致）
@@ -428,9 +369,6 @@ function(lmmp_target_setup target)
                 target_link_options(${target} PRIVATE -Wl,-Bsymbolic-functions)
             endif()
         endif()
-    else()
-        # Windows 上 GNU 驱动的 clang 等工具链，不附加平台特有链接选项。
-        message(STATUS "Linker options: default for this toolchain.")
     endif()
 
 endfunction()
@@ -493,8 +431,12 @@ else()
     message(STATUS "Linker:        toolchain default")
 endif()
 message(STATUS "Target system: ${TARGET_SYSTEM}")
-message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
+if(CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Build types:   ${CMAKE_CONFIGURATION_TYPES}")
+else()
+    message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
+endif()
 message(STATUS "ASM support:   ${LMMP_ASM}")
 message(STATUS "Output dir:    ${OUTPUT_BIN}")
-message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} perf=${LMMP_BUILD_BENCHMARKS} tune=${LMMP_BUILD_TUNE} examples=${LMMP_BUILD_EXAMPLES}")
+message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} examples=${LMMP_BUILD_EXAMPLES} (perf/tune by target)")
 message(STATUS "=====================================")

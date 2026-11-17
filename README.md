@@ -13,10 +13,10 @@ LMMP 使用 CMake 构建，零外部依赖。当前仅支持 GNU/Clang 风格工
 + Linux：GCC / Clang
 + macOS：Clang / GCC
 
-动态库 liblmmp.so/liblmmp.dylib/lmmp.dll 由纯 C 编写；汇编为可选优化，使用 GAS/LLVM 兼容的 `.S` 语法（不再使用 NASM）。显式开启：
+动态库 liblmmp.so/liblmmp.dylib/lmmp.dll 由 C 编写。构建默认按平台选择汇编后端，汇编文件采用 GAS/LLVM 兼容的 `.S` 语法。
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLMMP_ASM=ARM64
+cmake -P scripts/lmmp/config.cmake -- -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
@@ -34,15 +34,16 @@ cmake --build build -j
 
 ## 主要配置选项
 
+用 `cmake -P scripts/lmmp/config.cmake -- -B <构建目录>` 配置 LMMP。可在构建目录后传入 CMake 配置参数，例如 `-G Ninja` 和下表中的 `-D` 选项。选项保存在所选构建目录的 CMake 缓存中，可用同一命令更新。也可直接调用 `cmake -S . -B <构建目录>`。
+
 | 选项 | 取值 | 默认 | 说明 |
 |---|---|---|---|
+| `CMAKE_BUILD_TYPE` | `Debug` / `Release` / `RelWithDebInfo` / `MinSizeRel` | `Release` | 单配置生成器的构建类型 |
 | `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
 | `LMMP_COMPILER_DIR` | 目录路径 | 空 | 编译器所在目录（自动识别其中的 gcc/g++ 或 clang/clang++）；为空使用系统默认编译器 |
 | `LMMP_LINKER_DIR` | 目录路径 | 空 | 链接器所在目录（按文件名识别：`ld.lld`/`lld` => lld，`ld.mold`/`mold` => mold，`ld`=> GNU ld）；为空使用工具链默认链接器 |
 | `LMMP_OUTPUT_DIR` | 目录路径 | 空 | 统一产物目录：动态库、导入库与对外头文件平铺于此，附加构建（tests 等）开启后也输出于此；为空使用源内 `dist/lmmp/` 布局 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `OFF` | 是否构建单元测试（开启后与动态库输出到同一目录） |
-| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `OFF` | 构建各模块 `perf/` 下的性能基准 |
-| `LMMP_BUILD_TUNE` | `ON` / `OFF` | `OFF` | 构建各模块 `tune/` 下的调优程序 |
 | `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序（开启后与动态库输出到同一目录） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部栈溢出检查（开销：高） |
@@ -62,9 +63,10 @@ cmake --build build -j
 配置 `LMMP_OUTPUT_DIR` 后，构建产物以平铺形态汇聚到该目录，供其他项目直接引入：
 
 ```bash
-cmake -S . -B build-out -DCMAKE_BUILD_TYPE=Release \
-  -DLMMP_COMPILER_DIR=/path/to/mingw64/bin \
-  -DLMMP_OUTPUT_DIR=/path/to/lmmp-dist
+cmake -P scripts/lmmp/config.cmake -- -B build-out -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  "-DLMMP_COMPILER_DIR=/path/to/mingw64/bin" \
+  "-DLMMP_LINKER_DIR=/path/to/llvm/bin" \
+  "-DLMMP_OUTPUT_DIR=/path/to/lmmp-dist"
 cmake --build build-out
 ```
 
@@ -77,16 +79,15 @@ lmmp-dist/
 └── include/lmmp/                           # 对外头文件
 ```
 
-单元测试、基准与示例默认不构建；如需在同一目录获得它们，加 `-DLMMP_BUILD_TESTS=ON` 等即可，可执行文件与动态库同层放置。
+默认构建公开动态库。启用测试或示例时，各可执行文件与动态库同层放置。基准和调优程序按目标构建，也输出到该目录。
 
 ## 测试、基准与调优
 
-`src/lmmp/<module>/test/` 下的 C 用例由本模块的 `main.c` 统一执行。`perf/` 和 `tune/` 下的每个 `.c` 对应一个独立程序。启用任一附属构建选项时，程序统一链接同一输出目录里的内部动态库 `lmmp_internal`。对外使用的动态库仍是 `lmmp`，公共头文件位于 `include/lmmp/`。
+`src/lmmp/<module>/test/` 下的 C 用例由本模块的 `main.c` 统一执行。`perf/` 和 `tune/` 下的每个 `.c` 对应一个独立程序。基准程序测量一种运算或一组直接相关的实现，调优程序测量一个阈值或一组相关阈值。测试、基准和调优程序在构建时会带上共用的内部动态库 `lmmp_internal`。
 
 ```bash
-# 构建动态库和附属程序（Windows 下同时指定 -G Ninja）
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-  -DLMMP_BUILD_TESTS=ON -DLMMP_BUILD_BENCHMARKS=ON -DLMMP_BUILD_TUNE=ON
+# 构建动态库和单元测试
+cmake -P scripts/lmmp/config.cmake -- -B build -G Ninja -DLMMP_BUILD_TESTS=ON
 cmake --build build -j
 
 # 运行全部单元测试
@@ -94,9 +95,20 @@ ctest --test-dir build --output-on-failure
 # 运行数论模块的测试
 ctest --test-dir build -R '^test_numth$' --output-on-failure
 
-# 运行基础算术的性能基准和 2×2 矩阵平方的调优程序
-./dist/lmmp/bin/release/perf_lmmpn_arithmetic
+# 点名构建开方基准和 2×2 矩阵平方调优程序
+cmake --build build --target perf_numth_sqrt
+cmake --build build --target tune_numth_mat22_sqr
+./dist/lmmp/bin/release/perf_numth_sqrt
 ./dist/lmmp/bin/release/tune_numth_mat22_sqr
+```
+
+批量构建前会显示目标清单和总数，输入 `y` 后开始编译。`LMMP_TARGET` 可用 `perf`、`tune` 选整类程序，也可用 `perf_<模块>`、`tune_<模块>` 选单个模块。多配置生成器可加 `-DLMMP_CONFIG=Release`。
+
+```bash
+# 构建全部基准程序
+cmake -DLMMP_BUILD_DIR=build -DLMMP_TARGET=perf -P scripts/lmmp/build.cmake
+# 构建数论模块的调优程序
+cmake -DLMMP_BUILD_DIR=build -DLMMP_TARGET=tune_numth -P scripts/lmmp/build.cmake
 ```
 
 阈值定义在各模块的 `arch/<后端>/mparam.h`。CMake 按构建所选后端汇总成供全库使用的内部头文件。调优程序用相同输入比较算法路径并输出测量结果。更新参数时修改所属模块的头文件，再重新构建。

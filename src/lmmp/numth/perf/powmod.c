@@ -22,7 +22,6 @@
 
 #include "support/perf.h"
 #include "lmmp/lmmpn.h"
-#include "lmmp/mprand.h"
 #include "lmmp/numth.h"
 
 /*
@@ -86,20 +85,6 @@ static double bench_powmod_even(mp_size_t n, uint nb2, const bench_options *o) {
     return us;
 }
 
-static double bench_powlo(mp_size_t n, const bench_options *o) {
-    mp_ptr b = alloc_limbs(n), e = alloc_limbs(n), dst = alloc_limbs(n);
-    lmmp_seed_random_(b, n, 0x51ce77ab0bull + n, 1);
-    b[0] |= 1;
-    lmmp_seed_random_(e, n, 0x25c0ff340bull + n, 1);
-    e[n - 1] |= (mp_limb_t)1 << 63;
-    double us;
-    BENCH_MEASURE(us, o, lmmp_powlo_(dst, b, n, e, n); bench_sink += dst[0];);
-    lmmp_free(b);
-    lmmp_free(e);
-    lmmp_free(dst);
-    return us;
-}
-
 /* ---- 扫描用例：阈值 401 两侧细档，其余几何阶梯 ---- */
 
 /*
@@ -108,7 +93,6 @@ static double bench_powlo(mp_size_t n, const bench_options *o) {
     阈值上下即止；更大尺寸用 bench_powmod_odd(n, &bench_default) 单点按需测量。
 */
 static const mp_size_t POWMOD_SZ[] = {1, 8, 64, 200, 400, 402};
-static const mp_size_t POWLO_SZ[] = {1, 2, 8, 64, 200, 400, 1000};
 
 static void run_odd(void) {
     for (size_t i = 0; i < ARRAY_SIZE(POWMOD_SZ); ++i) {
@@ -132,13 +116,6 @@ static void run_even2(void) {
     }
 }
 
-static void run_powlo(void) {
-    for (size_t i = 0; i < ARRAY_SIZE(POWLO_SZ); ++i) {
-        mp_size_t n = POWLO_SZ[i];
-        report_n("powlo e=n", n, bench_powlo(n, &bench_default), 0);
-    }
-}
-
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     lmmp_global_init();
@@ -148,8 +125,6 @@ int main(void) {
     run_even();
     puts("[numth/powmod/even2]");
     run_even2();
-    puts("[numth/powlo/powlo]");
-    run_powlo();
     lmmp_global_deinit();
     return 0;
 }

@@ -22,18 +22,7 @@
 
 #include "support/perf.h"
 #include "lmmp/lmmpn.h"
-#include "lmmp/mprand.h"
 #include "lmmp/numth.h"
-
-static double bench_sqrt(mp_size_t n, const bench_options *o) {
-    mp_ptr a = alloc_limbs(n / 2 + 1), b = alloc_limbs(n);
-    fill_random(b, n, 0x92cab5432211ull + n);
-    double us;
-    BENCH_MEASURE(us, o, lmmp_sqrt_(a, NULL, b, n, 0););
-    lmmp_free(a);
-    lmmp_free(b);
-    return us;
-}
 
 static double bench_gcd_lehmer(mp_size_t n, const bench_options *o) {
     mp_ptr a = alloc_limbs(n), b = alloc_limbs(n), d = alloc_limbs(n);
@@ -69,35 +58,6 @@ static double bench_gcd_hgcd(mp_size_t n, const bench_options *o) {
     return us;
 }
 
-static double bench_fib(ulong n, const bench_options *o) {
-    mp_size_t rn = lmmp_fibonacci_size_(n);
-    mp_ptr a = alloc_limbs(rn + 2);
-    double us;
-    BENCH_MEASURE(us, o, lmmp_fibonacci_(a, rn, n); bench_sink += a[0];);
-    lmmp_free(a);
-    return us;
-}
-
-static double bench_factorial(uint n, const bench_options *o) {
-    mp_bitcnt_t bits = 0;
-    mp_size_t need = lmmp_factorial_size_(n, &bits);
-    mp_ptr d = alloc_limbs(need + 2);
-    double us;
-    BENCH_MEASURE(us, o, lmmp_factorial_(d, bits, need, n); bench_sink += d[0];);
-    lmmp_free(d);
-    return us;
-}
-
-/* ---- 扫描用例 ---- */
-
-static void run_sqrt(void) {
-    const mp_size_t SZ[] = {5000, 20000, 50000};
-    for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {
-        mp_size_t n = SZ[i];
-        report_n("sqrt", n, bench_sqrt(n, &bench_default), n * 8.0);
-    }
-}
-
 static void run_lehmer(void) {
     const mp_size_t SZ[] = {200, 1000, 2000};
     for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {
@@ -114,39 +74,13 @@ static void run_hgcd(void) {
     }
 }
 
-static void run_fib(void) {
-    const ulong SZ[] = {100000, 1000000, 10000000, 50000000};
-    for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {
-        ulong n = SZ[i];
-        char buf[64];
-        snprintf(buf, sizeof(buf), "fibonacci(%llu)", (unsigned long long)n);
-        report(buf, bench_fib(n, &bench_default), 0);
-    }
-}
-
-static void run_factorial(void) {
-    const uint SZ[] = {100, 1000, 10000};
-    for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {
-        uint n = SZ[i];
-        char buf[64];
-        snprintf(buf, sizeof(buf), "factorial(%u)", n);
-        report(buf, bench_factorial(n, &bench_default), 0);
-    }
-}
-
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     lmmp_global_init();
-    puts("[numth/sqrt/sqrt]");
-    run_sqrt();
     puts("[numth/gcd/lehmer]");
     run_lehmer();
     puts("[numth/gcd/hgcd]");
     run_hgcd();
-    puts("[numth/fib/fib]");
-    run_fib();
-    puts("[numth/factorial/factorial]");
-    run_factorial();
     lmmp_global_deinit();
     return 0;
 }
