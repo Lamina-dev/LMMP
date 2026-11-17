@@ -14,18 +14,18 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
+#include "mparam.h"
+#include "impl/mul_hard.h"
+#include "impl/tmp_alloc.h"
+#include "impl/inlines.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
 
 
 /*
@@ -206,10 +206,8 @@ void lmmp_sqrt_divide_(mp_ptr restrict dst, mp_ptr restrict numa, mp_size_t ns, 
 
         I - 1 <= ir <= I,    ir >= B^ns  (即恒有 dstis[ns] = 1)
 
-    即 ir 是 I 至多低估 1 的下近似，绝不高估。随机输入（含高位/低位归一化）
-    实测 100% 精确命中 ir = I；仅当 I 邻近区间端点 B^ns 或 2*B^ns 的构造输入
-    （如 a = B^na/4、a = B^na/4+1、a = B^na-1）会出现 ir = I-1（282 组中
-    111 组），因为此时末层修正被迫在"ir <= I"与"dstis[ns]=1"之间取舍。
+    ir 是 I 的下近似，且至多低估 1。I 邻近 B^ns 或 2*B^ns 时，
+    末层修正须兼顾 ir <= I 与 dstis[ns] = 1。
 
     注意 ns < na 时语义不同（lmmp_sqrt_newton_ 的调用恒有 ns >= na，见其
     @warning）：此时每层仅使用 an 的最高 min(层尺寸,na) 个 limb，最终结果变为
@@ -386,8 +384,7 @@ void lmmp_invsqrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
 
         0 <= eps < 2^-63 (na 偶)，  0 <= eps < 2^-31 (na 奇)
 
-    （实验：na∈[1,65] 约 380 组随机+构造输入，max eps 实测 2^-64.1/2^-63.0，
-    均落界内；r 与 round(x) 全体一致，无越界）。语义上 r 绝不超过 round(x)，
+    r 不超过 round(x)，
     仅当 frac(x) ∈ [1/2, 1/2+eps) 时得到 floor(x)（随机输入概率 < 2^-30），
     此即 [floor|round] 的确切含义。
 */

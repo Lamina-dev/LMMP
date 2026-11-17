@@ -14,15 +14,16 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/mat22_mul.h"
+#include "lmmp/lmmpn.h"
+#include "mparam.h"
+#include "numth/mat22_mul.h"
+#include "impl/internal.h"
 
 /**
  * @brief 带符号加法
@@ -509,3 +510,11 @@ void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
         mat22_sqr_basecase_(dst, a, tp);
     }
 }
+
+LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_basecase,
+                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
+                    mat22_sqr_basecase_(dst, a, tp);)
+
+LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_strassen,
+                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
+                    mat22_sqr_strassen_(dst, a, tp);)

@@ -20,19 +20,13 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
 
-#ifdef LMMP_TUNE
-#define MAYBE_sqr_basecase 1
-#define MAYBE_sqr_toom2 1
-#define MAYBE_sqr_toom4 1
-#else
 #define MAYBE_sqr_basecase (SQR_TOOM44_THRESHOLD < 4 * SQR_TOOM22_THRESHOLD)
 #define MAYBE_sqr_toom2 (SQR_TOOM44_THRESHOLD < 4 * SQR_TOOM33_THRESHOLD)
 #define MAYBE_sqr_toom4 (SQR_TOOM6_THRESHOLD >= 4 * SQR_TOOM44_THRESHOLD)
-#endif
 
 #define lmmp_sqr_(dst, numa, n)                              \
     if (MAYBE_sqr_basecase && (n) < SQR_TOOM22_THRESHOLD)    \

@@ -20,16 +20,12 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
 
-#ifdef LMMP_TUNE
-#define MAYBE_sqr_toom2 1
-#else
 #define MAYBE_sqr_toom2 (SQR_TOOM33_THRESHOLD >= 2 * SQR_TOOM22_THRESHOLD)
-#endif
 
 #define lmmp_sqr_(dst, numa, n)                         \
     if (!MAYBE_sqr_toom2 || (n) < SQR_TOOM22_THRESHOLD) \

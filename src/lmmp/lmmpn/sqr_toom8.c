@@ -14,28 +14,17 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
 
 
-#ifdef LMMP_TUNE
-#define MAYBE_sqr_basecase 1
-#define MAYBE_sqr_above_basecase 1
-#define MAYBE_sqr_toom2 1
-#define MAYBE_sqr_above_toom2 1
-#define MAYBE_sqr_toom3 1
-#define MAYBE_sqr_above_toom3 1
-#define MAYBE_sqr_toom4 1
-#define MAYBE_sqr_above_toom4 1
-#define MAYBE_sqr_above_toom6 1
-#else
 /* sqr_toom8 递归可达的最大子问题规模（FFT 接管前） */
 #define SQR_TOOM8_MAX ((SQR_FFT_THRESHOLD + 8 * 2 - 1 + 7) / 8)
 #define MAYBE_sqr_basecase (SQR_TOOM8_THRESHOLD < 8 * SQR_TOOM22_THRESHOLD)
@@ -47,7 +36,6 @@
 #define MAYBE_sqr_toom4 (SQR_TOOM8_THRESHOLD < 8 * SQR_TOOM6_THRESHOLD)
 #define MAYBE_sqr_above_toom4 (SQR_TOOM8_MAX >= SQR_TOOM6_THRESHOLD)
 #define MAYBE_sqr_above_toom6 (SQR_TOOM8_MAX >= SQR_TOOM8_THRESHOLD)
-#endif
 
 #define lmmp_sqr_(dst, numa, n)                                                          \
     if (MAYBE_sqr_basecase && (!MAYBE_sqr_above_basecase || (n) < SQR_TOOM22_THRESHOLD)) \
@@ -171,6 +159,4 @@ void lmmp_sqr_toom8_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na)
 #undef MAYBE_sqr_toom4
 #undef MAYBE_sqr_above_toom4
 #undef MAYBE_sqr_above_toom6
-#ifndef LMMP_TUNE
 #undef SQR_TOOM8_MAX
-#endif

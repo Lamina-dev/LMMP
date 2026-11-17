@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -125,25 +125,20 @@ basecase（8 乘）或 Winograd-Strassen（7 乘；FFT 缓存乘法路径曾实�
 七、复杂度
 
 每层递归的乘法工作为 O(M(n))，递归深度 O(log n)，总计 O(M(n) log n)。
-实测约 800 limb 以上优于 Lehmer 的 O(n^2)，4000 limb 约 4 倍加速；
-16000-46000 limb 与 GMP 6.3 相当或更快。
-
-主要开销相位（51000 limb 实测，占递归核总耗时）：matrix_mul 约 36%，
-apply_mod 约 30%，step 约 20%，adjust 约 3%。
 
 参考：
     GMP 的 hgcd/hgcd_appr/hgcd_reduce/hgcd_matrix_adjust 设计思想，
     https://www.cnblogs.com/whx1003/p/16217087.html
 */
 
-#include "../../../include/lmmp/impl/gcd.h"
-#include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/mat22_mul.h"
-#include "../../../include/lmmp/impl/mul_cache.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
+#include "numth/gcd.h"
+#include "impl/longlong.h"
+#include "mparam.h"
+#include "numth/mat22_mul.h"
+#include "impl/mul_cache.h"
+#include "impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
 
 LMMP_VECT_CONSERVATIVE
 

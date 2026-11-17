@@ -41,7 +41,8 @@ cmake --build build -j
 | `LMMP_LINKER_DIR` | 目录路径 | 空 | 链接器所在目录（按文件名识别：`ld.lld`/`lld` => lld，`ld.mold`/`mold` => mold，`ld`=> GNU ld）；为空使用工具链默认链接器 |
 | `LMMP_OUTPUT_DIR` | 目录路径 | 空 | 统一产物目录：动态库、导入库与对外头文件平铺于此，附加构建（tests 等）开启后也输出于此；为空使用源内 `dist/lmmp/` 布局 |
 | `LMMP_BUILD_TESTS` | `ON` / `OFF` | `OFF` | 是否构建单元测试（开启后与动态库输出到同一目录） |
-| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `OFF` | 是否构建性能基准（开启后与动态库输出到同一目录） |
+| `LMMP_BUILD_BENCHMARKS` | `ON` / `OFF` | `OFF` | 构建各模块 `perf/` 下的性能基准 |
+| `LMMP_BUILD_TUNE` | `ON` / `OFF` | `OFF` | 构建各模块 `tune/` 下的调优程序 |
 | `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序（开启后与动态库输出到同一目录） |
 | `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
 | `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部栈溢出检查（开销：高） |
@@ -80,23 +81,25 @@ lmmp-dist/
 
 ## 测试、基准与调优
 
-LMMP 提供测试、基准和调优功能。默认只构建动态库；测试与基准需显式开启（`-DLMMP_BUILD_TESTS=ON` / `-DLMMP_BUILD_BENCHMARKS=ON`）。调优功能需单独配置，默认不参与项目构建。关于调优程序，可以阅读 `tune/lmmp/README.md`。
+`src/lmmp/<module>/test/` 下的 C 用例由本模块的 `main.c` 统一执行。`perf/` 和 `tune/` 下的每个 `.c` 对应一个独立程序。启用任一附属构建选项时，程序统一链接同一输出目录里的内部动态库 `lmmp_internal`。对外使用的动态库仍是 `lmmp`，公共头文件位于 `include/lmmp/`。
 
 ```bash
-# 构建（含单元测试）
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DLMMP_BUILD_TESTS=ON
+# 构建动态库和附属程序（Windows 下同时指定 -G Ninja）
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DLMMP_BUILD_TESTS=ON -DLMMP_BUILD_BENCHMARKS=ON -DLMMP_BUILD_TUNE=ON
 cmake --build build -j
 
 # 运行全部单元测试
 ctest --test-dir build --output-on-failure
-# 或直接运行，支持 --filter 过滤、--list 列出用例
-./dist/lmmp/bin/debug/LmmpTest --list
-./dist/lmmp/bin/debug/LmmpTest --filter numth/gcd
+# 运行数论模块的测试
+ctest --test-dir build -R '^test_numth$' --output-on-failure
 
-# 运行性能基准（同样支持 --filter / --list）
-./dist/lmmp/bin/debug/LmmpBenchmark
-./dist/lmmp/bin/debug/LmmpBenchmark --filter lmmpn/mul
+# 运行基础算术的性能基准和 2×2 矩阵平方的调优程序
+./dist/lmmp/bin/release/perf_lmmpn_arithmetic
+./dist/lmmp/bin/release/tune_numth_mat22_sqr
 ```
+
+阈值定义在各模块的 `arch/<后端>/mparam.h`。CMake 按构建所选后端汇总成供全库使用的内部头文件。调优程序用相同输入比较算法路径并输出测量结果。更新参数时修改所属模块的头文件，再重新构建。
 
 ## 接口与调用说明
 

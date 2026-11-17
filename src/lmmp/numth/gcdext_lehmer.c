@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -73,10 +73,10 @@ lmmp_divexact_（B 偶时剥 2^k）导出，dstt==NULL 时跳过；发射映射�
 2、除法回退商/余/行积、尾合并与发射缓冲。
 */
 
-#include "../../../include/lmmp/impl/gcd.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
+#include "numth/gcd.h"
+#include "impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
 
 /* 符号-幅度系数（n 归一化；n==0 即零，neg 恒 0） */
 typedef struct {
@@ -98,7 +98,7 @@ static int mag_cmp_(mp_srcptr x, mp_size_t xn, mp_srcptr y, mp_size_t yn) {
  *       - 同号（行更新常态，收敛子符号交替定理保证两项幅度无抵消）：
  *         mul_1 + addmul_1 直加；
  *       - 异号（数对更新常态，收敛矩阵行异号）：长项 mul_1 后 submul_1 减短项，
- *         借位经 sub_1 传播；借位穿底（真值为负，实测约 2% 步）换向重算。
+ *         借位经 sub_1 传播；借位穿底表示真值为负，须换向重算。
  *       逐次运行时核验借位/进位，正确性不依赖符号性质或值序假设
  */
 static void lc1_(sco_t* dst, slong al, mp_srcptr x, mp_size_t xn, slong be, mp_srcptr y,

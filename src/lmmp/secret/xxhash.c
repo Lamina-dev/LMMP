@@ -14,13 +14,13 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/secret.h"
+#include "lmmp/secret.h"
 
 #define PRIME64_1 0x9E3779B185EBCA87ULL
 #define PRIME64_2 0xC2B2AE3D27D4EB4FULL

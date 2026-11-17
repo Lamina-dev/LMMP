@@ -14,17 +14,17 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/mul_cache.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/inlines.h"
+#include "mparam.h"
+#include "impl/mul_cache.h"
+#include "impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
 
 
 void lmmp_inv_prediv_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_size_t ni) {

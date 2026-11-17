@@ -14,16 +14,16 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/prime_table.h"
-#include "../../../include/lmmp/impl/str_conv.h"
-#include "../../../include/lmmp/impl/trialdiv.h"
+#include "mparam.h"
+#include "impl/prime_table.h"
+#include "impl/str_conv.h"
+#include "impl/trialdiv.h"
 
 
 typedef void (*lmmp_global_hook_fn)(void);

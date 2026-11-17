@@ -14,16 +14,16 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
-#include "../../../include/lmmp/impl/gcd.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
+#include "numth/gcd.h"
+#include "impl/tmp_alloc.h"
 
 /* 步进矩阵与窗口提取见 impl/gcd.h（与 gcdext_lehmer.c 共享） */
 

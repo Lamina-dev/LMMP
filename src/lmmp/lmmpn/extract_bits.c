@@ -14,14 +14,14 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/impl/inlines.h"
+#include "lmmp/lmmpn.h"
+#include "impl/inlines.h"
 
 
 mp_bitcnt_t lmmp_extract_bits_(mp_srcptr restrict num, mp_size_t n, mp_limb_t* restrict ext, int bits) {

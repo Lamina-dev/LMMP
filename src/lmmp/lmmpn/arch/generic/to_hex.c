@@ -14,19 +14,18 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../../../include/lmmp/impl/str_conv.h"
-#include "../../../../../include/lmmp/impl/mparam.h"
-#include "../../../../../include/lmmp/lmmpn.h"
+#include "impl/str_conv.h"
+#include "mparam.h"
+#include "lmmp/lmmpn.h"
 
 
-// LMMP_VECT_CONSERVATIVE：查表取值为 gather 模式不可向量化；本文件
-// 仅作 GENERIC 构建的回退与 ASM 实现的参考（实测豁免与 dynamic 无速度差）
+// 查表取值为离散访问。
 
 /*
  * 字节对 -> 双字符打包表：ptab[i] 的值为字节 i 的两个 nibble 字符对

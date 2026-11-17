@@ -13,7 +13,7 @@
 #  GNU Lesser General Public License for more details.
 #
 #  You should have received a copy of the GNU Lesser General Public
-#  License along with this library; if not, see
+#  License along with this library.  If not, see
 #  <https://www.gnu.org/licenses/>.
 #
 #  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -153,8 +153,7 @@ option(LMMP_BUILD_EXAMPLES "Build LMMP examples" OFF)
 set(LMMP_OUTPUT_DIR "" CACHE PATH
     "Flat output directory for all artifacts (shared lib, import lib, headers, optional tests/benchmarks). Empty = in-tree dist/lmmp/bin/<config>.")
 
-# 调优模式：构建静态可调阈值核心 + 调优驱动；默认关闭且独立于正常构建。
-option(LMMP_TUNE_MODE "Build tuning core and tune driver" OFF)
+option(LMMP_BUILD_TUNE "Build LMMP tuning programs" OFF)
 
 # 调试选项：由构建系统注入 LMMP_DEBUG_* 宏，不在头文件中直接定义。
 option(LMMP_DEBUG_STACK_OVERFLOW_CHECK "Enable stack overflow check (high overhead)" OFF)
@@ -319,7 +318,6 @@ function(lmmp_target_setup target)
             -Wundef
             -Wmissing-prototypes
             -Wimplicit-fallthrough
-            -fvisibility=hidden
             $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
             $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
             $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
@@ -328,7 +326,6 @@ function(lmmp_target_setup target)
         >
         $<$<COMPILE_LANGUAGE:CXX>:
             -Wall -Wextra -Wpedantic
-            -fvisibility=hidden
             $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
             $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
             $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
@@ -441,15 +438,12 @@ endfunction()
 # ==============================================================================
 # 输出目录
 # ==============================================================================
-# 三种形态：
-#   LMMP_TUNE_MODE  -> tune/lmmp/bin（调优产物独立，不区分配置子目录）
+# 输出布局：
 #   LMMP_OUTPUT_DIR -> 传入目录平铺（动态库/导入库/头文件/附加构建产物同层，
 #                     不区分配置子目录，供其他项目直接引入）
 #   默认            -> dist/lmmp/bin/<config>（源内开发布局）
 set(OUTPUT_SPLIT_CONFIG FALSE)
-if(LMMP_TUNE_MODE)
-    set(OUTPUT_BIN ${CMAKE_SOURCE_DIR}/tune/lmmp/bin)
-elseif(LMMP_OUTPUT_DIR)
+if(LMMP_OUTPUT_DIR)
     get_filename_component(OUTPUT_BIN "${LMMP_OUTPUT_DIR}" ABSOLUTE)
 else()
     set(OUTPUT_BIN ${CMAKE_SOURCE_DIR}/dist/lmmp/bin)
@@ -474,23 +468,14 @@ endforeach()
 # ==============================================================================
 # 构建子模块
 # ==============================================================================
+if(LMMP_BUILD_TESTS)
+    enable_testing()
+endif()
+
 add_subdirectory(src/lmmp)
 
-if(NOT LMMP_TUNE_MODE)
-    if(LMMP_BUILD_TESTS)
-        enable_testing()
-        add_subdirectory(test/lmmp)
-    endif()
-
-    if(LMMP_BUILD_EXAMPLES)
-        add_subdirectory(example/lmmp)
-    endif()
-
-    if(LMMP_BUILD_BENCHMARKS)
-        add_subdirectory(benchmark/lmmp)
-    endif()
-else()
-    add_subdirectory(tune/lmmp)
+if(LMMP_BUILD_EXAMPLES)
+    add_subdirectory(example/lmmp)
 endif()
 
 # ==============================================================================
@@ -511,7 +496,5 @@ message(STATUS "Target system: ${TARGET_SYSTEM}")
 message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
 message(STATUS "ASM support:   ${LMMP_ASM}")
 message(STATUS "Output dir:    ${OUTPUT_BIN}")
-if(NOT LMMP_TUNE_MODE)
-    message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} benchmarks=${LMMP_BUILD_BENCHMARKS} examples=${LMMP_BUILD_EXAMPLES}")
-endif()
+message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} perf=${LMMP_BUILD_BENCHMARKS} tune=${LMMP_BUILD_TUNE} examples=${LMMP_BUILD_EXAMPLES}")
 message(STATUS "=====================================")

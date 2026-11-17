@@ -14,18 +14,18 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/log2_exp2.h"
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/numth.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/inlines.h"
+#include "impl/longlong.h"
+#include "impl/log2_exp2.h"
+#include "impl/mul_hard.h"
+#include "lmmp/numth.h"
+#include "lmmp/lmmpn.h"
 
 
 #define CBRT_DIVIDE_MIN (0x6000000000000000ull)

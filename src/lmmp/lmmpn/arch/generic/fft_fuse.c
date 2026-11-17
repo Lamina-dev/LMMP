@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -30,7 +30,7 @@
     差链补码化同 add_n_sub_n_: d = a + ~t + k, k0 = 1 - b, 借位 = 1 - k。
 */
 
-#include "../../../../../include/lmmp/impl/fft_ssa.h"
+#include "lmmpn/fft_ssa.h"
 
 mp_limb_t lmmp_ifft_bfy_fused_(mp_ptr numc, mp_ptr numa, mp_ptr numb,
                                mp_size_t l, mp_size_t w, mp_size_t shr) {

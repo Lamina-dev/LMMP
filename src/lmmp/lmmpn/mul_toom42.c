@@ -20,10 +20,10 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
+#include "lmmp/lmmpn.h"
 
 LMMP_VECT_CONSERVATIVE
 

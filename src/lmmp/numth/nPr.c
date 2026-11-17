@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -22,11 +22,11 @@
 
 #include <math.h>
 
-#include "../../../include/lmmp/impl/ele_mul.h"
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/prime_table.h"
+#include "numth/ele_mul.h"
+#include "impl/inlines.h"
+#include "impl/longlong.h"
+#include "mparam.h"
+#include "impl/prime_table.h"
 
 
 // 无分支，_c_为0时可能导致越界写入高位0
@@ -37,9 +37,6 @@
         rn += _c_ > 0;                                \
     } while (0)
 
-#ifdef LMMP_TUNE
-mp_size_t lmmp_tune_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r);
-#endif
 
 static const ulong odd_factorial[25] = {1, 1, 3, 3, 15, 45, 315, 315,
                                         2835, 14175, 155925,
@@ -131,12 +128,6 @@ static mp_size_t lmmp_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n
     return rn;
 }
 
-#ifdef LMMP_TUNE
-/* 调优专用：把静态 product 路径暴露给调优驱动，正常构建不会编译此符号。 */
-mp_size_t lmmp_tune_odd_nPr_product_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) {
-    return lmmp_odd_nPr_product_(dst, rn, n, r);
-}
-#endif
 
 mp_size_t lmmp_odd_nPr_ushort_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong r) {
     lmmp_param_assert(n >= r);

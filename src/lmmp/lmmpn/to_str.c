@@ -14,17 +14,17 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/str_conv.h"
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/str_conv.h"
+#include "impl/inlines.h"
+#include "mparam.h"
+#include "impl/tmp_alloc.h"
+#include "lmmp/lmmpn.h"
 
 LMMP_VECT_CONSERVATIVE
 
@@ -51,12 +51,7 @@ mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t n = 0;
     mp_limb_t frac;
-#ifdef LMMP_TUNE
-    /* 调优模式下阈值为运行时变量，不能作为数组长度；改为临时堆分配。 */
-    mp_ptr tp = (mp_ptr)lmmp_alloc((1 + TO_STR_BASEPOW_THRESHOLD) * sizeof(mp_limb_t));
-#else
     mp_limb_t tp[1 + TO_STR_BASEPOW_THRESHOLD];
-#endif
     lmmp_copy(tp + 1, numa, na);
 
     do {
@@ -88,9 +83,6 @@ mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
         frac *= base;
         msd = lmmp_mulh_(frac, base);
     }
-#ifdef LMMP_TUNE
-    lmmp_free(tp);
-#endif
     return n;
 }
 

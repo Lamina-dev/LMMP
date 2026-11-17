@@ -20,8 +20,8 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/log2_exp2.h"
-#include "../../../include/lmmp/impl/longlong.h"
+#include "impl/log2_exp2.h"
+#include "impl/longlong.h"
 
 /*
     记 B = 2^64，x 为 [0,1) 上的小数（64bit 或 128bit 定点），本文件计算
@@ -56,8 +56,7 @@
     舍入控制：约简变量 u 的定点化为误差主源（~0.7 ulp），其余各级
     floor 系统性偏负，故 64bit 版 B/A 链取 floor 而收尾以 +2^63 /
     舍入位中心化，exp2 的表合成（T16/T8 四舍五入存、T8 运行时再舍入
-    取高位）与 s、Q*s 项亦取舍入值。实测全区间误差 |e| <= 2 ulp，
-    接口承诺 |e| <= 2。
+    取高位）与 s、Q*s 项亦取舍入值。接口承诺 |e| <= 2 ulp。
 
     常量表由纯整数高精度脚本离线生成（scripts/lmmp/gen_log2_exp2.py，
     atanh/exp 级数求值，ln2 取 768bit 定点），每张表首行为 i=0。
