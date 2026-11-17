@@ -496,8 +496,9 @@ void lmmp_mul_fermat_recombine_(
             lmmp_shl_(nums, nums, nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, nlen);
-            rhead = nlen;
+            // 重组先写入 [dst,rn]，最高 limb 在处理进位时写入。
+            rhead = LMMP_MIN(nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + nlen <= rn) {
             lmmp_add_(dst + roffset, nums, nlen, dst + roffset, rhead - roffset);
             rhead = roffset + nlen;

@@ -306,6 +306,47 @@ TEST_CASE("mul/sqr_dispatch", sqr_dispatch_vs_mul) {
     }
 }
 
+TEST_CASE("mul/toom_splits", toom53_toom62_integer_splits) {
+    const struct {
+        mp_size_t na, nb;
+        void (*mul)(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
+    } shapes[] = {
+        {13, 7, lmmp_mul_toom53_}, {14, 9, lmmp_mul_toom53_},
+        {11, 3, lmmp_mul_toom62_}, {18, 4, lmmp_mul_toom62_},
+    };
+    u64 seed = 0x84f4756eb3c2ab17ull;
+    mp_limb_t a[18], b[9], dst[24], ref[23];
+    for (size_t i = 0; i < ARRAY_SIZE(shapes); ++i) {
+        mp_size_t na = shapes[i].na, nb = shapes[i].nb;
+        random_limbs(a, na, &seed);
+        random_limbs(b, nb, &seed);
+        dst[na + nb] = LIMB_MAX;
+        shapes[i].mul(dst, a, na, b, nb);
+        lmmp_mul_basecase_(ref, a, na, b, nb);
+        TEST_CHECK(limbs_same(dst, ref, na + nb));
+        TEST_CHECK(dst[na + nb] == LIMB_MAX);
+    }
+}
+
+TEST_CASE("mul/sqr_toom_small", sqr_toom_small_direct) {
+    const struct {
+        mp_size_t min_na;
+        void (*sqr)(mp_ptr, mp_srcptr, mp_size_t);
+    } cases[] = {{4, lmmp_sqr_toom2_}, {5, lmmp_sqr_toom3_}, {10, lmmp_sqr_toom4_}};
+    u64 seed = 0x8ec2d36d49433ba9ull;
+    mp_limb_t a[32], dst[65], ref[64];
+    for (size_t i = 0; i < ARRAY_SIZE(cases); ++i) {
+        for (mp_size_t na = cases[i].min_na; na <= ARRAY_SIZE(a); ++na) {
+            random_limbs(a, na, &seed);
+            dst[2 * na] = LIMB_MAX;
+            cases[i].sqr(dst, a, na);
+            lmmp_sqr_basecase_(ref, a, na);
+            TEST_CHECK(limbs_same(dst, ref, 2 * na));
+            TEST_CHECK(dst[2 * na] == LIMB_MAX);
+        }
+    }
+}
+
 void test_mul(void) {
     TEST_RUN("mul/basecase", mul_basecase_mod_and_n1_exact);
     TEST_RUN("mul/basecase", sqr_basecase_vs_mul);
@@ -317,4 +358,6 @@ void test_mul(void) {
     TEST_RUN("mul/unbalanced", mul_unbalanced_cross);
     TEST_RUN("mul/mullo", mullo_vs_mul_truncation);
     TEST_RUN("mul/sqr_dispatch", sqr_dispatch_vs_mul);
+    TEST_RUN("mul/toom_splits", toom53_toom62_integer_splits);
+    TEST_RUN("mul/sqr_toom_small", sqr_toom_small_direct);
 }

@@ -257,8 +257,9 @@ void lmmp_mul_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t 
             lmmp_shl_(nums, nums, nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, nlen);
-            rhead = nlen;
+            // 首个系数未移位，超出 [dst,rn] 的扩展 limb 已清零。
+            rhead = LMMP_MIN(nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + nlen <= rn) {
             lmmp_add_(dst + roffset, nums, nlen, dst + roffset, rhead - roffset);
             rhead = roffset + nlen;
@@ -501,8 +502,8 @@ void lmmp_mul_mersenne_cache_init_(
             lmmp_shl_(nums, nums, ctx->nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, ctx->nlen);
-            rhead = ctx->nlen;
+            rhead = LMMP_MIN(ctx->nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + ctx->nlen <= rn) {
             lmmp_add_(dst + roffset, nums, ctx->nlen, dst + roffset, rhead - roffset);
             rhead = roffset + ctx->nlen;
@@ -573,8 +574,8 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx) {
             lmmp_shl_(nums, nums, ctx->nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, ctx->nlen);
-            rhead = ctx->nlen;
+            rhead = LMMP_MIN(ctx->nlen, ctx->rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + ctx->nlen <= ctx->rn) {
             lmmp_add_(dst + roffset, nums, ctx->nlen, dst + roffset, rhead - roffset);
             rhead = roffset + ctx->nlen;
@@ -700,6 +701,7 @@ void lmmp_mul_fft_cache_init_(
     lmmp_param_assert(na > 0 && nb > 0);
     lmmp_param_assert(na >= nb);
     lmmp_param_assert(na + nb > hn);
+    lmmp_param_assert(na + nb <= 2 * hn);
     lmmp_param_assert(dst != NULL && numa != NULL && numb != NULL);
     lmmp_param_assert(ctx != NULL);
     ctx->hn = hn;

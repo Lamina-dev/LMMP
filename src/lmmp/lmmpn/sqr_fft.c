@@ -195,8 +195,8 @@ void lmmp_sqr_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t 
             lmmp_shl_(nums, nums, nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, nlen);
-            rhead = nlen;
+            rhead = LMMP_MIN(nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + nlen <= rn) {
             lmmp_add_(dst + roffset, nums, nlen, dst + roffset, rhead - roffset);
             rhead = roffset + nlen;

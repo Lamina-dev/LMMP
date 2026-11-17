@@ -77,7 +77,7 @@ void lmmp_mul_toom62_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 #define b1 (numb + n)
 
     n = 1 + (na >= 3 * nb ? (na - 1) / (mp_size_t)6 : (nb - 1) >> 1);
-
+    lmmp_param_assert(na > 5 * n && nb > n);
     s = na - 5 * n;
     t = nb - n;
 

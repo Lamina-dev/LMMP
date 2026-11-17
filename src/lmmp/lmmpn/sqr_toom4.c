@@ -24,12 +24,11 @@
 #include "mparam.h"
 #include "lmmpn/toom_interp.h"
 
-#define MAYBE_sqr_basecase (SQR_TOOM44_THRESHOLD < 4 * SQR_TOOM22_THRESHOLD)
 #define MAYBE_sqr_toom2 (SQR_TOOM44_THRESHOLD < 4 * SQR_TOOM33_THRESHOLD)
 #define MAYBE_sqr_toom4 (SQR_TOOM6_THRESHOLD >= 4 * SQR_TOOM44_THRESHOLD)
 
 #define lmmp_sqr_(dst, numa, n)                              \
-    if (MAYBE_sqr_basecase && (n) < SQR_TOOM22_THRESHOLD)    \
+    if ((n) < LMMP_MAX(4, SQR_TOOM22_THRESHOLD))             \
         lmmp_sqr_hard_n_((dst), (numa), (n));                \
     else if (MAYBE_sqr_toom2 && (n) < SQR_TOOM33_THRESHOLD)  \
         lmmp_sqr_toom2_((dst), (numa), (n));                 \

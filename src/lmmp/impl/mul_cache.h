@@ -146,14 +146,14 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx);
  * @brief FFT乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
  *        第二个操作数将被缓存
  * @param dst 输出结果缓冲区，长度至少为 na+nb
- * @param hn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(hn)==hn）；
- *           hn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为推荐最小值
+ * @param hn 双域模运算的阶数。须满足 hn<na+nb<=2*hn，使 CRT 重组能容纳完整乘积。
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
  * @param ctx FFT乘法缓存上下文
- * @warning ???<=nb<=na, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL, ctx!=NULL
+ * @warning 0<nb<=na, hn<na+nb<=2*hn, lmmp_fft_next_size_(hn)==hn, sep(dst,[numa|numb]),
+ *          dst!=NULL, numa!=NULL, numb!=NULL, ctx!=NULL
  * @note [numb,nb]将会被缓存，第二个乘数始终保持不变时，在后续计算中可以调用lmmp_mul_fft_cache_()函数节省40%的计算时间
  *       numb可以在lmmp_mul_fft_cache_()函数前被释放，不会影响后续计算
  * @return 无返回值，结果存储在dst中

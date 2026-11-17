@@ -53,7 +53,7 @@ Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 
 void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(5 * nb > 2 * na);
-    lmmp_param_assert(4 * na > 3 * nb);
+    lmmp_param_assert(3 * na > 4 * nb);
     mp_size_t n, s, t;
     mp_limb_t cy;
     mp_ptr gp;
@@ -73,13 +73,14 @@ void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 #define b2 (numb + 2 * n)
 
     n = 1 + (3 * na >= 5 * nb ? (na - 1) / (mp_size_t)5 : (nb - 1) / (mp_size_t)3);
-    mp_ptr restrict scratch = SALLOC_TYPE(10 * (n + 1), mp_limb_t);
+    lmmp_param_assert(na > 4 * n && nb > 2 * n);
     s = na - 4 * n;
     t = nb - 2 * n;
 
     lmmp_param_assert(0 < s && s <= n);
     lmmp_param_assert(0 < t && t <= n);
 
+    mp_ptr restrict scratch = SALLOC_TYPE(10 * (n + 1), mp_limb_t);
     tmp = SALLOC_TYPE(10 * (n + 1), mp_limb_t);
     as1 = tmp;
     tmp += n + 1;

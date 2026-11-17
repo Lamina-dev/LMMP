@@ -21,6 +21,7 @@
  */
 
 #include "lmmp/lmmpn.h"
+#include "impl/mul_cache.h"
 #include "mparam.h"
 #include "cases.h"
 #include "support/lmmp_test_utils.h"
@@ -154,7 +155,45 @@ TEST_CASE("mul/mersenne_next_size", mersenne_next_size_props) {
     }
 }
 
+TEST_CASE("mul/mersenne_fft", mersenne_fft_single_limb) {
+    const mp_limb_t a[] = {LIMB_MAX, 0, 1, 0x8123456789abcdefull};
+    const mp_limb_t b = 0xfedcba9876543210ull;
+    mp_limb_t dst[2] = {0, LIMB_MAX}, ref, full[4];
+    fft_gr_cache cache;
+    lmmp_mul_mersenne_cache_init_(dst, 1, a, 1, &b, 1, &cache);
+    mersenne_oracle(&ref, 1, a, 1, &b, 1, full);
+    TEST_CHECK(dst[0] == ref && dst[1] == LIMB_MAX);
+
+    for (size_t i = 0; i < ARRAY_SIZE(a); ++i) {
+        mersenne_oracle(&ref, 1, a + i, 1, &b, 1, full);
+        dst[0] = ~ref;
+        lmmp_mul_mersenne_cache_(dst, a + i, &cache);
+        TEST_CHECK(dst[0] == ref && dst[1] == LIMB_MAX);
+        dst[0] = ~ref;
+        lmmp_mul_mersenne_fft_(dst, 1, a + i, 1, &b, 1);
+        TEST_CHECK(dst[0] == ref && dst[1] == LIMB_MAX);
+        mersenne_oracle(&ref, 1, a + i, 1, a + i, 1, full);
+        dst[0] = ~ref;
+        lmmp_sqr_mersenne_fft_(dst, 1, a + i, 1);
+        TEST_CHECK(dst[0] == ref && dst[1] == LIMB_MAX);
+    }
+    lmmp_fft_gr_cache_free_(&cache);
+}
+
+TEST_CASE("mul/fermat_fft", fermat_cache_single_limb) {
+    const mp_limb_t a = 2, b = LIMB_B_2, next = 1;
+    mp_limb_t dst[3] = {LIMB_MAX, LIMB_MAX, LIMB_MAX};
+    fft_gr_cache cache;
+    lmmp_mul_fermat_cache_init_(dst, 1, &a, 1, &b, 1, &cache);
+    TEST_CHECK(dst[0] == 0 && dst[1] == 1 && dst[2] == LIMB_MAX);
+    lmmp_mul_fermat_cache_(dst, &next, &cache);
+    TEST_CHECK(dst[0] == b && dst[1] == 0 && dst[2] == LIMB_MAX);
+    lmmp_fft_gr_cache_free_(&cache);
+}
+
 void test_mul_mersenne(void) {
     TEST_RUN("mul/mersenne_dc", mersenne_dc_vs_oracle);
     TEST_RUN("mul/mersenne_next_size", mersenne_next_size_props);
+    TEST_RUN("mul/mersenne_fft", mersenne_fft_single_limb);
+    TEST_RUN("mul/fermat_fft", fermat_cache_single_limb);
 }
