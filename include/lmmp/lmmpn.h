@@ -535,7 +535,7 @@ LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 2/5<nb/na<3/4, na>4*n, nb>2*n while n=max(ceil(na/5),ceil(nb/3))
+ * @warning 2/5<nb/na<3/4, na>4*n, nb>2*n while n=max(ceil(na/5),ceil(nb/3)),
  *          sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
@@ -548,7 +548,7 @@ LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 1/6<nb/na<2/5, na>5*n, nb>n while n=max(ceil(na/6),ceil(nb/2))
+ * @warning 1/6<nb/na<2/5, na>5*n, nb>n while n=max(ceil(na/6),ceil(nb/2)),
  *          sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
@@ -565,6 +565,31 @@ LMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom62_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+
+/**
+ * @brief Toom-93乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
+ * @param dst 输出结果缓冲区，长度至少为 na+nb
+ * @param numa 第一个输入操作数，长度为 na
+ * @param na 第一个操作数的 limb 长度
+ * @param numb 第二个输入操作数，长度为 nb
+ * @param nb 第二个操作数的 limb 长度
+ * @warning nb>=20, 8*n<na<=9*n, 2*n<nb<=3*n while n=ceil(nb/3),
+ *          sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_mul_toom93_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
+
+/**
+ * @brief Toom-93不平衡乘法运算 [dst,na+nb] = [numa,na] * [numb,nb]
+ * @param dst 输出结果缓冲区，长度至少为 na+nb
+ * @param numa 第一个输入操作数，长度为 na
+ * @param na 第一个操作数的 limb 长度
+ * @param numb 第二个输入操作数，长度为 nb
+ * @param nb 第二个操作数的 limb 长度
+ * @warning na>=3*nb, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @return 无返回值，结果存储在dst中
+ */
+LMMP_API void lmmp_mul_toom93_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
 
 /**
  * @brief 计算满足 >=n 的最小费马/梅森乘法可行尺寸

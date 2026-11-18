@@ -45,18 +45,6 @@
 
 /*
 Evaluate in: infinity, +4, -4, +2, -2, +1, -1, +1/2, -1/2, +1/4, -1/4, 0
-
-  <-s-><---n---><---n---><---n---><--n-1--> ... (p 段)
-  |a_p|---a_p-1-|---...---|---a1---|---a0---|
-   |b_q|--...----|---b1---|---b0---|         (q 段, q <= p)
-
-  v(0)   = a0*b0
-  v(±1)  = A(±1)*B(±1)          |A(±1)|  <= p
-  v(±2)  = A(±2)*B(±2)          2^k 求值约束: 2*k_max < LIMB_BITS
-  v(±4)  = A(±4)*B(±4)
-  v(±1/2)= A(±1/2)*B(±1/2)*2^k
-  v(±1/4)= A(±1/4)*B(±1/4)*4^k
-  v(inf) = a_top*b_top（仅 half，走 lmmp_mul_ 完整分派）
 */
 
 void lmmp_mul_toom6h_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
