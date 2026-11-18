@@ -14,28 +14,21 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
+#include "lmmp/lmmpn.h"
 
-
-#ifdef LMMP_TUNE
-#define MAYBE_sqr_basecase 1
-#define MAYBE_sqr_toom3 1
-#else
-#define MAYBE_sqr_basecase (SQR_TOOM33_THRESHOLD < 3 * SQR_TOOM22_THRESHOLD)
 #define MAYBE_sqr_toom3 (SQR_TOOM44_THRESHOLD >= 3 * SQR_TOOM33_THRESHOLD)
-#endif
 
 #define lmmp_sqr_(dst, numa, n)                              \
-    if (MAYBE_sqr_basecase && (n) < SQR_TOOM22_THRESHOLD)    \
+    if ((n) < LMMP_MAX(4, SQR_TOOM22_THRESHOLD))             \
         lmmp_sqr_hard_n_((dst), (numa), (n));                \
     else if (!MAYBE_sqr_toom3 || (n) < SQR_TOOM33_THRESHOLD) \
         lmmp_sqr_toom2_((dst), (numa), (n));                 \
@@ -56,7 +49,7 @@ vinf=          a2 *^2 # A(inf)^2
 */
 
 void lmmp_sqr_toom3_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    lmmp_param_assert(na > 0);
+    lmmp_param_assert(na > 4);
     lmmp_param_assert(numa != NULL);
     lmmp_param_assert(dst != NULL);
     TEMP_S_DECL;

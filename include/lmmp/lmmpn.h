@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -345,7 +345,7 @@ LMMP_API void lmmp_sqr_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度至少为 2*na
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @warning 4<=na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_toom2_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -355,7 +355,7 @@ LMMP_API void lmmp_sqr_toom2_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度至少为 2*na
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @warning 5<=na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -365,7 +365,7 @@ LMMP_API void lmmp_sqr_toom3_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度至少为 2*na
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning ??<na, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @warning 10<=na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_toom4_(mp_ptr dst, mp_srcptr numa, mp_size_t an);
@@ -411,7 +411,7 @@ LMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_sr
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 4/5<=nb/na<=1, nb>=5, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/2<nb/na<=1, nb>=5, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -423,7 +423,7 @@ LMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 5/9<=nb/na<=4/5, nb>=12, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/3<nb/na<1, nb>=12, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -435,7 +435,7 @@ LMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 4/5<=nb/na<=1, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 2/3<nb/na<=1, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -447,7 +447,7 @@ LMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 1/3<=nb/na<=5/9, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/4<nb/na<2/3, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom42_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -471,7 +471,7 @@ LMMP_API void lmmp_mul_toom42_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t n
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 3/5<=nb/na<=4/5, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/2<nb/na<1, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -483,7 +483,7 @@ LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 4/5<=nb/na<=1, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 3/4<nb/na<=1, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -523,7 +523,7 @@ LMMP_API void lmmp_mul_toom8h_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 1/3<=nb/na<=9/20, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/5<nb/na<1/2, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -535,7 +535,8 @@ LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 9/20<=nb/na<=3/5, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 2/5<nb/na<3/4, na>4*n, nb>2*n while n=max(ceil(na/5),ceil(nb/3))
+ *          sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -547,7 +548,8 @@ LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 1/5<=nb/na<=1/3, nb>=??, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 1/6<nb/na<2/5, na>5*n, nb>n while n=max(ceil(na/6),ceil(nb/2))
+ *          sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -582,12 +584,13 @@ LMMP_API mp_size_t lmmp_mersenne_next_size_(mp_size_t n);
 /**
  * @brief 费马数模乘法 [dst,rn+1]=[numa,na]*[numb,nb] mod B^rn+1
  * @param dst 输出结果缓冲区，长度至少为 rn+1
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((na + nb + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1),
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<2*B^rn, 0<=[numb,nb]<2*B^rn, lmmp_fft_next_size_(rn)==rn,
  *          dst!=NULL, numa!=NULL, numb!=NULL
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_fermat_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_fermat_函数
  * @return 无返回值，结果存储在dst中
@@ -597,12 +600,13 @@ LMMP_API void lmmp_mul_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size
 /**
  * @brief FFT 梅森数模乘法 [dst,rn] = [numa,na]*[numb,nb] mod B^rn-1
  * @param dst 输出结果缓冲区，长度至少为 rn
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((na + nb + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_fft_next_size_((na+nb+1)>>1),
+ * @warning eqsep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, lmmp_fft_next_size_(rn)==rn,
  *          dst!=NULL, numa!=NULL, numb!=NULL
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_fft_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_fft_函数
  * @return 无返回值，结果存储在dst中
@@ -617,8 +621,7 @@ LMMP_API void lmmp_mul_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, m
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning sep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn,
- *          rn = lmmp_mersenne_next_size_((na + nb + 1) >> 1), na+nb>rn/2, dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning sep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, na+nb>rn/2, dst!=NULL, numa!=NULL, numb!=NULL
  * @note 如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_dc_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_dc_函数
  * @return 无返回值，结果存储在dst中
  */
@@ -627,13 +630,13 @@ LMMP_API void lmmp_mul_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp
 /**
  * @brief 梅森数模乘法 [dst,rn] = [numa,na]*[numb,nb] mod B^rn-1
  * @param dst 输出结果缓冲区，长度至少为 rn
- * @param rn 模运算的阶数参数，rn = lmmp_mersenne_next_size_((na + nb + 1) >> 1)
+ * @param rn 模运算的阶数参数，任意正尺寸均可（未对齐 fft 可行尺寸时回落 dc）；
+ *           rn = lmmp_fft_next_size_((na + nb + 1) >> 1) 为进入 fft 档的推荐最小值
  * @param numa 第一个输入操作数，长度为 na
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning sep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, rn = lmmp_mersenne_next_size_((na+nb+1)>>1),
- *          dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning sep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, dst!=NULL, numa!=NULL, numb!=NULL
  * @note na/nb 大小序不限（内部按交换律规范化为 nb<=na）；rn 对齐粒度不限
  *      （未达 fft 可行尺寸时即使超过阈值也回落 dc）；
  *       如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数；
@@ -644,10 +647,11 @@ LMMP_API void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_si
 /**
  * @brief SSA FFT 版费马数模平方 [dst,rn+1]=[numa,na]^2 mod B^rn+1
  * @param dst 输出结果缓冲区，长度至少为 rn+1
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((2*na + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((2*na + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 操作数，长度为 na
  * @param na 操作数的 limb 长度
- * @warning eqsep(dst,numa), 0<=[numa,na]<2*B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1), dst!=NULL, numa!=NULL
+ * @warning eqsep(dst,numa), 0<=[numa,na]<2*B^rn, lmmp_fft_next_size_(rn)==rn, dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
@@ -655,10 +659,11 @@ LMMP_API void lmmp_sqr_fermat_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size
 /**
  * @brief FFT 梅森数模平方 [dst,rn] = [numa,na]^2 mod B^rn-1
  * @param dst 输出结果缓冲区，长度至少为 rn
- * @param rn 模运算的阶数参数，rn = lmmp_fft_next_size_((2*na + 1) >> 1)
+ * @param rn 模运算的阶数参数，须为 FFT 可行尺寸（lmmp_fft_next_size_(rn)==rn）；
+ *           rn = lmmp_fft_next_size_((2*na + 1) >> 1) 为可容纳乘积的推荐最小值
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning eqsep(dst,numa), 0<=[numa,na]<B^rn, rn = lmmp_fft_next_size_((2*na+1)>>1), dst!=NULL, numa!=NULL
+ * @warning eqsep(dst,numa), 0<=[numa,na]<B^rn, lmmp_fft_next_size_(rn)==rn, dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
@@ -669,8 +674,7 @@ LMMP_API void lmmp_sqr_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, m
  * @param rn 模运算的阶数参数
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning sep(dst,numa), 0<=[numa,na]<B^rn, 4*na>rn, rn = lmmp_mersenne_next_size_((2*na + 1) >> 1),
- *          dst!=NULL, numa!=NULL
+ * @warning sep(dst,numa), 0<=[numa,na]<B^rn, 4*na>rn, dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
@@ -678,10 +682,11 @@ LMMP_API void lmmp_sqr_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp
 /**
  * @brief 梅森数模平方 [dst,rn] = [numa,na]^2 mod B^rn-1
  * @param dst 输出结果缓冲区，长度至少为 rn
- * @param rn 模运算的阶数参数，rn = lmmp_mersenne_next_size_((2*na + 1) >> 1)
+ * @param rn 模运算的阶数参数，任意正尺寸均可（未对齐 fft 可行尺寸时回落 dc）；
+ *        rn = lmmp_fft_next_size_((2*na + 1) >> 1) 为进入 fft 档的推荐最小值
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning sep(dst,numa), 0<=[numa,na]<B^rn, rn = lmmp_mersenne_next_size_((2*na+1)>>1), dst!=NULL, numa!=NULL
+ * @warning sep(dst,numa), 0<=[numa,na]<B^rn, dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);

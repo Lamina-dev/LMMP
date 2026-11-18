@@ -14,29 +14,22 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
 
 
-/* MAYBE_*：编译期常量折叠裁剪递归阶梯（调优构建阈值是运行时变量，全开） */
-#ifdef LMMP_TUNE
-#define MAYBE_mul_basecase 1
-#define MAYBE_mul_toom22 1
-#define MAYBE_mul_toom33 1
-#define MAYBE_mul_toom6h 1
-#else
+/* MAYBE_*：编译期常量折叠裁剪递归阶梯 */
 #define MAYBE_mul_basecase (MUL_TOOM6H_THRESHOLD < 6 * MUL_TOOM22_THRESHOLD)
 #define MAYBE_mul_toom22 (MUL_TOOM6H_THRESHOLD < 6 * MUL_TOOM33_THRESHOLD)
 #define MAYBE_mul_toom33 (MUL_TOOM6H_THRESHOLD < 6 * MUL_TOOM44_THRESHOLD)
 #define MAYBE_mul_toom6h (MUL_FFT_THRESHOLD >= 6 * MUL_TOOM6H_THRESHOLD)
-#endif
 
 #define lmmp_mul_n_(dst, numa, numb, n)                       \
     if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)     \

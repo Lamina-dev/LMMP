@@ -29,14 +29,14 @@ jobs:
 
       - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLMMP_BUILD_TESTS=ON \
-            -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=${{ matrix.lmmp_asm }}
+          cmake -P cmake/lmmp/config.cmake -- configure -B build \
+            --set LMMP_GENERATOR="Unix Makefiles" \
+            --set LMMP_BUILD_TYPE=Release \
+            --set LMMP_BUILD_TESTS=ON \
+            --set LMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
-        run: cmake --build build --config Release --parallel 2
+        run: cmake --build build --parallel 2
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --no-tests=error
@@ -64,14 +64,14 @@ jobs:
 
       - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLMMP_BUILD_TESTS=ON \
-            -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=${{ matrix.lmmp_asm }}
+          cmake -P cmake/lmmp/config.cmake -- configure -B build \
+            --set LMMP_GENERATOR="Unix Makefiles" \
+            --set LMMP_BUILD_TYPE=Release \
+            --set LMMP_BUILD_TESTS=ON \
+            --set LMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
-        run: cmake --build build --config Release --parallel 2
+        run: cmake --build build --parallel 2
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --no-tests=error
@@ -99,14 +99,14 @@ jobs:
 
       - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLMMP_BUILD_TESTS=ON \
-            -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=${{ matrix.lmmp_asm }}
+          cmake -P cmake/lmmp/config.cmake -- configure -B build \
+            --set LMMP_GENERATOR="Unix Makefiles" \
+            --set LMMP_BUILD_TYPE=Release \
+            --set LMMP_BUILD_TESTS=ON \
+            --set LMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
-        run: cmake --build build --config Release --parallel 3
+        run: cmake --build build --parallel 3
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --no-tests=error
@@ -148,14 +148,13 @@ jobs:
 
       - name: Configure (Release, ${{ matrix.lmmp_asm }})
         run: |
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLMMP_BUILD_TESTS=ON \
-            -DLMMP_BUILD_BENCHMARKS=OFF \
-            -DLMMP_ASM=${{ matrix.lmmp_asm }}
+          cmake -P cmake/lmmp/config.cmake -- configure -B build \
+            --set LMMP_BUILD_TYPE=Release \
+            --set LMMP_BUILD_TESTS=ON \
+            --set LMMP_ASM=${{ matrix.lmmp_asm }}
 
       - name: Build
-        run: cmake --build build --config Release --parallel 3
+        run: cmake --build build --parallel 3
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --no-tests=error

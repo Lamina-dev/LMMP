@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -22,12 +22,12 @@
 
 #include <math.h>
 
-#include "../../../include/lmmp/impl/ele_mul.h"
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/prime_table.h"
-#include "../../../include/lmmp/numth.h"
+#include "numth/ele_mul.h"
+#include "impl/inlines.h"
+#include "impl/longlong.h"
+#include "mparam.h"
+#include "impl/prime_table.h"
+#include "lmmp/numth.h"
 
 
 mp_size_t lmmp_nCr_size_(uint n, uint r, mp_bitcnt_t* restrict bits) {

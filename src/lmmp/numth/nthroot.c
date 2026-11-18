@@ -14,16 +14,16 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/log2_exp2.h"
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/numth.h"
+#include "impl/inlines.h"
+#include "numth/log2_exp2.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/numth.h"
 
 
 /**
@@ -340,8 +340,6 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
         sqrt 的输入/输出长度均由 bl 推出；r1/r2 取 sqrt_ 写满的余数区
         （含顶零）直接作 mul/add 操作数（加减乘不要求归一化），输出
         先清零 dstr 再拷贝乘积容器全长（顶零拷入零区无害）。
-        实测 rem/root-only 全尺寸较通用路径快 15-40%（sqrt 自身的
-        优化空间在 sqrt.c，不在本文件）。
 
         tp 分段（值域 na ≤ 4·nr 保证覆盖）：
         q1/r1/r2 各 na/2+2，sum na/2+3，S nr+2，prd 3·nr+4。
@@ -613,7 +611,7 @@ void lmmp_nthroot_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, ulong
     if (y[yn - 1] == 0) --yn;    // 仅 2^(64k) 精确形态掉 1 limb
 
     /*
-        认证式窗口探针（免终点全尺寸幂；第十一轮，回退根治）：
+        认证式窗口探针避免在终点计算全尺寸幂。
 
         以截断幂链 V·2^dr ≈ P（P = y^root；drop 精确记账，相对误差
         ε ≤ 2^(hb+66-64·w)，V 恰 pl limb 且 MSB=1）与 A 的同尺度顶窗

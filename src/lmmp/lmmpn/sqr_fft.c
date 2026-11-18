@@ -14,17 +14,17 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/impl/fft_ssa.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/inlines.h"
+#include "mparam.h"
+#include "impl/tmp_alloc.h"
+#include "lmmpn/fft_ssa.h"
+#include "lmmp/lmmpn.h"
 
 
 static void lmmp_sqr_fermat_recurse_(fft_memstack* ms, mp_ptr* pc1, mp_size_t K0) {
@@ -195,8 +195,8 @@ void lmmp_sqr_mersenne_fft_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t 
             lmmp_shl_(nums, nums, nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, nlen);
-            rhead = nlen;
+            rhead = LMMP_MIN(nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + nlen <= rn) {
             lmmp_add_(dst + roffset, nums, nlen, dst + roffset, rhead - roffset);
             rhead = roffset + nlen;

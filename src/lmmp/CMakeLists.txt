@@ -13,128 +13,161 @@
 #  GNU Lesser General Public License for more details.
 #
 #  You should have received a copy of the GNU Lesser General Public
-#  License along with this library; if not, see
+#  License along with this library.  If not, see
 #  <https://www.gnu.org/licenses/>.
 #
 #  SPDX-License-Identifier: LGPL-3.0-or-later
 
-
 set(LIBLMMP_VERSION "4.3.0")
 
-# 全部模块的 C 源统一递归收集（含各模块 arch/generic/ 的 C 回退；GENERIC 模式下
-# 回退实现即为正式实现）。
-file(GLOB_RECURSE LIBLMMP_SRCS CONFIGURE_DEPENDS
-    LIST_DIRECTORIES FALSE
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.c
-)
-
+set(LMMP_MODULES lmmp lmmpn mprand numth secret)
+set(LMMP_BACKEND generic)
 if(LMMP_ASM_ENABLED)
-    # arch/ 布局由模块自描述，构建系统按形态自动发现
-    #   <module>/arch/<arch>/*.S   目标架构汇编（<arch> = x64 | arm64）
-    #   <module>/arch/generic/*.c  与汇编同名符号的 C 回退，启用汇编时整体排除
-    #   <module>/arch/extern.def   该模块汇编的导出符号表（Windows .def）
-    # 新增模块（如 numth）按同一形态建立 arch/ 子树即被自动纳入。
-    list(FILTER LIBLMMP_SRCS EXCLUDE REGEX "/arch/generic/")
-
-    file(GLOB ASM_SRCS CONFIGURE_DEPENDS
-        LIST_DIRECTORIES FALSE
-        ${CMAKE_CURRENT_SOURCE_DIR}/*/arch/${LMMP_ASM_ARCH}/*.S
-    )
-    if(NOT ASM_SRCS)
-        message(FATAL_ERROR
-            "LMMP_ASM=${LMMP_ASM} is enabled but no assembly files found under "
-            "${CMAKE_CURRENT_SOURCE_DIR}/*/arch/${LMMP_ASM_ARCH}/")
-    endif()
-    list(APPEND LIBLMMP_SRCS ${ASM_SRCS})
-
-    if(TARGET_SYSTEM STREQUAL "WIN")
-        # 各模块的 extern.def 逐个交给链接器
-        file(GLOB DEF_FILES CONFIGURE_DEPENDS
-            LIST_DIRECTORIES FALSE
-            ${CMAKE_CURRENT_SOURCE_DIR}/*/arch/extern.def
-        )
-        list(APPEND LIBLMMP_SRCS ${DEF_FILES})
-    endif()
-
-    list(LENGTH ASM_SRCS ASM_SRC_COUNT)
-    message(STATUS "liblmmp: Using ASM (${LMMP_ASM_ARCH} .S, GAS/LLVM, ${ASM_SRC_COUNT} files)")
-else()
-    message(STATUS "liblmmp: Using generic C implementation")
+    set(LMMP_BACKEND "${LMMP_ASM_ARCH}")
 endif()
 
-if(LMMP_TUNE_MODE)
-    # 调优模式：生成静态核心。阈值在 LMMP_TUNE 下绑定到可写全局变量，
-    # 调优驱动会先设置这些变量再运行基准测试。
-    add_library(lmmp_tune_core STATIC ${LIBLMMP_SRCS})
-    add_library(lmmp ALIAS lmmp_tune_core)
+set(LMMP_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(mparam "#ifndef LMMP_MPARAM_H\n#define LMMP_MPARAM_H\n")
+set(param_names)
+set(asm_sources)
+set(library_sources)
+set(public_exports)
+foreach(module IN LISTS LMMP_MODULES)
+    file(GLOB module_sources CONFIGURE_DEPENDS "${module}/*.c")
+    list(APPEND library_sources ${module_sources})
 
-    if(TARGET_SYSTEM STREQUAL "LIN")
-        target_link_libraries(lmmp_tune_core PRIVATE m)
+    # 一个模块的架构实现整体替换其 generic 实现。
+    file(GLOB module_asm CONFIGURE_DEPENDS "${module}/arch/${LMMP_BACKEND}/*.S")
+    if(module_asm)
+        list(APPEND asm_sources ${module_asm})
+        if(LMMP_TARGET_SYSTEM STREQUAL "WIN" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${module}/arch/extern.def")
+            list(APPEND public_exports "${module}/arch/extern.def")
+        endif()
+    else()
+        file(GLOB module_generic CONFIGURE_DEPENDS "${module}/arch/generic/*.c")
+        list(APPEND library_sources ${module_generic})
     endif()
 
-    set_target_properties(lmmp_tune_core PROPERTIES
-        OUTPUT_NAME "lmmp_tune_core"
-        PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
-    )
-
-    target_compile_definitions(lmmp_tune_core PRIVATE
-        LMMP_TUNE=1
-        LMMP_VERSION_STR="${LIBLMMP_VERSION}"
-        LMMP_BUILD_TYPE_STR="Release"
-    )
-
-    lmmp_target_setup(lmmp_tune_core)
-    message(STATUS "liblmmp: configured successfully (static tuning core)")
-else()
-    add_library(liblmmp SHARED ${LIBLMMP_SRCS})
-    add_library(lmmp ALIAS liblmmp)
-
-    if(TARGET_SYSTEM STREQUAL "WIN")
-        target_compile_definitions(liblmmp PRIVATE LIBLMMP_EXPORTS)
-        # Windows下无lib前缀
-        set_target_properties(liblmmp PROPERTIES PREFIX "")
-    elseif(TARGET_SYSTEM STREQUAL "LIN")
-        target_link_options(liblmmp PRIVATE -Wl,-Bsymbolic-functions)
-        target_link_libraries(liblmmp PRIVATE m)
+    file(GLOB param_headers CONFIGURE_DEPENDS "${module}/arch/${LMMP_BACKEND}/mparam.h")
+    if(param_headers)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${param_headers})
+        file(READ "${param_headers}" module_params)
+        string(REGEX MATCHALL "#[ \t]*define[ \t]+[A-Za-z_][A-Za-z_0-9]*" definitions "${module_params}")
+        foreach(definition IN LISTS definitions)
+            string(REGEX REPLACE ".*[ \t]" "" name "${definition}")
+            if(name IN_LIST param_names)
+                message(FATAL_ERROR "Duplicate machine parameter ${name} in ${param_headers}")
+            endif()
+            list(APPEND param_names "${name}")
+        endforeach()
+        string(APPEND mparam "\n${module_params}")
     endif()
+endforeach()
+if(LMMP_ASM_ENABLED AND NOT asm_sources)
+    message(FATAL_ERROR "No LMMP assembly sources for backend ${LMMP_BACKEND}")
+endif()
+list(APPEND library_sources ${asm_sources})
+string(APPEND mparam "\n#endif\n")
+file(GENERATE OUTPUT "${LMMP_GENERATED_DIR}/mparam.h" CONTENT "${mparam}")
 
-    set_target_properties(liblmmp PROPERTIES
-        OUTPUT_NAME "lmmp"
-        VERSION ${LIBLMMP_VERSION}
-        SOVERSION 1
-        PDB_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
-    )
+function(lmmp_shared_library target output_name)
+    add_library(${target} SHARED ${library_sources} ${ARGN})
+    set_target_properties(${target} PROPERTIES OUTPUT_NAME "${output_name}")
+    target_include_directories(${target}
+        PUBLIC "${PROJECT_SOURCE_DIR}/include"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${LMMP_GENERATED_DIR}")
+    target_compile_definitions(${target} PRIVATE
+        LMMP_VERSION_STR="${LIBLMMP_VERSION}")
+    if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
+        target_compile_definitions(${target} PRIVATE LIBLMMP_EXPORTS)
+        set_target_properties(${target} PROPERTIES PREFIX "")
+    elseif(LMMP_TARGET_SYSTEM STREQUAL "LIN")
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+    lmmp_target_setup(${target} library)
+    get_target_property(_lmmp_profile ${target} LMMP_BUILD_TYPE)
+    target_compile_definitions(${target} PRIVATE LMMP_BUILD_TYPE_STR="${_lmmp_profile}")
+endfunction()
 
-    target_compile_definitions(liblmmp PRIVATE
-        LMMP_VERSION_STR="${LIBLMMP_VERSION}"
-        LMMP_BUILD_TYPE_STR="${CMAKE_BUILD_TYPE}"
-    )
+lmmp_shared_library(liblmmp lmmp ${public_exports})
+add_library(lmmp ALIAS liblmmp)
+set_target_properties(liblmmp PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    VERSION ${LIBLMMP_VERSION}
+    SOVERSION 1)
 
-    lmmp_target_setup(liblmmp)
+if(LMMP_OUTPUT_DIR)
+    file(GLOB public_headers CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/lmmp/*.h")
+    add_custom_command(TARGET liblmmp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
+        COMMAND ${CMAKE_COMMAND} -E copy ${public_headers} "${OUTPUT_BIN}/include/lmmp"
+        VERBATIM)
+endif()
 
-    if(LMMP_OUTPUT_DIR)
-        # 统一产物目录：随库同步对外头文件（仅 include/lmmp 顶层公共头，
-        # impl/ 内部头不外发），使该目录即完整可引入形态（动态库 + 导入库
-        # + include/）。头文件变更而库未重链时，删除产物目录或重新构建
-        # liblmmp 可强制刷新。
-        file(GLOB LMMP_PUBLIC_HEADERS CONFIGURE_DEPENDS
-            LIST_DIRECTORIES FALSE
-            "${CMAKE_SOURCE_DIR}/include/lmmp/*.h"
-        )
-        if(LMMP_PUBLIC_HEADERS)
-            add_custom_command(TARGET liblmmp POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
-                COMMAND ${CMAKE_COMMAND} -E copy
-                    ${LMMP_PUBLIC_HEADERS} "${OUTPUT_BIN}/include/lmmp"
-                COMMENT "liblmmp: copying public headers to ${OUTPUT_BIN}/include"
-            )
-        else()
-            # 头文件缺失时保留目标目录创建，仅跳过复制
-            add_custom_command(TARGET liblmmp POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory "${OUTPUT_BIN}/include/lmmp"
-            )
+lmmp_shared_library(liblmmp_internal lmmp_internal)
+set_target_properties(liblmmp_internal PROPERTIES
+    C_VISIBILITY_PRESET default
+    EXCLUDE_FROM_ALL TRUE)
+target_compile_definitions(liblmmp_internal PRIVATE LMMP_INTERNAL_BUILD)
+target_compile_definitions(liblmmp_internal INTERFACE LMMP_INTERNAL_USE)
+if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
+    if(CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
+        set_target_properties(liblmmp_internal PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    else()
+        target_link_options(liblmmp_internal PRIVATE -Wl,--export-all-symbols)
+    endif()
+endif()
+
+function(lmmp_add_program target group)
+    add_executable(${target} ${ARGN})
+    target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${LMMP_GENERATED_DIR}")
+    target_link_libraries(${target} PRIVATE liblmmp_internal)
+    if(LMMP_TARGET_SYSTEM STREQUAL "LIN")
+        target_link_libraries(${target} PRIVATE m)
+    endif()
+    lmmp_target_setup(${target} ${group})
+endfunction()
+
+if(LMMP_BUILD_TESTS)
+    if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
+        get_filename_component(compiler_bin "${CMAKE_C_COMPILER}" DIRECTORY)
+    else()
+        find_package(Threads REQUIRED)
+    endif()
+endif()
+
+set(program_targets "")
+foreach(module IN LISTS LMMP_MODULES)
+    if(LMMP_BUILD_TESTS)
+        file(GLOB tests CONFIGURE_DEPENDS "${module}/test/*.c")
+        if("${CMAKE_CURRENT_SOURCE_DIR}/${module}/test/main.c" IN_LIST tests)
+            set(target "test_${module}")
+            lmmp_add_program(${target} test ${tests} support/test.c)
+            if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
+                add_test(NAME ${target} COMMAND ${CMAKE_COMMAND} -E env
+                    "PATH=${compiler_bin};$ENV{PATH}" $<TARGET_FILE:${target}>)
+            else()
+                if(module STREQUAL "lmmp")
+                    target_link_libraries(${target} PRIVATE Threads::Threads)
+                endif()
+                add_test(NAME ${target} COMMAND ${target})
+            endif()
         endif()
     endif()
 
-    message(STATUS "liblmmp: configured successfully (shared library)")
-endif()
+    foreach(kind IN ITEMS perf tune)
+        file(GLOB programs CONFIGURE_DEPENDS "${module}/${kind}/*.c")
+        foreach(program IN LISTS programs)
+            get_filename_component(name "${program}" NAME_WE)
+            set(target "${kind}_${module}_${name}")
+            lmmp_add_program(${target} ${kind} "${program}")
+            set_target_properties(${target} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+            if(NOT LMMP_TARGET_SYSTEM STREQUAL "WIN")
+                target_compile_definitions(${target} PRIVATE _POSIX_C_SOURCE=200809L)
+            endif()
+            string(APPEND program_targets "${target}\n")
+        endforeach()
+    endforeach()
+endforeach()
+
+file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/lmmp-programs.txt" CONTENT "${program_targets}")

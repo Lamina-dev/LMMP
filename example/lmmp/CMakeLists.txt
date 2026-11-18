@@ -43,7 +43,7 @@ foreach(EXAMPLE_FILE ${EXAMPLE_FILES})
     target_link_libraries(${TARGET_NAME} PRIVATE lmmp)
 
     # 设置编译器选项
-    lmmp_target_setup(${TARGET_NAME})
+    lmmp_target_setup(${TARGET_NAME} example)
 
     # 设置输出属性
     set_target_properties(${TARGET_NAME} PROPERTIES

@@ -1,0 +1,27 @@
+# LMMP 配置选项目录
+# 格式：类别|名称|类型|默认值|说明
+# 类型：path、bool、string、enum(...)、build-type
+
+build|LMMP_BUILD_DIR|path|build|配置构建树目录（由 config.cmake 使用）
+build|LMMP_GENERATOR|enum(Ninja,MinGW Makefiles,Unix Makefiles)|Ninja|构建生成器
+build|LMMP_BUILD_TYPE|enum(Debug,Release,RelWithDebInfo,MinSizeRel)|Release|未单独指定目标组时使用的编译配置
+build|LMMP_LIBRARY_BUILD_TYPE|build-type|inherit|动态库目标的编译配置，inherit 表示继承 LMMP_BUILD_TYPE
+build|LMMP_TEST_BUILD_TYPE|build-type|inherit|测试目标的编译配置，inherit 表示继承 LMMP_BUILD_TYPE
+build|LMMP_EXAMPLE_BUILD_TYPE|build-type|inherit|示例目标的编译配置，inherit 表示继承 LMMP_BUILD_TYPE
+build|LMMP_PERF_BUILD_TYPE|build-type|inherit|性能目标的编译配置，inherit 表示继承 LMMP_BUILD_TYPE
+build|LMMP_TUNE_BUILD_TYPE|build-type|inherit|调优目标的编译配置，inherit 表示继承 LMMP_BUILD_TYPE
+build|LMMP_OUTPUT_DIR|path|""|所有构建产物的统一输出目录，留空使用源内默认目录
+build|LMMP_COMPILER_DIR|path|""|包含 gcc/g++ 或 clang/clang++ 的编译器目录，留空使用默认工具链
+build|LMMP_LINKER_DIR|path|""|包含 ld、lld 或 mold 的链接器目录，留空使用工具链默认链接器
+build|LMMP_ASM|enum(GENERIC,X64,ARM64,AUTO)|AUTO|汇编后端模式
+build|LMMP_TARGET_SYSTEM|enum(AUTO,WIN,LIN,MAC)|AUTO|目标系统，通常使用 AUTO
+
+targets|LMMP_BUILD_TESTS|bool|OFF|是否构建单元测试
+targets|LMMP_BUILD_EXAMPLES|bool|OFF|是否构建示例程序
+
+library.debug|LMMP_DEBUG_STACK_OVERFLOW_CHECK|bool|OFF|启用内部栈溢出检查
+library.debug|LMMP_DEBUG_ASSERT_CHECK|bool|OFF|启用内部 debug_assert 检查
+library.debug|LMMP_DEBUG_PARAM_ASSERT_CHECK|bool|OFF|启用公共参数断言检查
+library.debug|LMMP_DEBUG_MEMORY_CHECK|bool|OFF|启用堆和栈内存检查
+library.debug|LMMP_MEMORY_MORE_ALLOC_TIMES|string|1|内存检查使用的额外分配倍数（十分位）
+library.debug|LMMP_DEBUG_MEMORY_LEAK|bool|OFF|启用内存分配与释放统计

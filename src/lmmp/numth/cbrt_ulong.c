@@ -14,14 +14,14 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/numth.h"
+#include "impl/inlines.h"
+#include "lmmp/numth.h"
 
 
 static const float factor_table[] = {1.000000, 1.259921, 1.587401}; /* {1^(1/3), 2^(1/3), 4^(1/3)}  */

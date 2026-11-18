@@ -14,14 +14,14 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/fft_ssa.h"
-#include "../../../include/lmmp/impl/mparam.h"
+#include "lmmpn/fft_ssa.h"
+#include "mparam.h"
 
 
 // ((mp_size_t)3 << (2 * (n) - 5)) + 1 是预计算的阈值，n是对应的k值
@@ -36,7 +36,7 @@
 // best_k_(next_size_(n)) = best_k_(n)
 // table[i+1][0]-1 必须是 2^(table[i][1]-LOG2_LIMB_BITS) 的整数倍
 // LOG2_LIMB_BITS：每个 limb 的比特数的2对数，为 log2(64) = 6
-static const mp_size_t lmmp_fft_table_default_[][2] = {
+static const mp_size_t lmmp_fft_table_[][2] = {
     {0, 6},
     {1715, 7},
     {1755, 6},
@@ -84,66 +84,9 @@ static const mp_size_t lmmp_fft_table_default_[][2] = {
     _FFT_TABLE_ENTRY4(25),
     {(mp_size_t)-1, 127}};
 
-#ifdef LMMP_TUNE
-/*
-   调优模式：best_k_ 查询运行时候选表（初始内容为默认表），
-   调优驱动通过 lmmp_fft_tune_install_ 安装候选表后测量，详见 tune/lmmp。
-*/
-static mp_size_t lmmp_fft_table_[FFT_TABLE_MAX_ROWS][2];
-static int lmmp_fft_table_ready_ = 0;
-
-static void lmmp_fft_table_init_(void) {
-    const size_t rows = sizeof(lmmp_fft_table_default_) / sizeof(lmmp_fft_table_default_[0]);
-    for (size_t i = 0; i < rows; ++i) {
-        lmmp_fft_table_[i][0] = lmmp_fft_table_default_[i][0];
-        lmmp_fft_table_[i][1] = lmmp_fft_table_default_[i][1];
-    }
-    lmmp_fft_table_ready_ = 1;
-}
-
-/**
- * @brief 安装候选 FFT 表（仅调优模式）
- * @param rows 平铺的 [阈值,k] 数组（不含哨兵行）
- * @param count 行数（不含哨兵），count < FFT_TABLE_MAX_ROWS
- * @warning rows 须满足阈值严格递增、k>=LOG2_LIMB_BITS，
- *          且 table[i+1]-1 是 2^(k_i-LOG2_LIMB_BITS) 的整数倍（一致性约束），
- *          违反约束将导致计算结果错误
- */
-void lmmp_fft_tune_install_(const mp_size_t* rows, mp_size_t count) {
-    mp_size_t i = 0;
-    for (; i < count && i + 1 < FFT_TABLE_MAX_ROWS; ++i) {
-        lmmp_fft_table_[i][0] = rows[2 * i];
-        lmmp_fft_table_[i][1] = rows[2 * i + 1];
-    }
-    lmmp_fft_table_[i][0] = (mp_size_t)-1;
-    lmmp_fft_table_[i][1] = 127;
-    lmmp_fft_table_ready_ = 1;
-}
-
-/**
- * @brief 恢复默认 FFT 表（仅调优模式）
- */
-void lmmp_fft_tune_reset_(void) {
-    lmmp_fft_table_init_();
-}
-
-/**
- * @brief 默认表指针与行数（不含哨兵），供调优驱动读取（仅调优模式）
- */
-const mp_size_t* lmmp_fft_tune_default_rows_(mp_size_t* count) {
-    if (count != NULL)
-        *count = (mp_size_t)(sizeof(lmmp_fft_table_default_) / sizeof(lmmp_fft_table_default_[0])) - 1;
-    return &lmmp_fft_table_default_[0][0];
-}
-#else
 // 非调优模式：查询表即编译期常量默认表，零额外开销
-#define lmmp_fft_table_ lmmp_fft_table_default_
-#endif
 
 mp_size_t lmmp_fft_best_k_(mp_size_t n) {
-#ifdef LMMP_TUNE
-    if (!lmmp_fft_table_ready_) lmmp_fft_table_init_();
-#endif
     mp_size_t k = 0;
     while (n >= lmmp_fft_table_[k + 1][0]) ++k;
     return lmmp_fft_table_[k][1];
@@ -553,8 +496,9 @@ void lmmp_mul_fermat_recombine_(
             lmmp_shl_(nums, nums, nlen, shl);
 
         if (i == 0) {
-            lmmp_copy(dst, nums, nlen);
-            rhead = nlen;
+            // 重组先写入 [dst,rn]，最高 limb 在处理进位时写入。
+            rhead = LMMP_MIN(nlen, rn);
+            lmmp_copy(dst, nums, rhead);
         } else if (roffset + nlen <= rn) {
             lmmp_add_(dst + roffset, nums, nlen, dst + roffset, rhead - roffset);
             rhead = roffset + nlen;

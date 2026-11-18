@@ -14,7 +14,7 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
@@ -71,10 +71,7 @@ extern "C" {
 
 #if defined(LMMP_WINDOWS)
     // Windows: MinGW GCC / GNU-driver clang
-    #if defined(LMMP_TUNE)
-        // 调优模式使用静态核心，导入库语义不适用。
-        #define LMMP_API
-    #elif defined(LIBLMMP_EXPORTS)
+    #if defined(LIBLMMP_EXPORTS)
         #define LMMP_API __declspec(dllexport)
     #else
         #define LMMP_API __declspec(dllimport)

@@ -45,15 +45,15 @@
     契约 k>0 奇、n>0）
 */
 
-#include "../../../include/lmmp/impl/tmp_alloc.h"
-#include "../../../include/lmmp/impl/inlines.h"
-#include "../../../include/lmmp/impl/longlong.h"
-#include "../../../include/lmmp/impl/powmod.h"
-#include "../../../include/lmmp/impl/rand_state.h"
-#include "../../../include/lmmp/impl/trialdiv.h"
-#include "../../../include/lmmp/lmmpn.h"
-#include "../../../include/lmmp/mprand.h"
-#include "../../../include/lmmp/numth.h"
+#include "impl/tmp_alloc.h"
+#include "impl/inlines.h"
+#include "impl/longlong.h"
+#include "numth/powmod.h"
+#include "impl/rand_state.h"
+#include "impl/trialdiv.h"
+#include "lmmp/lmmpn.h"
+#include "lmmp/mprand.h"
+#include "lmmp/numth.h"
 
 
 /* 1 limb 基底随机 MR 轮数上限（检出合数提前终止） */

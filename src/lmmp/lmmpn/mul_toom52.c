@@ -14,16 +14,15 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
-
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
 
 #define lmmp_mul_n_(dst, numa, numb, n)                    \
     if ((n) < MUL_TOOM22_THRESHOLD)                        \
@@ -56,8 +55,8 @@ Evaluate in: -2, -1, 0, +1, +2, +inf
 */
 
 void lmmp_mul_toom52_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(9 * na >= 20 * nb);
-    lmmp_param_assert(3 * nb >= na);
+    lmmp_param_assert(5 * nb > na);
+    lmmp_param_assert(na > 2 * nb);
     mp_size_t n, s, t;
     enum toom6_flags flags;
 
@@ -76,13 +75,13 @@ void lmmp_mul_toom52_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
     s = na - 4 * n;
     t = nb - n;
 
-    lmmp_debug_assert(0 < s && s <= n);
-    lmmp_debug_assert(0 < t && t <= n);
+    lmmp_param_assert(0 < s && s <= n);
+    lmmp_param_assert(0 < t && t <= n);
 
     /* Ensures that 5 values of n+1 limbs each fits in the product area.
        Borderline cases are na = 32, nb = 8, n = 7, and na = 36, bn = 9,
        n = 8. */
-    lmmp_debug_assert(s + t >= 5);
+    lmmp_param_assert(s + t >= 5);
 
 #define v0 dst                      /* 2n   */
 #define vm1 (scratch)               /* 2n+1 */
@@ -98,7 +97,6 @@ void lmmp_mul_toom52_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na
 #define bs2 (dst + 2 * n + 2)       /* n+1  */
 #define as2 (dst + 3 * n + 3)       /* n+1  */
 #define as1 (dst + 4 * n + 4)       /* n+1  */
-
 
 #define a0a2 scratch
 #define a1a3 asm1

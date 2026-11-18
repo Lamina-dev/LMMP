@@ -14,25 +14,20 @@
  *  GNU Lesser General Public License for more details.
  *
  *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, see
+ *  License along with this library.  If not, see
  *  <https://www.gnu.org/licenses/>.
  *
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "../../../include/lmmp/impl/mul_hard.h"
-#include "../../../include/lmmp/impl/mparam.h"
-#include "../../../include/lmmp/impl/toom_interp.h"
-#include "../../../include/lmmp/lmmpn.h"
+#include "impl/mul_hard.h"
+#include "mparam.h"
+#include "lmmpn/toom_interp.h"
+#include "lmmp/lmmpn.h"
 
 
-#ifdef LMMP_TUNE
-#define MAYBE_mul_basecase 1
-#define MAYBE_mul_toom33 1
-#else
 #define MAYBE_mul_basecase (MUL_TOOM33_THRESHOLD < 3 * MUL_TOOM22_THRESHOLD)
 #define MAYBE_mul_toom33 (MUL_TOOM44_THRESHOLD >= 3 * MUL_TOOM33_THRESHOLD)
-#endif
 
 #define lmmp_mul_n_(dst, numa, numb, n)                       \
     if (MAYBE_mul_basecase && (n) < MUL_TOOM22_THRESHOLD)     \
@@ -60,10 +55,12 @@ vinf=          a2 *         b2  # A(inf)*B(inf)
 void lmmp_mul_toom33_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(nb >= 26);
     lmmp_param_assert(na >= nb);
-    lmmp_param_assert(4 * na <= 5 * nb);
+    lmmp_param_assert(3 * nb > 2 * na);
     TEMP_S_DECL;
     mp_size_t n = (na + 2) / 3, s = na - 2 * n, t = nb - 2 * n;
     int vm1_neg;
+    lmmp_param_assert(s > 0);
+    lmmp_param_assert(t > 0);
     mp_limb_t cy, cy2, vinf0, am1h, bm1h;
     mp_limb_t* restrict tp = SALLOC_TYPE(4 * n + 4, mp_limb_t);
 
