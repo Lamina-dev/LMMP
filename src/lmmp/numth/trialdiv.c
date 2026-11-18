@@ -212,3 +212,12 @@ void lmmp_trialdiv_table_free_(void) {
     G.pi = 1;
     G.t = 1;
 }
+
+const mp_limb_t r35711_mask_map[19] = {
+    (mp_limb_t)(0x93cf359a5b74dee9), (mp_limb_t)(0x6badd25dadb36966), (mp_limb_t)(0x6ed3cd279e4bb4b6),
+    (mp_limb_t)(0xb66d6cd35ba6bb59), (mp_limb_t)(0xc976b2cde59a4f3c), (mp_limb_t)(0x34de792dd2f9a6b7),
+    (mp_limb_t)(0xb34d6e96ede59b4b), (mp_limb_t)(0xcf3696793ef259ad), (mp_limb_t)(0xf4b34b669add25fa),
+    (mp_limb_t)(0xfa4bb5966d2cd2f9), (mp_limb_t)(0x59a4f7c9e696cf35), (mp_limb_t)(0x2d9a7b76976b2cdb),
+    (mp_limb_t)(0xd659f4bb49e7b2cd), (mp_limb_t)(0xcf259a7b34d6e93e), (mp_limb_t)(0xadd65dacb36b66d3),
+    (mp_limb_t)(0xd2dd279e4b3cb769), (mp_limb_t)(0x696cdb5ba4bb5d66), (mp_limb_t)(0x77b2eda59acf3c96),
+    (mp_limb_t)(0x0000000000000001)};

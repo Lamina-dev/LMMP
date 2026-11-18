@@ -139,8 +139,8 @@ WARN_LOGFILE           =
 
 
 
-INPUT                  = include/lammp \
-                         src/lammp \
+INPUT                  = include/lmmp \
+                         src/lmmp \
                          README.md
 INPUT_ENCODING         = UTF-8
 INPUT_FILE_ENCODING    =

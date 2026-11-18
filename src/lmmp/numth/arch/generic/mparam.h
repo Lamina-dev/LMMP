@@ -93,3 +93,10 @@
 #define NCR_SHORT_LIMIT (0xffff)
 // 使用梅森乘法计算高位的阈值
 #define MULHI_MERSENNE_THRESHOLD 1019
+
+// cache 一次处理的位图数量
+#define PRIME_CACHE_BLOCK_NUM 64
+// cache 中质数最多可能的数量（取决于上面的PRIME_CACHE_BLOCK_NUM）。
+// mod-30 位图下 64 字 = 512 字节 = 15360 个数，最坏为首块（含补入的 3、5）：
+// pi(15359) - 1 = 1793，取 1794（与旧奇数编码取 pi(8191) = 1028 同风格 +1 松弛）
+#define PRIME_CACHE_SIZE 1794

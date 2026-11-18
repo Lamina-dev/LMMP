@@ -20,13 +20,14 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "numth/is_prime.h"
-#include "impl/prime_table.h"
 #include "impl/inlines.h"
 #include "impl/longlong.h"
-#include "mparam.h"
+#include "impl/prime_table.h"
+#include "impl/trialdiv.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+#include "mparam.h"
+#include "numth/is_prime.h"
 
 /*
 mont63 只能用于小于 2^63 的数，否则会溢出导致计算结果不正确

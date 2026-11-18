@@ -21,7 +21,7 @@
  */
 
 #include "impl/inlines.h"
-#include "impl/log2_exp2.h"
+#include "numth/log2_exp2.h"
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
 

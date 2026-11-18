@@ -162,17 +162,4 @@ void lmmp_prime_cache_next_(prime_cache_t* cache);
  */
 void lmmp_prime_cache_free_(prime_cache_t* cache);
 
-// 3,5,7,11的余数掩码表
-extern const lmmp_bitset_t r35711_mask_map[19];
-
-/**
- * @brief 校验是否能被3,5,7,11整除，能够整除则返回1，否则返回0
- */
-static inline int trial_div35711(ulong n) {
-    uint rem = n % 1155; // 1155 = 3 * 5 * 7 * 11
-    uint idx = rem / LMMP_BITSET_BITS;
-    uint bit = rem % LMMP_BITSET_BITS;
-    return (r35711_mask_map[idx] >> bit) & 1ULL;
-}
-
 #endif  // __LMMP_PRIME_TABLE_H__

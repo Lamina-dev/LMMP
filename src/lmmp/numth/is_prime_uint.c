@@ -21,11 +21,12 @@
  */
 
 #include "impl/inlines.h"
-#include "numth/is_prime.h"
 #include "impl/longlong.h"
-#include "mparam.h"
 #include "impl/prime_table.h"
+#include "impl/trialdiv.h"
 #include "lmmp/numth.h"
+#include "mparam.h"
+#include "numth/is_prime.h"
 
 
 static inline ulong urem32_preinv(ulong t, ulong n, ulong dinv) {

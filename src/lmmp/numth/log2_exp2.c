@@ -20,7 +20,7 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "impl/log2_exp2.h"
+#include "numth/log2_exp2.h"
 #include "impl/longlong.h"
 
 /*

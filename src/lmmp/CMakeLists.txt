@@ -20,7 +20,7 @@
 
 set(LIBLMMP_VERSION "4.3.0")
 
-set(LMMP_MODULES global lmmp lmmpn mprand numth secret)
+set(LMMP_MODULES lmmp lmmpn mprand numth secret)
 set(LMMP_BACKEND generic)
 if(LMMP_ASM_ENABLED)
     set(LMMP_BACKEND "${LMMP_ASM_ARCH}")

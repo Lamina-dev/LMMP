@@ -74,4 +74,17 @@ mp_limb_t lmmp_mod_4chunk_1_(mp_srcptr numa, mp_size_t na, mp_limb_t d, mp_limb_
 mp_limb_t lmmp_mod_8chunk_1_(mp_srcptr numa, mp_size_t na, mp_limb_t d, mp_limb_t dinv,
                              mp_limb_t r2, mp_limb_t base, mp_limb_t mi);
 
+// 3,5,7,11的余数掩码表
+extern const mp_limb_t r35711_mask_map[19];
+
+/**
+ * @brief 校验是否能被3,5,7,11整除，能够整除则返回1，否则返回0
+ */
+static inline int trial_div35711(ulong n) {
+    uint rem = n % 1155;  // 1155 = 3 * 5 * 7 * 11
+    uint idx = rem / LIMB_BITS;
+    uint bit = rem % LIMB_BITS;
+    return (r35711_mask_map[idx] >> bit) & 1ULL;
+}
+
 #endif /* __LMMP_TRIALDIV_H__ */
