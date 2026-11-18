@@ -1,4 +1,4 @@
-﻿#  Copyright (C) 2026 HJimmyK (Jericho Knox)
+#  Copyright (C) 2026 HJimmyK (Jericho Knox)
 #
 #  This file is part of LMMP.
 #
@@ -20,7 +20,11 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-include(cmake/LMMPOptions.cmake)
+include(cmake/lmmp/LMMPOptions.cmake)
+
+# CMake 只负责生成构建规则，实际编译配置由 LMMP_BUILD_TYPE 及各目标组配置决定。
+# 使用没有内建优化含义的内部配置名，避免 CMake 的 Debug/Release 全局选项干扰目标组。
+set(CMAKE_BUILD_TYPE "LMMP" CACHE STRING "Internal LMMP configuration" FORCE)
 
 # ==============================================================================
 # 工具链选择与限制（编译器选择须在 project() 之前裁决）
@@ -30,9 +34,14 @@ if(CMAKE_GENERATOR MATCHES "^Visual Studio")
     message(FATAL_ERROR
         "The '${CMAKE_GENERATOR}' generator always builds with the MSVC toolchain and "
         "ignores CMAKE_C_COMPILER / LMMP_COMPILER_DIR, but MSVC is not supported. "
-        "Configure with a GNU-compatible generator instead: -G Ninja (recommended) or "
-        "-G \"MinGW Makefiles\". Note the generator is cached per build directory: "
+        "Configure with cmake/lmmp/config.cmake and LMMP_GENERATOR=Ninja. "
+        "The generator is cached per build directory: "
         "reconfigure into a fresh directory after switching.")
+endif()
+if(CMAKE_GENERATOR MATCHES "Multi-Config" OR CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR
+        "Multi-config generators are not supported by LMMP. Configure with Ninja, "
+        "MinGW Makefiles, or Unix Makefiles through cmake/lmmp/config.cmake.")
 endif()
 
 # 编译器在首次配置时固化进构建树（CMake 缓存），同树切换会静默沿用旧编译器，
@@ -102,9 +111,8 @@ project(LMMP LANGUAGES C CXX)
 if(MSVC OR CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     message(FATAL_ERROR
         "MSVC toolchain is not supported (C compiler: ${CMAKE_C_COMPILER}, "
-        "id '${CMAKE_C_COMPILER_ID}'). Use a GNU/Clang toolchain: on Windows "
-        "MinGW GCC or GNU-driver clang, e.g. -G Ninja "
-        "-DLMMP_COMPILER_DIR=<mingw64/bin>.")
+        "id '${CMAKE_C_COMPILER_ID}'). Use a GNU/Clang toolchain and configure "
+        "LMMP_COMPILER_DIR through cmake/lmmp/config.cmake.")
 endif()
 
 # ==============================================================================
@@ -120,27 +128,21 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64|ARM64|AARCH64)$")
     set(LMMP_ARM64 TRUE)
 endif()
 
-# 构建类型检查
-set(VALID_BUILD_TYPES Debug Release RelWithDebInfo MinSizeRel)
-if(CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE IN_LIST VALID_BUILD_TYPES)
-    message(FATAL_ERROR "Invalid build type: ${CMAKE_BUILD_TYPE}")
-endif()
-
 # ==============================================================================
 # 目标系统
 # ==============================================================================
-if(TARGET_SYSTEM STREQUAL "AUTO")
+if(LMMP_TARGET_SYSTEM STREQUAL "AUTO")
     if(WIN32)
-        set(TARGET_SYSTEM "WIN")
+        set(LMMP_TARGET_SYSTEM "WIN")
     elseif(APPLE)
-        set(TARGET_SYSTEM "MAC")
+        set(LMMP_TARGET_SYSTEM "MAC")
     else()
-        set(TARGET_SYSTEM "LIN")
+        set(LMMP_TARGET_SYSTEM "LIN")
     endif()
 endif()
 
-string(TOUPPER ${TARGET_SYSTEM} TARGET_SYSTEM_UPPER)
-message(STATUS "Target system: ${TARGET_SYSTEM_UPPER}")
+string(TOUPPER ${LMMP_TARGET_SYSTEM} LMMP_TARGET_SYSTEM_UPPER)
+message(STATUS "Target system: ${LMMP_TARGET_SYSTEM_UPPER}")
 
 # ==============================================================================
 # 汇编支持
@@ -149,9 +151,9 @@ set(LMMP_ASM_ENABLED FALSE)
 set(LMMP_ASM_ARCH "")
 
 if(LMMP_ASM STREQUAL "AUTO")
-    if(LMMP_X86_64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT TARGET_SYSTEM STREQUAL "MAC")
+    if(LMMP_X86_64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT LMMP_TARGET_SYSTEM STREQUAL "MAC")
         set(LMMP_ASM "X64")
-    elseif(LMMP_ARM64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND (TARGET_SYSTEM STREQUAL "MAC" OR TARGET_SYSTEM STREQUAL "LIN"))
+    elseif(LMMP_ARM64 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND (LMMP_TARGET_SYSTEM STREQUAL "MAC" OR LMMP_TARGET_SYSTEM STREQUAL "LIN"))
         set(LMMP_ASM "ARM64")
     else()
         set(LMMP_ASM "GENERIC")
@@ -162,7 +164,7 @@ if(LMMP_ASM STREQUAL "X64")
     if(NOT LMMP_X86_64 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
         message(FATAL_ERROR "LMMP_ASM=X64 requires an x86_64 64-bit toolchain.")
     endif()
-    if(TARGET_SYSTEM STREQUAL "MAC")
+    if(LMMP_TARGET_SYSTEM STREQUAL "MAC")
         message(FATAL_ERROR "LMMP_ASM=X64 is not supported on macOS; use LMMP_ASM=GENERIC.")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
@@ -173,7 +175,7 @@ elseif(LMMP_ASM STREQUAL "ARM64")
     if(NOT LMMP_ARM64 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
         message(FATAL_ERROR "LMMP_ASM=ARM64 requires an arm64 64-bit toolchain.")
     endif()
-    if(NOT (TARGET_SYSTEM STREQUAL "MAC" OR TARGET_SYSTEM STREQUAL "LIN"))
+    if(NOT (LMMP_TARGET_SYSTEM STREQUAL "MAC" OR LMMP_TARGET_SYSTEM STREQUAL "LIN"))
         message(FATAL_ERROR "LMMP_ASM=ARM64 is only supported on macOS and Linux.")
     endif()
     set(LMMP_ASM_ENABLED TRUE)
@@ -235,16 +237,25 @@ if(LMMP_LINKER_DIR)
 endif()
 
 # ==============================================================================
-# 默认构建类型
-# ==============================================================================
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
-endif()
-
-# ==============================================================================
 # 通用编译选项函数
 # ==============================================================================
-function(lmmp_target_setup target)
+function(lmmp_target_setup target group)
+    if(NOT group)
+        set(group program)
+    endif()
+    set(_profile "${LMMP_BUILD_TYPE}")
+    if(group STREQUAL "library" AND LMMP_LIBRARY_BUILD_TYPE)
+        set(_profile "${LMMP_LIBRARY_BUILD_TYPE}")
+    elseif(group STREQUAL "test" AND LMMP_TEST_BUILD_TYPE)
+        set(_profile "${LMMP_TEST_BUILD_TYPE}")
+    elseif(group STREQUAL "example" AND LMMP_EXAMPLE_BUILD_TYPE)
+        set(_profile "${LMMP_EXAMPLE_BUILD_TYPE}")
+    elseif(group STREQUAL "perf" AND LMMP_PERF_BUILD_TYPE)
+        set(_profile "${LMMP_PERF_BUILD_TYPE}")
+    elseif(group STREQUAL "tune" AND LMMP_TUNE_BUILD_TYPE)
+        set(_profile "${LMMP_TUNE_BUILD_TYPE}")
+    endif()
+    set_property(TARGET ${target} PROPERTY LMMP_BUILD_TYPE "${_profile}")
 
     set_target_properties(${target} PROPERTIES
         C_STANDARD 11
@@ -256,29 +267,23 @@ function(lmmp_target_setup target)
     )
 
     target_compile_options(${target} PRIVATE
-        $<$<COMPILE_LANGUAGE:C>:
-            -Wall -Wextra -Wpedantic
-            -Wshadow
-            -Wformat-security
-            -Wnull-dereference
-            -Wundef
-            -Wmissing-prototypes
-            -Wimplicit-fallthrough
-            $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
-            $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
-            $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
-            $<$<CONFIG:MinSizeRel>:-Os -DNDEBUG>
-            $<$<CONFIG:RelWithDebInfo>:-O2 -g -DNDEBUG>
-        >
-        $<$<COMPILE_LANGUAGE:CXX>:
-            -Wall -Wextra -Wpedantic
-            $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
-            $<$<CONFIG:Debug>:-O0 -g -DDEBUG>
-            $<$<CONFIG:Release>:-O3 -g0 -fno-math-errno -DNDEBUG>
-            $<$<CONFIG:MinSizeRel>:-Os -DNDEBUG>
-            $<$<CONFIG:RelWithDebInfo>:-O2 -g -DNDEBUG>
-        >
+        $<$<COMPILE_LANGUAGE:C>:-Wall;-Wextra;-Wpedantic;-Wshadow;-Wformat-security;-Wnull-dereference;-Wundef;-Wmissing-prototypes;-Wimplicit-fallthrough>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall;-Wextra;-Wpedantic>
+        $<$<NOT:$<PLATFORM_ID:Windows>>:-fPIC>
     )
+    if(_profile STREQUAL "Debug")
+        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-O0;-g>)
+        target_compile_definitions(${target} PRIVATE DEBUG)
+    elseif(_profile STREQUAL "Release")
+        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-O3;-g0;-fno-math-errno>)
+        target_compile_definitions(${target} PRIVATE NDEBUG)
+    elseif(_profile STREQUAL "MinSizeRel")
+        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-Os>)
+        target_compile_definitions(${target} PRIVATE NDEBUG)
+    elseif(_profile STREQUAL "RelWithDebInfo")
+        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-O2;-g>)
+        target_compile_definitions(${target} PRIVATE NDEBUG)
+    endif()
     if(LMMP_ASM_ENABLED)
         # 自定义汇编宏：C/C++/ASM 统一使用，避免依赖 __APPLE__/_WIN32 等编译器宏。
         target_compile_definitions(${target} PRIVATE LMMP_ASM=1)
@@ -316,9 +321,9 @@ function(lmmp_target_setup target)
         target_link_options(${target} PRIVATE ${LMMP_LINKER_FLAGS})
     endif()
 
-    if(TARGET_SYSTEM STREQUAL "WIN")
+    if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
         target_compile_definitions(${target} PRIVATE LMMP_WINDOWS)
-    elseif(TARGET_SYSTEM STREQUAL "LIN")
+    elseif(LMMP_TARGET_SYSTEM STREQUAL "LIN")
         target_compile_definitions(${target} PRIVATE LMMP_LINUX)
         # 库内对导出函数的调用假定无语义插入（允许内联与直接调用），
         # 配合链接期 -Bsymbolic-functions（见下方链接选项段）取代 -fno-plt
@@ -326,44 +331,40 @@ function(lmmp_target_setup target)
             $<$<COMPILE_LANGUAGE:C>: -fno-semantic-interposition>
             $<$<COMPILE_LANGUAGE:CXX>: -fno-semantic-interposition>
         )
-    elseif(TARGET_SYSTEM STREQUAL "MAC")
+    elseif(LMMP_TARGET_SYSTEM STREQUAL "MAC")
         target_compile_definitions(${target} PRIVATE LMMP_MACOS)
     endif()
 
-    if(TARGET_SYSTEM STREQUAL "MAC")
-        target_link_options(${target} PRIVATE
-            $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:
-                -Wl,-dead_strip
-            >
-        )
+    if(LMMP_TARGET_SYSTEM STREQUAL "MAC")
+        if(_profile STREQUAL "Release" OR _profile STREQUAL "MinSizeRel")
+            target_link_options(${target} PRIVATE -Wl,-dead_strip)
+        endif()
         get_target_property(target_type ${target} TYPE)
         if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
-            if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+            if(_profile STREQUAL "Release" OR _profile STREQUAL "MinSizeRel")
                 add_custom_command(TARGET ${target} POST_BUILD
                     COMMAND ${CMAKE_STRIP} -x "$<TARGET_FILE:${target}>"
                     COMMENT "Stripping local symbols from ${target}"
                 )
             endif()
         endif()
-    elseif(  TARGET_SYSTEM STREQUAL "LIN"
+    elseif(  LMMP_TARGET_SYSTEM STREQUAL "LIN"
           OR MINGW
-          OR (TARGET_SYSTEM STREQUAL "WIN" AND
+          OR (LMMP_TARGET_SYSTEM STREQUAL "WIN" AND
               CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
               NOT CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"))
 
         # Linux
         # MinGW 环境
         # Windows 上的 GNU 驱动 Clang（非 MSVC 兼容模式的 Clang）
-        target_link_options(${target} PRIVATE
-            -Wl,--no-undefined
-            $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:
-                -Wl,--strip-all
-            >
-        )
+        target_link_options(${target} PRIVATE -Wl,--no-undefined)
+        if(_profile STREQUAL "Release" OR _profile STREQUAL "MinSizeRel")
+            target_link_options(${target} PRIVATE -Wl,--strip-all)
+        endif()
         # Linux 共享库：函数符号链接期本地绑定，库内互调免 PLT/GOT 间接，
         # 与编译期 -fno-semantic-interposition 配套（对符号插入式
         # interposition 的显式放弃，与库的 -fvisibility=hidden 策略一致）
-        if(TARGET_SYSTEM STREQUAL "LIN")
+        if(LMMP_TARGET_SYSTEM STREQUAL "LIN")
             get_target_property(target_type ${target} TYPE)
             if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
                 target_link_options(${target} PRIVATE -Wl,-Bsymbolic-functions)
@@ -379,28 +380,15 @@ endfunction()
 # 输出布局：
 #   LMMP_OUTPUT_DIR -> 传入目录平铺（动态库/导入库/头文件/附加构建产物同层，
 #                     不区分配置子目录，供其他项目直接引入）
-#   默认            -> dist/lmmp/bin/<config>（源内开发布局）
-set(OUTPUT_SPLIT_CONFIG FALSE)
+#   默认            -> dist/lmmp/bin（源内开发布局）
 if(LMMP_OUTPUT_DIR)
     get_filename_component(OUTPUT_BIN "${LMMP_OUTPUT_DIR}" ABSOLUTE)
 else()
     set(OUTPUT_BIN ${CMAKE_SOURCE_DIR}/dist/lmmp/bin)
-    set(OUTPUT_SPLIT_CONFIG TRUE)
 endif()
 
 foreach(TYPE RUNTIME ARCHIVE LIBRARY)
     set(CMAKE_${TYPE}_OUTPUT_DIRECTORY ${OUTPUT_BIN})
-    if(OUTPUT_SPLIT_CONFIG)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_BIN}/debug)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_BIN}/release)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_BIN}/relwithdebinfo)
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_BIN}/minsizerel)
-    else()
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_BIN})
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_BIN})
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_BIN})
-        set(CMAKE_${TYPE}_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_BIN})
-    endif()
 endforeach()
 
 # ==============================================================================
@@ -430,12 +418,14 @@ elseif(CMAKE_C_COMPILER_LINKER_ID)
 else()
     message(STATUS "Linker:        toolchain default")
 endif()
-message(STATUS "Target system: ${TARGET_SYSTEM}")
-if(CMAKE_CONFIGURATION_TYPES)
-    message(STATUS "Build types:   ${CMAKE_CONFIGURATION_TYPES}")
+message(STATUS "Target system: ${LMMP_TARGET_SYSTEM}")
+message(STATUS "Build type:    ${LMMP_BUILD_TYPE}")
+if(LMMP_LIBRARY_BUILD_TYPE)
+    set(_lmmp_library_summary "${LMMP_LIBRARY_BUILD_TYPE}")
 else()
-    message(STATUS "Build type:    ${CMAKE_BUILD_TYPE}")
+    set(_lmmp_library_summary "${LMMP_BUILD_TYPE} (inherited)")
 endif()
+message(STATUS "Library type:  ${_lmmp_library_summary}")
 message(STATUS "ASM support:   ${LMMP_ASM}")
 message(STATUS "Output dir:    ${OUTPUT_BIN}")
 message(STATUS "Extras:        tests=${LMMP_BUILD_TESTS} examples=${LMMP_BUILD_EXAMPLES} (perf/tune by target)")

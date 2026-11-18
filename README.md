@@ -16,11 +16,11 @@ LMMP 使用 CMake 构建，零外部依赖。当前仅支持 GNU/Clang 风格工
 动态库 liblmmp.so/liblmmp.dylib/lmmp.dll 由 C 编写。构建默认按平台选择汇编后端，汇编文件采用 GAS/LLVM 兼容的 `.S` 语法。
 
 ```bash
-cmake -P scripts/lmmp/config.cmake -- -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake -P cmake/lmmp/config.cmake -- configure -B build
 cmake --build build -j
 ```
 
-注意生成器：装有 Visual Studio 的 Windows 机器上，cmake 默认生成器可能为 Visual Studio（会被本库构建时直接拒绝）。Windows 下请显式 `-G Ninja`（推荐）或 `-G "MinGW Makefiles"`。`LMMP_ASM` / `TARGET_SYSTEM` 取值大小写不敏感。
+配置命令默认使用 Ninja。Windows 下不使用 Visual Studio 生成器。所有公开配置项、类型和默认值由 `cmake/lmmp/config.options` 集中声明，可用 `help` 和 `list` 查看。
 
 支持情况：
 + x86_64 Linux / Windows(MinGW/Clang)：使用 `src/lmmp/lmmpn/arch/x64/*.S`
@@ -34,24 +34,22 @@ cmake --build build -j
 
 ## 主要配置选项
 
-用 `cmake -P scripts/lmmp/config.cmake -- -B <构建目录>` 配置 LMMP。可在构建目录后传入 CMake 配置参数，例如 `-G Ninja` 和下表中的 `-D` 选项。选项保存在所选构建目录的 CMake 缓存中，可用同一命令更新。也可直接调用 `cmake -S . -B <构建目录>`。
+```bash
+cmake -P cmake/lmmp/config.cmake -- help
+cmake -P cmake/lmmp/config.cmake -- list
+```
 
-| 选项 | 取值 | 默认 | 说明 |
-|---|---|---|---|
-| `CMAKE_BUILD_TYPE` | `Debug` / `Release` / `RelWithDebInfo` / `MinSizeRel` | `Release` | 单配置生成器的构建类型 |
-| `LMMP_ASM` | `AUTO` / `GENERIC` / `X64` / `ARM64` | `AUTO` | 汇编模式：自动选择、不使用汇编、x64 汇编、arm64 汇编 |
-| `LMMP_COMPILER_DIR` | 目录路径 | 空 | 编译器所在目录（自动识别其中的 gcc/g++ 或 clang/clang++）；为空使用系统默认编译器 |
-| `LMMP_LINKER_DIR` | 目录路径 | 空 | 链接器所在目录（按文件名识别：`ld.lld`/`lld` => lld，`ld.mold`/`mold` => mold，`ld`=> GNU ld）；为空使用工具链默认链接器 |
-| `LMMP_OUTPUT_DIR` | 目录路径 | 空 | 统一产物目录：动态库、导入库与对外头文件平铺于此，附加构建（tests 等）开启后也输出于此；为空使用源内 `dist/lmmp/` 布局 |
-| `LMMP_BUILD_TESTS` | `ON` / `OFF` | `OFF` | 是否构建单元测试（开启后与动态库输出到同一目录） |
-| `LMMP_BUILD_EXAMPLES` | `ON` / `OFF` | `OFF` | 是否构建示例程序（开启后与动态库输出到同一目录） |
-| `TARGET_SYSTEM` | `AUTO` / `WIN` / `LIN` / `MAC` | `AUTO` | 目标系统，一般无需手动指定 |
-| `LMMP_DEBUG_STACK_OVERFLOW_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部栈溢出检查（开销：高） |
-| `LMMP_DEBUG_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | debug_assert 检查（开销：中） |
-| `LMMP_DEBUG_PARAM_ASSERT_CHECK` | `ON` / `OFF` | `OFF` | 函数参数检查（开销：中） |
-| `LMMP_DEBUG_MEMORY_CHECK` | `ON` / `OFF` | `OFF` | LMMP 内部堆/栈内存检查（开销：很高） |
-| `LMMP_MEMORY_MORE_ALLOC_TIMES` | 正整数 | `1` | 内存检查的额外分配倍数（十分位） |
-| `LMMP_DEBUG_MEMORY_LEAK` | `ON` / `OFF` | `OFF` | 内存分配/释放统计（开销：低） |
+配置时使用 `--set NAME=VALUE`，配置项由 `config.options` 校验并转换为内部 CMake 缓存值。
+
+```bash
+cmake -P cmake/lmmp/config.cmake -- configure -B build \
+  --set LMMP_BUILD_TYPE=Release \
+  --set LMMP_LIBRARY_BUILD_TYPE=Release \
+  --set LMMP_TEST_BUILD_TYPE=Debug \
+  --set LMMP_BUILD_TESTS=ON
+```
+
+`LMMP_BUILD_TYPE` 是默认目标组编译配置。动态库、测试、示例、性能和调优目标分别由对应的 `LMMP_*_BUILD_TYPE` 选项控制，值为 `inherit` 时继承默认配置。库内断言和内存行为选项也在同一配置目录中声明。
 
 工具链选择的补充说明：
 
@@ -63,10 +61,10 @@ cmake --build build -j
 配置 `LMMP_OUTPUT_DIR` 后，构建产物以平铺形态汇聚到该目录，供其他项目直接引入：
 
 ```bash
-cmake -P scripts/lmmp/config.cmake -- -B build-out -G Ninja -DCMAKE_BUILD_TYPE=Release \
-  "-DLMMP_COMPILER_DIR=/path/to/mingw64/bin" \
-  "-DLMMP_LINKER_DIR=/path/to/llvm/bin" \
-  "-DLMMP_OUTPUT_DIR=/path/to/lmmp-dist"
+cmake -P cmake/lmmp/config.cmake -- configure -B build-out \
+  --set LMMP_COMPILER_DIR=/path/to/mingw64/bin \
+  --set LMMP_LINKER_DIR=/path/to/llvm/bin \
+  --set LMMP_OUTPUT_DIR=/path/to/lmmp-dist
 cmake --build build-out
 ```
 
@@ -87,7 +85,7 @@ lmmp-dist/
 
 ```bash
 # 构建动态库和单元测试
-cmake -P scripts/lmmp/config.cmake -- -B build -G Ninja -DLMMP_BUILD_TESTS=ON
+cmake -P cmake/lmmp/config.cmake -- configure -B build --set LMMP_BUILD_TESTS=ON
 cmake --build build -j
 
 # 运行全部单元测试
@@ -98,17 +96,17 @@ ctest --test-dir build -R '^test_numth$' --output-on-failure
 # 点名构建开方基准和 2×2 矩阵平方调优程序
 cmake --build build --target perf_numth_sqrt
 cmake --build build --target tune_numth_mat22_sqr
-./dist/lmmp/bin/release/perf_numth_sqrt
-./dist/lmmp/bin/release/tune_numth_mat22_sqr
+./dist/lmmp/bin/perf_numth_sqrt
+./dist/lmmp/bin/tune_numth_mat22_sqr
 ```
 
-批量构建前会显示目标清单和总数，输入 `y` 后开始编译。`LMMP_TARGET` 可用 `perf`、`tune` 选整类程序，也可用 `perf_<模块>`、`tune_<模块>` 选单个模块。多配置生成器可加 `-DLMMP_CONFIG=Release`。
+批量构建前会显示目标清单和总数，输入 `y` 后开始编译。目标构建脚本使用自有命令行参数，不要求 CMake 的 `-D` 变量。
 
 ```bash
 # 构建全部基准程序
-cmake -DLMMP_BUILD_DIR=build -DLMMP_TARGET=perf -P scripts/lmmp/build.cmake
+cmake -P cmake/lmmp/build.cmake -- build -B build -t perf
 # 构建数论模块的调优程序
-cmake -DLMMP_BUILD_DIR=build -DLMMP_TARGET=tune_numth -P scripts/lmmp/build.cmake
+cmake -P cmake/lmmp/build.cmake -- build -B build -t tune_numth
 ```
 
 阈值定义在各模块的 `arch/<后端>/mparam.h`。CMake 按构建所选后端汇总成供全库使用的内部头文件。调优程序用相同输入比较算法路径并输出测量结果。更新参数时修改所属模块的头文件，再重新构建。
