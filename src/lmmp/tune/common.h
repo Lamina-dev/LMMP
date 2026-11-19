@@ -37,7 +37,6 @@ typedef struct {
     double mad_limit;
     unsigned max_retry;
     unsigned long long seed;
-    const char* output_path;
 } lmmp_tune_options;
 
 typedef struct {
@@ -50,13 +49,53 @@ typedef struct {
 void lmmp_tune_options_init(lmmp_tune_options* options);
 bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options);
 void lmmp_tune_usage(const char* program_id);
-FILE* lmmp_tune_open_output(const lmmp_tune_options* options);
-void lmmp_tune_close_output(const lmmp_tune_options* options, FILE* output);
 
 bool lmmp_tune_measure(const lmmp_tune_bench* bench,
                        const lmmp_tune_options* options,
                        double* median_us,
                        double* mad_ratio,
                        unsigned* retries);
+
+/**
+ * @brief 交替测量 low/high 两条路径：每个采样批次前分别重新绑定两路参数并重建输入，
+ *        批内先测 low 再测 high，两路承受相同的漂移与热状态；任一路 MAD 超限则整组重测。
+ */
+bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
+                            const lmmp_tune_bench* high,
+                            const lmmp_tune_options* options,
+                            double* low_us,
+                            double* low_mad,
+                            double* high_us,
+                            double* high_mad,
+                            unsigned* retries);
+
+/** @brief 调优程序统一安装的静默退出回调：把库内断言失败打印到标准错误后立即退出，避免弹窗。 */
+void lmmp_tune_abort(lmmp_error_t type, const char* message, const char* function, int line);
+
+/** @brief 把汇编后端、目标系统与构建类型逐行打印到标准输出，供 --info 使用。 */
+void lmmp_tune_print_env(void);
+
+/** @brief 把编译器、构建类型、目标系统与汇编后端以 # 注释行打印到标准输出，作为结果头。 */
+void lmmp_tune_print_env_comment(void);
+
+/** @brief 打印单个阈值的架构默认值与当前运行时值，供 --current 使用。 */
+void lmmp_tune_print_current(const char* name, unsigned long long default_value, unsigned long long current_value);
+
+/** @brief 把单个测量点按候选阈值应选路径的耗时累加进评分：候选不高于该点规模时计高路，否则计低路。 */
+void lmmp_tune_score_point(double* scores,
+                           unsigned long* counts,
+                           int candidate_min,
+                           int candidate_max,
+                           mp_size_t n,
+                           double low_us,
+                           double high_us);
+
+/** @brief 汇总候选评分，向标准输出打印逐候选 badness、推荐值与 ±1% 平坦区间；无测量点时不推荐。 */
+void lmmp_tune_recommend(const char* name,
+                         const double* scores,
+                         const unsigned long* counts,
+                         int candidate_min,
+                         int candidate_max,
+                         unsigned long long current_value);
 
 #endif

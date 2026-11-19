@@ -29,7 +29,9 @@
 extern "C" {
 #endif
 
-LMMP_API extern mp_size_t lmmp_tune_MAT22_SQR_STRASSEN_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MUL_TOOM22_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQR_TOOM22_THRESHOLD;
 
 #ifdef __cplusplus
 }

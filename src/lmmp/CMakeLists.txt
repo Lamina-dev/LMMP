@@ -128,7 +128,7 @@ if(LMMP_TARGET_SYSTEM STREQUAL "WIN")
     endif()
 endif()
 
-add_library(liblmmp_tune_internal SHARED ${library_sources} tune/params.c)
+add_library(liblmmp_tune_internal SHARED ${library_sources} tune/params.c tune/kernels.c)
 set_target_properties(liblmmp_tune_internal PROPERTIES
     OUTPUT_NAME "lmmp_tune_internal"
     C_VISIBILITY_PRESET default

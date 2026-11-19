@@ -84,7 +84,6 @@ void lmmp_tune_options_init(lmmp_tune_options* options) {
         .mad_limit = 0.05,
         .max_retry = 2,
         .seed = 0x2733ba7a11665d4fULL,
-        .output_path = NULL,
     };
 }
 
@@ -139,10 +138,6 @@ bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options) {
                 return false;
             }
             options->seed = parsed;
-        } else if (strcmp(argv[i], "--out") == 0) {
-            if (!need_value_(argc, argv, &i, argv[i], &value))
-                return false;
-            options->output_path = value;
         } else {
             fprintf(stderr, "unknown option '%s'\n", argv[i]);
             return false;
@@ -158,58 +153,47 @@ void lmmp_tune_usage(const char* program_id) {
     puts("  --mad-limit X     MAD/median retry limit, default 0.05");
     puts("  --max-retry N     maximum unstable-point retries, default 2");
     puts("  --seed S          deterministic input seed");
-    puts("  --out FILE        write results to FILE");
 }
 
-FILE* lmmp_tune_open_output(const lmmp_tune_options* options) {
-    if (options->output_path == NULL)
-        return stdout;
-#if defined(LMMP_WINDOWS)
-    FILE* output = NULL;
-    if (fopen_s(&output, options->output_path, "w") != 0)
-        output = NULL;
-#else
-    FILE* output = fopen(options->output_path, "w");
-#endif
-    if (output == NULL)
-        fprintf(stderr, "cannot open output '%s'\n", options->output_path);
-    return output;
+static mp_size_t calibrate_(const lmmp_tune_bench* bench, const lmmp_tune_options* options) {
+    const mp_size_t max_iters = 1ull << 26;
+    mp_size_t iters = 1;
+    bench->bind(bench->context);
+    bench->reset(bench->context);
+    for (;;) {
+        double start = bench_clock();
+        for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
+        double elapsed = bench_clock() - start;
+        if (elapsed >= options->min_ms * 1e-3 || iters >= max_iters)
+            break;
+        iters *= 2;
+    }
+    return iters;
 }
 
-void lmmp_tune_close_output(const lmmp_tune_options* options, FILE* output) {
-    if (output != NULL && output != stdout && options->output_path != NULL)
-        fclose(output);
+static double timed_block_(const lmmp_tune_bench* bench, mp_size_t iters) {
+    bench->bind(bench->context);
+    bench->reset(bench->context);
+    double start = bench_clock();
+    for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
+    return (bench_clock() - start) * 1e6 / (double)iters;
+}
+
+static bool summarize_(double* samples, unsigned count, double* median_us, double* mad_ratio) {
+    *median_us = median_(samples, count);
+    *mad_ratio = mad_ratio_(samples, count, *median_us);
+    return isfinite(*median_us) && isfinite(*mad_ratio);
 }
 
 static bool measure_once_(const lmmp_tune_bench* bench,
                           const lmmp_tune_options* options,
                           double* median_us,
                           double* mad_ratio) {
-    const mp_size_t max_iters = 1ull << 26;
-    mp_size_t iters = 1;
-    double elapsed;
-    bench->bind(bench->context);
-    bench->reset(bench->context);
-    for (;;) {
-        double start = bench_clock();
-        for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
-        elapsed = bench_clock() - start;
-        if (elapsed >= options->min_ms * 1e-3 || iters >= max_iters)
-            break;
-        iters *= 2;
-    }
-
+    mp_size_t iters = calibrate_(bench, options);
     double samples[31];
-    for (unsigned sample = 0; sample < options->samples; ++sample) {
-        bench->bind(bench->context);
-        bench->reset(bench->context);
-        double start = bench_clock();
-        for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
-        samples[sample] = (bench_clock() - start) * 1e6 / (double)iters;
-    }
-    *median_us = median_(samples, options->samples);
-    *mad_ratio = mad_ratio_(samples, options->samples, *median_us);
-    return isfinite(*median_us) && isfinite(*mad_ratio);
+    for (unsigned sample = 0; sample < options->samples; ++sample)
+        samples[sample] = timed_block_(bench, iters);
+    return summarize_(samples, options->samples, median_us, mad_ratio);
 }
 
 bool lmmp_tune_measure(const lmmp_tune_bench* bench,
@@ -226,4 +210,125 @@ bool lmmp_tune_measure(const lmmp_tune_bench* bench,
         }
     }
     return false;
+}
+
+static bool measure_pair_once_(const lmmp_tune_bench* low,
+                               const lmmp_tune_bench* high,
+                               const lmmp_tune_options* options,
+                               double* low_us,
+                               double* low_mad,
+                               double* high_us,
+                               double* high_mad) {
+    mp_size_t low_iters = calibrate_(low, options);
+    mp_size_t high_iters = calibrate_(high, options);
+    double low_samples[31], high_samples[31];
+    for (unsigned sample = 0; sample < options->samples; ++sample) {
+        low_samples[sample] = timed_block_(low, low_iters);
+        high_samples[sample] = timed_block_(high, high_iters);
+    }
+    return summarize_(low_samples, options->samples, low_us, low_mad) &&
+           summarize_(high_samples, options->samples, high_us, high_mad);
+}
+
+bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
+                            const lmmp_tune_bench* high,
+                            const lmmp_tune_options* options,
+                            double* low_us,
+                            double* low_mad,
+                            double* high_us,
+                            double* high_mad,
+                            unsigned* retries) {
+    for (unsigned retry = 0; retry <= options->max_retry; ++retry) {
+        if (!measure_pair_once_(low, high, options, low_us, low_mad, high_us, high_mad))
+            return false;
+        if ((*low_mad <= options->mad_limit && *high_mad <= options->mad_limit) || retry == options->max_retry) {
+            *retries = retry;
+            return true;
+        }
+    }
+    return false;
+}
+
+void lmmp_tune_abort(lmmp_error_t type, const char* message, const char* function, int line) {
+    fprintf(stderr, "LMMP abort %d in %s:%d: %s\n", (int)type, function, line, message);
+    _Exit(EXIT_FAILURE);
+}
+
+static const char* asm_backend_name_(void) {
+#if defined(LMMP_ASM_X64)
+    return "x64";
+#elif defined(LMMP_ASM_ARM64)
+    return "arm64";
+#else
+    return "generic";
+#endif
+}
+
+static const char* target_system_name_(void) {
+#if defined(LMMP_WINDOWS)
+    return "windows";
+#elif defined(LMMP_LINUX)
+    return "linux";
+#elif defined(LMMP_MACOS)
+    return "macos";
+#else
+    return "unknown";
+#endif
+}
+
+void lmmp_tune_print_env(void) {
+    printf("asm_backend=%s\n", asm_backend_name_());
+    printf("target_system=%s\n", target_system_name_());
+    printf("build_type=%s\n", LMMP_BUILD_TYPE_STR);
+}
+
+void lmmp_tune_print_env_comment(void) {
+    printf("# build_type=%s compiler=%s\n", LMMP_BUILD_TYPE_STR, __VERSION__);
+    printf("# target_system=%s\n", target_system_name_());
+    printf("# asm_backend=%s\n", asm_backend_name_());
+}
+
+void lmmp_tune_print_current(const char* name, unsigned long long default_value, unsigned long long current_value) {
+    printf("%s default=%llu current=%llu\n", name, default_value, current_value);
+}
+
+void lmmp_tune_score_point(double* scores,
+                           unsigned long* counts,
+                           int candidate_min,
+                           int candidate_max,
+                           mp_size_t n,
+                           double low_us,
+                           double high_us) {
+    for (int candidate = candidate_min; candidate <= candidate_max; ++candidate) {
+        scores[candidate] += n >= (mp_size_t)candidate ? high_us : low_us;
+        ++counts[candidate];
+    }
+}
+
+void lmmp_tune_recommend(const char* name,
+                         const double* scores,
+                         const unsigned long* counts,
+                         int candidate_min,
+                         int candidate_max,
+                         unsigned long long current_value) {
+    int best = candidate_min;
+    for (int candidate = candidate_min + 1; candidate <= candidate_max; ++candidate) {
+        if (scores[candidate] < scores[best])
+            best = candidate;
+    }
+    double best_score = scores[best] / (double)counts[best];
+    int flat_low = best;
+    int flat_high = best;
+    while (flat_low > candidate_min && scores[flat_low - 1] / (double)counts[flat_low - 1] <= best_score * 1.01)
+        --flat_low;
+    while (flat_high < candidate_max && scores[flat_high + 1] / (double)counts[flat_high + 1] <= best_score * 1.01)
+        ++flat_high;
+    for (int candidate = candidate_min; candidate <= candidate_max; ++candidate)
+        printf("# badness candidate=%d avg_us=%.6f\n", candidate, scores[candidate] / (double)counts[candidate]);
+    printf("# recommended=%d\n", best);
+    printf("# recommended_avg_us=%.6f\n", best_score);
+    printf("# flat_within_1pct=%d..%d\n", flat_low, flat_high);
+    printf("# current=%llu\n", current_value);
+    printf("# points=%lu\n", counts[best]);
+    printf("recommended %s = %d\n", name, best);
 }
