@@ -67,9 +67,4 @@ void lmmp_mat22_mul_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, const lmmp_mat22_
  */
 void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp);
 
-#if defined(LMMP_INTERNAL_BUILD) || defined(LMMP_INTERNAL_USE)
-LMMP_API void lmmp_internal_numth_mat22_sqr_basecase(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp);
-LMMP_API void lmmp_internal_numth_mat22_sqr_strassen(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp);
-#endif
-
 #endif // __LMMP_IMPL_MAT22_MUL_H__

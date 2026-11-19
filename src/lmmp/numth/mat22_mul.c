@@ -510,11 +510,3 @@ void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
         mat22_sqr_basecase_(dst, a, tp);
     }
 }
-
-LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_basecase,
-                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
-                    mat22_sqr_basecase_(dst, a, tp);)
-
-LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_strassen,
-                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
-                    mat22_sqr_strassen_(dst, a, tp);)
