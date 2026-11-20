@@ -30,9 +30,9 @@
 #include "tune/kernels.h"
 #include "tune/params.h"
 
-/* 网格须下探到 toom22 契约最小规模 nb>=5：候选阈值低于 16 的取舍必须由 n<16 的
+/* 网格须下探到 toom22 契约最小规模 nb>=2：候选阈值低于 16 的取舍必须由 n<16 的
    实测证据支撑，否则评分会把小 n 区 basecase 的巨大优势漏掉，推荐值假性偏低。 */
-enum { MIN_N = 5, MAX_N = 48, CANDIDATE_MIN = 2, CANDIDATE_MAX = MAX_N + 4 };
+enum { MIN_N = 2, MAX_N = 48, CANDIDATE_MIN = 2, CANDIDATE_MAX = MAX_N + 4 };
 
 typedef struct {
     mp_ptr dst;

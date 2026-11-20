@@ -62,16 +62,17 @@ static void check_vs_dispatch(const char* tag, mp_ptr a, mp_size_t na, mp_ptr b,
     lmmp_free(r2);
 }
 
-/* toom6h 原生比例范围：an/bn ∈ [1, 17/6)，an*3 < 8*bn 要求 bn < 46 时
-   比例 < 8/3 —— 阶梯各档代表比例 */
+/* toom6h 原生比例范围：an/bn ∈ [1, 3)；本表只取 <=2.82 的旧 called 带
+   代表比例（nb 43..92 段高比例有阶梯切换洞，扩比例覆盖在
+   test_mul_toom_contracts 经切分谓词过滤后进行） */
 const double kRatios6[] = {1.0, 1.05, 1.15, 1.3, 1.32, 1.45, 1.48, 1.8, 1.88, 2.0, 2.11, 2.4, 2.6, 2.82};
 /* toom8h 原生比例范围：an/bn ∈ [1, 4] */
 const double kRatios8[] = {1.0, 1.1, 1.22, 1.35, 1.5, 1.64, 1.8, 2.0, 2.24, 2.5, 2.85, 3.1, 3.5, 3.99};
 
 static bool in_6h_range(mp_size_t na, mp_size_t nb) {
-    /* 与内核契约一致：比例 < 17/6 且 nb>=46（原 8/3 宽限与 nb 42..45
-       保证域外区间随契约收紧移除） */
-    return na >= nb && nb >= 46 && 6 * na < 17 * nb;
+    /* 与内核契约一致：na+9<=3*nb（贴 3nb 上沿 (9,4) 阶梯恢复后短侧段数降 2，
+       ±1 求值无路径，上沿自 3nb 收至 3nb-9）且 nb>=46 */
+    return na >= nb && nb >= 46 && na + 9 <= 3 * nb;
 }
 
 TEST_CASE("mul/toom68", toom6h_kernel_full_range) {

@@ -20,9 +20,9 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* Toom-9.3 与 FFT 不平衡切换基准：固定 nb，扫描 3:1 以上的比例。
-   FFT 路径严格复现 mul_ 中的规则，na<6nb 用 lmmp_mul_fft_，否则用
-   lmmp_mul_fft_unbalance_。 */
+/* Toom-9.3 不平衡乘法基准（平衡核入口已删除）：固定 nb 扫描 3:1 以上比例，
+   对比 lmmp_mul_toom93_unbalance_ 与 FFT。FFT 路径严格复现 mul_ 规则，
+   na<6nb 用 lmmp_mul_fft_，否则 lmmp_mul_fft_unbalance_。 */
 
 #include "support/perf.h"
 #include "lmmp/lmmpn.h"
@@ -70,7 +70,11 @@ static void run_grid(void) {
 }
 
 int main(void) {
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 4096);
+#if defined(LMMP_WINDOWS)
+    /* 钉 P 核（LP0-15），避免大小核幻影比值 */
+    SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)0xFFF);
+#endif
     lmmp_global_init();
     puts("[lmmpn/mul_toom93/unbalance]");
     run_grid();

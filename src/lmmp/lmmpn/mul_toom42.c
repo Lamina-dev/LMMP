@@ -53,8 +53,8 @@ vinf=              a3 *     b1  # A(inf)*B(inf)
 
 void lmmp_mul_toom42_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(nb >= 20);
-    lmmp_param_assert(4 * nb > na);
-    lmmp_param_assert(3 * na > 2 * nb);
+    lmmp_param_assert(4 * nb > na + 3);
+    lmmp_param_assert(2 * na > 3 * nb + 1);
     TEMP_S_DECL;
     mp_size_t n = na >= 2 * nb ? (na + 3) >> 2 : (nb + 1) >> 1, s = na - 3 * n, t = nb - n;
     lmmp_param_assert(s > 0);
@@ -426,7 +426,7 @@ void lmmp_mul_toom42_unbalance_(
     mp_size_t            nb
 ) {
     lmmp_param_assert(na >= 3 * nb);
-    lmmp_param_assert(nb >= 20);
+    lmmp_param_assert(nb >= 8);
     TEMP_S_DECL;
     mp_limb_t* restrict ws = SALLOC_TYPE(nb, mp_limb_t);
 

@@ -212,33 +212,6 @@ static void toom93_pass_(
 #undef wsi
 }
 
-void lmmp_mul_toom93_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(na >= nb);
-    lmmp_param_assert(nb >= 20);
-    mp_size_t n = 1 + ((nb - 1) / 3);
-    mp_size_t s = na - 8 * n;
-    mp_size_t t = nb - 2 * n;
-    lmmp_param_assert(8 * n < na && na <= 9 * n);
-    lmmp_param_assert(2 * n < nb && nb <= 3 * n);
-    lmmp_param_assert(0 < s && s <= n);
-    lmmp_param_assert(0 < t && t <= n);
-
-    TEMP_DECL;
-    mp_ptr restrict scratch = TALLOC_TYPE(12 * n + 6, mp_limb_t);
-    mp_ptr restrict bp = TALLOC_TYPE(10 * n + 10, mp_limb_t);
-    toom93_context_t ctx = {
-        .numb    = numb,
-        .n       = n,
-        .s       = s,
-        .t       = t,
-        .scratch = scratch,
-        .bp      = bp
-    };
-    ctx.bsg = toom93_eval_b_(&ctx);
-    toom93_pass_(dst, numa, &ctx);
-    TEMP_FREE;
-}
-
 static void toom93_cache_init_(
     mp_ptr            restrict  dst,
     mp_srcptr         restrict numa,
@@ -264,7 +237,7 @@ void lmmp_mul_toom93_unbalance_(
     mp_size_t            nb
 ) {
     lmmp_param_assert(na >= 3 * nb);
-    lmmp_param_assert(nb >= 20);
+    lmmp_param_assert(nb >= 17);
 
     TEMP_DECL;
     mp_limb_t* restrict ws = SALLOC_TYPE(nb, mp_limb_t);
@@ -273,6 +246,9 @@ void lmmp_mul_toom93_unbalance_(
     ctx.n = 1 + ((nb - 1) / 3);
     ctx.s = 3 * nb - 8 * ctx.n;
     ctx.t = nb - 2 * ctx.n;
+    /* 首块 (3nb,nb) 的切分不变量（由 nb>=17 隐含，保留显式守卫） */
+    lmmp_param_assert(0 < ctx.s && ctx.s <= ctx.n);
+    lmmp_param_assert(0 < ctx.t && ctx.t <= ctx.n);
     ctx.scratch = BALLOC_TYPE(12 * ctx.n + 6, mp_limb_t);
     ctx.bp = BALLOC_TYPE(10 * ctx.n + 10, mp_limb_t);
 

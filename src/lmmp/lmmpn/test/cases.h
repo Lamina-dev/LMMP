@@ -35,6 +35,7 @@ void test_mul(void);
 void test_mul_mersenne(void);
 void test_mul_toom68(void);
 void test_mul_toom93(void);
+void test_mul_toom_contracts(void);
 void test_str(void);
 void test_threshold_boundaries(void);
 

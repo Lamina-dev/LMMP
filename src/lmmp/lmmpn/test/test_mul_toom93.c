@@ -20,10 +20,10 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* Toom-9.3 测试：
-   1) 9×3 平衡核与匹配规模的 basecase 对拍；
-   2) 缓存式不平衡路径覆盖单块、多块和尾块；
-   3) 大尺寸与独立的 toom62 不平衡路径交叉；
+/* Toom-9.3 不平衡乘法测试（平衡核入口已删除，机件由不平衡外层内部使用）：
+   1) 缓存式不平衡路径覆盖单块、多块和尾块；
+   2) 大尺寸与独立的 toom62 不平衡路径交叉；
+   3) 分派带边缘形状走完整路由；
    4) 全 limb、全 FF 和分块顶 limb 进位构造。 */
 
 #include "lmmp/lmmpn.h"
@@ -56,38 +56,6 @@ static void check_vs_basecase(
         TEST_CHECK(true);
     lmmp_free(dst);
     lmmp_free(ref);
-}
-
-TEST_CASE("mul/toom93", core_vs_basecase) {
-    u64 seed = 0x93c0e5eed0000001ull;
-    int checked = 0;
-    for (mp_size_t nb = 20; nb <= 72; ++nb) {
-        mp_size_t n = 1 + (nb - 1) / 3;
-        mp_size_t lo = 8 * n + 1;
-        if (lo < nb)
-            lo = nb;
-        for (mp_size_t na = lo; na <= 9 * n; ++na) {
-            mp_ptr a = alloc_limbs(na);
-            mp_ptr b = alloc_limbs(nb);
-            mp_ptr dst = alloc_limbs(na + nb);
-            mp_ptr ref = alloc_limbs(na + nb);
-            random_limbs(a, na, &seed);
-            random_limbs(b, nb, &seed);
-            lmmp_mul_toom93_(dst, a, na, b, nb);
-            lmmp_mul_basecase_(ref, a, na, b, nb);
-            bool ok = memcmp(dst, ref, (size_t)(na + nb) * sizeof(mp_limb_t)) == 0;
-            if (!ok || !mod_is_product(dst, na + nb, a, na, b, nb))
-                TEST_CHECK_MSG(false, "toom93 core");
-            else
-                TEST_CHECK(true);
-            lmmp_free(a);
-            lmmp_free(b);
-            lmmp_free(dst);
-            lmmp_free(ref);
-            ++checked;
-        }
-    }
-    TEST_CHECK_MSG(checked > 500, "覆盖数不足");
 }
 
 TEST_CASE("mul/toom93", unbalance_vs_basecase) {
@@ -142,6 +110,38 @@ TEST_CASE("mul/toom93", unbalance_vs_toom62) {
     TEST_CHECK_MSG(checked == (int)(ARRAY_SIZE(nbs) * ARRAY_SIZE(ratios)), "覆盖数不足");
 }
 
+/* 分派带边缘形状走 lmmp_mul_ 完整路由（3:1 下沿两侧与 4:1 上沿），
+   与 basecase/模检查对拍 */
+TEST_CASE("mul/toom93", contract_edge_dispatch) {
+    u64 seed = 0x93ed6e5000000006ull;
+    const mp_size_t nbs[] = {17, 31, 32, 33, 96, 459, 601, 602, 781};
+    for (size_t bi = 0; bi < ARRAY_SIZE(nbs); ++bi) {
+        mp_size_t nb = nbs[bi];
+        mp_size_t n = 1 + (nb - 1) / 3;
+        const mp_size_t nas[] = {8 * n, 9 * n + 1, 4 * nb};
+        for (size_t i = 0; i < ARRAY_SIZE(nas); ++i) {
+            mp_size_t na = nas[i];
+            mp_ptr a = alloc_limbs(na);
+            mp_ptr b = alloc_limbs(nb);
+            mp_ptr dst = alloc_limbs(na + nb);
+            mp_ptr ref = alloc_limbs(na + nb);
+            random_limbs(a, na, &seed);
+            random_limbs(b, nb, &seed);
+            lmmp_mul_(dst, a, na, b, nb);
+            lmmp_mul_basecase_(ref, a, na, b, nb);
+            bool ok = memcmp(dst, ref, (size_t)(na + nb) * sizeof(mp_limb_t)) == 0;
+            if (!ok || !mod_is_product(dst, na + nb, a, na, b, nb))
+                TEST_CHECK_MSG(false, "toom93 edge dispatch");
+            else
+                TEST_CHECK(true);
+            lmmp_free(a);
+            lmmp_free(b);
+            lmmp_free(dst);
+            lmmp_free(ref);
+        }
+    }
+}
+
 TEST_CASE("mul/toom93", extreme_and_carry) {
     u64 seed = 0x93e07e0e00000004ull;
     const mp_limb_t patterns[] = {0x1111111111111111ull, LIMB_MAX};
@@ -176,8 +176,8 @@ TEST_CASE("mul/toom93", extreme_and_carry) {
 }
 
 void test_mul_toom93(void) {
-    TEST_RUN("mul/toom93", core_vs_basecase);
     TEST_RUN("mul/toom93", unbalance_vs_basecase);
     TEST_RUN("mul/toom93", unbalance_vs_toom62);
+    TEST_RUN("mul/toom93", contract_edge_dispatch);
     TEST_RUN("mul/toom93", extreme_and_carry);
 }
