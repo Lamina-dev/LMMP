@@ -57,19 +57,15 @@ Evaluate in: +8,-8, +4,-4, +2,-2, +1,-1, +1/2,-1/2, +1/4,-1/4, +1/8,-1/8, 0
 */
 
 void lmmp_sqr_toom8_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    lmmp_param_assert(na > 0);
+    lmmp_param_assert(na >= 50);
     lmmp_param_assert(dst != NULL);
     lmmp_param_assert(numa != NULL);
-    lmmp_param_assert(na >= 51); /* 契约排除 s=1 退化点 na=50/57（16 点插值需 2s>3） */
-    lmmp_param_assert(na != 57);
     mp_size_t n, s;
 
     n = 1 + ((na - 1) >> 3);
     s = na - 7 * n;
 
     lmmp_debug_assert(0 < s && s <= n);
-    /* 契约排除 na=50、57（na>=50 中仅此两点 s=1，不满足 2s>3） */
-    lmmp_debug_assert(s + s > 3);
 
 #define r6 (dst + 3 * n)           /* 3n+1 */
 #define r4 (dst + 7 * n)           /* 3n+1 */
@@ -80,12 +76,11 @@ void lmmp_sqr_toom8_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na)
 #define r3 (scratch + 6 * n + 2)   /* 3n+1 */
 #define r1 (scratch + 9 * n + 3)   /* 3n+1 */
 #define v0 (dst + 11 * n)          /* n+1 */
-#define v2 (dst + 13 * n + 2)      /* n+1 */
 #define wse (scratch + 12 * n + 4) /* 3n+1 */
+#define v2 (scratch + 15 * n + 6)  /* n+1 */
 
-    /* scratch 总需求 15n+6 limbs；TALLOC 双轨（>32KiB 落池/堆） */
     TEMP_DECL;
-    mp_ptr restrict scratch = TALLOC_TYPE(15 * n + 6, mp_limb_t);
+    mp_ptr restrict scratch = TALLOC_TYPE(16 * n + 7, mp_limb_t);
 
     /* ±1/8 */
     lmmp_toom_eval_pm2rexp_(v2, v0, 7, numa, n, s, 3, dst);

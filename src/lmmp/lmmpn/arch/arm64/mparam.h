@@ -58,6 +58,8 @@
 #define SQR_FFT_THRESHOLD 1544
 // 低位乘法阈值：低于此规模使用朴素乘法
 #define MULLO_BASECASE_THRESHOLD 32
+// 低位平方阈值：低于此规模使用朴素平方
+#define SQRLO_BASECASE_THRESHOLD 32
 // 低位乘法阈值：低于此规模使用分治乘法
 #define MULLO_DC_THRESHOLD 3538
 // 精确逆元阈值：高于此规模使用牛顿迭代法

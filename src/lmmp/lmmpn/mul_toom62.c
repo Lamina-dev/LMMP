@@ -56,8 +56,9 @@ Evaluate in:
 */
 
 void lmmp_mul_toom62_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(6 * nb > na);
-    lmmp_param_assert(2 * na > 5 * nb);
+    lmmp_param_assert(nb >= 9);
+    lmmp_param_assert(6 * nb > na + 10);
+    lmmp_param_assert(2 * na > 5 * nb + 6);
 
     mp_size_t n, s, t;
     mp_limb_t cy;
@@ -571,6 +572,7 @@ void lmmp_mul_toom62_unbalance_(
     mp_size_t            nb
 ) {
     lmmp_param_assert(na >= 5 * nb);
+    lmmp_param_assert(nb >= 6);
     TEMP_DECL;
     mp_limb_t* restrict ws = SALLOC_TYPE(nb, mp_limb_t);
 

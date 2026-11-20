@@ -35,6 +35,8 @@ int main(void) {
     test_mul();
     test_mul_mersenne();
     test_mul_toom68();
+    test_mul_toom93();
+    test_mul_toom_contracts();
     test_str();
     test_threshold_boundaries();
     lmmp_global_deinit();

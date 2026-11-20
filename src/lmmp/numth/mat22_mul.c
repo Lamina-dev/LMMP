@@ -502,6 +502,13 @@ void lmmp_mat22_mul_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, const lmmp_mat22_
     }
 }
 
+/* FIXME: 删除 Strassen 平方路径（mat22_sqr_strassen_ 与本处分派），恒走 basecase。
+   平方 basecase 借对称性只需 5 次大数乘（2 平方 + 3 乘），Strassen 需 7 次
+   （4 平方 + 3 乘）——一般乘法次数相同却多做 2 次平方，且组合量更长，
+   运算计数对任意 n 都严格劣，不存在交叉点（临时空间亦为 15mx+14 vs 5mx+2）。
+   Strassen 的 8→7 优势只对一般矩阵乘成立，且需矩阵级递归才能复利，本入口为单层分派。
+   删除后 MAT22_SQR_STRASSEN_THRESHOLD 与各后端 mparam.h 中该宏一并退役，
+   tp 容量契约可收紧至 5*mx(a)+2、dst 元素容量至 2*mx(a)+2（须同步 mat22_mul.h 与消费方）。 */
 void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
     lmmp_param_assert(dst != NULL && a != NULL && tp != NULL);
     if (mat22_all_big_(a, MAT22_SQR_STRASSEN_THRESHOLD)) {
@@ -510,11 +517,3 @@ void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
         mat22_sqr_basecase_(dst, a, tp);
     }
 }
-
-LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_basecase,
-                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
-                    mat22_sqr_basecase_(dst, a, tp);)
-
-LMMP_INTERNAL_ENTRY(void, lmmp_internal_numth_mat22_sqr_strassen,
-                    (lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp),
-                    mat22_sqr_strassen_(dst, a, tp);)

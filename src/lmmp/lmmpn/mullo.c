@@ -202,7 +202,7 @@ void lmmp_mullo_dc_(
 }
 
 void lmmp_sqrlo_dc_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_ptr restrict tp, mp_size_t n) {
-    if (n < MULLO_BASECASE_THRESHOLD) {
+    if (n < SQRLO_BASECASE_THRESHOLD) {
         lmmp_sqrlo_basecase_(dst, numa, n);
         return;
     } else {
