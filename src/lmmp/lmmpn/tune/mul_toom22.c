@@ -64,10 +64,10 @@ static mp_limb_t fingerprint(mp_srcptr p, mp_size_t n) {
    高路直调 toom22 内核，两路的子问题都沿默认运行时阈值分派。若用 T=n 经完整入口强制
    高路，子问题会被同一边界值压回 basecase（如 n=48 的子问题 24 本应再入 toom22），
    系统性抬高 high 耗时、把交叉点假性推高。
-   子问题经宏首分支按同一边界值（MUL_TOOM22_THRESHOLD）分派，规模 sub=ceil(n/2)：
-   候选 T 与默认阈值分居 sub 两侧时，部署子路径（递归↔hard）与测量路径不同，此类
-   候选逐个按 T 绑定实测部署路径；更深层节点 <=MAX_N/4=12 恒低于候选与默认阈值
-   下界 20，单层判据即全路径等价。 */
+   子问题经宏首分支按同一边界值（MUL_TOOM22_THRESHOLD）分派，根层两级子乘规模为
+   ceil(n/2)（v0/vm1）与 floor(n/2)（vinf）：候选 T 与默认阈值分居任一级两侧时，
+   部署子路径（递归↔hard）与测量路径不同，此类候选逐个按 T 绑定实测部署路径；
+   更深层节点 <=MAX_N/4=12 恒低于候选与默认阈值下界 20，两级判据即全路径等价。 */
 static mp_limb_t call_mul_low(void* opaque) {
     measure_context* context = opaque;
     lmmp_tune_mul_hard_n_(context->dst, context->numa, context->numb, context->n);
@@ -177,28 +177,32 @@ int main(int argc, char** argv) {
         printf("%llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable);
         /* 复用规则：部署子路径与本行高路测量一致的候选直接复用（子问题同走递归或
-           同走 hard），其余候选逐个按 T 绑定实测部署路径。 */
+           同走 hard），其余候选逐个按 T 绑定实测部署路径。根层两级子乘规模为
+           ceil(n/2)（v0/vm1）与 floor(n/2)（vinf），更深节点 <=MAX_N/4=12 恒低于
+           候选与默认阈值下界，无第三级跨越。 */
         mp_size_t sub_n = n - (n >> 1);
         mp_size_t deploy_max = n < (mp_size_t)CANDIDATE_MAX ? n : (mp_size_t)CANDIDATE_MAX;
         mp_size_t deploy_lo, deploy_hi;
         if (sub_n < saved_threshold) {
-            /* 测量子问题走 hard：T<=sub_n 的候选部署时递归，score_point 跳过，须实测。 */
+            /* 测量两级子乘走 hard：T<=sub_n 的候选部署时至少 ceil 半递归，
+               score_point 跳过，须实测。 */
             lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, sub_n, low_us, high_us);
             deploy_lo = CANDIDATE_MIN;
             deploy_hi = sub_n < deploy_max ? sub_n : deploy_max;
         } else {
-            /* 测量子问题走递归：T<=sub_n 的候选部署同递归，复用 high_us；
-               sub_n<T<=n 的候选把子问题压回 hard，须实测。 */
+            /* 测量两级子乘走递归：T<=n>>1 时部署两级同走递归，复用 high_us；
+               T>n>>1 的候选会把 floor 半子乘（奇 n 在 T=ceil(n/2) 处率先翻回
+               hard）或两级一并压回，须实测。 */
             for (int candidate = CANDIDATE_MIN; candidate <= CANDIDATE_MAX; ++candidate) {
                 if ((mp_size_t)candidate > n) {
                     scores[candidate] += low_us;
                     ++counts[candidate];
-                } else if ((mp_size_t)candidate <= sub_n) {
+                } else if ((mp_size_t)candidate <= (n >> 1)) {
                     scores[candidate] += high_us;
                     ++counts[candidate];
                 }
             }
-            deploy_lo = sub_n + 1;
+            deploy_lo = (n >> 1) + 1;
             deploy_hi = deploy_max;
         }
         for (mp_size_t candidate = deploy_lo; candidate <= deploy_hi; ++candidate) {
