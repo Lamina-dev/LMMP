@@ -63,7 +63,11 @@ static mp_limb_t fingerprint(mp_srcptr p, mp_size_t n) {
 /* 递归阈值只强制根层（设计稿 §4.2）：低路直调 hard 分派（n<=19 查表、其余 basecase），
    高路直调 toom22 内核，两路的子问题都沿默认运行时阈值分派。若用 T=n 经完整入口强制
    高路，子问题会被同一边界值压回 basecase（如 n=48 的子问题 24 本应再入 toom22），
-   系统性抬高 high 耗时、把交叉点假性推高。 */
+   系统性抬高 high 耗时、把交叉点假性推高。
+   子问题经宏首分支按同一边界值（MUL_TOOM22_THRESHOLD）分派，规模 sub=ceil(n/2)：
+   候选 T 与默认阈值分居 sub 两侧时，部署子路径（递归↔hard）与测量路径不同，此类
+   候选逐个按 T 绑定实测部署路径；更深层节点 <=MAX_N/4=12 恒低于候选与默认阈值
+   下界 20，单层判据即全路径等价。 */
 static mp_limb_t call_mul_low(void* opaque) {
     measure_context* context = opaque;
     lmmp_tune_mul_hard_n_(context->dst, context->numa, context->numb, context->n);
@@ -136,6 +140,7 @@ int main(int argc, char** argv) {
     printf("# candidate_range=%d..%d input_range=%d..%d\n", CANDIDATE_MIN, CANDIDATE_MAX, MIN_N, MAX_N);
     lmmp_tune_print_env_comment();
     printf("# n low_us low_mad high_us high_mad retries stable\n");
+    printf("# deployed n candidate us mad retries stable  (candidates whose deployed subproblems reroute)\n");
 
     int result = EXIT_SUCCESS;
     for (mp_size_t n = MIN_N; n <= MAX_N; ++n) {
@@ -171,13 +176,72 @@ int main(int argc, char** argv) {
             ++unstable_points;
         printf("%llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable);
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
+        /* 复用规则：部署子路径与本行高路测量一致的候选直接复用（子问题同走递归或
+           同走 hard），其余候选逐个按 T 绑定实测部署路径。 */
+        mp_size_t sub_n = n - (n >> 1);
+        mp_size_t deploy_max = n < (mp_size_t)CANDIDATE_MAX ? n : (mp_size_t)CANDIDATE_MAX;
+        mp_size_t deploy_lo, deploy_hi;
+        if (sub_n < saved_threshold) {
+            /* 测量子问题走 hard：T<=sub_n 的候选部署时递归，score_point 跳过，须实测。 */
+            lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, sub_n, low_us, high_us);
+            deploy_lo = CANDIDATE_MIN;
+            deploy_hi = sub_n < deploy_max ? sub_n : deploy_max;
+        } else {
+            /* 测量子问题走递归：T<=sub_n 的候选部署同递归，复用 high_us；
+               sub_n<T<=n 的候选把子问题压回 hard，须实测。 */
+            for (int candidate = CANDIDATE_MIN; candidate <= CANDIDATE_MAX; ++candidate) {
+                if ((mp_size_t)candidate > n) {
+                    scores[candidate] += low_us;
+                    ++counts[candidate];
+                } else if ((mp_size_t)candidate <= sub_n) {
+                    scores[candidate] += high_us;
+                    ++counts[candidate];
+                }
+            }
+            deploy_lo = sub_n + 1;
+            deploy_hi = deploy_max;
+        }
+        for (mp_size_t candidate = deploy_lo; candidate <= deploy_hi; ++candidate) {
+            measure_context deploy_context = {
+                .dst = high, .numa = numa, .numb = numb, .n = n, .threshold = candidate};
+            lmmp_tune_MUL_TOOM22_THRESHOLD = candidate;
+            lmmp_mul_toom22_(high, numa, n, numb, n);
+            lmmp_tune_MUL_TOOM22_THRESHOLD = saved_threshold;
+            if (lmmp_cmp_(low, high, 2 * n) != 0) {
+                fprintf(stderr, "mul deployed mismatch at n=%llu candidate=%llu\n", (unsigned long long)n,
+                        (unsigned long long)candidate);
+                result = EXIT_FAILURE;
+                break;
+            }
+            lmmp_tune_bench deploy_bench = {
+                .bind = bind_default, .reset = reset_output, .call = call_mul_high, .context = &deploy_context};
+            double dep_us, dep_mad;
+            unsigned dep_retries;
+            if (!lmmp_tune_measure(&deploy_bench, &options, &dep_us, &dep_mad, &dep_retries)) {
+                fprintf(stderr, "deployed measurement failed at n=%llu candidate=%llu\n", (unsigned long long)n,
+                        (unsigned long long)candidate);
+                result = EXIT_FAILURE;
+                break;
+            }
+            bool dep_stable = dep_mad <= options.mad_limit;
+            if (dep_stable)
+                ++stable_points;
+            else
+                ++unstable_points;
+            printf("# deployed %llu %llu %.6f %.6f %u %u\n", (unsigned long long)n, (unsigned long long)candidate,
+                   dep_us, dep_mad, dep_retries, dep_stable);
+            scores[candidate] += dep_us;
+            ++counts[candidate];
+        }
+        if (result != EXIT_SUCCESS)
+            break;
     }
 
     if (result == EXIT_SUCCESS) {
         if (stable_points == 0) {
             printf("# no stable measurement points; recommendation withheld\n");
         } else {
+            printf("# note: candidates whose deployed subproblems reroute are measured on their bound path\n");
             if (unstable_points > 0)
                 printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
             lmmp_tune_recommend("MUL_TOOM22_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,

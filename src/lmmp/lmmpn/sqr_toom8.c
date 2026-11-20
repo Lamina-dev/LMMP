@@ -76,12 +76,11 @@ void lmmp_sqr_toom8_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na)
 #define r3 (scratch + 6 * n + 2)   /* 3n+1 */
 #define r1 (scratch + 9 * n + 3)   /* 3n+1 */
 #define v0 (dst + 11 * n)          /* n+1 */
-#define v2 (dst + 13 * n + 2)      /* n+1 */
 #define wse (scratch + 12 * n + 4) /* 3n+1 */
+#define v2 (scratch + 15 * n + 6)  /* n+1 */
 
-    /* scratch 总需求 15n+6 limbs；TALLOC 双轨（>32KiB 落池/堆） */
     TEMP_DECL;
-    mp_ptr restrict scratch = TALLOC_TYPE(15 * n + 6, mp_limb_t);
+    mp_ptr restrict scratch = TALLOC_TYPE(16 * n + 7, mp_limb_t);
 
     /* ±1/8 */
     lmmp_toom_eval_pm2rexp_(v2, v0, 7, numa, n, s, 3, dst);

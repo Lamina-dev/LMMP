@@ -192,7 +192,8 @@ int main(int argc, char** argv) {
     double scores[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     unsigned long counts[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     mp_size_t saved_threshold = lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
-    unsigned stable_points = 0, unstable_points = 0;
+    /* 稳定计数按形状分列：推荐只依据 shape 0（平衡形状），门控也只看它的稳定点 */
+    unsigned stable_points[SHAPE_COUNT] = {0}, unstable_points[SHAPE_COUNT] = {0};
 
     printf("# program=tune_numth_mat22_mul\n");
     printf("# parameter=MAT22_MUL_STRASSEN_THRESHOLD\n");
@@ -241,9 +242,9 @@ int main(int argc, char** argv) {
                 break;
             }
             if (stable)
-                ++stable_points;
+                ++stable_points[shape_id];
             else
-                ++unstable_points;
+                ++unstable_points[shape_id];
             printf("%u %llu %llu %.6f %.6f %.6f %.6f %u %u\n", shape_id, (unsigned long long)n,
                    (unsigned long long)minimum, low_us, low_mad, high_us, high_mad, retries, stable);
             /* Strassen 子矩阵乘经完整 lmmp_mat22_mul_ 但阈值随行绑定（minimum），
@@ -254,12 +255,12 @@ int main(int argc, char** argv) {
     }
 
     if (result == EXIT_SUCCESS) {
-        if (stable_points == 0) {
-            printf("# no stable measurement points; recommendation withheld\n");
+        if (stable_points[0] == 0) {
+            printf("# no stable measurement points in shape 0; recommendation withheld\n");
         } else {
             printf("# recommend_basis=shape0_balanced\n");
-            if (unstable_points > 0)
-                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            if (unstable_points[0] > 0)
+                printf("# note: %u unstable point(s) retained in shape 0 scoring\n", unstable_points[0]);
             lmmp_tune_recommend("MAT22_MUL_STRASSEN_THRESHOLD", scores[0], counts[0], CANDIDATE_MIN, CANDIDATE_MAX,
                                 (unsigned long long)saved_threshold);
         }
