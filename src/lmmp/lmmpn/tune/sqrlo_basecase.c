@@ -134,6 +134,7 @@ int main(int argc, char** argv) {
     double scores[CANDIDATE_MAX + 1] = {0};
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_SQRLO_BASECASE_THRESHOLD;
+    unsigned stable_points = 0, unstable_points = 0;
 
     printf("# program=tune_lmmpn_sqrlo_basecase\n");
     printf("# parameter=SQRLO_BASECASE_THRESHOLD\n");
@@ -176,24 +177,35 @@ int main(int argc, char** argv) {
             .bind = bind_force_dc, .reset = reset_output, .call = call_sqrlo_high, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
+        bool stable;
         if (!lmmp_tune_measure_pair(&low_bench, &high_bench, &options, &low_us, &low_mad, &high_us, &high_mad,
-                                    &retries)) {
+                                    &retries, &stable)) {
             fprintf(stderr, "measurement failed at n=%llu\n", (unsigned long long)n);
             result = EXIT_FAILURE;
             break;
         }
-        unsigned stable = low_mad <= options.mad_limit && high_mad <= options.mad_limit;
+        if (stable)
+            ++stable_points;
+        else
+            ++unstable_points;
         unsigned forced_root = n > EQUIV_MAX_N;
         printf("%llu %.6f %.6f %.6f %.6f %u %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable, forced_root);
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, low_us, high_us);
+        /* 高路子问题只经 mullo_dc_（按未绑定的 MULLO 阈值分派），无同阈值递归，sub_n=0 */
+        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
     }
 
     if (result == EXIT_SUCCESS) {
-        printf("# note: all high rows are clean root-forced dc (subproblem mullo_dc_ along default ladder);\n");
-        printf("#       flat badness band is a real near-tie region, check per-point deltas for crossing evidence\n");
-        lmmp_tune_recommend("SQRLO_BASECASE_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
-                            (unsigned long long)saved_threshold);
+        if (stable_points == 0) {
+            printf("# no stable measurement points; recommendation withheld\n");
+        } else {
+            printf("# note: all high rows are clean root-forced dc (subproblem mullo_dc_ along default ladder);\n");
+            printf("#       flat badness band is a real near-tie region, check per-point deltas for crossing evidence\n");
+            if (unstable_points > 0)
+                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            lmmp_tune_recommend("SQRLO_BASECASE_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
+                                (unsigned long long)saved_threshold);
+        }
     }
     lmmp_tune_SQRLO_BASECASE_THRESHOLD = saved_threshold;
     lmmp_free(storage);

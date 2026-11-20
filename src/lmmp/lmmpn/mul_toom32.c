@@ -49,9 +49,9 @@ vinf=        a2 *    b1  # A(inf)*B(inf)
 */
 
 void lmmp_mul_toom32_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(na > nb);
+    lmmp_param_assert(na > nb + 3);
     lmmp_param_assert(nb >= 4);
-    lmmp_param_assert(3 * nb > na);
+    lmmp_param_assert(3 * nb > na + 13);
     TEMP_S_DECL;
     mp_size_t n = 1 + (2 * na >= 3 * nb ? (na - 1) / 3 : (nb - 1) >> 1), s = na - 2 * n, t = nb - n;
     int vm1_neg;

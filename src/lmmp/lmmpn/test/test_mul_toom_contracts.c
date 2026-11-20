@@ -21,12 +21,11 @@
  */
 
 /* Toom 乘法入口契约边界测试（11 核 + 3 不平衡外层，toom93 核已删除）：
-   1) 各核 nb 尺寸门起逐 nb 扫描比例带，直调形状一律经切分谓词
-      （与内核切分公式逐字一致）过滤——入口断言是 reach 必要条件，
-      比例带边缘的取整缝洞由切分后不变量承接，不属于公开契约域；
-   2) 每 nb 取结构合法域两端闭边界与中间点（取整缝两侧 T±1 形态）；
-   3) 尺寸门-1 与小尺寸洞形状（33 的 na=4、44 的 na=5/6/9、43 近平衡）
-      只走 lmmp_mul_ 完整分派验证路由正确，不直调违约形状；
+   1) 各核 nb 尺寸门起逐 nb 扫描保守线性比例带（入口断言的整数化，带内
+      形状全部落在结构合法域内；42 上沿为余类精确式），直调形状仍经切分
+      谓词复核；
+   2) 每 nb 取带两端闭边界与中间点；
+   3) 尺寸门-1 与带外形状只走 lmmp_mul_ 完整分派验证路由正确，不直调违约形状；
    4) 大尺寸比例带内部直调 + 洞区经分派。 */
 
 #include "lmmp/lmmpn.h"
@@ -97,7 +96,7 @@ static bool reach33(mp_size_t na, mp_size_t nb) {
 static bool reach42(mp_size_t na, mp_size_t nb) {
     mp_size_t n = na >= 2 * nb ? (na + 3) >> 2 : (nb + 1) >> 1;
     mp_size_t s = na - 3 * n, t = nb - n;
-    return s > 0 && s <= n && t > 0 && t <= n;
+    return s > 0 && s <= n && t > 0 && t <= n && s + t >= n + 2;
 }
 
 static bool reach43(mp_size_t na, mp_size_t nb) {
@@ -199,15 +198,20 @@ static bool reach8h(mp_size_t na, mp_size_t nb) {
 
 typedef bool (*reach_fn)(mp_size_t, mp_size_t);
 
-/* band_lo/band_hi：入口断言比例带的整数边界（含端点，洞由 reach 过滤） */
+/* band_lo/band_hi：入口断言比例带的整数边界（含端点，洞由 reach 过滤）。
+   偏移在除法前加入分子：lo = (lo_mul*nb + lo_off)/lo_div，保证奇数 nb 时上界
+   精确落在 floor((k*nb+c)/div) 类带端点（33 的 (3nb-3)/2 即此形）。 */
 static void sweep(const char* tag, toom_fn fn, reach_fn reach, mp_size_t gate,
                   mp_size_t band_lo_mul, mp_size_t band_lo_div, mp_size_t band_lo_off,
                   mp_size_t band_hi_mul, mp_size_t band_hi_div, mp_size_t band_hi_off,
                   u64 seed) {
     int checked = 0;
     for (mp_size_t nb = gate; nb <= gate + 17; ++nb) {
-        mp_size_t lo = (band_lo_mul * nb) / band_lo_div + band_lo_off;
-        mp_size_t hi = (band_hi_mul * nb) / band_hi_div + band_hi_off;
+        long long hi_num = (long long)band_hi_mul * nb + band_hi_off;
+        if (hi_num < 0)
+            continue;  /* 带为空（mp_size_t 无符号，负上界会回绕成死循环） */
+        mp_size_t lo = (band_lo_mul * nb + band_lo_off) / band_lo_div;
+        mp_size_t hi = (mp_size_t)(hi_num / band_hi_div);
         if (lo < nb)
             lo = nb;
         /* 过滤后合法域两端 */
@@ -235,38 +239,64 @@ static void sweep(const char* tag, toom_fn fn, reach_fn reach, mp_size_t gate,
     TEST_CHECK_MSG(checked > 40, tag);
 }
 
-/* 带边界参数 = 入口断言比例式的整数化（lo/hi 含端点，外沿洞由 reach 过滤）：
-   22: nb<=na<=2nb-2        32: nb+1<=na<=3nb-1
-   33: nb<=na<=(3nb-3)/2    42: (3nb+2)/2上取整<=na<=4nb-4
-   43: nb+3<=na<=2nb-2      44: nb<=na<=(4nb-4)/3
-   52: 2nb+1<=na<=5nb-1     53: (4nb+3)/3上取整<=na<=(5nb-5)/2
-   62: 5nb/2+1<=na<=6nb-1 */
+/* 带边界参数 = 入口断言保守比例式的整数化（偏移在除法前，lo/hi 含端点）：
+   22: nb<=na<=2nb-5          32: nb+4<=na<=3nb-14
+   33: nb<=na<=(3nb-16)/2     42: (3nb+10)/2<=na<=4nb-8（余类顶 4nb-23..4nb-8）
+   43: nb+3<=na<=2nb-5        44: nb<=na<=(4nb-13)/3
+   52: 2nb+3<=na<=5nb-9       53: (4nb+13)/3<=na<=(5nb-13)/2
+   62: (5nb+8)/2<=na<=6nb-11 */
 TEST_CASE("mul/toom_contracts", toom22_bounds) {
-    sweep("toom22 bounds", lmmp_mul_toom22_, reach22, 2, 1, 1, 0, 2, 1, -2, 0x22b0da7e00000001ull);
+    sweep("toom22 bounds", lmmp_mul_toom22_, reach22, 2, 1, 1, 0, 2, 1, -5, 0x22b0da7e00000001ull);
 }
 TEST_CASE("mul/toom_contracts", toom32_bounds) {
-    sweep("toom32 bounds", lmmp_mul_toom32_, reach32, 4, 1, 1, 1, 3, 1, -1, 0x32b0da7e00000002ull);
+    sweep("toom32 bounds", lmmp_mul_toom32_, reach32, 4, 1, 1, 4, 3, 1, -14, 0x32b0da7e00000002ull);
 }
 TEST_CASE("mul/toom_contracts", toom33_bounds) {
-    sweep("toom33 bounds", lmmp_mul_toom33_, reach33, 26, 1, 1, 0, 3, 2, -2, 0x33b0da7e00000003ull);
+    sweep("toom33 bounds", lmmp_mul_toom33_, reach33, 26, 1, 1, 0, 3, 2, -16, 0x33b0da7e00000003ull);
 }
 TEST_CASE("mul/toom_contracts", toom42_bounds) {
-    sweep("toom42 bounds", lmmp_mul_toom42_, reach42, 20, 3, 2, 1, 4, 1, -4, 0x42b0da7e00000004ull);
+    u64 seed = 0x42b0da7e00000004ull;
+    /* 上沿余类精确式：扫描顶取 4nb-8（na mod 4==0 类），各余类真顶在
+       4nb-23..4nb-8，由 reach 过滤后的集合与契约域一致 */
+    sweep("toom42 bounds", lmmp_mul_toom42_, reach42, 20, 3, 2, 10, 4, 1, -8, seed);
+    /* 四余类顶点逐一直调 + 42u 切换缝形状（旧保守上界与 3nb 分派界之间的
+       真空带形状，余类精确式下合法）直调与经分派双验 */
+    int checked = 0;
+    for (mp_size_t nb = 20; nb <= 37; ++nb) {
+        mp_size_t top[4] = {0, 0, 0, 0};
+        for (mp_size_t na = (3 * nb + 10) / 2; na <= 4 * nb - 8; ++na)
+            if (reach42(na, nb))
+                top[na & 3] = na;
+        for (int r = 0; r < 4; ++r)
+            if (top[r]) {
+                check_kernel(lmmp_mul_toom42_, top[r], nb, &seed, "toom42 residue top");
+                ++checked;
+            }
+    }
+    const mp_size_t seam[][2] = {
+        {57, 20}, {58, 20}, {59, 20}, {61, 21}, {62, 21},
+    };
+    for (size_t i = 0; i < ARRAY_SIZE(seam); ++i) {
+        check_kernel(lmmp_mul_toom42_, seam[i][0], seam[i][1], &seed, "toom42 seam");
+        check_dispatch(seam[i][0], seam[i][1], &seed, "toom42 seam dispatch");
+        checked += 2;
+    }
+    TEST_CHECK_MSG(checked > 60, "toom42 余类顶点覆盖数不足");
 }
 TEST_CASE("mul/toom_contracts", toom43_bounds) {
-    sweep("toom43 bounds", lmmp_mul_toom43_, reach43, 8, 1, 1, 3, 2, 1, -2, 0x43b0da7e00000005ull);
+    sweep("toom43 bounds", lmmp_mul_toom43_, reach43, 14, 1, 1, 3, 2, 1, -5, 0x43b0da7e00000005ull);
 }
 TEST_CASE("mul/toom_contracts", toom44_bounds) {
-    sweep("toom44 bounds", lmmp_mul_toom44_, reach44, 26, 1, 1, 0, 4, 3, -1, 0x44b0da7e00000006ull);
+    sweep("toom44 bounds", lmmp_mul_toom44_, reach44, 26, 1, 1, 0, 4, 3, -13, 0x44b0da7e00000006ull);
 }
 TEST_CASE("mul/toom_contracts", toom52_bounds) {
-    sweep("toom52 bounds", lmmp_mul_toom52_, reach52, 5, 2, 1, 1, 5, 1, -1, 0x52b0da7e00000007ull);
+    sweep("toom52 bounds", lmmp_mul_toom52_, reach52, 9, 2, 1, 3, 5, 1, -9, 0x52b0da7e00000007ull);
 }
 TEST_CASE("mul/toom_contracts", toom53_bounds) {
-    sweep("toom53 bounds", lmmp_mul_toom53_, reach53, 3, 4, 3, 1, 5, 2, -2, 0x53b0da7e00000008ull);
+    sweep("toom53 bounds", lmmp_mul_toom53_, reach53, 10, 4, 3, 13, 5, 2, -13, 0x53b0da7e00000008ull);
 }
 TEST_CASE("mul/toom_contracts", toom62_bounds) {
-    sweep("toom62 bounds", lmmp_mul_toom62_, reach62, 2, 5, 2, 1, 6, 1, -1, 0x62b0da7e00000009ull);
+    sweep("toom62 bounds", lmmp_mul_toom62_, reach62, 9, 5, 2, 8, 6, 1, -11, 0x62b0da7e00000009ull);
 }
 
 /* 6h/8h：平衡端 + 阶梯各档代表比例 + 上沿（6h 至 3nb-9 闭、8h 至 4nb 闭），
@@ -389,8 +419,8 @@ TEST_CASE("mul/toom_contracts", large_band_edges) {
         check_kernel(lmmp_mul_toom52_, 3 * nb - 1, nb, &seed, "toom52 large interior");
         /* 62 带内部：na=4nb */
         check_kernel(lmmp_mul_toom62_, 4 * nb, nb, &seed, "toom62 large interior");
-        /* 42 下沿正例：na=3nb/2+2（nb 偶时 2na=3nb+4 恰过缝） */
-        check_kernel(lmmp_mul_toom42_, 3 * nb / 2 + 2, nb, &seed, "toom42 lower edge");
+        /* 42 下沿正例：na=3nb/2+5（nb 偶时 2na=3nb+10、奇时 3nb+9 恰过缝） */
+        check_kernel(lmmp_mul_toom42_, 3 * nb / 2 + 5, nb, &seed, "toom42 lower edge");
         /* 52/62 上沿洞区与 42 下沿反例：走分派 */
         check_dispatch(5 * nb - 1, nb, &seed, "toom52 hole dispatch");
         check_dispatch(6 * nb - 1, nb, &seed, "toom62 hole dispatch");

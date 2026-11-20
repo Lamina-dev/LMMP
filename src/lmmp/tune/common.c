@@ -34,6 +34,10 @@ static volatile mp_limb_t lmmp_tune_sink;
 static bool parse_unsigned_(const char* text, unsigned long long* value) {
     char* end;
     unsigned long long parsed;
+    while (*text == ' ' || *text == '\t' || *text == '\n' || *text == '\v' || *text == '\f' || *text == '\r')
+        ++text;
+    if (*text == '-')  /* strtoull 会把负数回绕成大无符号值，须显式拒绝 */
+        return false;
     errno = 0;
     parsed = strtoull(text, &end, 0);
     if (errno != 0 || end == text || *end != '\0')
@@ -237,11 +241,14 @@ bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             double* low_mad,
                             double* high_us,
                             double* high_mad,
-                            unsigned* retries) {
+                            unsigned* retries,
+                            bool* stable) {
     for (unsigned retry = 0; retry <= options->max_retry; ++retry) {
         if (!measure_pair_once_(low, high, options, low_us, low_mad, high_us, high_mad))
             return false;
-        if ((*low_mad <= options->mad_limit && *high_mad <= options->mad_limit) || retry == options->max_retry) {
+        *stable = *low_mad <= options->mad_limit && *high_mad <= options->mad_limit;
+        if (*stable || retry == options->max_retry) {
+            /* 重试耗尽仍超限时返回测量数据供诊断，stable=0 标记结果不可靠 */
             *retries = retry;
             return true;
         }
@@ -297,9 +304,14 @@ void lmmp_tune_score_point(double* scores,
                            int candidate_min,
                            int candidate_max,
                            mp_size_t n,
+                           mp_size_t sub_n,
                            double low_us,
                            double high_us) {
     for (int candidate = candidate_min; candidate <= candidate_max; ++candidate) {
+        if ((mp_size_t)candidate <= sub_n)
+            /* 该候选会让高路的递归子问题改走分治，与本行高路测量路径不同，
+               复用会低估其成本；此类候选须由调用方按部署路径另行实测。 */
+            continue;
         scores[candidate] += n >= (mp_size_t)candidate ? high_us : low_us;
         ++counts[candidate];
     }
@@ -311,6 +323,13 @@ void lmmp_tune_recommend(const char* name,
                          int candidate_min,
                          int candidate_max,
                          unsigned long long current_value) {
+    bool any_point = false;
+    for (int candidate = candidate_min; candidate <= candidate_max; ++candidate)
+        any_point = any_point || counts[candidate] != 0;
+    if (!any_point) {
+        printf("# no measurement points; recommendation withheld\n");
+        return;
+    }
     int best = candidate_min;
     for (int candidate = candidate_min + 1; candidate <= candidate_max; ++candidate) {
         if (scores[candidate] < scores[best])

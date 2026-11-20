@@ -59,6 +59,7 @@ bool lmmp_tune_measure(const lmmp_tune_bench* bench,
 /**
  * @brief 交替测量 low/high 两条路径：每个采样批次前分别重新绑定两路参数并重建输入，
  *        批内先测 low 再测 high，两路承受相同的漂移与热状态；任一路 MAD 超限则整组重测。
+ *        重试耗尽仍超限时返回 true 并保留测量数据（诊断用），*stable 置 0 标记不可靠。
  */
 bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             const lmmp_tune_bench* high,
@@ -67,7 +68,8 @@ bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             double* low_mad,
                             double* high_us,
                             double* high_mad,
-                            unsigned* retries);
+                            unsigned* retries,
+                            bool* stable);
 
 /** @brief 调优程序统一安装的静默退出回调：把库内断言失败打印到标准错误后立即退出，避免弹窗。 */
 void lmmp_tune_abort(lmmp_error_t type, const char* message, const char* function, int line);
@@ -81,12 +83,17 @@ void lmmp_tune_print_env_comment(void);
 /** @brief 打印单个阈值的架构默认值与当前运行时值，供 --current 使用。 */
 void lmmp_tune_print_current(const char* name, unsigned long long default_value, unsigned long long current_value);
 
-/** @brief 把单个测量点按候选阈值应选路径的耗时累加进评分：候选不高于该点规模时计高路，否则计低路。 */
+/** @brief 把单个测量点按候选阈值应选路径的耗时累加进评分：候选高于该点规模时计低路，
+ *         不高于该点规模且高于 sub_n（该行高路同阈值递归子问题的规模，无此递归时传 0）
+ *         时计高路——仅当部署路径与测量路径一致时才复用；候选不高于 sub_n 时不累加，
+ *         由调用方按该候选实际启用的递归路径另行实测。
+ */
 void lmmp_tune_score_point(double* scores,
                            unsigned long* counts,
                            int candidate_min,
                            int candidate_max,
                            mp_size_t n,
+                           mp_size_t sub_n,
                            double low_us,
                            double high_us);
 

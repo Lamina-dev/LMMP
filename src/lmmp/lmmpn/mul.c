@@ -32,7 +32,11 @@
                                  (-------------------(xxxxxxxxxx|  toom22
                     (----------------(xxxxxxxxxxxxxxx|----------)  toom32
                (----(xxxxxxxxxxxxxxxx|-------)                     toom42
+(xxxxxxxxxxxxxxxxxxx|                                              toom42-unblanced
+
                                              (-------(xxxxxxxxxx|  toom33
+                    (----------------(xxxxxxxxxxxxxxx|----------)  toom32
+               (----(xxxxxxxxxxxxxxxx|-------)                     toom42
 (xxxxxxxxxxxxxxxxxxx|                                              toom42-unblanced
 
                                                  (---(xxxxxxxxxx|  toom44
@@ -60,20 +64,25 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
             lmmp_sqr_(dst, numa, na);
         else
             lmmp_mul_n_(dst, numa, numb, na);
-    } else if (nb < MUL_TOOM22_THRESHOLD && !(4 * na < 5 * nb)) {
+    } else if (nb < MUL_TOOM22_THRESHOLD) {
         lmmp_mul_basecase_(dst, numa, na, numb, nb);
+    } else if (((na + nb) >> 1) < MUL_TOOM33_THRESHOLD || 2 * nb < MUL_TOOM33_THRESHOLD) {
+        if (4 * na < 5 * nb)
+            lmmp_mul_toom22_(dst, numa, na, numb, nb);
+        else if (5 * na < 9 * nb)
+            lmmp_mul_toom32_(dst, numa, na, numb, nb);
+        else if (na < 3 * nb)
+            lmmp_mul_toom42_(dst, numa, na, numb, nb);
+        else
+            lmmp_mul_toom42_unbalance_(dst, numa, na, numb, nb);
     } else if (((na + nb) >> 1) < MUL_TOOM44_THRESHOLD || 2 * nb < MUL_TOOM44_THRESHOLD) {
-        if (na < 3 * nb) {
-            if (4 * na < 5 * nb) {
-                if (nb < MUL_TOOM33_THRESHOLD)
-                    lmmp_mul_toom22_(dst, numa, na, numb, nb);
-                else
-                    lmmp_mul_toom33_(dst, numa, na, numb, nb);
-            } else if (5 * na < 9 * nb)
-                lmmp_mul_toom32_(dst, numa, na, numb, nb);
-            else
-                lmmp_mul_toom42_(dst, numa, na, numb, nb);
-        } else
+        if (4 * na < 5 * nb)
+            lmmp_mul_toom33_(dst, numa, na, numb, nb);
+        else if (5 * na < 9 * nb)
+            lmmp_mul_toom32_(dst, numa, na, numb, nb);
+        else if (na < 3 * nb)
+            lmmp_mul_toom42_(dst, numa, na, numb, nb);
+        else
             lmmp_mul_toom42_unbalance_(dst, numa, na, numb, nb);
     } else if (((na + nb) >> 1) < MUL_TOOM6H_THRESHOLD || 3 * nb < MUL_TOOM6H_THRESHOLD) {
         if (4 * na < 5 * nb)

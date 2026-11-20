@@ -192,6 +192,7 @@ int main(int argc, char** argv) {
     double scores[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     unsigned long counts[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     mp_size_t saved_threshold = lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
+    unsigned stable_points = 0, unstable_points = 0;
 
     printf("# program=tune_numth_mat22_mul\n");
     printf("# parameter=MAT22_MUL_STRASSEN_THRESHOLD\n");
@@ -232,24 +233,36 @@ int main(int argc, char** argv) {
                 .bind = bind_threshold, .reset = reset_output, .call = call_mul, .context = &high_context};
             double low_us, low_mad, high_us, high_mad;
             unsigned retries;
+            bool stable;
             if (!lmmp_tune_measure_pair(&low_bench, &high_bench, &options, &low_us, &low_mad, &high_us, &high_mad,
-                                        &retries)) {
+                                        &retries, &stable)) {
                 fprintf(stderr, "measurement failed at shape %u, n=%llu\n", shape_id, (unsigned long long)n);
                 result = EXIT_FAILURE;
                 break;
             }
-            unsigned stable = low_mad <= options.mad_limit && high_mad <= options.mad_limit;
+            if (stable)
+                ++stable_points;
+            else
+                ++unstable_points;
             printf("%u %llu %llu %.6f %.6f %.6f %.6f %u %u\n", shape_id, (unsigned long long)n,
                    (unsigned long long)minimum, low_us, low_mad, high_us, high_mad, retries, stable);
-            lmmp_tune_score_point(scores[shape_id], counts[shape_id], CANDIDATE_MIN, CANDIDATE_MAX, minimum, low_us,
+            /* Strassen 子矩阵乘经完整 lmmp_mat22_mul_ 但阈值随行绑定（minimum），
+               子问题规模折半后总低于本行阈值，无同阈值递归，sub_n=0 */
+            lmmp_tune_score_point(scores[shape_id], counts[shape_id], CANDIDATE_MIN, CANDIDATE_MAX, minimum, 0, low_us,
                                   high_us);
         }
     }
 
     if (result == EXIT_SUCCESS) {
-        printf("# recommend_basis=shape0_balanced\n");
-        lmmp_tune_recommend("MAT22_MUL_STRASSEN_THRESHOLD", scores[0], counts[0], CANDIDATE_MIN, CANDIDATE_MAX,
-                            (unsigned long long)saved_threshold);
+        if (stable_points == 0) {
+            printf("# no stable measurement points; recommendation withheld\n");
+        } else {
+            printf("# recommend_basis=shape0_balanced\n");
+            if (unstable_points > 0)
+                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            lmmp_tune_recommend("MAT22_MUL_STRASSEN_THRESHOLD", scores[0], counts[0], CANDIDATE_MIN, CANDIDATE_MAX,
+                                (unsigned long long)saved_threshold);
+        }
     }
     lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD = saved_threshold;
     lmmp_free(storage);

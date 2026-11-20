@@ -49,7 +49,7 @@ vinf=     a1 *    b1   # A(inf)*B(inf)
 void lmmp_mul_toom22_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(na >= nb);
     lmmp_param_assert(nb >= 2);
-    lmmp_param_assert(2 * nb > na + 1);
+    lmmp_param_assert(2 * nb > na + 4);
     TEMP_S_DECL;
     mp_size_t s = na >> 1, n = na - s, t = nb - n;
     lmmp_param_assert(s + t > n);

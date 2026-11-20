@@ -30,9 +30,10 @@
 #include "tune/kernels.h"
 #include "tune/params.h"
 
-/* 网格须下探到 toom2 契约最小规模 na>3：候选阈值低于 16 的取舍必须由 n<16 的
-   实测证据支撑，否则评分会把小 n 区 basecase 的优势漏掉，推荐值假性偏高。 */
-enum { MIN_N = 4, MAX_N = 48, CANDIDATE_MIN = 2, CANDIDATE_MAX = MAX_N + 4 };
+/* 候选下界=契约地板：sqr_ 分派 n>=SQR_TOOM22_THRESHOLD 即入 sqr_toom2_，其契约
+   要求 na>3，阈值低于 4 会让 n=3 走进违约形状（Release UB）。网格仍下探到
+   toom2 契约最小规模 4，支撑小候选的取舍证据。 */
+enum { MIN_N = 4, MAX_N = 48, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N + 4 };
 
 typedef struct {
     mp_ptr dst;
@@ -122,6 +123,7 @@ int main(int argc, char** argv) {
     double scores[CANDIDATE_MAX + 1] = {0};
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_SQR_TOOM22_THRESHOLD;
+    unsigned stable_points = 0, unstable_points = 0;
 
     printf("# program=tune_lmmpn_sqr_toom22\n");
     printf("# parameter=SQR_TOOM22_THRESHOLD\n");
@@ -152,21 +154,32 @@ int main(int argc, char** argv) {
             .bind = bind_default, .reset = reset_output, .call = call_sqr_high, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
+        bool stable;
         if (!lmmp_tune_measure_pair(&low_bench, &high_bench, &options, &low_us, &low_mad, &high_us, &high_mad,
-                                    &retries)) {
+                                    &retries, &stable)) {
             fprintf(stderr, "measurement failed at n=%llu\n", (unsigned long long)n);
             result = EXIT_FAILURE;
             break;
         }
-        unsigned stable = low_mad <= options.mad_limit && high_mad <= options.mad_limit;
+        if (stable)
+            ++stable_points;
+        else
+            ++unstable_points;
         printf("%llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable);
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, low_us, high_us);
+        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
     }
 
-    if (result == EXIT_SUCCESS)
-        lmmp_tune_recommend("SQR_TOOM22_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
-                            (unsigned long long)saved_threshold);
+    if (result == EXIT_SUCCESS) {
+        if (stable_points == 0) {
+            printf("# no stable measurement points; recommendation withheld\n");
+        } else {
+            if (unstable_points > 0)
+                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            lmmp_tune_recommend("SQR_TOOM22_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
+                                (unsigned long long)saved_threshold);
+        }
+    }
     lmmp_tune_SQR_TOOM22_THRESHOLD = saved_threshold;
     lmmp_free(storage);
     lmmp_global_deinit();

@@ -52,9 +52,9 @@ Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 */
 
 void lmmp_mul_toom53_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
-    lmmp_param_assert(nb >= 3);
-    lmmp_param_assert(5 * nb > 2 * na + 4);
-    lmmp_param_assert(3 * na > 4 * nb + 2);
+    lmmp_param_assert(nb >= 10);
+    lmmp_param_assert(5 * nb > 2 * na + 12);
+    lmmp_param_assert(3 * na > 4 * nb + 10);
     mp_size_t n, s, t;
     mp_limb_t cy;
     mp_ptr gp;

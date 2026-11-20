@@ -93,11 +93,11 @@ ctest --test-dir build --output-on-failure
 # 运行数论模块的测试
 ctest --test-dir build -R '^test_numth$' --output-on-failure
 
-# 点名构建开方基准和 2×2 矩阵平方调优程序
+# 点名构建开方基准和 2×2 矩阵乘法调优程序
 cmake --build build --target perf_numth_sqrt
-cmake --build build --target tune_numth_mat22_sqr
+cmake --build build --target tune_numth_mat22_mul
 ./dist/lmmp/bin/perf_numth_sqrt
-./dist/lmmp/bin/tune_numth_mat22_sqr
+./dist/lmmp/bin/tune_numth_mat22_mul
 ```
 
 批量构建前会显示目标清单和总数，输入 `y` 后开始编译。目标构建脚本使用自有命令行参数，不要求 CMake 的 `-D` 变量。

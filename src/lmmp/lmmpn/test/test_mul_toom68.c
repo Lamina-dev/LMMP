@@ -133,8 +133,9 @@ TEST_CASE("mul/toom68", sqr_toom6_kernel) {
 
 TEST_CASE("mul/toom68", sqr_toom8_kernel) {
     u64 seed = 0x33362e35392e3361ull;
-    for (mp_size_t n = 51; n <= 160; ++n) {
-        if (n == 57) continue; /* 契约排除的 s=1 退化点（16 点插值需 2s>3） */
+    /* 自 na=50 起连续全绿（s=1 点 50/57 实测与结构核对均合法，
+       interp16 的 spt 语义分支仅乘法 half!=0 路径使用） */
+    for (mp_size_t n = 50; n <= 160; ++n) {
         mp_ptr a = alloc_limbs(n);
         mp_ptr r1 = alloc_limbs(2 * n), r2 = alloc_limbs(2 * n);
         random_limbs(a, n, &seed);

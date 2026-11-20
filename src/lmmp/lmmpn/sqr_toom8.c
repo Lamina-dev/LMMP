@@ -57,19 +57,15 @@ Evaluate in: +8,-8, +4,-4, +2,-2, +1,-1, +1/2,-1/2, +1/4,-1/4, +1/8,-1/8, 0
 */
 
 void lmmp_sqr_toom8_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na) {
-    lmmp_param_assert(na > 0);
+    lmmp_param_assert(na >= 50);
     lmmp_param_assert(dst != NULL);
     lmmp_param_assert(numa != NULL);
-    lmmp_param_assert(na >= 51); /* 契约排除 s=1 退化点 na=50/57（16 点插值需 2s>3） */
-    lmmp_param_assert(na != 57);
     mp_size_t n, s;
 
     n = 1 + ((na - 1) >> 3);
     s = na - 7 * n;
 
     lmmp_debug_assert(0 < s && s <= n);
-    /* 契约排除 na=50、57（na>=50 中仅此两点 s=1，不满足 2s>3） */
-    lmmp_debug_assert(s + s > 3);
 
 #define r6 (dst + 3 * n)           /* 3n+1 */
 #define r4 (dst + 7 * n)           /* 3n+1 */

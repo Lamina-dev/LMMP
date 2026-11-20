@@ -51,7 +51,8 @@ static mp_size_t subproblem_n_(mp_size_t n) {
     return n - m;
 }
 
-/* 网格内最大的干净强制规模：子问题 t < 默认阈值的最后一个 n */
+/* 网格内最大的干净强制规模（连续等价前缀的上端）：子问题 t < 默认阈值的最后一个 n。
+   前缀之外的行因根层分块档位切换可能 individually 干净，由逐行 forced_root 判定。 */
 static mp_size_t equiv_max_n_(mp_size_t default_threshold) {
     for (mp_size_t n = MIN_N; n <= MAX_N; ++n) {
         if (subproblem_n_(n) >= default_threshold)
@@ -67,6 +68,7 @@ typedef struct {
     mp_ptr tp;
     mp_size_t n;
     mp_size_t threshold;
+    mp_size_t force;
 } measure_context;
 
 /* 低路直调 basecase 叶内核（无递归），批次前恢复默认阈值即可。 */
@@ -79,6 +81,12 @@ static void bind_default(void* opaque) {
 static void bind_force_dc(void* opaque) {
     measure_context* context = opaque;
     lmmp_tune_MULLO_BASECASE_THRESHOLD = context->n;
+}
+
+/* 部署路径实测：按候选阈值 T 绑定后走完整 dc 入口（根层与深层子问题一致按 T 分派）。 */
+static void bind_force_candidate(void* opaque) {
+    measure_context* context = opaque;
+    lmmp_tune_MULLO_BASECASE_THRESHOLD = context->force;
 }
 
 static void reset_output(void* opaque) {
@@ -167,12 +175,14 @@ int main(int argc, char** argv) {
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)MULLO_BASECASE_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
     printf("# candidate_range=%d..%d input_range=%d..%d\n", CANDIDATE_MIN, CANDIDATE_MAX, MIN_N, MAX_N);
-    printf("# forced_root_equivalence=n<=%llu (default=%llu); n>%llu high_us inflated, see note\n",
-           (unsigned long long)equiv_max_n, (unsigned long long)saved_threshold, (unsigned long long)equiv_max_n);
+    printf("# forced_root_equivalence_prefix=n<=%llu (default=%llu); per-row flag compares subproblem vs default\n",
+           (unsigned long long)equiv_max_n, (unsigned long long)saved_threshold);
     lmmp_tune_print_env_comment();
     printf("# n low_us low_mad high_us high_mad retries stable forced_root\n");
+    printf("# deployed n candidate us mad retries stable  (candidates whose deployed path recurses)\n");
 
     int result = EXIT_SUCCESS;
+    unsigned stable_points = 0, unstable_points = 0;
     for (mp_size_t n = MIN_N; n <= MAX_N; ++n) {
         fill_random(numa, n, (mp_limb_t)(options.seed + 4 * n));
         fill_random(numb, n, (mp_limb_t)(options.seed + 4 * n + 1));
@@ -197,26 +207,75 @@ int main(int argc, char** argv) {
             .bind = bind_force_dc, .reset = reset_output, .call = call_mullo_high, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
+        bool stable;
         if (!lmmp_tune_measure_pair(&low_bench, &high_bench, &options, &low_us, &low_mad, &high_us, &high_mad,
-                                    &retries)) {
+                                    &retries, &stable)) {
             fprintf(stderr, "measurement failed at n=%llu\n", (unsigned long long)n);
             result = EXIT_FAILURE;
             break;
         }
-        unsigned stable = low_mad <= options.mad_limit && high_mad <= options.mad_limit;
-        unsigned forced_root = n > equiv_max_n;
+        if (stable)
+            ++stable_points;
+        else
+            ++unstable_points;
+        /* 逐行判定：该行子问题按默认阈值是否会改走分治（前缀界只是连续干净段的上端） */
+        mp_size_t sub_n = subproblem_n_(n);
+        unsigned forced_root = sub_n >= saved_threshold;
         printf("%llu %.6f %.6f %.6f %.6f %u %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable, forced_root);
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, low_us, high_us);
+        /* 复用规则：候选 T>n 计低路；sub_n<T<=n 时部署路径=根层分治+子问题 basecase，
+           与本行高路测量一致，复用 high_us；T<=sub_n 时部署会让子问题再入分治，
+           路径不同，逐候选按 T 绑定实测部署路径。 */
+        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, sub_n, low_us, high_us);
+        for (mp_size_t candidate = CANDIDATE_MIN; candidate <= CANDIDATE_MAX && candidate <= n && candidate <= sub_n;
+             ++candidate) {
+            measure_context deploy_context = {
+                .dst = high, .numa = numa, .numb = numb, .tp = tp, .n = n, .force = candidate};
+            lmmp_tune_MULLO_BASECASE_THRESHOLD = candidate;
+            lmmp_mullo_dc_(high, numa, numb, tp, n);
+            lmmp_tune_MULLO_BASECASE_THRESHOLD = saved_threshold;
+            if (lmmp_cmp_(low, high, n) != 0) {
+                fprintf(stderr, "mullo deployed mismatch at n=%llu candidate=%llu\n", (unsigned long long)n,
+                        (unsigned long long)candidate);
+                result = EXIT_FAILURE;
+                break;
+            }
+            lmmp_tune_bench deploy_bench = {
+                .bind = bind_force_candidate, .reset = reset_output, .call = call_mullo_high,
+                .context = &deploy_context};
+            double dep_us, dep_mad;
+            unsigned dep_retries;
+            if (!lmmp_tune_measure(&deploy_bench, &options, &dep_us, &dep_mad, &dep_retries)) {
+                fprintf(stderr, "deployed measurement failed at n=%llu candidate=%llu\n", (unsigned long long)n,
+                        (unsigned long long)candidate);
+                result = EXIT_FAILURE;
+                break;
+            }
+            bool dep_stable = dep_mad <= options.mad_limit;
+            if (dep_stable)
+                ++stable_points;
+            else
+                ++unstable_points;
+            printf("# deployed %llu %llu %.6f %.6f %u %u\n", (unsigned long long)n, (unsigned long long)candidate,
+                   dep_us, dep_mad, dep_retries, dep_stable);
+            scores[candidate] += dep_us;
+            ++counts[candidate];
+        }
+        if (result != EXIT_SUCCESS)
+            break;
     }
 
     if (result == EXIT_SUCCESS) {
-        printf("# note: n>%llu high rows force subproblems to basecase (default ladder would recurse);\n",
-               (unsigned long long)equiv_max_n);
-        printf("#       badness for candidates>%llu carries this inflation, treat crossing near grid top with care\n",
-               (unsigned long long)equiv_max_n);
-        lmmp_tune_recommend("MULLO_BASECASE_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
-                            (unsigned long long)saved_threshold);
+        if (stable_points == 0) {
+            printf("# no stable measurement points; recommendation withheld\n");
+        } else {
+            printf("# note: candidates at or below a row's subproblem size are measured on their deployed\n");
+            printf("#       recursive path (dc bound to the candidate); reused high rows cover the rest\n");
+            if (unstable_points > 0)
+                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            lmmp_tune_recommend("MULLO_BASECASE_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
+                                (unsigned long long)saved_threshold);
+        }
     }
     lmmp_tune_MULLO_BASECASE_THRESHOLD = saved_threshold;
     lmmp_free(storage);

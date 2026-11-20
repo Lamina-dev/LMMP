@@ -387,7 +387,7 @@ LMMP_API void lmmp_sqr_toom6_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
  * @param dst 输出结果缓冲区，长度至少为 2*na
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
- * @warning 51<=na, na!=57, sep(dst,numa), dst!=NULL, numa!=NULL
+ * @warning 50<=na, sep(dst,numa), dst!=NULL, numa!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_toom8_(mp_ptr dst, mp_srcptr numa, mp_size_t na);
@@ -411,7 +411,7 @@ LMMP_API void lmmp_mul_basecase_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_sr
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning nb<=na, 2*nb>na+1, nb>=2, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning nb<=na, 2*nb>na+4, nb>=2, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -423,7 +423,7 @@ LMMP_API void lmmp_mul_toom22_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning nb<na, 3*nb>na, nb>=4, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning nb+3<na, 3*nb>na+13, nb>=4, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -435,7 +435,7 @@ LMMP_API void lmmp_mul_toom32_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning nb<=na, 3*nb>2*na+2, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning nb<=na, 3*nb>2*na+15, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -447,7 +447,8 @@ LMMP_API void lmmp_mul_toom33_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 4*nb>na+3, 2*na>3*nb+1, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 4*nb>na+7+5*((-na)&3), 2*na>3*nb+8, nb>=20, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @note 上沿为余类精确式，常数按 na mod 4 取 7/22/17/12，故 na 上限在 4nb-23 与 4nb-8 之间随余类变化
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom42_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -471,7 +472,7 @@ LMMP_API void lmmp_mul_toom42_unbalance_(mp_ptr dst, mp_srcptr numa, mp_size_t n
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning na>=nb+3, 2*nb>na+1, nb>=8, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning na>=nb+3, 2*nb>na+4, nb>=14, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -483,7 +484,7 @@ LMMP_API void lmmp_mul_toom43_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning nb<=na, 4*nb>3*na+3, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning nb<=na, 4*nb>3*na+12, nb>=26, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom44_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -519,7 +520,7 @@ LMMP_API void lmmp_mul_toom8h_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 2*nb<na, 5*nb>na, nb>=5, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 2*nb+2<na, 5*nb>na+8, nb>=9, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -531,7 +532,7 @@ LMMP_API void lmmp_mul_toom52_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 5*nb>2*na+4, 3*na>4*nb+2, nb>=3, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 5*nb>2*na+12, 3*na>4*nb+10, nb>=10, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);
@@ -543,7 +544,7 @@ LMMP_API void lmmp_mul_toom53_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcp
  * @param na 第一个操作数的 limb 长度
  * @param numb 第二个输入操作数，长度为 nb
  * @param nb 第二个操作数的 limb 长度
- * @warning 6*nb>na, 2*na>5*nb, nb>=2, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
+ * @warning 6*nb>na+10, 2*na>5*nb+6, nb>=9, sep(dst,[numa|numb]), dst!=NULL, numa!=NULL, numb!=NULL
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_mul_toom62_(mp_ptr dst, mp_srcptr numa, mp_size_t na, mp_srcptr numb, mp_size_t nb);

@@ -311,11 +311,11 @@ TEST_CASE("mul/toom_splits", toom53_toom62_integer_splits) {
         mp_size_t na, nb;
         void (*mul)(mp_ptr, mp_srcptr, mp_size_t, mp_srcptr, mp_size_t);
     } shapes[] = {
-        {13, 7, lmmp_mul_toom53_}, {14, 9, lmmp_mul_toom53_},
-        {11, 3, lmmp_mul_toom62_}, {18, 4, lmmp_mul_toom62_},
+        {17, 10, lmmp_mul_toom53_}, {26, 13, lmmp_mul_toom53_},
+        {26, 9, lmmp_mul_toom62_}, {43, 9, lmmp_mul_toom62_},
     };
     u64 seed = 0x84f4756eb3c2ab17ull;
-    mp_limb_t a[18], b[9], dst[24], ref[23];
+    mp_limb_t a[43], b[13], dst[56], ref[55];
     for (size_t i = 0; i < ARRAY_SIZE(shapes); ++i) {
         mp_size_t na = shapes[i].na, nb = shapes[i].nb;
         random_limbs(a, na, &seed);

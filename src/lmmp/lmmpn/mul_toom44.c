@@ -58,7 +58,7 @@ Evaluate in: 0, +1, -1, +2, -2, 1/2, +inf
 void lmmp_mul_toom44_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_srcptr restrict numb, mp_size_t nb) {
     lmmp_param_assert(na >= nb);
     lmmp_param_assert(nb >= 26);
-    lmmp_param_assert(4 * nb > 3 * na + 3);
+    lmmp_param_assert(4 * nb > 3 * na + 12);
     mp_size_t n, s, t;
     mp_limb_t cy;
     enum toom7_flags flags;

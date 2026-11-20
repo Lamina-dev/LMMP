@@ -30,9 +30,11 @@
 #include "tune/kernels.h"
 #include "tune/params.h"
 
-/* 网格须下探到 toom22 契约最小规模 nb>=2：候选阈值低于 16 的取舍必须由 n<16 的
-   实测证据支撑，否则评分会把小 n 区 basecase 的巨大优势漏掉，推荐值假性偏低。 */
-enum { MIN_N = 2, MAX_N = 48, CANDIDATE_MIN = 2, CANDIDATE_MAX = MAX_N + 4 };
+/* 候选下界=分派地板：mul_ 档2 的 toom42 分支靠档1 nb<MUL_TOOM22_THRESHOLD 兜住
+   toom42 契约门 nb>=20，阈值低于 20 会让 (35,19) 类形状违约（Release UB）。
+   若将来要支持更小的平衡乘法阈值，须先把该耦合与不平衡分派条件分离。
+   扫描起点 5：toom22 契约 2*nb>na+4 在平衡形状上要求 n>=5。 */
+enum { MIN_N = 5, MAX_N = 48, CANDIDATE_MIN = 20, CANDIDATE_MAX = MAX_N + 4 };
 
 typedef struct {
     mp_ptr dst;
@@ -124,6 +126,7 @@ int main(int argc, char** argv) {
     double scores[CANDIDATE_MAX + 1] = {0};
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_MUL_TOOM22_THRESHOLD;
+    unsigned stable_points = 0, unstable_points = 0;
 
     printf("# program=tune_lmmpn_mul_toom22\n");
     printf("# parameter=MUL_TOOM22_THRESHOLD\n");
@@ -155,21 +158,32 @@ int main(int argc, char** argv) {
             .bind = bind_default, .reset = reset_output, .call = call_mul_high, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
+        bool stable;
         if (!lmmp_tune_measure_pair(&low_bench, &high_bench, &options, &low_us, &low_mad, &high_us, &high_mad,
-                                    &retries)) {
+                                    &retries, &stable)) {
             fprintf(stderr, "measurement failed at n=%llu\n", (unsigned long long)n);
             result = EXIT_FAILURE;
             break;
         }
-        unsigned stable = low_mad <= options.mad_limit && high_mad <= options.mad_limit;
+        if (stable)
+            ++stable_points;
+        else
+            ++unstable_points;
         printf("%llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable);
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, low_us, high_us);
+        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
     }
 
-    if (result == EXIT_SUCCESS)
-        lmmp_tune_recommend("MUL_TOOM22_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
-                            (unsigned long long)saved_threshold);
+    if (result == EXIT_SUCCESS) {
+        if (stable_points == 0) {
+            printf("# no stable measurement points; recommendation withheld\n");
+        } else {
+            if (unstable_points > 0)
+                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            lmmp_tune_recommend("MUL_TOOM22_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
+                                (unsigned long long)saved_threshold);
+        }
+    }
     lmmp_tune_MUL_TOOM22_THRESHOLD = saved_threshold;
     lmmp_free(storage);
     lmmp_global_deinit();
