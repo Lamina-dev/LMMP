@@ -36,6 +36,10 @@ Rules applied to every tracked/staged text file:
   4. Ensure the file ends with a newline.
   5. Collapse trailing blank lines down to a single blank line (a file
      that ends without blank lines keeps its single final newline).
+  6. Strip a leading UTF-8 byte-order mark.  No text source carries a
+     BOM: the aggregate mparam.h splices each module's
+     arch/<backend>/mparam.h verbatim, so a BOM lands mid-file as a
+     stray U+FEFF token and breaks compilation.
 
 Line endings are preserved per line (LF or CRLF), the encoding is
 round-tripped through utf-8 with surrogate escapes, and binary files
@@ -267,14 +271,13 @@ def align_macro_backslashes(lines):
 
 
 def format_text(text, path, warnings_out=None):
-    """Apply rules 2-5 (and rule 1 for C/C++ files) to ``text``.
+    """Apply rules 2-6 (and rule 1 for C/C++ files) to ``text``.
 
     Macro alignment warnings, if any, are appended to ``warnings_out``
     as ``(line_number, text)`` pairs.
     """
-    bom = ''
-    if text.startswith('﻿'):
-        bom = text[0]
+    # Rule 6: strip a leading BOM and never write one back.
+    if text.startswith('\ufeff'):
         text = text[1:]
 
     expand_tabs = not is_tab_exempt(path)
@@ -306,7 +309,7 @@ def format_text(text, path, warnings_out=None):
             warnings_out.extend(macro_warnings)
         lines = [(c, eol) for c, (_c, eol) in zip(contents, lines)]
 
-    return bom + ''.join(content + eol for content, eol in lines)
+    return ''.join(content + eol for content, eol in lines)
 
 
 def format_file(path, dry_run=False):
