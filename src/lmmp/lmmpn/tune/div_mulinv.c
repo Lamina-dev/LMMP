@@ -47,7 +47,8 @@ enum {
 
 typedef struct {
     mp_ptr dstq;
-    mp_ptr numa;
+    mp_ptr numa;   /* 被除数副本池基址，容量 LMMP_TUNE_BATCH_COPIES*na */
+    mp_ptr cursor; /* 批内下一份被除数 */
     mp_srcptr numa_orig;
     mp_srcptr numb;
     mp_size_t na;
@@ -66,24 +67,34 @@ static void bind_thresholds(void* opaque) {
     lmmp_tune_DIV_MULINV_N_THRESHOLD = context->bind_n;
 }
 
-static void reset_input(void* opaque) {
+/* 两路都破坏被除数：每段计时前铺 count 份副本，每次调用从原始被除数出发 */
+static void reset_batch(void* opaque, mp_size_t count) {
     measure_context* context = opaque;
-    lmmp_copy(context->numa, context->numa_orig, context->na);
+    for (mp_size_t i = 0; i < count; ++i)
+        lmmp_copy(context->numa + i * context->na, context->numa_orig, context->na);
+    context->cursor = context->numa;
+}
+
+static mp_ptr take_dividend(measure_context* context) {
+    mp_ptr numa = context->cursor;
+    context->cursor += context->na;
+    return numa;
 }
 
 static mp_limb_t call_divide(void* opaque) {
     measure_context* context = opaque;
-    mp_limb_t qh = lmmp_div_divide_(context->dstq, context->numa, context->na, context->numb, context->nb,
-                                    context->inv21);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_ptr numa = take_dividend(context);
+    mp_limb_t qh = lmmp_div_divide_(context->dstq, numa, context->na, context->numb, context->nb, context->inv21);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 static mp_limb_t call_mulinv(void* opaque) {
     measure_context* context = opaque;
+    mp_ptr numa = take_dividend(context);
     lmmp_inv_prediv_(context->invappr, context->numb, context->nb, context->ni);
-    mp_limb_t qh = lmmp_div_mulinv_(context->dstq, context->numa, context->na, context->numb, context->nb,
-                                    context->invappr, context->ni);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_limb_t qh = lmmp_div_mulinv_(context->dstq, numa, context->na, context->numb, context->nb, context->invappr,
+                                    context->ni);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 static int check_pair(measure_context* low, measure_context* high) {
@@ -117,6 +128,7 @@ static int measure_shape(mp_ptr numa_orig, mp_ptr numb, mp_size_t na, mp_size_t 
     mp_limb_t inv21 = lmmp_inv_2_1_(numb[nb - 1], numb[nb - 2]);
     measure_context low_context = {.dstq = q_low,
                                    .numa = numa_low,
+                                   .cursor = numa_low,
                                    .numa_orig = numa_orig,
                                    .numb = numb,
                                    .na = na,
@@ -129,6 +141,7 @@ static int measure_shape(mp_ptr numa_orig, mp_ptr numb, mp_size_t na, mp_size_t 
     measure_context high_context = low_context;
     high_context.dstq = q_high;
     high_context.numa = numa_high;
+    high_context.cursor = numa_high;
     if (!check_pair(&low_context, &high_context)) {
         fprintf(stderr, "mulinv result mismatch at na=%llu nb=%llu\n", (unsigned long long)na,
                 (unsigned long long)nb);
@@ -142,9 +155,9 @@ static int measure_shape(mp_ptr numa_orig, mp_ptr numb, mp_size_t na, mp_size_t 
         return -1;
     }
     lmmp_tune_bench low_bench = {
-        .bind = bind_thresholds, .reset = reset_input, .call = call_divide, .context = &low_context};
+        .bind = bind_thresholds, .reset_batch = reset_batch, .call = call_divide, .context = &low_context};
     lmmp_tune_bench high_bench = {
-        .bind = bind_thresholds, .reset = reset_input, .call = call_mulinv, .context = &high_context};
+        .bind = bind_thresholds, .reset_batch = reset_batch, .call = call_mulinv, .context = &high_context};
     double low_mad, high_mad;
     unsigned retries;
     bool stable;
@@ -228,7 +241,8 @@ int main(int argc, char** argv) {
     }
 
     const mp_size_t stride = MAX_NA + 4;
-    mp_ptr storage = alloc_limbs(7 * stride);
+    const mp_size_t pool_stride = LMMP_TUNE_BATCH_COPIES * MAX_NA;
+    mp_ptr storage = alloc_limbs(5 * stride + 2 * pool_stride);
     mp_ptr anchor = alloc_limbs(MAX_NA + 8);
     if (storage == NULL || anchor == NULL) {
         fprintf(stderr, "cannot allocate tune buffers\n");
@@ -238,9 +252,9 @@ int main(int argc, char** argv) {
     mp_ptr numa_orig = storage;
     mp_ptr numb = storage + stride;
     mp_ptr numa_low = numb + stride;
-    mp_ptr q_low = numa_low + stride;
+    mp_ptr q_low = numa_low + pool_stride;
     mp_ptr numa_high = q_low + stride;
-    mp_ptr q_high = numa_high + stride;
+    mp_ptr q_high = numa_high + pool_stride;
     mp_ptr invappr = q_high + stride;
     double l_scores[L_CAND_MAX + 1] = {0};
     unsigned long l_counts[L_CAND_MAX + 1] = {0};
@@ -248,7 +262,8 @@ int main(int argc, char** argv) {
     unsigned long n_counts[N_CAND_MAX + 1] = {0};
     mp_size_t saved_l = lmmp_tune_DIV_MULINV_L_THRESHOLD;
     mp_size_t saved_n = lmmp_tune_DIV_MULINV_N_THRESHOLD;
-    unsigned stable_points = 0, unstable_points = 0;
+    /* 两扫描各自计稳定点：某扫描全不稳定时只扣发该扫描的推荐 */
+    unsigned l_stable = 0, l_unstable = 0, n_stable = 0, n_unstable = 0;
 
     printf("# program=tune_lmmpn_div_mulinv\n");
     printf("# parameters=DIV_MULINV_L_THRESHOLD,DIV_MULINV_N_THRESHOLD (coupled, joint recheck at end)\n");
@@ -277,9 +292,9 @@ int main(int argc, char** argv) {
             break;
         }
         if (stable)
-            ++stable_points;
+            ++l_stable;
         else
-            ++unstable_points;
+            ++l_unstable;
         for (int c = L_CAND_MIN; c <= L_CAND_MAX; c += L_CAND_STEP) {
             l_scores[c] += nb >= (mp_size_t)c ? high_us : low_us;
             ++l_counts[c];
@@ -301,9 +316,9 @@ int main(int argc, char** argv) {
                 break;
             }
             if (stable)
-                ++stable_points;
+                ++n_stable;
             else
-                ++unstable_points;
+                ++n_unstable;
             for (int c = N_CAND_MIN; c <= N_CAND_MAX; c += N_CAND_STEP) {
                 n_scores[c] += na >= 2 * (mp_size_t)c ? high_us : low_us;
                 ++n_counts[c];
@@ -312,16 +327,28 @@ int main(int argc, char** argv) {
     }
 
     if (result == EXIT_SUCCESS) {
-        if (stable_points == 0) {
-            printf("# no stable measurement points; recommendation withheld\n");
+        /* 两扫描独立推荐；联合复核需要两个推荐值同时成立才启动 */
+        int l_rec = -1, n_rec = -1;
+        if (l_stable == 0) {
+            printf("# no stable L-scan points; DIV_MULINV_L_THRESHOLD recommendation withheld\n");
         } else {
-            if (unstable_points > 0)
-                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            if (l_unstable > 0)
+                printf("# note: %u unstable L-scan point(s) retained in scoring\n", l_unstable);
             /* 两扫描点数不同，推荐必须按均值口径（总分偏向点数少的候选） */
-            int l_rec = recommend_stepped("DIV_MULINV_L_THRESHOLD", l_scores, l_counts, L_CAND_MIN, L_CAND_MAX,
-                                          L_CAND_STEP, saved_l);
-            int n_rec = recommend_stepped("DIV_MULINV_N_THRESHOLD", n_scores, n_counts, N_CAND_MIN, N_CAND_MAX,
-                                          N_CAND_STEP, saved_n);
+            l_rec = recommend_stepped("DIV_MULINV_L_THRESHOLD", l_scores, l_counts, L_CAND_MIN, L_CAND_MAX,
+                                      L_CAND_STEP, saved_l);
+        }
+        if (n_stable == 0) {
+            printf("# no stable N-scan points; DIV_MULINV_N_THRESHOLD recommendation withheld\n");
+        } else {
+            if (n_unstable > 0)
+                printf("# note: %u unstable N-scan point(s) retained in scoring\n", n_unstable);
+            n_rec = recommend_stepped("DIV_MULINV_N_THRESHOLD", n_scores, n_counts, N_CAND_MIN, N_CAND_MAX,
+                                      N_CAND_STEP, saved_n);
+        }
+        if (l_rec < 0 || n_rec < 0) {
+            printf("# joint recheck skipped: needs recommendations from both scans\n");
+        } else {
             printf("# phase=joint_recheck L_rec=%d N_rec=%d vs current L=%llu N=%llu\n", l_rec, n_rec,
                    (unsigned long long)saved_l, (unsigned long long)saved_n);
             printf("# joint nb nq rec_us cur_us ratio\n");

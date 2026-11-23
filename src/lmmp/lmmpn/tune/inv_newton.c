@@ -36,7 +36,10 @@
    newton_ deployed 实测。INV_MODM/DIV_DIVIDE 保持默认。
    正确性：basecase 精确值 vs newton ±1 容差 + 恒等式
    a*(in+B^na) ∈ [B^2na-2a, B^2na)（newton 可返回精确值-1）。 */
-enum { MIN_N = 5, MAX_N = 128, STEP_N = 1, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 2 };
+enum {
+    MIN_N = 5, MAX_N = 128, STEP_N = 1, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 2,
+    CANDIDATE_LAST = CANDIDATE_MIN + (CANDIDATE_MAX - CANDIDATE_MIN) / CANDIDATE_STEP * CANDIDATE_STEP
+};
 
 typedef struct {
     mp_ptr dst;
@@ -111,13 +114,13 @@ static int check_identity(mp_srcptr numa, mp_size_t na, mp_srcptr in, mp_ptr scr
     mp_ptr r = scratch + 5 * na + 3;
     lmmp_div_(q, r, N, 2 * na + 1, numa, na);
     /* q = B^na + in + [0|1]（na+1 limb，顶 limb ∈ {1,2}）：
-       in == q-B^na 或 q-B^na-1，即比较低 na limb 相等或差 1 */
+       契约只允许 in 低估 1，in > q_low 直接拒绝，in < q_low 须恰为 q_low-1 */
     if (q[na] != 1 && q[na] != 2)
         return 0;
     int c = lmmp_cmp_(in, q, na);
     if (c == 0)
         return 1;
-    if (c < 0)
+    if (c > 0)
         return 0;
     /* in == q_low-1 判相邻 */
     mp_size_t i = 0;
@@ -165,7 +168,8 @@ static void print_info(void) {
     printf("binding_mode=runtime-branch\n");
     printf("default=%llu\n", (unsigned long long)INV_NEWTON_THRESHOLD);
     printf("current=%llu\n", (unsigned long long)lmmp_tune_INV_NEWTON_THRESHOLD);
-    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N);
+    printf("candidate_range=%d..%d step=%d (scan upper bound %d)\n", CANDIDATE_MIN, CANDIDATE_LAST, CANDIDATE_STEP,
+           CANDIDATE_MAX);
     printf("input_range=%d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     printf("forced_root_equivalence=sub_n=(n>>1)+1; candidates T<=sub_n via deployed scan\n");
     lmmp_tune_print_env();
@@ -212,15 +216,15 @@ int main(int argc, char** argv) {
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     double deployed_scores[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_INV_NEWTON_THRESHOLD;
-    unsigned stable_points = 0, unstable_points = 0;
+    unsigned stable_points = 0, unstable_points = 0, unstable_deployed = 0;
 
     printf("# program=tune_lmmpn_inv_newton\n");
     printf("# parameter=INV_NEWTON_THRESHOLD\n");
     printf("# binding_mode=runtime-branch\n");
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)INV_NEWTON_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
-    printf("# candidate_range=%d..%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, MIN_N, MAX_N,
-           STEP_N);
+    printf("# candidate_range=%d..%d step=%d (scan upper bound %d) input_range=%d..%d step=%d\n", CANDIDATE_MIN,
+           CANDIDATE_LAST, CANDIDATE_STEP, CANDIDATE_MAX, MIN_N, MAX_N, STEP_N);
     printf("# high=newton_ with T=n (one Newton step, sub_n=(n>>1)+1); T<=sub_n via deployed scan\n");
     printf("# INV_MODM=%llu DIV_DIVIDE=%llu keep defaults\n", (unsigned long long)lmmp_tune_INV_MODM_THRESHOLD,
            (unsigned long long)lmmp_tune_DIV_DIVIDE_THRESHOLD);
@@ -284,6 +288,9 @@ int main(int argc, char** argv) {
                 result = EXIT_FAILURE;
                 break;
             }
+            /* 与配对测量同一规则：重试耗尽仍超限的样本保留计分，但计入不稳定并在汇总中提示 */
+            if (dep_mad > options.mad_limit)
+                ++unstable_deployed;
             deployed_scores[candidate] += dep_us;
             ++counts[candidate];
             printf("# deployed n=%llu T=%d us=%.6f mad=%.6f retries=%u\n", (unsigned long long)n, candidate, dep_us,
@@ -301,6 +308,8 @@ int main(int argc, char** argv) {
         } else {
             if (unstable_points > 0)
                 printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            if (unstable_deployed > 0)
+                printf("# note: %u unstable deployed sample(s) retained in scoring\n", unstable_deployed);
             recommend_stepped("INV_NEWTON_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP,
                               saved_threshold);
         }

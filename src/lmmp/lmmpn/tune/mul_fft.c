@@ -34,7 +34,7 @@
    各层 toom 阈值保持默认、沿真实递归梯子被顺带覆盖，无需逐层设程序。
    网格与候选同域 512..5400、步长 8：下端远高于 toom8h 契约 nb>=79 与分派
    地板，候选低于现值时高路 FFT 测量仍代表部署路径（见下）。 */
-enum { MIN_N = 512, MAX_N = 5400, STEP_N = 8, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N };
+enum { MIN_N = 512, MAX_N = 5400, STEP_N = 8, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 1 };
 
 typedef struct {
     mp_ptr dst;
@@ -83,7 +83,7 @@ static void print_info(void) {
     printf("binding_mode=runtime-branch\n");
     printf("default=%llu\n", (unsigned long long)MUL_FFT_THRESHOLD);
     printf("current=%llu\n", (unsigned long long)lmmp_tune_MUL_FFT_THRESHOLD);
-    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N);
+    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP);
     printf("input_range=%d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     lmmp_tune_print_env();
 }
@@ -134,8 +134,8 @@ int main(int argc, char** argv) {
     printf("# binding_mode=runtime-branch\n");
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)MUL_FFT_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
-    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N,
-           MIN_N, MAX_N, STEP_N);
+    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX,
+           CANDIDATE_STEP, MIN_N, MAX_N, STEP_N);
     printf("# forced_root_equivalence=all_n (fft recursion keyed by MUL_FFT_MODF_THRESHOLD, unbound)\n");
     lmmp_tune_print_env_comment();
     printf("# n low_us low_mad high_us high_mad retries stable\n");

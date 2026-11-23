@@ -159,16 +159,36 @@ void lmmp_tune_usage(const char* program_id) {
     puts("  --seed S          deterministic input seed");
 }
 
+/* 跑 iters 次调用返回总耗时（秒）。只读输入的基准整块计时；破坏输入的基准分段铺副本、
+   分段计时，每份副本只被调用一次。每块至多 64 段、每段至多 LMMP_TUNE_BATCH_COPIES 份，
+   兼顾计时分辨率与工作区占用。 */
+static double run_block_(const lmmp_tune_bench* bench, mp_size_t iters) {
+    bench->bind(bench->context);
+    if (bench->reset_batch == NULL) {
+        bench->reset(bench->context);
+        double start = bench_clock();
+        for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
+        return bench_clock() - start;
+    }
+    mp_size_t chunk = (iters + 63) / 64;
+    if (chunk > LMMP_TUNE_BATCH_COPIES)
+        chunk = LMMP_TUNE_BATCH_COPIES;
+    double elapsed = 0;
+    for (mp_size_t done = 0; done < iters; done += chunk) {
+        mp_size_t count = iters - done < chunk ? iters - done : chunk;
+        bench->reset_batch(bench->context, count);
+        double start = bench_clock();
+        for (mp_size_t i = 0; i < count; ++i) lmmp_tune_sink ^= bench->call(bench->context);
+        elapsed += bench_clock() - start;
+    }
+    return elapsed;
+}
+
 static mp_size_t calibrate_(const lmmp_tune_bench* bench, const lmmp_tune_options* options) {
     const mp_size_t max_iters = 1ull << 26;
     mp_size_t iters = 1;
-    bench->bind(bench->context);
-    bench->reset(bench->context);
     for (;;) {
-        double start = bench_clock();
-        for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
-        double elapsed = bench_clock() - start;
-        if (elapsed >= options->min_ms * 1e-3 || iters >= max_iters)
+        if (run_block_(bench, iters) >= options->min_ms * 1e-3 || iters >= max_iters)
             break;
         iters *= 2;
     }
@@ -176,11 +196,7 @@ static mp_size_t calibrate_(const lmmp_tune_bench* bench, const lmmp_tune_option
 }
 
 static double timed_block_(const lmmp_tune_bench* bench, mp_size_t iters) {
-    bench->bind(bench->context);
-    bench->reset(bench->context);
-    double start = bench_clock();
-    for (mp_size_t i = 0; i < iters; ++i) lmmp_tune_sink ^= bench->call(bench->context);
-    return (bench_clock() - start) * 1e6 / (double)iters;
+    return run_block_(bench, iters) * 1e6 / (double)iters;
 }
 
 static bool summarize_(double* samples, unsigned count, double* median_us, double* mad_ratio) {
@@ -222,13 +238,23 @@ static bool measure_pair_once_(const lmmp_tune_bench* low,
                                double* low_us,
                                double* low_mad,
                                double* high_us,
-                               double* high_mad) {
+                               double* high_mad,
+                               lmmp_tune_pair_trace* trace) {
     mp_size_t low_iters = calibrate_(low, options);
     mp_size_t high_iters = calibrate_(high, options);
     double low_samples[31], high_samples[31];
     for (unsigned sample = 0; sample < options->samples; ++sample) {
-        low_samples[sample] = timed_block_(low, low_iters);
-        high_samples[sample] = timed_block_(high, high_iters);
+        /* 逐样本交替先后顺序，抵消固定先测一路带来的漂移与热状态不对称 */
+        bool low_first = (sample & 1) == 0;
+        double first = low_first ? timed_block_(low, low_iters) : timed_block_(high, high_iters);
+        double second = low_first ? timed_block_(high, high_iters) : timed_block_(low, low_iters);
+        low_samples[sample] = low_first ? first : second;
+        high_samples[sample] = low_first ? second : first;
+        if (trace) {
+            trace->low_first[sample] = low_first;
+            trace->low_us[sample] = low_samples[sample];
+            trace->high_us[sample] = high_samples[sample];
+        }
     }
     return summarize_(low_samples, options->samples, low_us, low_mad) &&
            summarize_(high_samples, options->samples, high_us, high_mad);
@@ -243,8 +269,21 @@ bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             double* high_mad,
                             unsigned* retries,
                             bool* stable) {
+    return lmmp_tune_measure_pair_traced(low, high, options, low_us, low_mad, high_us, high_mad, retries, stable, NULL);
+}
+
+bool lmmp_tune_measure_pair_traced(const lmmp_tune_bench* low,
+                                   const lmmp_tune_bench* high,
+                                   const lmmp_tune_options* options,
+                                   double* low_us,
+                                   double* low_mad,
+                                   double* high_us,
+                                   double* high_mad,
+                                   unsigned* retries,
+                                   bool* stable,
+                                   lmmp_tune_pair_trace* trace) {
     for (unsigned retry = 0; retry <= options->max_retry; ++retry) {
-        if (!measure_pair_once_(low, high, options, low_us, low_mad, high_us, high_mad))
+        if (!measure_pair_once_(low, high, options, low_us, low_mad, high_us, high_mad, trace))
             return false;
         *stable = *low_mad <= options->mad_limit && *high_mad <= options->mad_limit;
         if (*stable || retry == options->max_retry) {

@@ -29,7 +29,7 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-enum { MIN_N = 512, MAX_N = 5400, STEP_N = 8, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N };
+enum { MIN_N = 512, MAX_N = 5400, STEP_N = 8, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 1 };
 
 typedef struct {
     mp_ptr dst;
@@ -70,7 +70,7 @@ static void print_info(void) {
     printf("binding_mode=runtime-branch\n");
     printf("default=%llu\n", (unsigned long long)SQR_FFT_THRESHOLD);
     printf("current=%llu\n", (unsigned long long)lmmp_tune_SQR_FFT_THRESHOLD);
-    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N);
+    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP);
     printf("input_range=%d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     lmmp_tune_print_env();
 }
@@ -120,8 +120,8 @@ int main(int argc, char** argv) {
     printf("# binding_mode=runtime-branch\n");
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)SQR_FFT_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
-    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N,
-           MIN_N, MAX_N, STEP_N);
+    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX,
+           CANDIDATE_STEP, MIN_N, MAX_N, STEP_N);
     printf("# forced_root_equivalence=all_n (fft recursion keyed by MUL_FFT_MODF_THRESHOLD, unbound;\n");
     printf("#   low path bound to n+1: toom8 internal SQR_TOOM8_MAX gates match every candidate T>n)\n");
     lmmp_tune_print_env_comment();

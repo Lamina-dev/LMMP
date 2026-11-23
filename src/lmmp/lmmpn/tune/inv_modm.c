@@ -77,14 +77,15 @@ static int check_identity(mp_srcptr numa, mp_size_t na, mp_srcptr in, mp_ptr scr
     mp_ptr q = scratch + 4 * na + 2;
     mp_ptr r = scratch + 5 * na + 3;
     lmmp_div_(q, r, N, 2 * na + 1, numa, na);
-    /* q = B^na + in + [0|1]（na+1 limb，顶 limb ∈ {1,2}） */
+    /* q = B^na + in + [0|1]（na+1 limb，顶 limb ∈ {1,2}）。
+       契约只允许 in 低估 1，in > q_low 直接拒绝，in < q_low 须恰为 q_low-1 */
     if (q[na] != 1 && q[na] != 2)
         return 0;
     int c = lmmp_cmp_(in, q, na);
     if (c == 0)
         return 1;
-    if (c < 0)
-            return 0;
+    if (c > 0)
+        return 0;
     mp_size_t i = 0;
     while (i < na && q[i] == 0)
         ++i;
@@ -168,7 +169,8 @@ int main(int argc, char** argv) {
     int result = EXIT_SUCCESS;
     for (mp_size_t n = MIN_N; n <= MAX_N && result == EXIT_SUCCESS; n += STEP_N) {
         fill_random(numa, n, (mp_limb_t)(options.seed + 4 * n));
-        /* 参考输出：默认阈值；锚点先于计时 */
+        /* 参考输出：默认阈值（上一轮候选测量绑定的值须先恢复）；锚点先于计时 */
+        lmmp_tune_INV_MODM_THRESHOLD = saved_threshold;
         lmmp_invappr_newton_(ref, numa, n);
         if (!check_identity(numa, n, ref, scratch)) {
             fprintf(stderr, "inv identity mismatch at n=%llu\n", (unsigned long long)n);

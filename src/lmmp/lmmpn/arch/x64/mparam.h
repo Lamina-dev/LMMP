@@ -82,7 +82,7 @@
 #define SQR_MERSENNE_DC_THRESHOLD 96
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
 // lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
-#define MUL_MERSENNE_FERMAT_THRESHOLD 449
+#define MUL_MERSENNE_FERMAT_THRESHOLD 512
 #define SQR_MERSENNE_FERMAT_THRESHOLD 458
 // 梅森乘法分发阈值（lmmp_mul_mersenne_）：rn 低于此值走分治 dc，否则走 SSA FFT
 #define MUL_MERSENNE_FFT_THRESHOLD 543

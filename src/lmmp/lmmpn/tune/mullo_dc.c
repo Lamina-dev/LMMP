@@ -37,7 +37,7 @@
 /* 网格 1024..6144 为批准测量域：dc/fft 成本比在 ~3500..16000 被 FFT 阶梯量化
    锯齿钉在 1 附近（hn=2^k 边界处 dc 病态尖峰），等权评分下大网格会把推荐值
    钳到网格上界；本域内的推荐值应结合逐点比值与更大网格的 badness 回升点解读。 */
-enum { MIN_N = 1024, MAX_N = 6144, STEP_N = 32, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N };
+enum { MIN_N = 1024, MAX_N = 6144, STEP_N = 32, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 1 };
 
 typedef struct {
     mp_ptr dst;
@@ -83,9 +83,10 @@ static void print_info(void) {
     printf("binding_mode=runtime-branch\n");
     printf("default=%llu\n", (unsigned long long)MULLO_DC_THRESHOLD);
     printf("current=%llu\n", (unsigned long long)lmmp_tune_MULLO_DC_THRESHOLD);
-    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N);
+    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP);
     printf("input_range=%d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     printf("forced_root_equivalence=all_n (dc recurses via MULLO_BASECASE, fft via MUL_FFT_MODF; both unbound)\n");
+    printf("basis=uncached kernel timing only; cached fft contexts (binvert/divexact/powmod REDC) not measured\n");
     lmmp_tune_print_env();
 }
 
@@ -117,7 +118,7 @@ int main(int argc, char** argv) {
     const mp_size_t input_stride = MAX_N + 4;
     const mp_size_t output_stride = input_stride;
     const mp_size_t tp_stride = 2 * input_stride + 4;
-    mp_ptr storage = alloc_limbs(2 * input_stride + 3 * output_stride + tp_stride);
+    mp_ptr storage = alloc_limbs(2 * input_stride + 2 * output_stride + tp_stride);
     if (storage == NULL) {
         fprintf(stderr, "cannot allocate tune buffers\n");
         lmmp_global_deinit();
@@ -127,8 +128,7 @@ int main(int argc, char** argv) {
     mp_ptr numb = storage + input_stride;
     mp_ptr low = storage + 2 * input_stride;
     mp_ptr high = low + output_stride;
-    mp_ptr ref = high + output_stride;
-    mp_ptr tp = ref + output_stride;
+    mp_ptr tp = high + output_stride;
     double scores[CANDIDATE_MAX + 1] = {0};
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_MULLO_DC_THRESHOLD;
@@ -140,12 +140,14 @@ int main(int argc, char** argv) {
     printf("# binding_mode=runtime-branch\n");
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)MULLO_DC_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
-    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N,
-           MIN_N, MAX_N, STEP_N);
+    printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX,
+           CANDIDATE_STEP, MIN_N, MAX_N, STEP_N);
     printf("# forced_root_equivalence=all_n: threshold only gates root dispatch; dc recursion keeps default\n");
     printf("#   MULLO_BASECASE=%llu, fft internals keep MUL_FFT_MODF (both unbound)\n",
            (unsigned long long)lmmp_tune_MULLO_BASECASE_THRESHOLD);
-    printf("# kernels called directly with preallocated tp (2n); deployed entry differs only by one temp alloc\n");
+    printf("# kernels called directly with preallocated tp (2n), uncached; the recommendation rests on these\n");
+    printf("#   measurements only: binvert/divexact/powmod REDC run the cached fft path (lmmp_mullo_fft_cache_)\n");
+    printf("#   under the same shared threshold, whose cache build and reuse phases are not measured here\n");
     lmmp_tune_print_env_comment();
     printf("# n low_us low_mad high_us high_mad retries stable\n");
 
@@ -165,9 +167,10 @@ int main(int argc, char** argv) {
             result = EXIT_FAILURE;
             break;
         }
-        /* 全积锚点：低 n limb 必须与 lmmp_mul_ 完整乘积一致（先于计时） */
-        lmmp_mul_(ref, numa, n, numb, n);
-        if (lmmp_cmp_(low, ref, n) != 0) {
+        /* 全积锚点：低 n limb 必须与 lmmp_mul_ 完整乘积一致（先于计时）。完整乘积 2n limb
+           直接写进容量 2n 的 tp，此时 tp 没有要保留的数据 */
+        lmmp_mul_(tp, numa, n, numb, n);
+        if (lmmp_cmp_(low, tp, n) != 0) {
             fprintf(stderr, "mullo full-product anchor mismatch at n=%llu\n", (unsigned long long)n);
             result = EXIT_FAILURE;
             break;
@@ -192,8 +195,10 @@ int main(int argc, char** argv) {
             ++unstable_points;
         printf("%llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries,
                stable);
-        /* 两路内部都不按被调阈值递归，无同阈值子问题，sub_n=0 */
-        lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
+        /* 两路内部都不按被调阈值递归，无同阈值子问题，sub_n=0。不稳定点只留诊断行、不参与
+           评分：对该点所有候选同样跳过，各候选计分点集保持一致 */
+        if (stable)
+            lmmp_tune_score_point(scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, n, 0, low_us, high_us);
     }
 
     if (result == EXIT_SUCCESS) {
@@ -203,7 +208,7 @@ int main(int argc, char** argv) {
             printf("# note: fft ladder rounding (hn=fft_next_size) sawtooths the crossing band;\n");
             printf("#       flat badness band is a real near-tie region, prefer band intersection across rounds\n");
             if (unstable_points > 0)
-                printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+                printf("# note: %u unstable point(s) excluded from scoring\n", unstable_points);
             lmmp_tune_recommend("MULLO_DC_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX,
                                 (unsigned long long)saved_threshold);
         }

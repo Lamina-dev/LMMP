@@ -49,10 +49,11 @@ enum {
 
 typedef struct {
     mp_ptr dstq;
-    mp_ptr numa;
+    mp_ptr numa;   /* 被除数副本池基址，容量 LMMP_TUNE_BATCH_COPIES*na */
+    mp_ptr cursor; /* 批内下一份被除数 */
     mp_srcptr numa_orig;
     mp_srcptr numb;
-    mp_srcptr invappr;
+    mp_ptr invappr;
     mp_size_t na;
     mp_size_t nb;
     mp_size_t ni;
@@ -66,16 +67,26 @@ static void bind_thresholds(void* opaque) {
     lmmp_tune_DIV_MULINV_MODM_CACHE_THRESHOLD = context->bind_cache;
 }
 
-static void reset_input(void* opaque) {
+/* mulinv 破坏被除数：每段计时前铺 count 份副本，每次调用从原始被除数出发 */
+static void reset_batch(void* opaque, mp_size_t count) {
     measure_context* context = opaque;
-    lmmp_copy(context->numa, context->numa_orig, context->na);
+    for (mp_size_t i = 0; i < count; ++i)
+        lmmp_copy(context->numa + i * context->na, context->numa_orig, context->na);
+    context->cursor = context->numa;
+}
+
+static mp_ptr take_dividend(measure_context* context) {
+    mp_ptr numa = context->cursor;
+    context->cursor += context->na;
+    return numa;
 }
 
 static mp_limb_t call_mulinv(void* opaque) {
     measure_context* context = opaque;
-    mp_limb_t qh = lmmp_div_mulinv_(context->dstq, context->numa, context->na, context->numb, context->nb,
-                                    context->invappr, context->ni);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_ptr numa = take_dividend(context);
+    mp_limb_t qh = lmmp_div_mulinv_(context->dstq, numa, context->na, context->numb, context->nb, context->invappr,
+                                    context->ni);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 /* 候选按步长稀疏，公共 recommend 的逐整数遍历不适用，自行汇总 */
@@ -144,7 +155,8 @@ int main(int argc, char** argv) {
     }
 
     const mp_size_t stride = MAX_NA + 4;
-    mp_ptr storage = alloc_limbs(6 * stride);
+    const mp_size_t pool_stride = LMMP_TUNE_BATCH_COPIES * MAX_NA;
+    mp_ptr storage = alloc_limbs(5 * stride + pool_stride + MAX_NB);
     mp_ptr anchor = alloc_limbs(MAX_NA + 8);
     if (storage == NULL || anchor == NULL) {
         fprintf(stderr, "cannot allocate tune buffers\n");
@@ -154,9 +166,10 @@ int main(int argc, char** argv) {
     mp_ptr numa_orig = storage;
     mp_ptr numb = storage + stride;
     mp_ptr numa_work = numb + stride;
-    mp_ptr q_out = numa_work + stride;
+    mp_ptr q_out = numa_work + pool_stride;
     mp_ptr invappr = q_out + stride;
     mp_ptr q_ref = invappr + stride; /* A 档商副本，互比基准 */
+    mp_ptr r_ref = q_ref + stride;   /* A 档余数副本，互比基准 */
     double modm_scores[MODM_CAND_MAX + 1] = {0};
     unsigned long modm_counts[MODM_CAND_MAX + 1] = {0};
     double cache_scores[CACHE_CAND_MAX + 1] = {0};
@@ -196,6 +209,7 @@ int main(int argc, char** argv) {
 
             measure_context ctx = {.dstq = q_out,
                                    .numa = numa_work,
+                                   .cursor = numa_work,
                                    .numa_orig = numa_orig,
                                    .numb = numb,
                                    .invappr = invappr,
@@ -204,7 +218,8 @@ int main(int argc, char** argv) {
                                    .ni = ni,
                                    .bind_modm = saved_modm,
                                    .bind_cache = saved_cache};
-            lmmp_tune_bench bench = {.bind = bind_thresholds, .reset = reset_input, .call = call_mulinv, .context = &ctx};
+            lmmp_tune_bench bench = {
+                .bind = bind_thresholds, .reset_batch = reset_batch, .call = call_mulinv, .context = &ctx};
             double us[3], mad[3];
             unsigned retries = 0;
             int all_stable = 1;
@@ -243,6 +258,7 @@ int main(int argc, char** argv) {
             mp_limb_t qh_a = lmmp_div_mulinv_(q_out, numa_work, na, numb, nb, invappr, ni);
             lmmp_tune_DIV_MULINV_MODM_THRESHOLD = saved_modm;
             lmmp_copy(q_ref, q_out, nq);
+            lmmp_copy(r_ref, numa_work, nb);
             for (int rung = 1; rung < 3; ++rung) {
                 lmmp_copy(numa_work, numa_orig, na);
                 lmmp_tune_DIV_MULINV_MODM_THRESHOLD = nb;
@@ -250,7 +266,7 @@ int main(int argc, char** argv) {
                 mp_limb_t qh_x = lmmp_div_mulinv_(q_out, numa_work, na, numb, nb, invappr, ni);
                 lmmp_tune_DIV_MULINV_MODM_THRESHOLD = saved_modm;
                 lmmp_tune_DIV_MULINV_MODM_CACHE_THRESHOLD = saved_cache;
-                if (qh_x != qh_a || lmmp_cmp_(q_out, q_ref, nq) != 0) {
+                if (qh_x != qh_a || lmmp_cmp_(q_out, q_ref, nq) != 0 || lmmp_cmp_(numa_work, r_ref, nb) != 0) {
                     fprintf(stderr, "rung result mismatch at nb=%llu shape=%d rung=%d\n", (unsigned long long)nb,
                             shape, rung);
                     result = EXIT_FAILURE;

@@ -35,11 +35,15 @@
    nq=0 无递归，恰好代表候选 (sub_n,n]（sub_n=ceil(n/2)）；T<=sub_n 的
    候选会让子问题再入分治，须按候选绑 T 经完整 div_s_ 另行 deployed 实测。
    DIV_MULINV_L/N 保持默认：本网格 nb<=256<L=427，不触 mulinv。 */
-enum { MIN_N = 6, MAX_N = 256, STEP_N = 2, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 4 };
+enum {
+    MIN_N = 6, MAX_N = 256, STEP_N = 2, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 4,
+    CANDIDATE_LAST = CANDIDATE_MIN + (CANDIDATE_MAX - CANDIDATE_MIN) / CANDIDATE_STEP * CANDIDATE_STEP
+};
 
 typedef struct {
     mp_ptr dstq;
-    mp_ptr numa;
+    mp_ptr numa;   /* 被除数副本池基址，容量 LMMP_TUNE_BATCH_COPIES*na */
+    mp_ptr cursor; /* 批内下一份被除数 */
     mp_srcptr numa_orig;
     mp_srcptr numb;
     mp_size_t na;
@@ -53,30 +57,39 @@ static void bind_threshold(void* opaque) {
     lmmp_tune_DIV_DIVIDE_THRESHOLD = context->bind_threshold;
 }
 
-/* 除法破坏被除数，每批次前重建 */
-static void reset_input(void* opaque) {
+/* 除法破坏被除数：每段计时前铺 count 份副本，每次调用从原始被除数出发 */
+static void reset_batch(void* opaque, mp_size_t count) {
     measure_context* context = opaque;
-    lmmp_copy(context->numa, context->numa_orig, context->na);
+    for (mp_size_t i = 0; i < count; ++i)
+        lmmp_copy(context->numa + i * context->na, context->numa_orig, context->na);
+    context->cursor = context->numa;
+}
+
+static mp_ptr take_dividend(measure_context* context) {
+    mp_ptr numa = context->cursor;
+    context->cursor += context->na;
+    return numa;
 }
 
 static mp_limb_t call_basecase(void* opaque) {
     measure_context* context = opaque;
-    mp_limb_t qh = lmmp_div_basecase_(context->dstq, context->numa, context->na, context->numb, context->nb,
-                                     context->inv21);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_ptr numa = take_dividend(context);
+    mp_limb_t qh = lmmp_div_basecase_(context->dstq, numa, context->na, context->numb, context->nb, context->inv21);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 static mp_limb_t call_divide(void* opaque) {
     measure_context* context = opaque;
-    mp_limb_t qh = lmmp_div_divide_(context->dstq, context->numa, context->na, context->numb, context->nb,
-                                    context->inv21);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_ptr numa = take_dividend(context);
+    mp_limb_t qh = lmmp_div_divide_(context->dstq, numa, context->na, context->numb, context->nb, context->inv21);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 static mp_limb_t call_deployed(void* opaque) {
     measure_context* context = opaque;
-    mp_limb_t qh = lmmp_div_s_(context->dstq, context->numa, context->na, context->numb, context->nb);
-    return qh ^ context->dstq[0] ^ context->numa[0];
+    mp_ptr numa = take_dividend(context);
+    mp_limb_t qh = lmmp_div_s_(context->dstq, numa, context->na, context->numb, context->nb);
+    return qh ^ context->dstq[0] ^ numa[0];
 }
 
 /* 商余数互比：qh、[dstq,na-nb]、余数 [numa,nb] 全等 */
@@ -138,7 +151,8 @@ static void print_info(void) {
     printf("binding_mode=runtime-branch\n");
     printf("default=%llu\n", (unsigned long long)DIV_DIVIDE_THRESHOLD);
     printf("current=%llu\n", (unsigned long long)lmmp_tune_DIV_DIVIDE_THRESHOLD);
-    printf("candidate_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N);
+    printf("candidate_range=%d..%d step=%d (scan upper bound %d)\n", CANDIDATE_MIN, CANDIDATE_LAST, CANDIDATE_STEP,
+           CANDIDATE_MAX);
     printf("input_range=na=2nb, nb %d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     printf("forced_root_equivalence=sub_n=ceil(n/2); candidates T<=sub_n via deployed scan\n");
     lmmp_tune_print_env();
@@ -170,7 +184,8 @@ int main(int argc, char** argv) {
     }
 
     const mp_size_t input_stride = 2 * MAX_N + 4;
-    mp_ptr storage = alloc_limbs(6 * input_stride);
+    const mp_size_t pool_stride = LMMP_TUNE_BATCH_COPIES * 2 * MAX_N;
+    mp_ptr storage = alloc_limbs(4 * input_stride + 2 * pool_stride);
     if (storage == NULL) {
         fprintf(stderr, "cannot allocate tune buffers\n");
         lmmp_global_deinit();
@@ -179,24 +194,24 @@ int main(int argc, char** argv) {
     mp_ptr numa_orig = storage;
     mp_ptr numb = storage + input_stride;
     mp_ptr numa_low = numb + input_stride;
-    mp_ptr q_low = numa_low + input_stride;
+    mp_ptr q_low = numa_low + pool_stride;
     mp_ptr numa_high = q_low + input_stride;
-    mp_ptr q_high = numa_high + input_stride;
+    mp_ptr q_high = numa_high + pool_stride;
     mp_ptr qfull = alloc_limbs(3 * MAX_N + 8); /* 完整商 nq+1 + 零扩展余数 na */
     mp_ptr anchor = alloc_limbs(2 * MAX_N + 8); /* 重建锚点需要 na+1 limb */
     double scores[CANDIDATE_MAX + 1] = {0};
     unsigned long counts[CANDIDATE_MAX + 1] = {0};
     double deployed_scores[CANDIDATE_MAX + 1] = {0};
     mp_size_t saved_threshold = lmmp_tune_DIV_DIVIDE_THRESHOLD;
-    unsigned stable_points = 0, unstable_points = 0;
+    unsigned stable_points = 0, unstable_points = 0, unstable_deployed = 0;
 
     printf("# program=tune_lmmpn_div_divide\n");
     printf("# parameter=DIV_DIVIDE_THRESHOLD\n");
     printf("# binding_mode=runtime-branch\n");
     printf("# default=%llu seed=%llu samples=%u min_ms=%.3f mad_limit=%.6f\n",
            (unsigned long long)DIV_DIVIDE_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
-    printf("# candidate_range=%d..%d step=%d input=na=2nb nb %d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N,
-           MIN_N, MAX_N, STEP_N);
+    printf("# candidate_range=%d..%d step=%d (scan upper bound %d) input=na=2nb nb %d..%d step=%d\n",
+           CANDIDATE_MIN, CANDIDATE_LAST, CANDIDATE_STEP, CANDIDATE_MAX, MIN_N, MAX_N, STEP_N);
     printf("# high=divide_ with T=n (sub_n=ceil(n/2), root-only); T<=sub_n candidates measured deployed via div_s_\n");
     printf("# DIV_MULINV_L/N keep defaults (nb<%llu never reaches mulinv)\n",
            (unsigned long long)lmmp_tune_DIV_MULINV_L_THRESHOLD);
@@ -213,6 +228,7 @@ int main(int argc, char** argv) {
 
         measure_context low_context = {.dstq = q_low,
                                        .numa = numa_low,
+                                       .cursor = numa_low,
                                        .numa_orig = numa_orig,
                                        .numb = numb,
                                        .na = na,
@@ -221,6 +237,7 @@ int main(int argc, char** argv) {
                                        .bind_threshold = saved_threshold};
         measure_context high_context = {.dstq = q_high,
                                         .numa = numa_high,
+                                        .cursor = numa_high,
                                         .numa_orig = numa_orig,
                                         .numb = numb,
                                         .na = na,
@@ -244,9 +261,9 @@ int main(int argc, char** argv) {
         }
 
         lmmp_tune_bench low_bench = {
-            .bind = bind_threshold, .reset = reset_input, .call = call_basecase, .context = &low_context};
+            .bind = bind_threshold, .reset_batch = reset_batch, .call = call_basecase, .context = &low_context};
         lmmp_tune_bench high_bench = {
-            .bind = bind_threshold, .reset = reset_input, .call = call_divide, .context = &high_context};
+            .bind = bind_threshold, .reset_batch = reset_batch, .call = call_divide, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
         bool stable;
@@ -275,6 +292,7 @@ int main(int argc, char** argv) {
              candidate += CANDIDATE_STEP) {
             measure_context dep_context = {.dstq = q_high,
                                            .numa = numa_high,
+                                           .cursor = numa_high,
                                            .numa_orig = numa_orig,
                                            .numb = numb,
                                            .na = na,
@@ -282,7 +300,7 @@ int main(int argc, char** argv) {
                                            .inv21 = inv21,
                                            .bind_threshold = (mp_size_t)candidate};
             lmmp_tune_bench dep_bench = {
-                .bind = bind_threshold, .reset = reset_input, .call = call_deployed, .context = &dep_context};
+                .bind = bind_threshold, .reset_batch = reset_batch, .call = call_deployed, .context = &dep_context};
             double dep_us, dep_mad;
             unsigned dep_retries;
             if (!lmmp_tune_measure(&dep_bench, &options, &dep_us, &dep_mad, &dep_retries)) {
@@ -290,6 +308,9 @@ int main(int argc, char** argv) {
                 result = EXIT_FAILURE;
                 break;
             }
+            /* 与配对测量同一规则：重试耗尽仍超限的样本保留计分，但计入不稳定并在汇总中提示 */
+            if (dep_mad > options.mad_limit)
+                ++unstable_deployed;
             deployed_scores[candidate] += dep_us;
             ++counts[candidate];
             printf("# deployed nb=%llu T=%d us=%.6f mad=%.6f retries=%u\n", (unsigned long long)nb, candidate, dep_us,
@@ -308,6 +329,8 @@ int main(int argc, char** argv) {
         } else {
             if (unstable_points > 0)
                 printf("# note: %u unstable point(s) retained in scoring\n", unstable_points);
+            if (unstable_deployed > 0)
+                printf("# note: %u unstable deployed sample(s) retained in scoring\n", unstable_deployed);
             recommend_stepped("DIV_DIVIDE_THRESHOLD", scores, counts, CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP,
                               saved_threshold);
         }
