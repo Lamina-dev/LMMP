@@ -37,25 +37,25 @@
 // Toom-22乘法阈值：超过此规模使用Toom-22乘法
 #define MUL_TOOM22_THRESHOLD 20
 // Toom-33乘法阈值：超过此规模使用Toom-33乘法
-#define MUL_TOOM33_THRESHOLD 115
+#define MUL_TOOM33_THRESHOLD 120
 // Toom-44乘法阈值：超过此规模使用Toom-44乘法
-#define MUL_TOOM44_THRESHOLD 305
+#define MUL_TOOM44_THRESHOLD 175
 // Toom-6.5乘法阈值：超过此规模使用 toom6h
-#define MUL_TOOM6H_THRESHOLD 459
+#define MUL_TOOM6H_THRESHOLD 315
 // Toom-8.5乘法阈值：超过此规模使用 toom8h
-#define MUL_TOOM8H_THRESHOLD 602
+#define MUL_TOOM8H_THRESHOLD 330
 // 平方 Toom 阈值：平方与乘法在各 toom 层的交叉点不完全一致，分立调优。
 // SQR_TOOM22 上限受硬编码平方 LMMP_MUL_HARD_MAX_N 钉死(与乘法同构)
 #define SQR_TOOM22_THRESHOLD 20
-#define SQR_TOOM33_THRESHOLD 268
-#define SQR_TOOM44_THRESHOLD 454
+#define SQR_TOOM33_THRESHOLD 325
+#define SQR_TOOM44_THRESHOLD 340
 // 平方 Toom-6/8 阈值
-#define SQR_TOOM6_THRESHOLD 609
-#define SQR_TOOM8_THRESHOLD 646
+#define SQR_TOOM6_THRESHOLD 470
+#define SQR_TOOM8_THRESHOLD 606
 // FFT乘法阈值：超过此规模使用快速傅里叶变换(FFT)乘法
-#define MUL_FFT_THRESHOLD 2345
+#define MUL_FFT_THRESHOLD 2845
 // FFT平方阈值：超过此规模使用FFT平方。平方与乘法的 toom4/FFT 交叉点
-#define SQR_FFT_THRESHOLD 1544
+#define SQR_FFT_THRESHOLD 2344
 // 低位乘法阈值：低于此规模使用朴素乘法
 #define MULLO_BASECASE_THRESHOLD 54
 // 低位平方阈值：低于此规模使用朴素平方
