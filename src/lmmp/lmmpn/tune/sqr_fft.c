@@ -29,11 +29,6 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 梯子顶端交叉：只测 sqr_toom8 ↔ FFT 一个边界。平方 toom 梯子的子问题规模
-   单调收缩且跨层坠落（toom8 子问题 ~n/8 落入 toom6 及以下），各层平方 toom
-   阈值保持默认、沿真实递归梯子被顺带覆盖，无需逐层设程序。
-   网格与候选同域 512..5400、步长 8：下端远高于 sqr_toom8 契约 na>=50 与
-   分派地板，候选低于现值时高路 FFT 测量仍代表部署路径（见下）。 */
 enum { MIN_N = 512, MAX_N = 5400, STEP_N = 8, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N };
 
 typedef struct {
@@ -43,9 +38,7 @@ typedef struct {
     mp_size_t threshold;
 } measure_context;
 
-/* 两路均直调算法内核，不依赖运行时分派选路；每个测量批次前把阈值恢复为默认值，
-   保证递归子问题沿真实部署梯子分派（只强制根层）。 */
-static void bind_default(void* opaque) {
+static void bind_threshold(void* opaque) {
     measure_context* context = opaque;
     lmmp_tune_SQR_FFT_THRESHOLD = context->threshold;
 }
@@ -59,11 +52,6 @@ static mp_limb_t fingerprint(mp_srcptr p, mp_size_t n) {
     return p[0] + p[n - 1];
 }
 
-/* 强制路径全网格干净（forced_root_equivalence=all_n）：FFT 引擎内部递归只按
-   MUL_FFT_MODF_THRESHOLD（本程序不绑定）切分，点乘消费 lmmp_sqr_ 时子问题
-   规模远小于被调阈值，T=n 不会改写 FFT 内部任何决策；低路 sqr_toom8 的自递归
-   阈值 SQR_TOOM8_THRESHOLD 同样不绑定，子问题恒沿默认梯子。故无需等价窗，
-   也无需 deployed 扫描：sub_n=0，全部候选直接复用本行两路测量。 */
 static mp_limb_t call_sqr_low(void* opaque) {
     measure_context* context = opaque;
     lmmp_sqr_toom8_(context->dst, context->numa, context->n);
@@ -134,7 +122,8 @@ int main(int argc, char** argv) {
            (unsigned long long)SQR_FFT_THRESHOLD, options.seed, options.samples, options.min_ms, options.mad_limit);
     printf("# candidate_range=%d..%d step=%d input_range=%d..%d step=%d\n", CANDIDATE_MIN, CANDIDATE_MAX, STEP_N,
            MIN_N, MAX_N, STEP_N);
-    printf("# forced_root_equivalence=all_n (fft recursion keyed by MUL_FFT_MODF_THRESHOLD, unbound)\n");
+    printf("# forced_root_equivalence=all_n (fft recursion keyed by MUL_FFT_MODF_THRESHOLD, unbound;\n");
+    printf("#   low path bound to n+1: toom8 internal SQR_TOOM8_MAX gates match every candidate T>n)\n");
     lmmp_tune_print_env_comment();
     printf("# n low_us low_mad high_us high_mad retries stable\n");
 
@@ -142,9 +131,12 @@ int main(int argc, char** argv) {
     for (mp_size_t n = MIN_N; n <= MAX_N; n += STEP_N) {
         fill_random(numa, n, (mp_limb_t)(options.seed + 4 * n));
 
-        measure_context low_context = {.dst = low, .numa = numa, .n = n, .threshold = saved_threshold};
+        measure_context low_context = {.dst = low, .numa = numa, .n = n, .threshold = n + 1};
         measure_context high_context = {.dst = high, .numa = numa, .n = n, .threshold = saved_threshold};
+        /* 正确性校验复用与计时相同的绑定：低路 n+1、高路默认 */
+        lmmp_tune_SQR_FFT_THRESHOLD = n + 1;
         lmmp_sqr_toom8_(low, numa, n);
+        lmmp_tune_SQR_FFT_THRESHOLD = saved_threshold;
         lmmp_sqr_fft_(high, numa, n);
         if (lmmp_cmp_(low, high, 2 * n) != 0) {
             fprintf(stderr, "sqr result mismatch at n=%llu\n", (unsigned long long)n);
@@ -153,9 +145,9 @@ int main(int argc, char** argv) {
         }
 
         lmmp_tune_bench low_bench = {
-            .bind = bind_default, .reset = reset_output, .call = call_sqr_low, .context = &low_context};
+            .bind = bind_threshold, .reset = reset_output, .call = call_sqr_low, .context = &low_context};
         lmmp_tune_bench high_bench = {
-            .bind = bind_default, .reset = reset_output, .call = call_sqr_high, .context = &high_context};
+            .bind = bind_threshold, .reset = reset_output, .call = call_sqr_high, .context = &high_context};
         double low_us, low_mad, high_us, high_mad;
         unsigned retries;
         bool stable;

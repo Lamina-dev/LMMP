@@ -241,24 +241,23 @@ void lmmp_sqrlo_dc_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_ptr restric
 
 void lmmp_mullo_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_srcptr restrict numb, mp_size_t n) {
     lmmp_param_assert(n > 0);
-    if (n < MULLO_DC_THRESHOLD) {
-        if (numa == numb) {
+    if (numa == numb) {
+        if (n < SQRLO_DC_THRESHOLD) {
             TEMP_DECL;
             mp_ptr restrict tp = TALLOC_TYPE(2 * n, mp_limb_t);
             lmmp_sqrlo_dc_(dst, numa, tp, n);
             TEMP_FREE;
             return;
         }
+    } else if (n < MULLO_DC_THRESHOLD) {
         TEMP_DECL;
         mp_ptr restrict tp = TALLOC_TYPE(2 * n, mp_limb_t);
         lmmp_mullo_dc_(dst, numa, numb, tp, n);
         TEMP_FREE;
         return;
-    } else {
-        TEMP_DECL;
-        mp_ptr restrict tp = TALLOC_TYPE(2 * n, mp_limb_t);
-        lmmp_mullo_fft_(dst, numa, numb, n, tp);
-        TEMP_FREE;
-        return;
     }
+    TEMP_DECL;
+    mp_ptr restrict tp = TALLOC_TYPE(2 * n, mp_limb_t);
+    lmmp_mullo_fft_(dst, numa, numb, n, tp);
+    TEMP_FREE;
 }

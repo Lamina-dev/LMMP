@@ -34,6 +34,8 @@ LMMP_API extern mp_size_t lmmp_tune_MUL_TOOM22_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQR_TOOM22_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQRLO_BASECASE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MULLO_DC_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQRLO_DC_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_MUL_FFT_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQR_FFT_THRESHOLD;
 
