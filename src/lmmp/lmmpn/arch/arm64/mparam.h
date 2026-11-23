@@ -77,9 +77,9 @@
 // 从字符串解析基数幂阈值：字符串解析时基数幂计算的策略选择临界值
 #define FROM_STR_BASEPOW_THRESHOLD 100
 // 分治梅森乘法（lmmp_mul_mersenne_dc_）递归入口阈值：rn 为偶且不低于此值时使用
-#define MUL_MERSENNE_DC_THRESHOLD 410
+#define MUL_MERSENNE_DC_THRESHOLD 72
 // 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值
-#define SQR_MERSENNE_DC_THRESHOLD 412
+#define SQR_MERSENNE_DC_THRESHOLD 72
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
 // lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
 #define MUL_MERSENNE_FERMAT_THRESHOLD 469

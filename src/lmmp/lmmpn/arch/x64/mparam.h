@@ -1,4 +1,4 @@
-/**
+﻿/**
  *  Copyright (C) 2026 HJimmyK (Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -21,19 +21,19 @@
  */
 
 // 除法阈值：当操作数规模超过此值时，使用分治除法算法
-#define DIV_DIVIDE_THRESHOLD 50
+#define DIV_DIVIDE_THRESHOLD 25
 // 乘法逆元L阈值：用于选择乘法逆元计算策略的临界值
-#define DIV_MULINV_L_THRESHOLD 427
+#define DIV_MULINV_L_THRESHOLD 527
 // 乘法逆元N阈值：用于选择乘法逆元计算策略的临界值
 #define DIV_MULINV_N_THRESHOLD 1736
 // 牛顿迭代求逆阈值：超过此规模使用牛顿迭代法求逆
-#define INV_NEWTON_THRESHOLD 21
+#define INV_NEWTON_THRESHOLD 16
 // 梅森变换求逆阈值：超过此规模牛顿步残差积走梅森乘法（分发入口，dc/fft）
-#define INV_MODM_THRESHOLD 64
+#define INV_MODM_THRESHOLD 200
 // 梅森变换乘法逆元阈值：卷绕余数更新的梅森积改用缓存（仅 fft）的分界
-#define DIV_MULINV_MODM_CACHE_THRESHOLD 427
+#define DIV_MULINV_MODM_CACHE_THRESHOLD 571
 // 同上场景的低档：朴素直乘改走梅森乘法（分发入口，不缓存）的分界
-#define DIV_MULINV_MODM_THRESHOLD 64
+#define DIV_MULINV_MODM_THRESHOLD 364
 // Toom-22乘法阈值：超过此规模使用Toom-22乘法
 #define MUL_TOOM22_THRESHOLD 20
 // Toom-33乘法阈值：超过此规模使用Toom-33乘法
@@ -77,12 +77,12 @@
 // 从字符串解析基数幂阈值：字符串解析时基数幂计算的策略选择临界值
 #define FROM_STR_BASEPOW_THRESHOLD 100
 // 分治梅森乘法（lmmp_mul_mersenne_dc_）递归入口阈值：rn 为偶且不低于此值时使用
-#define MUL_MERSENNE_DC_THRESHOLD 410
+#define MUL_MERSENNE_DC_THRESHOLD 72
 // 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值
-#define SQR_MERSENNE_DC_THRESHOLD 412
+#define SQR_MERSENNE_DC_THRESHOLD 96
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
 // lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
-#define MUL_MERSENNE_FERMAT_THRESHOLD 469
+#define MUL_MERSENNE_FERMAT_THRESHOLD 449
 #define SQR_MERSENNE_FERMAT_THRESHOLD 458
 // 梅森乘法分发阈值（lmmp_mul_mersenne_）：rn 低于此值走分治 dc，否则走 SSA FFT
 #define MUL_MERSENNE_FFT_THRESHOLD 543
