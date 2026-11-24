@@ -29,7 +29,7 @@
 // 牛顿迭代求逆阈值：超过此规模使用牛顿迭代法求逆
 #define INV_NEWTON_THRESHOLD 16
 // 梅森变换求逆阈值：超过此规模牛顿步残差积走梅森乘法（分发入口，dc/fft）
-#define INV_MODM_THRESHOLD 200
+#define INV_MODM_THRESHOLD 240
 // 梅森变换乘法逆元阈值：卷绕余数更新的梅森积改用缓存（仅 fft）的分界
 #define DIV_MULINV_MODM_CACHE_THRESHOLD 571
 // 同上场景的低档：朴素直乘改走梅森乘法（分发入口，不缓存）的分界
@@ -83,9 +83,9 @@
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
 // lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
 #define MUL_MERSENNE_FERMAT_THRESHOLD 512
-#define SQR_MERSENNE_FERMAT_THRESHOLD 458
+#define SQR_MERSENNE_FERMAT_THRESHOLD 398
 // 梅森乘法分发阈值（lmmp_mul_mersenne_）：rn 低于此值走分治 dc，否则走 SSA FFT
-#define MUL_MERSENNE_FFT_THRESHOLD 543
+#define MUL_MERSENNE_FFT_THRESHOLD 1913
 #define SQR_MERSENNE_FFT_THRESHOLD 543
 // 某些计算中，一次性处理的64位数组的长度（此大小为64位数组的长度）
 #define PART_SIZE 256

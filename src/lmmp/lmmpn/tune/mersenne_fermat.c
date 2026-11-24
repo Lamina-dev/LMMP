@@ -38,13 +38,15 @@
    两阶段扫描：
      粗扫：候选取 64 格点上的可用尺寸，逐 (rn,T) 绑候选走完整 dc 入口实测。其半域
            长度全是 64 的倍数，分不开格点之间的阈值，只把交叉定位到 ±128；
-     细扫：窗口=粗扫最优 ±128，候选为窗口内每个整数。网格点 rn=2^k·n（k=1..3）上，
-           n/2 < T <= 2n 的候选其部署耗时恰为 n>=T 取费马路、否则取 subfold 路——树中
-           其余节点在这些候选下的取法与两路绑定（T=n+1 与 T=n）一致。窗口两端越出该
-           范围的候选所在的网格点对所有候选都不计分（网格规则见 main），各候选点集
-           相同。逐点差值带每次运行各异的系统偏移（数 µs 量级），只有趋势可复现，
-           最小值位置以多轮平坦带交集为准。最优贴近窗口边缘时整体外移重扫（至多
-           FINE_MAX_SHIFTS 次）；推荐值以细扫为准。
+     细扫：窗口=粗扫最优 ±128，候选为窗口内每个整数。网格点 rn=2^k·n（k=1..3，n 取
+           窗口内每个可用整数）上按部署路径给候选分类：门只加在半域积节点 …n/2、n、2n、
+           4n 上，每类绑一个代表阈值走完整 dc 入口实测（low/high 配对，第三路单独测，
+           分类与适用条件见 scan_fine）。每个候选在每个网格点恰有一条与其部署路径相同的
+           测量 ⟹ 点集对全部候选一致，窗口被 CAND_MIN 钳制时上半部候选仍由 n>=T 的
+           网格点区分，不会因共用 low 路得分相同。逐点差值带每次运行
+           各异的系统偏移（数 µs 量级），只有趋势可复现，最小值位置以多轮平坦带交集
+           为准。最优贴近窗口边缘时整体外移重扫（至多 FINE_MAX_SHIFTS 次）；推荐值
+           以细扫为准。
    参考曲线 ref=绑超大 T（全树 subfold），逐点比值供交叉定位。
    DC/MODF 保持默认；rn 取偶数（dc 分治要求），rn<2*DC 默认时 dc 退化为基例、
    门不可达，该段候选评分恒等（注记）。
@@ -57,6 +59,9 @@ enum {
     FINE_MAX_RN = (1 << FINE_LEVELS) * CAND_MAX, MAX_COARSE_CANDS = CAND_MAX / COARSE_STEP + 1,
     REF_DISABLE = 1u << 20
 };
+/* 逐点路径分类（scan_fine）的前提：窗口上沿 < 4*窗口下沿，使 n/4 恒低于 cand_min、4n 恒不低于
+   cand_max、deep 与 upper 不并存 */
+_Static_assert(2 * FINE_HALF_WIDTH < 3 * CAND_MIN, "fine window too wide for the per-point path classes");
 
 typedef struct {
     mp_ptr dst;
@@ -198,13 +203,37 @@ static int scan_coarse(mp_size_t rn, int shape, mp_srcptr numa, mp_srcptr numb, 
     return 0;
 }
 
-/* 测一个细扫网格点 rn=2^level·n 并返回 0：先核正确性（两路绑定与默认门 ↔ 全 subfold ↔
-   全积折叠 oracle），再配对测量 low=绑 T=n+1、high=绑 T=n，交公共评分器按 n>=T 为窗口内
-   每个候选累加 */
+/* 细扫逐点评分：候选按部署路径归类，取所属那一路的耗时，每个候选计 1 点。
+   deep/upper 非零时 extra_us 分别是 deep 路（T<=n/2）与 upper 路（T>2n）的耗时 */
+static void score_fine_point(double* scores, unsigned long* counts, mp_size_t cand_min, mp_size_t cand_max,
+                             mp_size_t n, bool deep, bool upper, double low_us, double high_us, double extra_us) {
+    for (mp_size_t c = cand_min; c <= cand_max; ++c) {
+        double us = c <= n ? high_us : low_us;
+        if (deep && c <= n / 2) us = extra_us;
+        if (upper && c > 2 * n) us = extra_us;
+        scores[c] += us;
+        ++counts[c];
+    }
+}
+
+/* 测一个细扫网格点 rn=2^level·n 并返回 0：先核正确性（各路绑定与默认门 ↔ 全 subfold ↔ 全积
+   折叠 oracle），再测各路耗时，交 score_fine_point。门只加在半域积节点 …n/2、n、2n、4n 上
+   （节点 s>=T 且可用时走费马），同一可用节点两侧的候选部署路径不同，故按路径分类、每类绑
+   一个代表阈值走完整 dc 入口：
+     low   T=n+1     T>n
+     high  T=n       n/2<T<=n
+     deep  T=n/2     T<=n/2；仅当节点 n/2 被门控（n 偶、n>=DC、可用）且不低于 cand_min
+     upper T=2n+1    T>2n；仅当 level>=2 且可用节点 2n 落在窗口内
+   更深的节点 n/4 恒低于 cand_min（窗口宽 <=256、cand_min>=128），更浅的 4n 恒不低于 cand_max，
+   都不区分候选；deep 与 upper 不能并存（并存要求 cand_max>4*cand_min）。每个候选在每个网格点
+   恰有一条与其部署路径相同的测量，点集对全部候选一致。 */
 static int scan_fine(mp_size_t rn, mp_size_t n, int level, mp_srcptr numa, const work_buffers* work,
                      const lmmp_tune_options* options, mp_size_t saved_threshold, mp_size_t cand_min,
                      mp_size_t cand_max, double* scores, unsigned long* counts, unsigned* stable_points,
                      unsigned* unstable_points) {
+    const bool deep = n >= 2 * cand_min && (n & 1) == 0 && n >= MUL_MERSENNE_DC_THRESHOLD && fermat_usable(n / 2);
+    const bool upper = level >= 2 && 2 * n < cand_max && fermat_usable(2 * n);
+    const mp_size_t extra_gate = deep ? n / 2 : 2 * n + 1;
     lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD = REF_DISABLE;
     lmmp_mul_mersenne_dc_(work->ref_out, rn, numa, rn, numa, rn);
     lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD = saved_threshold;
@@ -213,8 +242,8 @@ static int scan_fine(mp_size_t rn, mp_size_t n, int level, mp_srcptr numa, const
         fprintf(stderr, "mersenne fermat ref/oracle mismatch at rn=%llu\n", (unsigned long long)rn);
         return -1;
     }
-    const mp_size_t gates[3] = {saved_threshold, n + 1, n};
-    for (int gi = 0; gi < 3; ++gi) {
+    const mp_size_t gates[4] = {saved_threshold, n + 1, n, extra_gate};
+    for (int gi = 0; gi < (deep || upper ? 4 : 3); ++gi) {
         lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD = gates[gi];
         lmmp_mul_mersenne_dc_(work->out, rn, numa, rn, numa, rn);
         if (lmmp_cmp_(work->out, work->ref_out, rn) != 0) {
@@ -243,14 +272,33 @@ static int scan_fine(mp_size_t rn, mp_size_t n, int level, mp_srcptr numa, const
                 (unsigned long long)n, level);
         return -1;
     }
+    /* 第三路单独测量：它与配对两路之间只差单点的系统偏移，只影响跨该节点的相邻候选 */
+    double extra_us = 0.0, extra_mad = 0.0;
+    unsigned extra_retries = 0;
+    if (deep || upper) {
+        measure_context extra_context = low_context;
+        extra_context.bind_threshold = extra_gate;
+        lmmp_tune_bench extra_bench = {
+            .bind = bind_threshold, .reset = reset_output, .call = call_dc, .context = &extra_context};
+        if (!lmmp_tune_measure(&extra_bench, options, &extra_us, &extra_mad, &extra_retries)) {
+            fprintf(stderr, "extra path measurement failed at rn=%llu n=%llu level=%d\n", (unsigned long long)rn,
+                    (unsigned long long)n, level);
+            return -1;
+        }
+        stable = stable && extra_mad <= options->mad_limit;
+    }
     if (stable)
         ++*stable_points;
     else
         ++*unstable_points;
-    printf("# fine n=%llu level=%d rn=%llu low_us=%.6f low_mad=%.6f high_us=%.6f high_mad=%.6f retries=%u stable=%d\n",
+    printf("# fine n=%llu level=%d rn=%llu low_us=%.6f low_mad=%.6f high_us=%.6f high_mad=%.6f retries=%u stable=%d",
            (unsigned long long)n, level, (unsigned long long)rn, low_us, low_mad, high_us, high_mad, retries, stable);
-    /* 树中更深一层的同阈值节点规模为 n/2：窗口候选不高于它时本点两路不再代表部署路径 */
-    lmmp_tune_score_point(scores, counts, (int)cand_min, (int)cand_max, n, n / 2, low_us, high_us);
+    if (deep || upper) {
+        const char* tag = deep ? "deep" : "upper";
+        printf(" %s_us=%.6f %s_mad=%.6f %s_retries=%u", tag, extra_us, tag, extra_mad, tag, extra_retries);
+    }
+    printf("\n");
+    score_fine_point(scores, counts, cand_min, cand_max, n, deep, upper, low_us, high_us, extra_us);
     return 0;
 }
 
@@ -267,9 +315,10 @@ static void print_info(void) {
     printf("        shapes{na=nb=rn scoring, nb=rn/2+1 report only}; locates the fine window only\n");
     printf("fine: candidates=every integer within coarse best +/-%d (up to %d edge shift of %d)\n", FINE_HALF_WIDTH,
            FINE_MAX_SHIFTS, FINE_HALF_WIDTH);
-    printf("      input=rn in {2n,4n,8n} over every usable n of the window, shape0, paired T=n+1 vs T=n;\n");
-    printf("      grid cut to n<2*window_lo, and to rn=2n where 2n<window_hi, so every candidate is\n");
-    printf("      scorable and exactly represented at every counted point (same point set for all);\n");
+    printf("      input=rn in {2n,4n,8n} over every usable n of the window, shape0; candidates are\n");
+    printf("      grouped by deployed path per point: paired T=n+1 (T>n) vs T=n (n/2<T<=n), plus a\n");
+    printf("      single T=n/2 run when the n/2 node is gated (T<=n/2) or T=2n+1 when 2n<window_hi\n");
+    printf("      (T>2n, level>=2); every candidate is measured at every point (same point set for all);\n");
     printf("      recommendation comes from this phase\n");
     printf("forced_root_equivalence=none (gate inside recursion; all candidates measured deployed)\n");
     lmmp_tune_print_env();
@@ -369,30 +418,21 @@ int main(int argc, char** argv) {
         printf("# coarse_recommended=%llu (64-lattice, locates the fine window only)\n", (unsigned long long)center);
     }
 
-    /* ---- 细扫：窗口内逐整数候选，配对测量；最优落在窗口边缘时整体外移重扫 ---- */
+    /* ---- 细扫：窗口内逐整数候选，按部署路径分类测量；最优落在窗口边缘时整体外移重扫 ---- */
     for (int shifts = 0; result == EXIT_SUCCESS; ++shifts) {
         memset(fine_scores, 0, sizeof(fine_scores));
         memset(fine_counts, 0, sizeof(fine_counts));
         fine_stable = 0;
         fine_unstable = 0;
-        /* 计分点集须对窗口内每个候选相同，而两路绑定只精确代表 n/2 < T <= 2n 的候选：
-             T<=n/2 在更深节点 n/2 也走费马，评分器跳过它（各候选点集不一致）；
-             T>2n 在上层节点 2n 改走 subfold（level>=2 才有该节点），两路都没测到。
-           故 n >= 2*window_lo 的点整点不计，2n < window_hi 的点只测 level 1；
-           半宽 128 的窗口在 window_lo >= 257 时两条都不触发。 */
-        const mp_size_t grid_hi = 2 * window_lo - 1 < window_hi ? 2 * window_lo - 1 : window_hi;
-        printf("# phase=fine window=%llu..%llu step=1 (shift %d of %d; grid n=%llu..%llu)\n",
-               (unsigned long long)window_lo, (unsigned long long)window_hi, shifts, FINE_MAX_SHIFTS,
-               (unsigned long long)window_lo, (unsigned long long)grid_hi);
-        printf("# fine n level rn low_us low_mad high_us high_mad retries stable\n");
-        for (mp_size_t n = window_lo; n <= grid_hi && result == EXIT_SUCCESS; ++n) {
+        printf("# phase=fine window=%llu..%llu step=1 (shift %d of %d)\n", (unsigned long long)window_lo,
+               (unsigned long long)window_hi, shifts, FINE_MAX_SHIFTS);
+        printf("# fine n level rn low_us low_mad high_us high_mad retries stable [deep|upper _us _mad _retries]\n");
+        for (mp_size_t n = window_lo; n <= window_hi && result == EXIT_SUCCESS; ++n) {
             if (!fermat_usable(n))
                 continue;
             for (int level = 1; level <= FINE_LEVELS && result == EXIT_SUCCESS; ++level) {
                 mp_size_t rn = ((mp_size_t)1 << level) * n;
                 if (rn > FINE_MAX_RN)
-                    break;
-                if (level >= 2 && 2 * n < window_hi)
                     break;
                 fill_random(numa, rn, (mp_limb_t)(options.seed + 4 * rn + 2));
                 if (scan_fine(rn, n, level, numa, &work, &options, saved_threshold, window_lo, window_hi, fine_scores,
