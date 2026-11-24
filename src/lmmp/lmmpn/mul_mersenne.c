@@ -423,6 +423,11 @@ void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, 
         numb = tp;
         nb = tn;
     }
+    if (na + nb <= rn / 2) {
+        lmmp_mul_(dst, numa, na, numb, nb);
+        lmmp_zero(dst + na + nb, rn - (na + nb));
+        return;
+    }
     /* fft 分支要求 rn 为 fft 可行尺寸（缓存结构与 mersenne_next_size 的粗粒度
        输出均不保证），未对齐时回落 dc（任意 rn 合法） */
     if (rn >= MUL_MERSENNE_FFT_THRESHOLD && lmmp_fft_next_size_(rn) == rn)
@@ -432,6 +437,11 @@ void lmmp_mul_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na, 
 }
 
 void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na) {
+    if (4 * na <= rn) {
+        lmmp_sqr_(dst, numa, na);
+        lmmp_zero(dst + 2 * na, rn - 2 * na);
+        return;
+    }
     if (rn >= SQR_MERSENNE_FFT_THRESHOLD && lmmp_fft_next_size_(rn) == rn)
         lmmp_sqr_mersenne_fft_(dst, rn, numa, na);
     else

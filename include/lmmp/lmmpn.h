@@ -645,7 +645,8 @@ LMMP_API void lmmp_mul_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp
  * @param nb 第二个操作数的 limb 长度
  * @warning sep(dst,[numa|numb]), 0<=[numa,na]<B^rn, 0<=[numb,nb]<B^rn, dst!=NULL, numa!=NULL, numb!=NULL
  * @note na/nb 大小序不限（内部按交换律规范化为 nb<=na）；rn 对齐粒度不限
- *      （未达 fft 可行尺寸时即使超过阈值也回落 dc）；
+ *      （未达 fft 可行尺寸时即使超过阈值也回落 dc）；小操作数（na+nb<=rn/2）直接
+ *      普通乘法+补零返回，不进入 fft/dc 档；
  *       如果[numa,na]==[numb,nb]，请使用lmmp_sqr_mersenne_函数，此函数不会检查操作数是否一致并跳转到lmmp_sqr_mersenne_函数；
  * @return 无返回值，结果存储在dst中
  */
@@ -694,6 +695,7 @@ LMMP_API void lmmp_sqr_mersenne_dc_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp
  * @param numa 输入操作数，长度为 na
  * @param na 输入操作数的 limb 长度
  * @warning sep(dst,numa), 0<=[numa,na]<B^rn, dst!=NULL, numa!=NULL
+ * @note 小操作数（4*na<=rn）直接普通平方+补零返回，不进入 fft/dc 档
  * @return 无返回值，结果存储在dst中
  */
 LMMP_API void lmmp_sqr_mersenne_(mp_ptr dst, mp_size_t rn, mp_srcptr numa, mp_size_t na);
