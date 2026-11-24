@@ -72,18 +72,16 @@
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
 #define GCD_HGCD_THRESHOLD 86
 // 精确除法中，除数小于此阈值时使用朴素法
-#define DIVEXACT_BASECASE_THRESHOLD 62
-// 精确除法中，被除数小于此阈值时使用朴素法
-#define DIVEXACT_NN_THRESHOLD 699
+#define DIVEXACT_BASECASE_THRESHOLD 96
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
 #define HGCD_MODMUL_CACHE_THRESHOLD 543
 // hgcd 矩阵应用模乘的低档：朴素调整改走梅森乘法（分发入口，不缓存）
 #define HGCD_MODMUL_THRESHOLD 64
 // divexact mu 主循环中，使用梅森变换的阈值
-#define DIVEXACT_MERSENNE_THRESHOLD 1540
+#define DIVEXACT_MERSENNE_THRESHOLD 64
 // divexact mu 主循环中，使用梅森缓存变换的阈值
-#define DIVEXACT_MERSENNE_CACHE_THRESHOLD 1540
-// 试除法分派阈值：nn 低于此值回退 mod_preinv_1_ 腿（块积预处理全局表复用）
+#define DIVEXACT_MERSENNE_CACHE_THRESHOLD 812
+// 试除法分派阈值：nn 低于此值回退 mod_preinv_1_
 #define TRIALDIV_PREINV_THRESHOLD 12
 // 试除法分派阈值：nn 达到此值起 8 链折叠取模，中间段 4 链
 #define TRIALDIV_K8_THRESHOLD 192
