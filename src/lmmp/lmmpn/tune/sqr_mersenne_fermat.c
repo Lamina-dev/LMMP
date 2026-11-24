@@ -38,13 +38,13 @@
    两阶段扫描：
      粗扫：候选取 64 格点上的可用尺寸，逐 (rn,T) 绑候选走完整 dc 入口实测。其半域
            长度全是 64 的倍数，分不开格点之间的阈值，只把交叉定位到 ±128；
-     细扫：窗口=粗扫最优 ±128，候选为窗口内每个整数。网格点 rn=2^k·n（k=1..3，n 取
-           窗口内每个可用整数）上，窗口内任意候选 T 的部署耗时恰为 n>=T 取费马路、
-           否则取 subfold 路——树中其余节点在窗口候选下的取法与两路绑定（T=n+1 与
-           T=n）一致，故逐点配对测量后交公共评分器逐候选累加。逐点差值带每次运行
-           各异的系统偏移（数 µs 量级），只有趋势可复现，最小值位置以多轮平坦带交集
-           为准。最优贴近窗口边缘时整体外移重扫（至多 FINE_MAX_SHIFTS 次）；推荐值
-           以细扫为准。
+     细扫：窗口=粗扫最优 ±128，候选为窗口内每个整数。网格点 rn=2^k·n（k=1..3）上，
+           n/2 < T <= 2n 的候选其部署耗时恰为 n>=T 取费马路、否则取 subfold 路——树中
+           其余节点在这些候选下的取法与两路绑定（T=n+1 与 T=n）一致。窗口两端越出该
+           范围的候选所在的网格点对所有候选都不计分（网格规则见 main），各候选点集
+           相同。逐点差值带每次运行各异的系统偏移（数 µs 量级），只有趋势可复现，
+           最小值位置以多轮平坦带交集为准。最优贴近窗口边缘时整体外移重扫（至多
+           FINE_MAX_SHIFTS 次）；推荐值以细扫为准。
    参考曲线 ref=绑超大 T（全树 subfold），逐点比值供交叉定位。
    DC/MODF 保持默认；rn 取偶数（dc 分治要求），rn/2<DC 默认时 dc 退化为基例、
    门不可达（注记）。
@@ -140,6 +140,8 @@ static int scan_coarse(mp_size_t rn, int shape, mp_srcptr numa, mp_size_t na, co
                        int cand_count, double* scores, unsigned long* counts, int scoring, const work_buffers* work,
                        const lmmp_tune_options* options, mp_size_t saved_threshold, unsigned* stable_points,
                        unsigned* unstable_points) {
+    /* 上一点的候选循环把阈值留在最后一个候选上，默认门校验前显式恢复 */
+    lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD = saved_threshold;
     lmmp_sqr_mersenne_dc_(work->out, rn, numa, na);
     lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD = REF_DISABLE;
     lmmp_sqr_mersenne_dc_(work->ref_out, rn, numa, na);
@@ -259,6 +261,8 @@ static void print_info(void) {
     printf("fine: candidates=every integer within coarse best +/-%d (up to %d edge shift of %d)\n", FINE_HALF_WIDTH,
            FINE_MAX_SHIFTS, FINE_HALF_WIDTH);
     printf("      input=rn in {2n,4n,8n} over every usable n of the window, shape0, paired T=n+1 vs T=n;\n");
+    printf("      grid cut to n<2*window_lo, and to rn=2n where 2n<window_hi, so every candidate is\n");
+    printf("      scorable and exactly represented at every counted point (same point set for all);\n");
     printf("      recommendation comes from this phase\n");
     printf("forced_root_equivalence=none (gate inside recursion; all candidates measured deployed)\n");
     lmmp_tune_print_env();
@@ -360,15 +364,24 @@ int main(int argc, char** argv) {
         memset(fine_counts, 0, sizeof(fine_counts));
         fine_stable = 0;
         fine_unstable = 0;
-        printf("# phase=fine window=%llu..%llu step=1 (shift %d of %d)\n", (unsigned long long)window_lo,
-               (unsigned long long)window_hi, shifts, FINE_MAX_SHIFTS);
+        /* 计分点集须对窗口内每个候选相同，而两路绑定只精确代表 n/2 < T <= 2n 的候选：
+             T<=n/2 在更深节点 n/2 也走费马，评分器跳过它（各候选点集不一致）；
+             T>2n 在上层节点 2n 改走 subfold（level>=2 才有该节点），两路都没测到。
+           故 n >= 2*window_lo 的点整点不计，2n < window_hi 的点只测 level 1；
+           半宽 128 的窗口在 window_lo >= 257 时两条都不触发。 */
+        const mp_size_t grid_hi = 2 * window_lo - 1 < window_hi ? 2 * window_lo - 1 : window_hi;
+        printf("# phase=fine window=%llu..%llu step=1 (shift %d of %d; grid n=%llu..%llu)\n",
+               (unsigned long long)window_lo, (unsigned long long)window_hi, shifts, FINE_MAX_SHIFTS,
+               (unsigned long long)window_lo, (unsigned long long)grid_hi);
         printf("# fine n level rn low_us low_mad high_us high_mad retries stable\n");
-        for (mp_size_t n = window_lo; n <= window_hi && result == EXIT_SUCCESS; ++n) {
+        for (mp_size_t n = window_lo; n <= grid_hi && result == EXIT_SUCCESS; ++n) {
             if (!fermat_usable(n))
                 continue;
             for (int level = 1; level <= FINE_LEVELS && result == EXIT_SUCCESS; ++level) {
                 mp_size_t rn = ((mp_size_t)1 << level) * n;
                 if (rn > FINE_MAX_RN)
+                    break;
+                if (level >= 2 && 2 * n < window_hi)
                     break;
                 fill_random(numa, rn, (mp_limb_t)(options.seed + 4 * rn + 2));
                 if (scan_fine(rn, n, level, numa, &work, &options, saved_threshold, window_lo, window_hi, fine_scores,
