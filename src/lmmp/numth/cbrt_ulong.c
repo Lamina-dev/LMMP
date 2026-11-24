@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK (Jericho Knox)
  *
  *  This file is part of LMMP.

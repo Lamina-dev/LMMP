@@ -62,6 +62,8 @@
 #define SQRLO_BASECASE_THRESHOLD 32
 // 低位乘法阈值：低于此规模使用分治乘法
 #define MULLO_DC_THRESHOLD 3538
+// 低位平方阈值：低于此规模使用分治平方
+#define SQRLO_DC_THRESHOLD 3538
 // 精确逆元阈值：高于此规模使用牛顿迭代法
 #define BNINV_NEWTON_THRESHOLD 20
 // 费马变换阈值：低于此规模使用直接乘法而不再进行递归
@@ -75,9 +77,9 @@
 // 从字符串解析基数幂阈值：字符串解析时基数幂计算的策略选择临界值
 #define FROM_STR_BASEPOW_THRESHOLD 100
 // 分治梅森乘法（lmmp_mul_mersenne_dc_）递归入口阈值：rn 为偶且不低于此值时使用
-#define MUL_MERSENNE_DC_THRESHOLD 10
+#define MUL_MERSENNE_DC_THRESHOLD 72
 // 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值
-#define SQR_MERSENNE_DC_THRESHOLD 12
+#define SQR_MERSENNE_DC_THRESHOLD 72
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
 // lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
 #define MUL_MERSENNE_FERMAT_THRESHOLD 469

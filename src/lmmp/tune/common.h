@@ -39,12 +39,27 @@ typedef struct {
     unsigned long long seed;
 } lmmp_tune_options;
 
+/* 破坏输入的基准每段计时前准备的输入副本上限；工作区须容纳这么多份输入 */
+enum { LMMP_TUNE_BATCH_COPIES = 256 };
+
 typedef struct {
     void (*bind)(void* context);
+    /* reset 与 reset_batch 二选一：reset 每块计时前重建一次输入，供只读输入的基准；
+       reset_batch 供会原地改写输入的基准，在每段计时前把 count 份原始输入依次铺进工作区
+       并回到首份，之后每次 call 只消费一份并自行推进游标，铺副本的时间不计入 */
     void (*reset)(void* context);
+    void (*reset_batch)(void* context, mp_size_t count);
     mp_limb_t (*call)(void* context);
     void* context;
 } lmmp_tune_bench;
+
+/** @brief 配对测量末次尝试的逐样本记录：low_first 是各样本实际的先后顺序，
+ *         其余两项是两路各自的原始块计时。 */
+typedef struct {
+    bool low_first[31];
+    double low_us[31];
+    double high_us[31];
+} lmmp_tune_pair_trace;
 
 void lmmp_tune_options_init(lmmp_tune_options* options);
 bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options);
@@ -58,8 +73,9 @@ bool lmmp_tune_measure(const lmmp_tune_bench* bench,
 
 /**
  * @brief 交替测量 low/high 两条路径：每个采样批次前分别重新绑定两路参数并重建输入，
- *        批内先测 low 再测 high，两路承受相同的漂移与热状态；任一路 MAD 超限则整组重测。
- *        重试耗尽仍超限时返回 true 并保留测量数据（诊断用），*stable 置 0 标记不可靠。
+ *        样本间交替先测哪一路（偶数样本先 low、奇数样本先 high），两路承受相同的漂移与
+ *        热状态；任一路 MAD 超限则整组重测。重试耗尽仍超限时返回 true 并保留测量数据
+ *        （诊断用），*stable 置 0 标记不可靠。
  */
 bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             const lmmp_tune_bench* high,
@@ -70,6 +86,19 @@ bool lmmp_tune_measure_pair(const lmmp_tune_bench* low,
                             double* high_mad,
                             unsigned* retries,
                             bool* stable);
+
+/** @brief 与 lmmp_tune_measure_pair 相同，另把末次尝试各样本的实际测量顺序与两路原始块计时
+ *         写入 trace；trace 可为 NULL。 */
+bool lmmp_tune_measure_pair_traced(const lmmp_tune_bench* low,
+                                   const lmmp_tune_bench* high,
+                                   const lmmp_tune_options* options,
+                                   double* low_us,
+                                   double* low_mad,
+                                   double* high_us,
+                                   double* high_mad,
+                                   unsigned* retries,
+                                   bool* stable,
+                                   lmmp_tune_pair_trace* trace);
 
 /** @brief 调优程序统一安装的静默退出回调：把库内断言失败打印到标准错误后立即退出，避免弹窗。 */
 void lmmp_tune_abort(lmmp_error_t type, const char* message, const char* function, int line);

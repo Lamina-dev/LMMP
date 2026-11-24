@@ -34,7 +34,7 @@ static inline void lmmp_sqrlo_n_(
     mp_size_t             n,
     mp_ptr    restrict   tp
 ) {
-    if (n < MULLO_DC_THRESHOLD) {
+    if (n < SQRLO_DC_THRESHOLD) {
         lmmp_sqrlo_dc_(dst, numa, tp, n);
     } else {
         lmmp_mullo_fft_(dst, numa, numa, n, tp);

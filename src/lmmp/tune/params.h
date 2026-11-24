@@ -34,6 +34,23 @@ LMMP_API extern mp_size_t lmmp_tune_MUL_TOOM22_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQR_TOOM22_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_MULLO_BASECASE_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQRLO_BASECASE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MULLO_DC_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQRLO_DC_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MUL_FFT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQR_FFT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_DIV_DIVIDE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_DIV_MULINV_L_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_DIV_MULINV_N_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_INV_NEWTON_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_INV_MODM_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_DIV_MULINV_MODM_CACHE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_DIV_MULINV_MODM_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MUL_MERSENNE_DC_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQR_MERSENNE_DC_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_MUL_MERSENNE_FFT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQR_MERSENNE_FFT_THRESHOLD;
 
 #ifdef __cplusplus
 }

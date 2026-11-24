@@ -1,4 +1,4 @@
-﻿/**
+/**
  *  Copyright (C) 2026 HJimmyK (Jericho Knox)
  *
  *  This file is part of LMMP.
@@ -104,7 +104,7 @@ void lmmp_mul_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, mp_sr
             lmmp_mul_toom62_(dst, numa, na, numb, nb);
         else
             lmmp_mul_toom93_unbalance_(dst, numa, na, numb, nb);
-    } else if (((na + nb) >> 1) < MUL_FFT_THRESHOLD || 5 * nb < MUL_FFT_THRESHOLD) {
+    } else if (((na + nb) >> 1) < MUL_FFT_THRESHOLD || 4 * nb < MUL_FFT_THRESHOLD) {
         if (na < 4 * nb)
             lmmp_mul_toom8h_(dst, numa, na, numb, nb);
         else
