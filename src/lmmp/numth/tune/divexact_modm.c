@@ -270,9 +270,10 @@ int main(int argc, char** argv) {
                     point_us[point_count][rung] = us[rung];
                 ++point_count;
             }
-            /* DIVEXACT_MERSENNE 轴：候选 m 配默认 DIVEXACT_MERSENNE_CACHE=c0 */
+            /* DIVEXACT_MERSENNE 轴：候选 m 配默认 DIVEXACT_MERSENNE_CACHE=c0，
+               判序镜像生产分派（CACHE 先判，m>c0 的候选在 [c0,m) 段部署为 C 档） */
             for (int m = MRS_CAND_MIN; m <= MRS_CAND_MAX; m += MRS_CAND_STEP) {
-                double pick = dn >= (mp_size_t)m ? (dn >= saved_cache ? us[2] : us[1]) : us[0];
+                double pick = dn >= saved_cache ? us[2] : (dn >= (mp_size_t)m ? us[1] : us[0]);
                 mrs_scores[m] += pick;
                 ++mrs_counts[m];
             }

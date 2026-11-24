@@ -119,35 +119,39 @@ static int check_roundtrip(mp_srcptr numa, mp_size_t na, const mp_byte_t* digits
     return 1;
 }
 
-/* 候选按步长稀疏，公共 recommend 的逐整数遍历不适用，自行汇总 */
+/* 候选按步长稀疏，公共 recommend 的逐整数遍历不适用，自行汇总。
+   选择域封顶 saved_basepow_bound()：basecase 栈数组 tp[1+TO_STR_BASEPOW_THRESHOLD]
+   以 na<=TO_STR_BASEPOW 为界，divide 递归以 na<T 调 basecase ⟹ 安全 T<=BASEPOW+1；
+   超限候选仍参与测量与 badness 诊断输出，只是不进入推荐与平坦带 */
 static mp_size_t saved_basepow_bound(void) {
     return lmmp_tune_TO_STR_BASEPOW_THRESHOLD + 1;
 }
 
 static void recommend_stepped(const char* name, const double* scores, const unsigned long* counts, int cmin,
                               int cmax, int cstep, mp_size_t current) {
+    int select_max = (int)saved_basepow_bound();
+    if (select_max > cmax)
+        select_max = cmax;
     int best = cmin;
-    for (int c = cmin + cstep; c <= cmax; c += cstep)
+    for (int c = cmin + cstep; c <= select_max; c += cstep)
         if (counts[c] && scores[c] / counts[c] < scores[best] / counts[best])
             best = c;
     double best_score = scores[best] / counts[best];
     int flat_low = best, flat_high = best;
     while (flat_low - cstep >= cmin && scores[flat_low - cstep] / counts[flat_low - cstep] <= best_score * 1.01)
         flat_low -= cstep;
-    while (flat_high + cstep <= cmax && scores[flat_high + cstep] / counts[flat_high + cstep] <= best_score * 1.01)
+    while (flat_high + cstep <= select_max && scores[flat_high + cstep] / counts[flat_high + cstep] <= best_score * 1.01)
         flat_high += cstep;
     for (int c = cmin; c <= cmax; c += cstep)
         if (counts[c])
             printf("# badness candidate=%d avg_us=%.6f\n", c, scores[c] / counts[c]);
+    printf("# select_max=%d (TO_STR_BASEPOW+1, production stack bound)\n", select_max);
     printf("# recommended=%d\n", best);
     printf("# recommended_avg_us=%.6f\n", best_score);
     printf("# flat_within_1pct=%d..%d\n", flat_low, flat_high);
     printf("# current=%llu\n", (unsigned long long)current);
     printf("# points=%lu\n", counts[best]);
     printf("recommended %s = %d\n", name, best);
-    if (best > (int)saved_basepow_bound())
-        printf("# warning: recommended value exceeds TO_STR_BASEPOW+1 (%d); production stack array would overflow\n",
-               (int)saved_basepow_bound());
 }
 
 static void print_info(void) {
@@ -161,7 +165,7 @@ static void print_info(void) {
            CANDIDATE_MAX);
     printf("input_range=na %d..%d step=%d\n", MIN_N, MAX_N, STEP_N);
     printf("forced_root_equivalence=sub_n=limbs of the larger child (~na/2); candidates T<=sub_n via deployed scan\n");
-    printf("constraint=candidates must satisfy 3 <= T <= TO_STR_BASEPOW+1 (basecase stack array bound)\n");
+    printf("constraint=candidates must satisfy 3 <= T; selection capped at TO_STR_BASEPOW+1 (basecase stack array bound)\n");
     printf("note=power ladder mirrors to_decimal_ (global cached table, normalized with precomputed inverses)\n");
     lmmp_tune_print_env();
 }

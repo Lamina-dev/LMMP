@@ -38,13 +38,24 @@
    以无缓存形状为准。
    注意：本阈值为首个 runtime-with-fallback 登记——to_str_basecase_ 的栈数组在
    生产构建按该阈值定长，tune 构建回退为 TO_STR_BASEPOW_TUNE_STACK_MAX 常量，
-   basecase 测量含更大栈帧的结构差异。部署约束 TO_STR_DIVIDE <= 本阈值+1。 */
+   basecase 测量含更大栈帧的结构差异。部署约束 TO_STR_DIVIDE <= 本阈值+1
+  （入口 na>=T 进幂表分治、其递归以 na<T 调 basecase，栈容量上限即本阈值）：
+   推荐选择域排除 TO_STR_DIVIDE-1 以下的候选，其测量与 badness 诊断保留。 */
 enum {
     MIN_N = 4, MAX_N = 512, STEP_N = 4, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 4,
     CANDIDATE_LAST = CANDIDATE_MIN + (CANDIDATE_MAX - CANDIDATE_MIN) / CANDIDATE_STEP * CANDIDATE_STEP
 };
 
 _Static_assert(MAX_N <= 1024, "grid must stay within TO_STR_BASEPOW_TUNE_STACK_MAX");
+
+/* 选择域下界：最小满足 TO_STR_DIVIDE <= T+1 的候选（生产栈容量约束） */
+static int select_floor(void) {
+    mp_size_t need = TO_STR_DIVIDE_THRESHOLD > 1 ? TO_STR_DIVIDE_THRESHOLD - 1 : 1;
+    int floor = CANDIDATE_MIN;
+    while (floor < (int)need && floor + CANDIDATE_STEP <= CANDIDATE_LAST)
+        floor += CANDIDATE_STEP;
+    return floor;
+}
 
 enum { SHAPE_DEC_CACHED = 0, SHAPE_TO_STR_UNCACHED = 1, SHAPE_COUNT = 2 };
 
@@ -115,19 +126,21 @@ static int check_roundtrip(mp_srcptr numa, mp_size_t na, const mp_byte_t* digits
 /* 候选按步长稀疏，公共 recommend 的逐整数遍历不适用，自行汇总 */
 static void recommend_stepped(const char* label, const double* scores, const unsigned long* counts, int cmin,
                               int cmax, int cstep) {
-    int best = cmin;
-    for (int c = cmin + cstep; c <= cmax; c += cstep)
+    int floor = select_floor();
+    int best = floor;
+    for (int c = floor + cstep; c <= cmax; c += cstep)
         if (counts[c] && scores[c] / counts[c] < scores[best] / counts[best])
             best = c;
     double best_score = scores[best] / counts[best];
     int flat_low = best, flat_high = best;
-    while (flat_low - cstep >= cmin && scores[flat_low - cstep] / counts[flat_low - cstep] <= best_score * 1.01)
+    while (flat_low - cstep >= floor && scores[flat_low - cstep] / counts[flat_low - cstep] <= best_score * 1.01)
         flat_low -= cstep;
     while (flat_high + cstep <= cmax && scores[flat_high + cstep] / counts[flat_high + cstep] <= best_score * 1.01)
         flat_high += cstep;
     for (int c = cmin; c <= cmax; c += cstep)
         if (counts[c])
             printf("# badness shape=%s candidate=%d avg_us=%.6f\n", label, c, scores[c] / counts[c]);
+    printf("# select_floor=%d (TO_STR_DIVIDE-1, production stack bound)\n", floor);
     printf("# recommended shape=%s value=%d avg_us=%.6f\n", label, best, best_score);
     printf("# flat_within_1pct shape=%s %d..%d\n", label, flat_low, flat_high);
     printf("# points shape=%s %lu\n", label, counts[best]);
@@ -146,7 +159,7 @@ static void print_info(void) {
     printf("forced_root_equivalence=all_n (gate read once at entry, sub_n=0)\n");
     printf("primary_shape=to_str_uncached (per-call power table, no inverses at this grid)\n");
     printf("secondary_shape=decimal_cached (global cached power table)\n");
-    printf("constraint=TO_STR_DIVIDE <= TO_STR_BASEPOW+1 (production basecase stack array bound)\n");
+    printf("constraint=TO_STR_DIVIDE <= TO_STR_BASEPOW+1 (production basecase stack array bound); selection excludes candidates below TO_STR_DIVIDE-1\n");
     lmmp_tune_print_env();
 }
 
@@ -259,9 +272,11 @@ int main(int argc, char** argv) {
                               CANDIDATE_MIN, CANDIDATE_MAX, CANDIDATE_STEP);
             recommend_stepped("decimal_cached", scores[SHAPE_DEC_CACHED], counts[SHAPE_DEC_CACHED], CANDIDATE_MIN,
                               CANDIDATE_MAX, CANDIDATE_STEP);
-            /* 主推荐行：无缓存语境（保守端），缓存语境推荐值见上 */
-            int best = CANDIDATE_MIN;
-            for (int c = CANDIDATE_MIN + CANDIDATE_STEP; c <= CANDIDATE_MAX; c += CANDIDATE_STEP)
+            /* 主推荐行：无缓存语境（保守端），缓存语境推荐值见上；
+               同 recommend_stepped 的选择域下界 */
+            int floor = select_floor();
+            int best = floor;
+            for (int c = floor + CANDIDATE_STEP; c <= CANDIDATE_MAX; c += CANDIDATE_STEP)
                 if (counts[SHAPE_TO_STR_UNCACHED][c] &&
                     scores[SHAPE_TO_STR_UNCACHED][c] / counts[SHAPE_TO_STR_UNCACHED][c] <
                         scores[SHAPE_TO_STR_UNCACHED][best] / counts[SHAPE_TO_STR_UNCACHED][best])
