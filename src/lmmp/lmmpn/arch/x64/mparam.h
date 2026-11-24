@@ -69,11 +69,11 @@
 // 费马变换阈值：低于此规模使用直接乘法而不再进行递归
 #define MUL_FFT_MODF_THRESHOLD 411
 // 转字符串除法阈值：字符串转换时选择除法算法的临界值
-#define TO_STR_DIVIDE_THRESHOLD 20
+#define TO_STR_DIVIDE_THRESHOLD 11
 // 转字符串基数幂阈值：字符串转换时基数幂计算的策略选择临界值
 #define TO_STR_BASEPOW_THRESHOLD 30
 // 从字符串解析除法阈值：字符串解析时选择除法算法的临界值
-#define FROM_STR_DIVIDE_THRESHOLD 45
+#define FROM_STR_DIVIDE_THRESHOLD 72
 // 从字符串解析基数幂阈值：字符串解析时基数幂计算的策略选择临界值
 #define FROM_STR_BASEPOW_THRESHOLD 100
 // 分治梅森乘法（lmmp_mul_mersenne_dc_）递归入口阈值：rn 为偶且不低于此值时使用

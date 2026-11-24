@@ -51,6 +51,10 @@ LMMP_API extern mp_size_t lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQR_MERSENNE_FERMAT_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_MUL_MERSENNE_FFT_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_SQR_MERSENNE_FFT_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_FROM_STR_BASEPOW_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_FROM_STR_DIVIDE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_TO_STR_BASEPOW_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_TO_STR_DIVIDE_THRESHOLD;
 
 #ifdef __cplusplus
 }
