@@ -28,8 +28,8 @@
         逐 limb 精确一致 + 乘积模检查
       - mullo_：MULLO_DC_THRESHOLD ±1 低 n limb 与 lmmp_mul_ 全积一致
       - div_：DIV_DIVIDE_THRESHOLD ±1 q*d+r 重建 + 余数界
-      - divexact_：DIVEXACT_NN/BASECASE 两阈值交叉 ±1，n = q*d 构造
-        恢复商
+      - divexact_：DIVEXACT_BASECASE 门 ±1 × 小/大 nn 形状（NN 门已退役，
+        dn<BC 对任意 nn 走 basecase），n = q*d 构造恢复商
       - pow_：POW_1_EXP_THRESHOLD ±1 与 pow_1_ 单 limb 域精确互比
         + 模幂参考
 */
@@ -149,19 +149,27 @@ TEST_CASE("threshold/div", divide_threshold_boundary) {
     }
 }
 
-TEST_CASE("threshold/divexact", divexact_two_threshold_boundaries) {
+TEST_CASE("threshold/divexact", divexact_basecase_boundaries) {
     u64 seed = 0x0fedcba987654321ull;
     typedef struct {
         mp_size_t nn, dn;
     } Case;
-    const Case cases[] = {
-        {DIVEXACT_NN_THRESHOLD > 1 ? DIVEXACT_NN_THRESHOLD - 1 : 1,
-         DIVEXACT_BASECASE_THRESHOLD > 1 ? DIVEXACT_BASECASE_THRESHOLD - 1 : 1},
-        {DIVEXACT_NN_THRESHOLD > 1 ? DIVEXACT_NN_THRESHOLD - 1 : 1, DIVEXACT_BASECASE_THRESHOLD},
-        {DIVEXACT_NN_THRESHOLD, DIVEXACT_BASECASE_THRESHOLD > 1 ? DIVEXACT_BASECASE_THRESHOLD - 1 : 1},
-        {DIVEXACT_NN_THRESHOLD,     DIVEXACT_BASECASE_THRESHOLD},
-        {DIVEXACT_NN_THRESHOLD + 1, DIVEXACT_BASECASE_THRESHOLD + 1},
-    };
+    /* 门两侧 ±1 × {divide 形状, mu 形状, 大 nn}；dn 再取梅森/缓存档 ±1 覆盖
+       mu 块积的 plain/截断梅森/截断梅森缓存三路 */
+    const mp_size_t dns[] = {DIVEXACT_BASECASE_THRESHOLD > 1 ? DIVEXACT_BASECASE_THRESHOLD - 1 : 1,
+                             DIVEXACT_BASECASE_THRESHOLD, DIVEXACT_BASECASE_THRESHOLD + 1,
+                             DIVEXACT_MERSENNE_THRESHOLD > 3 ? DIVEXACT_MERSENNE_THRESHOLD - 1 : 8,
+                             DIVEXACT_MERSENNE_THRESHOLD + 1,
+                             DIVEXACT_MERSENNE_CACHE_THRESHOLD > 3 ? DIVEXACT_MERSENNE_CACHE_THRESHOLD - 1 : 8,
+                             DIVEXACT_MERSENNE_CACHE_THRESHOLD + 1};
+    Case cases[21];
+    size_t count = 0;
+    for (size_t d_index = 0; d_index < ARRAY_SIZE(dns); ++d_index) {
+        const mp_size_t dn = dns[d_index];
+        cases[count++] = (Case){dn + dn / 2 + 2, dn};
+        cases[count++] = (Case){4 * dn, dn};
+        cases[count++] = (Case){4096 > 4 * dn ? 4096 : 4 * dn, dn};
+    }
     for (size_t c_index = 0; c_index < ARRAY_SIZE(cases); ++c_index) {
         const Case c = cases[c_index];
         const mp_size_t qn = c.nn - c.dn;
@@ -220,6 +228,6 @@ void test_threshold_boundaries(void) {
     TEST_RUN("threshold/mul", mul_n_toom_boundaries);
     TEST_RUN("threshold/mullo", mullo_dc_boundary);
     TEST_RUN("threshold/div", divide_threshold_boundary);
-    TEST_RUN("threshold/divexact", divexact_two_threshold_boundaries);
+    TEST_RUN("threshold/divexact", divexact_basecase_boundaries);
     TEST_RUN("threshold/pow", pow_1_exp_boundary);
 }

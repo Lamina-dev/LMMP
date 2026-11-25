@@ -68,6 +68,20 @@
 #define MUL_MERSENNE_FFT_THRESHOLD lmmp_tune_MUL_MERSENNE_FFT_THRESHOLD
 #undef SQR_MERSENNE_FFT_THRESHOLD
 #define SQR_MERSENNE_FFT_THRESHOLD lmmp_tune_SQR_MERSENNE_FFT_THRESHOLD
+#undef FROM_STR_BASEPOW_THRESHOLD
+#define FROM_STR_BASEPOW_THRESHOLD lmmp_tune_FROM_STR_BASEPOW_THRESHOLD
+#undef FROM_STR_DIVIDE_THRESHOLD
+#define FROM_STR_DIVIDE_THRESHOLD lmmp_tune_FROM_STR_DIVIDE_THRESHOLD
+#undef TO_STR_BASEPOW_THRESHOLD
+#define TO_STR_BASEPOW_THRESHOLD lmmp_tune_TO_STR_BASEPOW_THRESHOLD
+#undef TO_STR_DIVIDE_THRESHOLD
+#define TO_STR_DIVIDE_THRESHOLD lmmp_tune_TO_STR_DIVIDE_THRESHOLD
+
+/* TO_STR_BASEPOW_THRESHOLD 的编译期回退：to_str_basecase_ 的栈数组在生产构建
+   以该阈值为长度（1+30 limb），tune 构建中宏绑定为运行时变量、不能作数组长度，
+   改用覆盖 tune 测量域上界的常量。生产语义不变；tune 测得的 basecase 耗时含
+   更大栈帧的结构差异。tune 程序网格必须保持 MAX_N <= 该值。 */
+#define TO_STR_BASEPOW_TUNE_STACK_MAX 1024
 #endif
 
 #endif

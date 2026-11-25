@@ -73,8 +73,6 @@
 #define GCD_HGCD_THRESHOLD 86
 // 精确除法中，除数小于此阈值时使用朴素法
 #define DIVEXACT_BASECASE_THRESHOLD 62
-// 精确除法中，被除数小于此阈值时使用朴素法
-#define DIVEXACT_NN_THRESHOLD 699
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
 #define HGCD_MODMUL_CACHE_THRESHOLD 543
 // hgcd 矩阵应用模乘的低档：朴素调整改走梅森乘法（分发入口，不缓存）

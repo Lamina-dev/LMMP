@@ -27,7 +27,7 @@
 
 /*
     精确除法性能：lmmp_divexact_ 公共入口，尺寸全部落在 basecase 档
-    （nn < DIVEXACT_NN_THRESHOLD 且 dn < DIVEXACT_BASECASE_THRESHOLD）。
+    （dn < DIVEXACT_BASECASE_THRESHOLD，对 nn 无限制）。
 
     输入构造 n = q*d（q、d 顶 limb 置位），确保整除且商规模确定；
     计时前用 memcmp 校验 dst == q。

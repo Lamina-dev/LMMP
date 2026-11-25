@@ -51,7 +51,13 @@ mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
     mp_limb_t lbase = lmmp_bases_table[base - 2].large_base;
     mp_size_t n = 0;
     mp_limb_t frac;
+#ifdef LMMP_TUNE
+    /* tune 构建：阈值绑定为运行时变量，不能作栈数组长度，改用测量域上界常量
+       （见 arch/tune/mparam.h）；生产构建保持按阈值的定长数组 */
+    mp_limb_t tp[1 + TO_STR_BASEPOW_TUNE_STACK_MAX];
+#else
     mp_limb_t tp[1 + TO_STR_BASEPOW_THRESHOLD];
+#endif
     lmmp_copy(tp + 1, numa, na);
 
     do {
