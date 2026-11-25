@@ -60,9 +60,12 @@
 // 元素累乘中，低于此长度的累乘将使用朴素算法
 #define ELEM_MUL_BASECASE_THRESHOLD 32
 // binvert不平衡算法中，使用梅森变换的阈值
-#define BINVERT_UNBALANCE_MODM_THRESHOLD 32
+#define BINVERT_UNBALANCE_MODM_THRESHOLD 48
 // binvert不平衡算法中，使用梅森缓存变换的阈值
-#define BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD 1460
+#define BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD 1060
+// binvert 分派斜率阈值（定点 1/256）：n/na >= 阈值/256 时走线性递推不平衡算法，
+// 否则高位补零走平衡牛顿
+#define BINVERT_UNBALANCE_SLOPE_THRESHOLD 320
 // REDC 归约的 q*m 高半积中，使用梅森变换的阈值
 #define REDC_MERSENNE_THRESHOLD 40
 // REDC 归约的 basecase 阈值
@@ -71,16 +74,16 @@
 #define REDC_MERSENNE_CACHE_THRESHOLD 462
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
 #define GCD_HGCD_THRESHOLD 86
-// 精确除法中，除数小于此阈值时使用朴素法
-#define DIVEXACT_BASECASE_THRESHOLD 62
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
 #define HGCD_MODMUL_CACHE_THRESHOLD 543
 // hgcd 矩阵应用模乘的低档：朴素调整改走梅森乘法（分发入口，不缓存）
 #define HGCD_MODMUL_THRESHOLD 64
+// 精确除法中，除数小于此阈值时使用朴素法
+#define DIVEXACT_BASECASE_THRESHOLD 64
 // divexact mu 主循环中，使用梅森变换的阈值
-#define DIVEXACT_MERSENNE_THRESHOLD 1540
+#define DIVEXACT_MERSENNE_THRESHOLD 540
 // divexact mu 主循环中，使用梅森缓存变换的阈值
-#define DIVEXACT_MERSENNE_CACHE_THRESHOLD 1540
+#define DIVEXACT_MERSENNE_CACHE_THRESHOLD 1040
 // 试除法分派阈值：nn 低于此值回退 mod_preinv_1_ 腿（块积预处理全局表复用）
 #define TRIALDIV_PREINV_THRESHOLD 12
 // 试除法分派阈值：nn 达到此值起 8 链折叠取模，中间段 4 链
