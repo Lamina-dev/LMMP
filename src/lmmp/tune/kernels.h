@@ -43,6 +43,9 @@ LMMP_API void lmmp_tune_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
  */
 LMMP_API void lmmp_tune_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 
+/** @brief lmmp_cbrt_ 进入牛顿分支的累计次数（仅 tune 构建导出）。 */
+LMMP_API extern mp_limb_t lmmp_tune_cbrt_newton_hits;
+
 #ifdef __cplusplus
 }
 #endif

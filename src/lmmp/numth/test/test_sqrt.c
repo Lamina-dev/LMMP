@@ -28,11 +28,14 @@
       sqrt_ 生产入口彼此一致；完全平方构造（sqr 后 ±1）命中精确语义
    4. 逆根语义：invsqrt 下近似区间 [I-1, I]（参照经 div_+sqrt_ 库链构造）
    5. perfsqr：完全平方必过过滤器、sqrtrem 余数为零判据一致
+   6. 牛顿梅森残差链：na 跨越 SQRT_NEWTON_MODM_THRESHOLD 的大形状上 sqrt_newton_
+      属于 {floor, floor+1}（此前各档 na 最多 33，从未触达梅森分支）
 */
 
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
 #include "cases.h"
+#include "mparam.h"
 #include "support/lmmp_test_utils.h"
 
 #include <string.h>
@@ -408,10 +411,59 @@ TEST_CASE("numth/perfsqr", perfsqr_filter_perfsqr) {
     }
 }
 
+TEST_CASE("numth/sqrt", sqrt_newton_mersenne_residual) {
+    // 牛顿逆平方根的梅森残差链：层内 ir^2*an 走梅森乘法要求 naz >= SQRT_NEWTON_MODM_THRESHOLD，
+    // na 不超过该阈值的形状从未触达。取 na 跨越阈值的几档、nf >= 2*na，sqrt_newton_ 须属于
+    // {floor, floor+1}，floor 取自带余数的精确 sqrtrem 并过 floor 恒等式
+    // r^2 <= numa*B^(2nf) < (r+1)^2；另以 nf >= 64*na 经生产入口 lmmp_sqrt_ 复核牛顿分派
+    u64 seed = 0xb16b00b5facefeedull;
+    const mp_size_t threshold = SQRT_NEWTON_MODM_THRESHOLD;
+    const mp_size_t na_values[] = {threshold - 1, threshold, threshold + 16, 2 * threshold};
+    for (size_t na_index = 0; na_index < ARRAY_SIZE(na_values); ++na_index) {
+        mp_size_t na = na_values[na_index];
+        const mp_size_t nf_multipliers[] = {2, 3, 64};
+        mp_ptr numa = alloc_limbs(na + 1);
+        random_limbs(numa, na, &seed);
+        if (numa[na - 1] == 0) numa[na - 1] = 1;
+        for (size_t nf_index = 0; nf_index < ARRAY_SIZE(nf_multipliers); ++nf_index) {
+            // 64 倍形状只测一档（被开方数 129*na limb）
+            if (nf_multipliers[nf_index] == 64 && na != na_values[1]) continue;
+            mp_size_t nf = nf_multipliers[nf_index] * na, nl = na + 2 * nf, ns = nf + na / 2 + 1;
+            mp_ptr ref = alloc_limbs(ns + 2), rem = alloc_limbs(ns + 2), nw = alloc_limbs(ns + 2),
+                  plus = alloc_limbs(ns + 2), big = alloc_limbs(nl);
+            lmmp_zero(ref, ns + 2);
+            lmmp_zero(rem, ns + 2);
+            lmmp_sqrt_(ref, rem, numa, na, nf);  // 精确 sqrtrem（分治路径）
+            lmmp_zero(big, 2 * nf);
+            memcpy(big + 2 * nf, numa, (size_t)na * 8);  // big = numa*B^(2nf)
+            TEST_CHECK_MSG(sqrt_floor_ok(ref, norm_len(ref, ns), big, nl), "exact sqrtrem floor identity");
+            lmmp_zero(plus, ns + 2);
+            memcpy(plus, ref, (size_t)ns * 8);
+            add_small_inplace(plus, ns + 2, 1);  // floor+1
+
+            lmmp_zero(nw, ns + 2);
+            lmmp_sqrt_newton_(nw, numa, na, nf);
+            // 允许恰 +1（round 语义）
+            bool ok = mpn_eq(nw, ns, ref, ns) || mpn_eq(nw, ns, plus, ns);
+            TEST_CHECK_MSG(ok, "sqrt_newton_ in {floor, floor+1} across mersenne residual shapes");
+
+            if (nf_multipliers[nf_index] == 64) {
+                lmmp_zero(nw, ns + 2);
+                lmmp_sqrt_(nw, NULL, numa, na, nf);  // 生产入口：nf >= 64*na 必走牛顿分派
+                bool entry_ok = mpn_eq(nw, ns, ref, ns) || mpn_eq(nw, ns, plus, ns);
+                TEST_CHECK_MSG(entry_ok, "lmmp_sqrt_ newton dispatch in {floor, floor+1}");
+            }
+            lmmp_free(ref); lmmp_free(rem); lmmp_free(nw); lmmp_free(plus); lmmp_free(big);
+        }
+        lmmp_free(numa);
+    }
+}
+
 void test_sqrt(void) {
     TEST_RUN("numth/sqrt", sqrt_ulong_sqrt_1_sqrt_2);
     TEST_RUN("numth/sqrt", sqrt_3_sqrt_4_and_divide);
     TEST_RUN("numth/sqrt", sqrt_dispatcher_fractional);
     TEST_RUN("numth/sqrt", invsqrt_newton_semantics);
+    TEST_RUN("numth/sqrt", sqrt_newton_mersenne_residual);
     TEST_RUN("numth/perfsqr", perfsqr_filter_perfsqr);
 }

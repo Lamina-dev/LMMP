@@ -27,11 +27,17 @@
    3. 入口互比：cbrt_3/cbrt_6/cbrt_divide_/cbrt_ 生产入口；完全立方构造
       （sqr+mul 后 ±1）命中精确语义
    4. 逆立方根语义：invcbrt 下近似区间 [I-1, I]（参照经 div_+cbrt_ 库链构造）
+   5. 牛顿分派门：lmmp_cbrt_（dstr=NULL）恰在 na/A0 + ln(C) <= ln(ns) 时走牛顿，
+      A0 = CBRT_INVNEWTON_EXP_SCALE、C = CBRT_INVNEWTON_MIN_ROOT、ns = (na+2)/3+nf+1 为
+      根长 limb 数；覆盖分界线两侧、整数部恰在根长给定时的上限两侧、根长很小、dstr != NULL
 */
+
+#include <math.h>
 
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
 #include "cases.h"
+#include "mparam.h"
 #include "support/lmmp_test_utils.h"
 
 #include <string.h>
@@ -283,8 +289,151 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
     }
 }
 
+/* 牛顿分派门的判定式，与 lmmp_cbrt_ 的分派式相同 */
+static bool gate_takes_newton(mp_size_t na, mp_size_t ns) {
+    return (double)na / CBRT_INVNEWTON_EXP_SCALE + log(CBRT_INVNEWTON_MIN_ROOT) <= log((double)ns);
+}
+
+/* 随机找一个让两条分支结果必然不同的被开方数：[numa,na] 取归一化随机值，用带余数的精确路径
+   多算 1 个 limb，得 R = floor(cbrt([numa,na]*B^(3*(nf+1))))，其最低 limb 是根的小数部分的
+   前 64 位。小数部分落在 [1/2 + 2^-10, 1 - 2^-10] 内时，牛顿的 round 根恰比分治的 floor 根
+   F = [R+1,ns] 大 1，接受该输入；否则重新随机。F 写入已清零的 [f,ns+2]，尝试耗尽返回 false。
+
+   入口的牛顿分支先左移 3t 位归一化、算完再右移 t 位，结果是 floor(x + 2^(-t-1))，仅当 t = 0
+   才是 round(x)；na 为 3 的倍数且顶 limb 最高位为 1 时 t = 0，其余 na 下几乎恒得 floor 根 */
+static bool build_discriminating(mp_ptr numa, mp_size_t na, mp_size_t ns, mp_ptr f, u64 *seed) {
+    const mp_size_t nf = ns - 1 - (na + 2) / 3;
+    const mp_limb_t low = 0x8000000000000000ull + (1ull << 54), high = 0xffffffffffffffffull - (1ull << 54);
+    mp_ptr r = alloc_limbs(ns + 4), rem = alloc_limbs(2 * ns + 6);
+    bool found = false;
+    for (int tries = 0; tries < 64 && !found; ++tries) {
+        random_limbs(numa, na, seed);
+        lmmp_zero(r, ns + 4);
+        lmmp_zero(rem, 2 * ns + 6);
+        lmmp_cbrt_(r, rem, numa, na, nf + 1);
+        found = r[0] >= low && r[0] <= high;
+    }
+    if (found)
+        lmmp_copy(f, r + 1, ns);
+    lmmp_free(r);
+    lmmp_free(rem);
+    return found;
+}
+
+/* 形状 (na, ns)，ns 为根长 limb 数：dstr=NULL 的结果须为 F（走分治）或 F+1（走牛顿）；na 为
+   3 的倍数时两条分支的结果必然不同，实际走的分支须与判定式一致。分派门会通过的形状另调带余数
+   入口，须无视分派门给出 F。floor_oracle 另验 F^3 <= numa*B^(3nf) < (F+1)^3；rem_oracle 的
+   形状另调带余数入口并验余数恒等式 numa*B^(3nf) == F^3 + rem */
+static bool check_gate_shape(mp_size_t na, mp_size_t ns, u64 *seed, bool floor_oracle, bool rem_oracle) {
+    const mp_size_t nf = ns - 1 - (na + 2) / 3;
+    const bool telling = na % 3 == 0;  // 此时分派走哪条分支可由结果读出
+    mp_ptr numa = alloc_limbs(na), f = alloc_limbs(ns + 2), r = alloc_limbs(ns + 2), t = alloc_limbs(ns + 2),
+           rem = alloc_limbs(2 * ns + 4);
+    lmmp_zero(f, ns + 2);
+    bool ok = build_discriminating(numa, na, ns, f, seed);
+
+    lmmp_zero(r, ns + 2);
+    lmmp_cbrt_(r, NULL, numa, na, nf);
+    lmmp_sub_n_(t, r, f, ns);
+    const mp_size_t tn = norm_len(t, ns);
+    const bool via_newton = tn == 1 && t[0] == 1;
+    ok = ok && tn <= 1 && (!telling || via_newton == gate_takes_newton(na, ns));
+
+    // 带余数入口：分派门会通过的形状须无视分派门仍走分治，给出精确 floor 根；
+    // rem_oracle 的形状另验余数恒等式 numa*B^(3nf) == F^3 + rem
+    if (ok && (rem_oracle || gate_takes_newton(na, ns))) {
+        lmmp_zero(r, ns + 2);
+        lmmp_zero(rem, 2 * ns + 4);
+        lmmp_cbrt_(r, rem, numa, na, nf);
+        ok = mpn_eq(r, ns + 2, f, ns + 2);
+        if (ok && rem_oracle) {
+            const mp_size_t bl = 3 * ns + 2;  // bl 不小于被开方数的 limb 数 na+3*nf
+            mp_ptr big = alloc_limbs(bl), sq = alloc_limbs(2 * ns + 2), cube = alloc_limbs(3 * ns + 2);
+            lmmp_zero(big, bl);
+            lmmp_copy(big + 3 * nf, numa, na);  // big = numa*B^(3nf)
+            lmmp_sqr_(sq, f, ns);
+            lmmp_mul_(cube, sq, 2 * ns, f, ns);      // F^3
+            lmmp_sub_(big, big, bl, cube, 3 * ns);   // numa*B^(3nf) - F^3
+            ok = mpn_eq(big, bl, rem, 2 * ns + 4);
+            lmmp_free(big); lmmp_free(sq); lmmp_free(cube);
+        }
+    }
+
+    // floor 恒等式 F^3 <= numa*B^(3nf) < (F+1)^3，独立核对精确路径给出的 F
+    if (ok && floor_oracle) {
+        const mp_size_t bl = 3 * ns + 2;  // bl 不小于被开方数的 limb 数 na+3*nf
+        mp_ptr big = alloc_limbs(bl), sq = alloc_limbs(2 * ns + 2), cube = alloc_limbs(3 * ns + 2),
+               fp1 = alloc_limbs(ns + 2), sq1 = alloc_limbs(2 * ns + 4), cube1 = alloc_limbs(3 * ns + 6);
+        lmmp_zero(big, bl);
+        lmmp_copy(big + 3 * nf, numa, na);  // big = numa*B^(3nf)
+        lmmp_sqr_(sq, f, ns);
+        lmmp_mul_(cube, sq, 2 * ns, f, ns);  // F^3
+        lmmp_zero(fp1, ns + 2);
+        lmmp_copy(fp1, f, ns);
+        add_small_inplace(fp1, ns + 1, 1);  // F+1
+        const mp_size_t fn1 = norm_len(fp1, ns + 1);
+        lmmp_sqr_(sq1, fp1, fn1);
+        lmmp_mul_(cube1, sq1, 2 * fn1, fp1, fn1);  // (F+1)^3
+        ok = mpn_cmp(cube, 3 * ns, big, bl) <= 0 && mpn_cmp(big, bl, cube1, 3 * fn1) < 0;
+        lmmp_free(big); lmmp_free(sq); lmmp_free(cube); lmmp_free(fp1); lmmp_free(sq1); lmmp_free(cube1);
+    }
+    lmmp_free(numa); lmmp_free(f); lmmp_free(r); lmmp_free(t); lmmp_free(rem);
+    return ok;
+}
+
+TEST_CASE("numth/cbrt", cbrt_newton_dispatch_gate) {
+    u64 seed = 0xc0ffeebabe5eed1bull;
+    // (1) 固定 na（3 的倍数，两分支的结果可区分），根长取分界线 C*exp(na/A0) 两侧最近的整数：
+    //     分界线含超越数，整数形状不会恰在线上，线下的 line-1 一律分治，线上的 line+1 一律牛顿。
+    //     每次核对要调 4~5 次大尺寸开方，大 na 的列只留两侧各一个形状；根长超过 25000 的形状
+    //     不算 floor 恒等式的全立方
+    const mp_size_t na_values[] = {3, 6, 15, 63, 138, 255, 381};
+    for (size_t na_index = 0; na_index < ARRAY_SIZE(na_values); ++na_index) {
+        const mp_size_t na = na_values[na_index];
+        const mp_size_t line = (mp_size_t)(CBRT_INVNEWTON_MIN_ROOT * exp((double)na / CBRT_INVNEWTON_EXP_SCALE));
+        const bool big = line > 25000;
+        TEST_CHECK_MSG(check_gate_shape(na, line - 1, &seed, !big, false), "cbrt_ gate: one limb below the line");
+        TEST_CHECK_MSG(check_gate_shape(na, line + 1, &seed, false, false), "cbrt_ gate: one limb above the line");
+        if (na <= 63)
+            TEST_CHECK_MSG(check_gate_shape(na, line, &seed, true, false), "cbrt_ gate: at floor of the line");
+    }
+    // (2) 固定根长，整数部取上限 a_max = A0*(ln L - ln C) 两侧最近的 3 的倍数：不超过上限走牛顿，
+    //     越过上限走分治
+    const mp_size_t ns_values[] = {4200, 12000};
+    for (size_t ns_index = 0; ns_index < ARRAY_SIZE(ns_values); ++ns_index) {
+        const mp_size_t ns = ns_values[ns_index];
+        const double limit =
+            CBRT_INVNEWTON_EXP_SCALE * (log((double)ns) - log(CBRT_INVNEWTON_MIN_ROOT));
+        const mp_size_t within = 3 * (mp_size_t)(limit / 3.0);
+        TEST_CHECK_MSG(within < limit && limit < within + 3, "na limit lies between two multiples of 3");
+        TEST_CHECK_MSG(check_gate_shape(within, ns, &seed, true, true), "cbrt_ gate: na within the limit");
+        TEST_CHECK_MSG(check_gate_shape(within + 3, ns, &seed, true, true), "cbrt_ gate: na past the limit");
+    }
+    // (3) 根长很小：分派门恒不过，恒为分治的 floor 根
+    const mp_size_t small_na[] = {3, 6, 9};
+    const mp_size_t small_nf[] = {2, 5, 30};
+    for (size_t na_index = 0; na_index < ARRAY_SIZE(small_na); ++na_index)
+        for (size_t nf_index = 0; nf_index < ARRAY_SIZE(small_nf); ++nf_index) {
+            const mp_size_t ns = (small_na[na_index] + 2) / 3 + small_nf[nf_index] + 1;
+            TEST_CHECK_MSG(ns < CBRT_INVNEWTON_MIN_ROOT, "small root length stays below C");
+            TEST_CHECK_MSG(check_gate_shape(small_na[na_index], ns, &seed, true, true),
+                           "cbrt_ gate: tiny root length never takes newton");
+        }
+    // (4) na 不是 3 的倍数：归一化带移位，牛顿分支经还原后几乎恒得 floor 根，不能据结果区分分支，
+    //     只验契约（结果属于 {F, F+1}）；分界线两侧各取一个形状，大 na 只取牛顿一侧
+    const mp_size_t shifted_na[] = {1, 4, 16, 64, 139, 256};
+    for (size_t na_index = 0; na_index < ARRAY_SIZE(shifted_na); ++na_index) {
+        const mp_size_t na = shifted_na[na_index];
+        const mp_size_t line = (mp_size_t)(CBRT_INVNEWTON_MIN_ROOT * exp((double)na / CBRT_INVNEWTON_EXP_SCALE));
+        TEST_CHECK_MSG(check_gate_shape(na, line + 1, &seed, false, false), "cbrt_ shifted gate: above the line");
+        if (na <= 64)
+            TEST_CHECK_MSG(check_gate_shape(na, line - 1, &seed, true, false), "cbrt_ shifted gate: below the line");
+    }
+}
+
 void test_cbrt(void) {
     TEST_RUN("numth/cbrt", cbrt_scalar_and_cbrt_3);
     TEST_RUN("numth/cbrt", cbrt_6_divide_dispatcher);
     TEST_RUN("numth/cbrt", invcbrt_newton_semantics);
+    TEST_RUN("numth/cbrt", cbrt_newton_dispatch_gate);
 }

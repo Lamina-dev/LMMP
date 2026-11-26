@@ -22,13 +22,15 @@
 
 // 平方根计算中，无余数且极度不平衡（nf >= 此值*na）时切换牛顿逆平方路径的斜率阈值
 #define SQRT_INVNEWTON_K_THRESHOLD 20
-// 立方根计算中牛顿路径的切换阈值（nf >= K*na 且 nf >= NF_MIN）。
-#define CBRT_INVNEWTON_K_THRESHOLD 45
-// 立方根牛顿路径的 nf 绝对下限（limb），封住小 na 段水平交叉点之下
-#define CBRT_INVNEWTON_NF_MIN 1845
 // 梅森变换开方阈值：超过此规模牛顿残差链走梅森乘法（分发入口，dc/fft）
 // 此阈值与牛顿迭代中残差积的形状约束耦合。
-#define SQRT_NEWTON_MODM_THRESHOLD 434
+#define SQRT_NEWTON_MODM_THRESHOLD 128
+// 立方根计算中牛顿路径的分派阈值（double）：无余数且根长 limb 数 ns >= C*exp(na/A0) 时切换
+// 牛顿逆立方根路径，即 na/A0 + ln(C) <= ln(ns)；A0 是整数部 limb 数的增长尺度，
+// na 每增加 A0，分界根长放大 e 倍
+#define CBRT_INVNEWTON_EXP_SCALE 138.0
+// 分界线 ns >= C*exp(na/A0) 中的 C（double）：整数部可忽略（na -> 0）时的分界根长（limb）
+#define CBRT_INVNEWTON_MIN_ROOT 3470.0
 // 梅森变换开立方阈值：超过此规模牛顿残差链走梅森乘法（分发入口，dc/fft；
 // cbrt_newton 层内 an*ir^3 残差链的模乘替代完整立方展开；形状守卫与该值
 // 耦合）

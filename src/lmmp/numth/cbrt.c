@@ -20,6 +20,8 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+#include <math.h>
+
 #include "mparam.h"
 #include "impl/inlines.h"
 #include "impl/tmp_alloc.h"
@@ -655,6 +657,10 @@ static mp_size_t lmmp_cbrt_snorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
     return s / 3;
 }
 
+#if defined(LMMP_TUNE)
+#include "tune/kernels.h"
+#endif
+
 /*
     计算已归一化输入 x = cbrt(a*B^(3nf)) 的舍入近似 r。输入契约（由调用
     处保证，本函数不再内部归一化）：na ≡ 0 (mod 3) 且顶 limb >= B/8，
@@ -762,8 +768,19 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         移位路径共用 shapply，B/8 即满足迭代收敛）+ 契约调用 + 结果 >>t
         的 floor 复合还原。na2 = 3*ceil(na/3) 使 na2/3+nf+1 恰等于
         (na+3nf+2)/3+1，>>t 后的写入长度与语义和内部归一化旧版一致。
+
+        分派门：根长 limb 数 ns = (na+2)/3+nf+1 >= C*exp(na/A0)，即
+        na/A0 + ln(C) <= ln(ns)；ns < C 时右端更大，先做这一次整数比较
+        免算对数。两个宏的取值须使 C*exp(na/A0) >= na+4 对一切 na >= 0
+        成立，门通过即 ns >= na+4，nf = ns-1-(na+2)/3 便满足 lmmp_cbrt_newton_
+        对归一化长度 3*ceil(na/3) 的契约 3*nf >= 2*na2+3，无须另行判别。
     */
-    if (!dstr && nf >= CBRT_INVNEWTON_K_THRESHOLD * na && nf >= CBRT_INVNEWTON_NF_MIN) {
+    const mp_size_t ns = (na + 2) / 3 + nf + 1;
+    if (!dstr && ns >= CBRT_INVNEWTON_MIN_ROOT &&
+        (double)na / CBRT_INVNEWTON_EXP_SCALE + log(CBRT_INVNEWTON_MIN_ROOT) <= log((double)ns)) {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_cbrt_newton_hits;
+#endif
         TEMP_DECL;
         mp_ptr a2 = TALLOC_TYPE(na + 3, mp_limb_t);
         mp_size_t na2;

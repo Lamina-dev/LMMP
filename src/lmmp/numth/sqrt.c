@@ -316,6 +316,7 @@ void lmmp_invsqrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
             if (nsqr > mn) {  // cmod==0
                 if (lmmp_add_(xp, xp, mn, xp + mn, nsqr - mn))
                     lmmp_inc(xp);
+                nsqr = mn;
             }
             lmmp_mul_mersenne_(dp, mn, xp, nsqr, numa - naz, naz);
             cmod = 1;

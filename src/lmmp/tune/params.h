@@ -62,6 +62,11 @@ LMMP_API extern mp_size_t lmmp_tune_BINVERT_UNBALANCE_MODM_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_MULHI_MERSENNE_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_BINVERT_UNBALANCE_SLOPE_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_SQRT_INVNEWTON_K_THRESHOLD;
+LMMP_API extern double lmmp_tune_CBRT_INVNEWTON_EXP_SCALE;
+LMMP_API extern double lmmp_tune_CBRT_INVNEWTON_MIN_ROOT;
+LMMP_API extern mp_size_t lmmp_tune_SQRT_NEWTON_MODM_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_CBRT_NEWTON_MODM_THRESHOLD;
 
 #ifdef __cplusplus
 }
