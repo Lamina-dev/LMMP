@@ -205,6 +205,20 @@ TEST_CASE("numth/binvert", binvert_unbalanced_variants) {
         verify_inverse(a, na, inv2, n);
         lmmp_free(a); lmmp_free(inv); lmmp_free(inv2); lmmp_free(tp);
     }
+
+    // 大 na 段：覆盖 mulhi 的半宽梅森折叠（na >= MULHI_MERSENNE_THRESHOLD）与主循环块
+    const mp_size_t pair_na[] = {1200, 1200, 1500};
+    const mp_size_t pair_n[] = {1500, 2600, 2000};
+    for (size_t pair_index = 0; pair_index < ARRAY_SIZE(pair_na); ++pair_index) {
+        mp_size_t na = pair_na[pair_index];
+        mp_size_t n = pair_n[pair_index];
+        mp_ptr a = alloc_limbs(na), inv = alloc_limbs(n), tp = alloc_limbs((9 * na + 5) / 2 + 1);
+        random_limbs(a, na, &seed);
+        a[0] |= 1;
+        lmmp_binvert_unbalance_(inv, a, na, n, tp);
+        verify_inverse(a, na, inv, n);
+        lmmp_free(a); lmmp_free(inv); lmmp_free(tp);
+    }
 }
 
 void test_binvert(void) {

@@ -30,6 +30,10 @@
 
 typedef enum { LMMP_TUNE_RUN, LMMP_TUNE_INFO, LMMP_TUNE_CURRENT, LMMP_TUNE_HELP } lmmp_tune_action;
 
+/* 程序私有命令行选项的回调：option 是以 "--" 开头的选项名，value 是其后紧邻的一个参数
+   （没有后续参数时为 NULL）；返回 false 表示选项取值非法，原因由回调打印 */
+typedef bool (*lmmp_tune_option_fn)(void* context, const char* option, const char* value);
+
 typedef struct {
     lmmp_tune_action action;
     unsigned samples;
@@ -63,6 +67,13 @@ typedef struct {
 
 void lmmp_tune_options_init(lmmp_tune_options* options);
 bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options);
+/** @brief 与 lmmp_tune_parse 相同，另把公共层不认识的选项连同其取值交给 option_fn；option_fn 为 NULL 时
+ *         等同 lmmp_tune_parse。 */
+bool lmmp_tune_parse_ex(int argc,
+                        char** argv,
+                        lmmp_tune_options* options,
+                        lmmp_tune_option_fn option_fn,
+                        void* context);
 void lmmp_tune_usage(const char* program_id);
 
 bool lmmp_tune_measure(const lmmp_tune_bench* bench,
@@ -111,6 +122,46 @@ void lmmp_tune_print_env_comment(void);
 
 /** @brief 打印单个阈值的架构默认值与当前运行时值，供 --current 使用。 */
 void lmmp_tune_print_current(const char* name, unsigned long long default_value, unsigned long long current_value);
+
+/* ---------- double 阈值 ---------- */
+
+/** @brief 解析逗号分隔的正实数候选表（如 "96,138,192"）：至少一个、至多 max_count 个，取值须有限且大于 0；
+ *         结果按升序排列并去重。 */
+bool lmmp_tune_parse_doubles(const char* text, double* values, unsigned max_count, unsigned* count);
+
+/** @brief 把 value 并入升序候选表（已有相同取值时不重复）；表满时返回 false。 */
+bool lmmp_tune_add_double(double* values, unsigned* count, unsigned max_count, double value);
+
+/** @brief 打印单个 double 阈值的架构默认值与当前运行时值，供 --current 使用。 */
+void lmmp_tune_print_current_double(const char* name, double default_value, double current_value);
+
+/** @brief 打印 double 候选表的规模与步长：等差时给 range 与 step，否则如实标 irregular 并列出全部取值。 */
+void lmmp_tune_print_double_candidates(const char* name, const double* values, unsigned count);
+
+typedef struct {
+    unsigned x, y;  /* 候选表下标 */
+    double excess;  /* 平均相对超出 */
+} lmmp_tune_pair_pick;
+
+/** @brief 二维候选表的联合 argmin（行主序，并列时在先者胜）；无测量点时 excess 为 NaN。 */
+lmmp_tune_pair_pick lmmp_tune_pair_argmin(const double* scores,
+                                          const unsigned long* counts,
+                                          unsigned x_count,
+                                          unsigned y_count);
+
+/** @brief 二维 double 候选 (x,y) 的联合推荐输出：逐候选 badness 矩阵（行 x 列 y，百分数）、最优对、
+ *         平坦带（平均相对超出不超过最优值加 1 个百分点的候选对：个数、两轴外延、过最优点的两条轴切片）、
+ *         每行每列的最优搭档、现值对的 badness，末行打印推荐对。 */
+lmmp_tune_pair_pick lmmp_tune_recommend_pair(const char* name_x,
+                                             const char* name_y,
+                                             const double* scores,
+                                             const unsigned long* counts,
+                                             const double* candidates_x,
+                                             unsigned x_count,
+                                             const double* candidates_y,
+                                             unsigned y_count,
+                                             double current_x,
+                                             double current_y);
 
 /** @brief 把单个测量点按候选阈值应选路径的耗时累加进评分：候选高于该点规模时计低路，
  *         不高于该点规模且高于 sub_n（该行高路同阈值递归子问题的规模，无此递归时传 0）

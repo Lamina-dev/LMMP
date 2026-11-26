@@ -101,7 +101,11 @@ static bool need_value_(int argc, char** argv, int* index, const char* option, c
     return true;
 }
 
-bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options) {
+bool lmmp_tune_parse_ex(int argc,
+                        char** argv,
+                        lmmp_tune_options* options,
+                        lmmp_tune_option_fn option_fn,
+                        void* context) {
     for (int i = 1; i < argc; ++i) {
         const char* value;
         unsigned long long parsed;
@@ -142,12 +146,23 @@ bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options) {
                 return false;
             }
             options->seed = parsed;
-        } else {
+        } else if (option_fn == NULL) {
             fprintf(stderr, "unknown option '%s'\n", argv[i]);
             return false;
+        } else {
+            /* 程序私有选项：取值恒为其后紧邻的一个参数 */
+            const char* option = argv[i];
+            if (!need_value_(argc, argv, &i, option, &value))
+                return false;
+            if (!option_fn(context, option, value))
+                return false;
         }
     }
     return true;
+}
+
+bool lmmp_tune_parse(int argc, char** argv, lmmp_tune_options* options) {
+    return lmmp_tune_parse_ex(argc, argv, options, NULL, NULL);
 }
 
 void lmmp_tune_usage(const char* program_id) {
@@ -389,4 +404,208 @@ void lmmp_tune_recommend(const char* name,
     printf("# current=%llu\n", current_value);
     printf("# points=%lu\n", counts[best]);
     printf("recommended %s = %d\n", name, best);
+}
+
+void lmmp_tune_print_current_double(const char* name, double default_value, double current_value) {
+    printf("%s default=%.10g current=%.10g\n", name, default_value, current_value);
+}
+
+bool lmmp_tune_parse_doubles(const char* text, double* values, unsigned max_count, unsigned* count) {
+    unsigned parsed_count = 0;
+    for (const char* p = text;;) {
+        char* end;
+        errno = 0;
+        double parsed = strtod(p, &end);
+        if (end == p || errno != 0 || !isfinite(parsed) || parsed <= 0 || parsed_count == max_count)
+            return false;
+        values[parsed_count++] = parsed;
+        while (*end == ' ' || *end == '\t')
+            ++end;
+        if (*end == '\0')
+            break;
+        if (*end != ',')
+            return false;
+        p = end + 1;
+    }
+    /* 升序去重：lmmp_tune_add_double 的有序插入以升序无重复为前提 */
+    qsort(values, parsed_count, sizeof(*values), compare_double_);
+    unsigned unique_count = 0;
+    for (unsigned i = 0; i < parsed_count; ++i)
+        if (unique_count == 0 || values[i] != values[unique_count - 1])
+            values[unique_count++] = values[i];
+    *count = unique_count;
+    return true;
+}
+
+bool lmmp_tune_add_double(double* values, unsigned* count, unsigned max_count, double value) {
+    unsigned at = 0;
+    while (at < *count && values[at] < value)
+        ++at;
+    if (at < *count && values[at] == value)
+        return true;
+    if (*count == max_count)
+        return false;
+    for (unsigned i = *count; i > at; --i)
+        values[i] = values[i - 1];
+    values[at] = value;
+    ++*count;
+    return true;
+}
+
+void lmmp_tune_print_double_candidates(const char* name, const double* values, unsigned count) {
+    const double step = count > 1 ? values[1] - values[0] : 0.0;
+    bool regular = count > 0;
+    for (unsigned i = 2; i < count; ++i)
+        regular = regular && fabs(values[i] - values[i - 1] - step) <= 1e-9 * fabs(step);
+    if (regular) {
+        printf("# candidates %s: count=%u range=%.10g..%.10g step=%.10g\n", name, count, values[0], values[count - 1],
+               step);
+        return;
+    }
+    printf("# candidates %s: count=%u step=irregular values=", name, count);
+    for (unsigned i = 0; i < count; ++i)
+        printf(i == 0 ? "%.10g" : ",%.10g", values[i]);
+    putchar('\n');
+}
+
+/* 联合候选 (x,y) 的平均相对超出；scores 行主序，行宽 y_count */
+static double pair_excess_(const double* scores, const unsigned long* counts, unsigned y_count, unsigned x, unsigned y) {
+    return scores[x * y_count + y] / (double)counts[x * y_count + y];
+}
+
+lmmp_tune_pair_pick lmmp_tune_pair_argmin(const double* scores,
+                                          const unsigned long* counts,
+                                          unsigned x_count,
+                                          unsigned y_count) {
+    lmmp_tune_pair_pick pick = {0, 0, NAN};
+    for (unsigned x = 0; x < x_count; ++x) {
+        for (unsigned y = 0; y < y_count; ++y) {
+            if (counts[x * y_count + y] == 0)
+                continue;
+            const double excess = pair_excess_(scores, counts, y_count, x, y);
+            if (isnan(pick.excess) || excess < pick.excess)
+                pick = (lmmp_tune_pair_pick){x, y, excess};
+        }
+    }
+    return pick;
+}
+
+/* 候选 (x,y) 有测量点且平均相对超出不超过 flat_limit */
+static bool pair_in_flat_(const double* scores,
+                          const unsigned long* counts,
+                          unsigned x_count,
+                          unsigned y_count,
+                          double flat_limit,
+                          unsigned x,
+                          unsigned y) {
+    return x < x_count && y < y_count && counts[x * y_count + y] != 0 &&
+           pair_excess_(scores, counts, y_count, x, y) <= flat_limit;
+}
+
+lmmp_tune_pair_pick lmmp_tune_recommend_pair(const char* name_x,
+                                             const char* name_y,
+                                             const double* scores,
+                                             const unsigned long* counts,
+                                             const double* candidates_x,
+                                             unsigned x_count,
+                                             const double* candidates_y,
+                                             unsigned y_count,
+                                             double current_x,
+                                             double current_y) {
+    const lmmp_tune_pair_pick best = lmmp_tune_pair_argmin(scores, counts, x_count, y_count);
+    if (isnan(best.excess)) {
+        printf("# no measurement points; recommendation withheld\n");
+        return best;
+    }
+    /* 平坦带：平均相对超出不超过最优值加 1 个百分点 */
+    const double flat_limit = best.excess + 0.01;
+    unsigned flat_pairs = 0, pairs_x_low = best.x, pairs_x_high = best.x;
+    unsigned pairs_y_low = best.y, pairs_y_high = best.y;
+    for (unsigned x = 0; x < x_count; ++x) {
+        for (unsigned y = 0; y < y_count; ++y) {
+            if (!pair_in_flat_(scores, counts, x_count, y_count, flat_limit, x, y))
+                continue;
+            ++flat_pairs;
+            pairs_x_low = x < pairs_x_low ? x : pairs_x_low;
+            pairs_x_high = x > pairs_x_high ? x : pairs_x_high;
+            pairs_y_low = y < pairs_y_low ? y : pairs_y_low;
+            pairs_y_high = y > pairs_y_high ? y : pairs_y_high;
+        }
+    }
+    /* 过最优点的两条轴切片：沿轴连续留在带内的范围 */
+    unsigned slice_x_low = best.x, slice_x_high = best.x, slice_y_low = best.y, slice_y_high = best.y;
+    while (slice_x_low > 0 && pair_in_flat_(scores, counts, x_count, y_count, flat_limit, slice_x_low - 1, best.y))
+        --slice_x_low;
+    while (pair_in_flat_(scores, counts, x_count, y_count, flat_limit, slice_x_high + 1, best.y))
+        ++slice_x_high;
+    while (slice_y_low > 0 && pair_in_flat_(scores, counts, x_count, y_count, flat_limit, best.x, slice_y_low - 1))
+        --slice_y_low;
+    while (pair_in_flat_(scores, counts, x_count, y_count, flat_limit, best.x, slice_y_high + 1))
+        ++slice_y_high;
+
+    printf("# badness matrix (percent): rows %s, columns %s\n", name_x, name_y);
+    printf("#%12s", "");
+    for (unsigned y = 0; y < y_count; ++y)
+        printf(" %9.6g", candidates_y[y]);
+    putchar('\n');
+    for (unsigned x = 0; x < x_count; ++x) {
+        printf("# %11.6g", candidates_x[x]);
+        for (unsigned y = 0; y < y_count; ++y)
+            printf(" %9.3f", 100.0 * pair_excess_(scores, counts, y_count, x, y));
+        putchar('\n');
+    }
+    /* 两个一维视图：固定一轴时另一轴的最优搭档；跳过无测量的组合，
+       从首个有测量的组合初始化，全列/全行缺测时明确输出 */
+    for (unsigned y = 0; y < y_count; ++y) {
+        unsigned best_x = 0;
+        while (best_x < x_count && counts[best_x * y_count + y] == 0)
+            ++best_x;
+        if (best_x == x_count) {
+            printf("# axis %s=%.10g no measurements\n", name_y, candidates_y[y]);
+            continue;
+        }
+        for (unsigned x = best_x + 1; x < x_count; ++x)
+            if (counts[x * y_count + y] != 0 &&
+                pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, best_x, y))
+                best_x = x;
+        printf("# axis %s=%.10g best_%s=%.10g excess=%.6f\n", name_y, candidates_y[y], name_x, candidates_x[best_x],
+               pair_excess_(scores, counts, y_count, best_x, y));
+    }
+    for (unsigned x = 0; x < x_count; ++x) {
+        unsigned best_y = 0;
+        while (best_y < y_count && counts[x * y_count + best_y] == 0)
+            ++best_y;
+        if (best_y == y_count) {
+            printf("# axis %s=%.10g no measurements\n", name_x, candidates_x[x]);
+            continue;
+        }
+        for (unsigned y = best_y + 1; y < y_count; ++y)
+            if (counts[x * y_count + y] != 0 &&
+                pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, x, best_y))
+                best_y = y;
+        printf("# axis %s=%.10g best_%s=%.10g excess=%.6f\n", name_x, candidates_x[x], name_y, candidates_y[best_y],
+               pair_excess_(scores, counts, y_count, x, best_y));
+    }
+    printf("# joint_best=(%.10g,%.10g) excess=%.6f\n", candidates_x[best.x], candidates_y[best.y], best.excess);
+    printf("# flat_within_1pct_excess: pairs=%u %s=%.10g..%.10g %s=%.10g..%.10g; slices %s=%.10g..%.10g at "
+           "%s=%.10g, %s=%.10g..%.10g at %s=%.10g\n",
+           flat_pairs, name_x, candidates_x[pairs_x_low], candidates_x[pairs_x_high], name_y,
+           candidates_y[pairs_y_low], candidates_y[pairs_y_high], name_x, candidates_x[slice_x_low],
+           candidates_x[slice_x_high], name_y, candidates_y[best.y], name_y, candidates_y[slice_y_low],
+           candidates_y[slice_y_high], name_x, candidates_x[best.x]);
+    int current_x_index = -1, current_y_index = -1;
+    for (unsigned x = 0; x < x_count && current_x_index < 0; ++x)
+        if (candidates_x[x] == current_x)
+            current_x_index = (int)x;
+    for (unsigned y = 0; y < y_count && current_y_index < 0; ++y)
+        if (candidates_y[y] == current_y)
+            current_y_index = (int)y;
+    if (current_x_index >= 0 && current_y_index >= 0 && counts[current_x_index * y_count + current_y_index] != 0)
+        printf("# current=(%.10g,%.10g) excess=%.6f\n", current_x, current_y,
+               pair_excess_(scores, counts, y_count, (unsigned)current_x_index, (unsigned)current_y_index));
+    else
+        printf("# current=(%.10g,%.10g) off candidate grid\n", current_x, current_y);
+    printf("# points=%lu\n", counts[best.x * y_count + best.y]);
+    printf("recommended joint (%s,%s) = (%.10g,%.10g)\n", name_x, name_y, candidates_x[best.x], candidates_y[best.y]);
+    return best;
 }

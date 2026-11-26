@@ -22,13 +22,15 @@
 
 // 平方根计算中，无余数且极度不平衡（nf >= 此值*na）时切换牛顿逆平方路径的斜率阈值
 #define SQRT_INVNEWTON_K_THRESHOLD 20
-// 立方根计算中牛顿路径的切换阈值（nf >= K*na 且 nf >= NF_MIN）。
-#define CBRT_INVNEWTON_K_THRESHOLD 45
-// 立方根牛顿路径的 nf 绝对下限（limb），封住小 na 段水平交叉点之下
-#define CBRT_INVNEWTON_NF_MIN 1845
 // 梅森变换开方阈值：超过此规模牛顿残差链走梅森乘法（分发入口，dc/fft）
 // 此阈值与牛顿迭代中残差积的形状约束耦合。
-#define SQRT_NEWTON_MODM_THRESHOLD 434
+#define SQRT_NEWTON_MODM_THRESHOLD 128
+// 立方根计算中牛顿路径的分派阈值（double）：无余数且根长 limb 数 ns >= C*exp(na/A0) 时切换
+// 牛顿逆立方根路径，即 na/A0 + ln(C) <= ln(ns)；A0 是整数部 limb 数的增长尺度，
+// na 每增加 A0，分界根长放大 e 倍
+#define CBRT_INVNEWTON_EXP_SCALE 138.0
+// 分界线 ns >= C*exp(na/A0) 中的 C（double）：整数部可忽略（na -> 0）时的分界根长（limb）
+#define CBRT_INVNEWTON_MIN_ROOT 3470.0
 // 梅森变换开立方阈值：超过此规模牛顿残差链走梅森乘法（分发入口，dc/fft；
 // cbrt_newton 层内 an*ir^3 残差链的模乘替代完整立方展开；形状守卫与该值
 // 耦合）
@@ -60,9 +62,12 @@
 // 元素累乘中，低于此长度的累乘将使用朴素算法
 #define ELEM_MUL_BASECASE_THRESHOLD 32
 // binvert不平衡算法中，使用梅森变换的阈值
-#define BINVERT_UNBALANCE_MODM_THRESHOLD 32
+#define BINVERT_UNBALANCE_MODM_THRESHOLD 48
 // binvert不平衡算法中，使用梅森缓存变换的阈值
-#define BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD 1460
+#define BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD 860
+// binvert 分派斜率阈值（定点 1/256）：n/na >= 阈值/256 时走线性递推不平衡算法，
+// 否则高位补零走平衡牛顿
+#define BINVERT_UNBALANCE_SLOPE_THRESHOLD 320
 // REDC 归约的 q*m 高半积中，使用梅森变换的阈值
 #define REDC_MERSENNE_THRESHOLD 40
 // REDC 归约的 basecase 阈值
@@ -71,12 +76,12 @@
 #define REDC_MERSENNE_CACHE_THRESHOLD 462
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
 #define GCD_HGCD_THRESHOLD 86
-// 精确除法中，除数小于此阈值时使用朴素法
-#define DIVEXACT_BASECASE_THRESHOLD 96
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
 #define HGCD_MODMUL_CACHE_THRESHOLD 543
 // hgcd 矩阵应用模乘的低档：朴素调整改走梅森乘法（分发入口，不缓存）
 #define HGCD_MODMUL_THRESHOLD 64
+// 精确除法中，除数小于此阈值时使用朴素法
+#define DIVEXACT_BASECASE_THRESHOLD 96
 // divexact mu 主循环中，使用梅森变换的阈值
 #define DIVEXACT_MERSENNE_THRESHOLD 64
 // divexact mu 主循环中，使用梅森缓存变换的阈值

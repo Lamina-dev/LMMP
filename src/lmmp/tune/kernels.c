@@ -31,3 +31,5 @@ LMMP_API void lmmp_tune_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, 
 LMMP_API void lmmp_tune_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n) {
     lmmp_sqr_hard_n_(dst, numa, n);
 }
+
+LMMP_API mp_limb_t lmmp_tune_cbrt_newton_hits;

@@ -38,10 +38,20 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_mul_n_(tp, xp, ap, n);
         lmmp_copy(dst, tp + n, n);
     } else {
-        mp_size_t m = lmmp_mersenne_next_size_(2 * n);
-        lmmp_debug_assert(m >= 2 * n);
+        /* xp*ap = 1 + k0*B^n，V = (xp*ap) mod (B^m-1) = 1 + k0_lo*B^n + k0_hi
+           各段 limb 不交（m >= n+1 保证无混叠），V 减一后旋转载出 k0；
+           折叠宽度 m ≈ n+1 较全积 2n 减半（与主循环 k 更新同型的截断窗） */
+        mp_size_t m = lmmp_mersenne_next_size_(n + 1);
+        mp_size_t fn = m - n;
         lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
-        lmmp_copy(dst, tp + n, n);
+        lmmp_sub_1_(tp, tp, n, 1);
+        if (fn < n) {
+            lmmp_copy(dst, tp + n, fn);
+            lmmp_copy(dst + fn, tp, n - fn);
+        } else {
+            /* m >= 2n 时 V-1 = k0*B^n 无回绕，整段直取 */
+            lmmp_copy(dst, tp + n, n);
+        }
     }
 }
 
@@ -245,8 +255,7 @@ void lmmp_binvert_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_size_t na, m
         lmmp_binvert_unbalance_1_(dst, numa[0], n);
     } else if (na == 2) {
         lmmp_binvert_unbalance_2_(dst, numa, n);
-    } else if (4 * n >= 5 * na) {
-        // n/na >= 5/4 这是一个比较简单的调优结果
+    } else if (256 * n >= na * BINVERT_UNBALANCE_SLOPE_THRESHOLD) {
         mp_ptr restrict tp = TALLOC_TYPE((9 * n + 5) / 2, mp_limb_t);
         lmmp_binvert_unbalance_(dst, numa, na, n, tp);
     } else {
