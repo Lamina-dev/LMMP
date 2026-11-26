@@ -172,36 +172,44 @@ static mp_limb_t call_whole(void* opaque) {
     return c->dstis[0] ^ c->dstis[c->ns];
 }
 
-/* 逆平方根恒等式：a*ir^2 <= K=B^(2ns+na) < a*(ir+2)^2，
-   接受 ir ∈ {I-1, I}（I = floor(sqrt(K/a))），拒绝 I+1 与 I-2 */
+/* [x,len] 与 K=B^big 的精确比较：返回 -1/0/1（x<K / x==K / x>K）。
+   K 仅 [big] 位为 1、其余为 0，故高于 big 的 limb 非零即 x>K，
+   [big] 位 >1 亦 x>K，==1 时由低位 limb 是否全零定相等或大于 */
+static int cmp_pow2_(mp_srcptr x, mp_size_t len, mp_size_t big) {
+    for (mp_size_t i = big + 1; i < len; ++i)
+        if (x[i] != 0)
+            return 1;
+    if (x[big] > 1)
+        return 1;
+    if (x[big] == 1) {
+        for (mp_size_t i = 0; i < big; ++i)
+            if (x[i] != 0)
+                return 1;
+        return 0;
+    }
+    return -1;
+}
+
+/* 逆平方根恒等式：a*ir^2 <= K=B^(2ns+na) < a*(ir+2)^2，按完整 limb 值比较，
+   接受 ir ∈ {I-1, I}（I = floor(sqrt(K/a))），拒绝 I+1（下界失败）与 I-2（上界失败）。
+   I=floor(sqrt(K/a)) 保证 a*(I+1)^2 > K 恒严格成立，故 ir=I-1 时 a*(ir+2)^2=a*(I+1)^2 > K，
+   ir=I 时 a*(ir+2)^2=a*(I+2)^2 > K，上界 ir+2 对两个契约值都通过 */
 static int check_invsqrt(const whole_context* c) {
-    const mp_size_t na = c->na, ns = c->ns, big = 2 * ns + na, nu = na + ns + 2;
-    mp_limb_t cy;
+    const mp_size_t na = c->na, ns = c->ns, big = 2 * ns + na;
     lmmp_sqr_(c->sq, c->dstis, ns + 1);                   /* ir^2，[0,2ns+2) */
     lmmp_mul_(c->p, c->sq, 2 * ns + 2, c->numa, na);      /* a*ir^2，[0,big+2) */
-    for (mp_size_t i = big; i < big + 2; ++i)
-        if (c->p[i] != 0)
-            return 0;
-    /* ir2 = ir+2；u = a*(ir+2)，v = 4u，q = a*ir^2 + 4*a*(ir+2) + 4a = a*(ir+2)^2 */
+    if (cmp_pow2_(c->p, big + 2, big) > 0)
+        return 0;  /* a*ir^2 > K */
+    /* ir2 = ir+2，经精确平方与乘法得 q = a*(ir+2)^2 */
     lmmp_copy(c->v, c->dstis, ns + 1);
     lmmp_add_1_(c->v, c->v, ns + 1, 1);
     c->v[ns + 1] = lmmp_add_1_(c->v, c->v, ns + 1, 1);
-    if (na >= ns + 2)
-        lmmp_mul_(c->u, c->numa, na, c->v, ns + 2);
+    lmmp_sqr_(c->u, c->v, ns + 2);                        /* (ir+2)^2，[0,2ns+4) */
+    if (na >= 2 * ns + 4)
+        lmmp_mul_(c->q, c->numa, na, c->u, 2 * ns + 4);
     else
-        lmmp_mul_(c->u, c->v, ns + 2, c->numa, na);
-    c->v[nu] = lmmp_shl_(c->v, c->u, nu, 2);
-    lmmp_zero(c->q, big + 5);
-    lmmp_copy(c->q, c->p, big + 2);
-    lmmp_add_(c->q, c->q, big + 3, c->v, nu + 1);
-    cy = lmmp_shl_(c->v, c->numa, na, 2); /* 4a */
-    lmmp_add_1_(c->v + na, c->v + na, 1, cy);
-    cy = lmmp_add_(c->q, c->q, big + 3, c->v, na + 1);
-    lmmp_add_1_(c->q + big + 3, c->q + big + 3, 1, cy);
-    for (mp_size_t i = big; i < big + 4; ++i)
-        if (c->q[i] != 0)
-            return 1;
-    return 0;
+        lmmp_mul_(c->q, c->u, 2 * ns + 4, c->numa, na);   /* [0,big+4) */
+    return cmp_pow2_(c->q, big + 4, big) > 0;  /* 须 a*(ir+2)^2 > K */
 }
 
 static void print_info(void) {
@@ -272,7 +280,7 @@ int main(int argc, char** argv) {
             cur_index = t;
 
     /* 段长：numa、ir [nr+1]、an [naz]、xp/dp/fold [mn]、sq [max(2nr+2, 2ns+2)]、ref [2nr+1+naz]、
-       dstis [ns+1]、p [big+2]、u [na+ns+2]、v [na+ns+3]（先存 ir+2 再存 4a*(ir+2) 或 4a）、q [big+5] */
+       dstis [ns+1]、p [big+2]、u [(ir+2)^2，2ns+4]、v [ir+2，ns+2]、q [big+4] */
     mp_ptr storage = alloc_limbs(MAX_NA + 4 + (MAX_NS / 2 + 4) + (MAX_NA + 4) + 3 * (MAX_MN + 8) +
                                  (2 * MAX_NS + 8) + (2 * MAX_NS + MAX_NA + 8) + (MAX_NS + 4) +
                                  4 * (2 * MAX_NS + MAX_NA + 8));
