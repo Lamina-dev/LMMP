@@ -125,7 +125,8 @@ void lmmp_tune_print_current(const char* name, unsigned long long default_value,
 
 /* ---------- double 阈值 ---------- */
 
-/** @brief 解析逗号分隔的正实数候选表（如 "96,138,192"）：至少一个、至多 max_count 个，取值须有限且大于 0。 */
+/** @brief 解析逗号分隔的正实数候选表（如 "96,138,192"）：至少一个、至多 max_count 个，取值须有限且大于 0；
+ *         结果按升序排列并去重。 */
 bool lmmp_tune_parse_doubles(const char* text, double* values, unsigned max_count, unsigned* count);
 
 /** @brief 把 value 并入升序候选表（已有相同取值时不重复）；表满时返回 false。 */

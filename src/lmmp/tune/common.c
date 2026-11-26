@@ -427,7 +427,13 @@ bool lmmp_tune_parse_doubles(const char* text, double* values, unsigned max_coun
             return false;
         p = end + 1;
     }
-    *count = parsed_count;
+    /* 升序去重：lmmp_tune_add_double 的有序插入以升序无重复为前提 */
+    qsort(values, parsed_count, sizeof(*values), compare_double_);
+    unsigned unique_count = 0;
+    for (unsigned i = 0; i < parsed_count; ++i)
+        if (unique_count == 0 || values[i] != values[unique_count - 1])
+            values[unique_count++] = values[i];
+    *count = unique_count;
     return true;
 }
 
@@ -548,19 +554,34 @@ lmmp_tune_pair_pick lmmp_tune_recommend_pair(const char* name_x,
             printf(" %9.3f", 100.0 * pair_excess_(scores, counts, y_count, x, y));
         putchar('\n');
     }
-    /* 两个一维视图：固定一轴时另一轴的最优搭档 */
+    /* 两个一维视图：固定一轴时另一轴的最优搭档；跳过无测量的组合，
+       从首个有测量的组合初始化，全列/全行缺测时明确输出 */
     for (unsigned y = 0; y < y_count; ++y) {
         unsigned best_x = 0;
-        for (unsigned x = 1; x < x_count; ++x)
-            if (pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, best_x, y))
+        while (best_x < x_count && counts[best_x * y_count + y] == 0)
+            ++best_x;
+        if (best_x == x_count) {
+            printf("# axis %s=%.10g no measurements\n", name_y, candidates_y[y]);
+            continue;
+        }
+        for (unsigned x = best_x + 1; x < x_count; ++x)
+            if (counts[x * y_count + y] != 0 &&
+                pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, best_x, y))
                 best_x = x;
         printf("# axis %s=%.10g best_%s=%.10g excess=%.6f\n", name_y, candidates_y[y], name_x, candidates_x[best_x],
                pair_excess_(scores, counts, y_count, best_x, y));
     }
     for (unsigned x = 0; x < x_count; ++x) {
         unsigned best_y = 0;
-        for (unsigned y = 1; y < y_count; ++y)
-            if (pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, x, best_y))
+        while (best_y < y_count && counts[x * y_count + best_y] == 0)
+            ++best_y;
+        if (best_y == y_count) {
+            printf("# axis %s=%.10g no measurements\n", name_x, candidates_x[x]);
+            continue;
+        }
+        for (unsigned y = best_y + 1; y < y_count; ++y)
+            if (counts[x * y_count + y] != 0 &&
+                pair_excess_(scores, counts, y_count, x, y) < pair_excess_(scores, counts, y_count, x, best_y))
                 best_y = y;
         printf("# axis %s=%.10g best_%s=%.10g excess=%.6f\n", name_x, candidates_x[x], name_y, candidates_y[best_y],
                pair_excess_(scores, counts, y_count, x, best_y));

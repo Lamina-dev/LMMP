@@ -44,7 +44,8 @@
 
    B 整函数配对 deployed 扫描：lmmp_invsqrt_newton_ 绑定候选 T 与绑定现值交替
    计时，读数是相对现值的比值（候选等于现值的一对即 A/A 噪声底）；每个候选的
-   输出过逆平方根恒等式 a*ir^2 <= B^(2ns+na) < a*(ir+1)^2。推荐值取 B 的平均比值
+   输出过逆平方根恒等式 a*ir^2 <= B^(2ns+na) < a*(ir+2)^2（ir ∈ {I-1, I}，
+   I = floor(sqrt(B^(2ns+na)/a))）。推荐值取 B 的平均比值
    argmin，A 给出机理分解与预测作交叉诊断。梅森内部门保持默认。 */
 enum {
     SHAPE_COUNT = 8,
@@ -171,25 +172,31 @@ static mp_limb_t call_whole(void* opaque) {
     return c->dstis[0] ^ c->dstis[c->ns];
 }
 
-/* 逆平方根恒等式：a*ir^2 <= B^(2ns+na) < a*(ir+1)^2 */
+/* 逆平方根恒等式：a*ir^2 <= K=B^(2ns+na) < a*(ir+2)^2，
+   接受 ir ∈ {I-1, I}（I = floor(sqrt(K/a))），拒绝 I+1 与 I-2 */
 static int check_invsqrt(const whole_context* c) {
-    const mp_size_t na = c->na, ns = c->ns, big = 2 * ns + na, nu = na + ns + 1;
+    const mp_size_t na = c->na, ns = c->ns, big = 2 * ns + na, nu = na + ns + 2;
     mp_limb_t cy;
     lmmp_sqr_(c->sq, c->dstis, ns + 1);                   /* ir^2，[0,2ns+2) */
     lmmp_mul_(c->p, c->sq, 2 * ns + 2, c->numa, na);      /* a*ir^2，[0,big+2) */
     for (mp_size_t i = big; i < big + 2; ++i)
         if (c->p[i] != 0)
             return 0;
-    /* u = a*ir，v = 2u，q = a*ir^2 + 2*a*ir + a = a*(ir+1)^2 */
-    if (na >= ns + 1)
-        lmmp_mul_(c->u, c->numa, na, c->dstis, ns + 1);
+    /* ir2 = ir+2；u = a*(ir+2)，v = 4u，q = a*ir^2 + 4*a*(ir+2) + 4a = a*(ir+2)^2 */
+    lmmp_copy(c->v, c->dstis, ns + 1);
+    lmmp_add_1_(c->v, c->v, ns + 1, 1);
+    c->v[ns + 1] = lmmp_add_1_(c->v, c->v, ns + 1, 1);
+    if (na >= ns + 2)
+        lmmp_mul_(c->u, c->numa, na, c->v, ns + 2);
     else
-        lmmp_mul_(c->u, c->dstis, ns + 1, c->numa, na);
-    c->v[nu] = lmmp_shl_(c->v, c->u, nu, 1);
+        lmmp_mul_(c->u, c->v, ns + 2, c->numa, na);
+    c->v[nu] = lmmp_shl_(c->v, c->u, nu, 2);
     lmmp_zero(c->q, big + 5);
     lmmp_copy(c->q, c->p, big + 2);
     lmmp_add_(c->q, c->q, big + 3, c->v, nu + 1);
-    cy = lmmp_add_(c->q, c->q, big + 3, c->numa, na);
+    cy = lmmp_shl_(c->v, c->numa, na, 2); /* 4a */
+    lmmp_add_1_(c->v + na, c->v + na, 1, cy);
+    cy = lmmp_add_(c->q, c->q, big + 3, c->v, na + 1);
     lmmp_add_1_(c->q + big + 3, c->q + big + 3, 1, cy);
     for (mp_size_t i = big; i < big + 4; ++i)
         if (c->q[i] != 0)
@@ -246,13 +253,17 @@ int main(int argc, char** argv) {
         cand[cand_count] = (mp_size_t)i * CAND_STEP;
     const mp_size_t extra[3] = {1280, NEVER_T, saved_t};
     for (int e = 0; e < 3; ++e) {
+        int dup = 0;
+        for (int i = 0; i < cand_count; ++i)
+            if (cand[i] == extra[e])
+                dup = 1;
+        if (dup)
+            continue;  /* 已在表中：不移动元素、不增计数 */
         int at = cand_count;
         while (at > 0 && cand[at - 1] > extra[e]) {
             cand[at] = cand[at - 1];
             --at;
         }
-        if (at > 0 && cand[at - 1] == extra[e])
-            continue;  /* 已在表中 */
         cand[at] = extra[e];
         ++cand_count;
     }
@@ -261,7 +272,7 @@ int main(int argc, char** argv) {
             cur_index = t;
 
     /* 段长：numa、ir [nr+1]、an [naz]、xp/dp/fold [mn]、sq [max(2nr+2, 2ns+2)]、ref [2nr+1+naz]、
-       dstis [ns+1]、p [big+2]、u/v/q */
+       dstis [ns+1]、p [big+2]、u [na+ns+2]、v [na+ns+3]（先存 ir+2 再存 4a*(ir+2) 或 4a）、q [big+5] */
     mp_ptr storage = alloc_limbs(MAX_NA + 4 + (MAX_NS / 2 + 4) + (MAX_NA + 4) + 3 * (MAX_MN + 8) +
                                  (2 * MAX_NS + 8) + (2 * MAX_NS + MAX_NA + 8) + (MAX_NS + 4) +
                                  4 * (2 * MAX_NS + MAX_NA + 8));

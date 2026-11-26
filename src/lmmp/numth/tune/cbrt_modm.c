@@ -44,8 +44,9 @@
 
    B 整函数配对 deployed 扫描：lmmp_invcbrt_newton_ 绑定候选 T 与绑定现值交替
    计时，读数是相对现值的比值（候选等于现值的一对即 A/A 噪声底）；每个候选的
-   输出过逆立方根恒等式 a*ir^3 <= B^(3ns+na) < a*(ir+1)^3。推荐值取 B 的平均
-   比值 argmin，A 给出机理分解与预测作交叉诊断。梅森内部门保持默认。 */
+   输出过逆立方根恒等式 a*ir^3 <= B^(3ns+na) < a*(ir+2)^3（ir ∈ {I-1, I}，
+   I = floor(cbrt(B^(3ns+na)/a))）。推荐值取 B 在全体形状均稳定的候选上的
+   平均比值 argmin，A 给出机理分解与预测作交叉诊断。梅森内部门保持默认。 */
 enum {
     SHAPE_COUNT = 8,
     NR_MIN = 8,                              /* 只测 nr 不小于此值的层 */
@@ -192,7 +193,8 @@ static void cube_of(mp_ptr cube, mp_ptr sq, const mp_ptr x, mp_size_t len) {
     lmmp_mul_(cube, sq, 2 * len, x, len);
 }
 
-/* 逆立方根恒等式：a*ir^3 <= B^(3ns+na) < a*(ir+1)^3 */
+/* 逆立方根恒等式：a*ir^3 <= K=B^(3ns+na) < a*(ir+2)^3，接受 ir ∈ {I-1, I}，
+   拒绝 I+1（下界失败）与 I-2（上界失败） */
 static int check_invcbrt(const whole_context* c) {
     const mp_size_t na = c->na, ns = c->ns, big = 3 * ns + na;
     cube_of(c->cube, c->sq, c->dstis, ns + 1);
@@ -201,9 +203,10 @@ static int check_invcbrt(const whole_context* c) {
         if (c->p[i] != 0)
             return 0;
     lmmp_copy(c->ir1, c->dstis, ns + 1);
-    c->ir1[ns + 1] = lmmp_add_1_(c->ir1, c->ir1, ns + 1, 1);
+    lmmp_add_1_(c->ir1, c->ir1, ns + 1, 1);
+    c->ir1[ns + 1] = lmmp_add_1_(c->ir1, c->ir1, ns + 1, 1); /* ir+2 */
     cube_of(c->cube1, c->sq, c->ir1, ns + 2);
-    lmmp_mul_(c->q, c->cube1, 3 * ns + 6, c->numa, na); /* a*(ir+1)^3，[0,big+6) */
+    lmmp_mul_(c->q, c->cube1, 3 * ns + 6, c->numa, na); /* a*(ir+2)^3，[0,big+6) */
     for (mp_size_t i = big; i < big + 6; ++i)
         if (c->q[i] != 0)
             return 1;
@@ -296,6 +299,7 @@ int main(int argc, char** argv) {
     /* stage_a[s][t]：形状 s 在候选 t 下的 T 相关层代价和；ratio_b[s][t]：整函数候选/现值 */
     double stage_a[SHAPE_COUNT][CAND_MAX], ratio_b[SHAPE_COUNT][CAND_MAX];
     double whole_cur_us[SHAPE_COUNT];
+    int whole_stable[SHAPE_COUNT][CAND_MAX];
     unsigned stable_points = 0, unstable_points = 0;
     int result = EXIT_SUCCESS;
 
@@ -320,6 +324,7 @@ int main(int argc, char** argv) {
         for (int t = 0; t < cand_count; ++t) {
             stage_a[s][t] = 0.0;
             ratio_b[s][t] = 1.0;
+            whole_stable[s][t] = 0;
         }
         whole_cur_us[s] = 0.0;
 
@@ -460,7 +465,9 @@ int main(int argc, char** argv) {
             else
                 ++unstable_points;
             ratio_b[s][t] = c_us / cur_us;
-            whole_cur_us[s] = cur_us;
+            whole_stable[s][t] = stable;
+            if (t == cur_index)
+                whole_cur_us[s] = cur_us;  /* A/A 行的 cur_us 与 aa_ratio 取同一次配对 */
             printf("B %d %llu %llu %llu %.6f %.6f %.6f %.6f %.6f %u %u\n", s, (unsigned long long)na,
                    (unsigned long long)ns, (unsigned long long)cand[t], cur_us, cur_mad, c_us, c_mad, c_us / cur_us,
                    retries, stable);
@@ -468,23 +475,30 @@ int main(int argc, char** argv) {
     }
 
     if (result == EXIT_SUCCESS) {
-        /* 汇总：B 的平均比值（相对现值的 deployed 比值）与 A 的平均预测比值 */
+        /* 汇总：B 的平均比值（相对现值的 deployed 比值）与 A 的平均预测比值。
+           不稳定读数保留打印作诊断，但不入候选比较：仅当所有形状对该候选都有
+           稳定读数时才参与推荐，mean_ratio 只对这些共同形状取平均 */
         double mean_ratio[CAND_MAX], mean_pred[CAND_MAX];
-        int best = 0, best_pred = 0;
+        int comparable[CAND_MAX];
+        int best = -1, best_pred = 0;
         for (int t = 0; t < cand_count; ++t) {
             mean_ratio[t] = 0.0;
             mean_pred[t] = 0.0;
+            comparable[t] = 1;
             for (int s = 0; s < SHAPE_COUNT; ++s) {
+                if (!whole_stable[s][t])
+                    comparable[t] = 0;
                 mean_ratio[t] += ratio_b[s][t] / SHAPE_COUNT;
                 mean_pred[t] += stage_a[s][t] / stage_a[s][cur_index] / SHAPE_COUNT;
             }
-            if (mean_ratio[t] < mean_ratio[best])
+            if (comparable[t] && (best < 0 || mean_ratio[t] < mean_ratio[best]))
                 best = t;
             if (mean_pred[t] < mean_pred[best_pred])
                 best_pred = t;
         }
         if (unstable_points > 0)
-            printf("# note: %u unstable measurement(s) retained in scoring\n", unstable_points);
+            printf("# note: %u unstable measurement(s) kept for diagnostics, excluded from recommendation\n",
+                   unstable_points);
         printf("# aa_noise_floor: shape na ns cur_us ratio_at_current best_T best_ratio predicted_rel_at_best\n");
         for (int s = 0; s < SHAPE_COUNT; ++s) {
             int bt = 0;
@@ -497,25 +511,30 @@ int main(int argc, char** argv) {
                    ratio_b[s][cur_index], (unsigned long long)cand[bt], ratio_b[s][bt],
                    stage_a[s][bt] / stage_a[s][cur_index]);
         }
-        const double flat_limit = mean_ratio[best] + 0.005;
-        int flat_low = best, flat_high = best;
-        while (flat_low > 0 && mean_ratio[flat_low - 1] <= flat_limit)
-            --flat_low;
-        while (flat_high + 1 < cand_count && mean_ratio[flat_high + 1] <= flat_limit)
-            ++flat_high;
         for (int t = 0; t < cand_count; ++t)
-            printf("# badness candidate=%llu deployed_ratio=%.6f predicted_rel=%.6f\n", (unsigned long long)cand[t],
-                   mean_ratio[t], mean_pred[t]);
-        printf("# recommended=%llu deployed_ratio=%.6f\n", (unsigned long long)cand[best], mean_ratio[best]);
-        printf("# flat_within_0.5pct=%llu..%llu\n", (unsigned long long)cand[flat_low],
-               (unsigned long long)cand[flat_high]);
+            printf("# badness candidate=%llu deployed_ratio=%.6f predicted_rel=%.6f comparable=%d\n",
+                   (unsigned long long)cand[t], mean_ratio[t], mean_pred[t], comparable[t]);
         printf("# predicted_best=%llu predicted_rel=%.6f\n", (unsigned long long)cand[best_pred],
                mean_pred[best_pred]);
-        printf("# current=%llu deployed_ratio=%.6f predicted_rel=%.6f\n", (unsigned long long)saved_t,
-               mean_ratio[cur_index], mean_pred[cur_index]);
-        printf("# never=%llu deployed_ratio=%.6f\n", (unsigned long long)NEVER_T, mean_ratio[cand_count - 1]);
         printf("# stable=%u unstable=%u\n", stable_points, unstable_points);
-        printf("recommended CBRT_NEWTON_MODM_THRESHOLD = %llu\n", (unsigned long long)cand[best]);
+        if (best < 0) {
+            printf("# no candidate with stable readings on all shapes; recommendation withheld\n");
+        } else {
+            const double flat_limit = mean_ratio[best] + 0.005;
+            int flat_low = best, flat_high = best;
+            while (flat_low > 0 && comparable[flat_low - 1] && mean_ratio[flat_low - 1] <= flat_limit)
+                --flat_low;
+            while (flat_high + 1 < cand_count && comparable[flat_high + 1] &&
+                   mean_ratio[flat_high + 1] <= flat_limit)
+                ++flat_high;
+            printf("# recommended=%llu deployed_ratio=%.6f\n", (unsigned long long)cand[best], mean_ratio[best]);
+            printf("# flat_within_0.5pct=%llu..%llu\n", (unsigned long long)cand[flat_low],
+                   (unsigned long long)cand[flat_high]);
+            printf("# current=%llu deployed_ratio=%.6f predicted_rel=%.6f\n", (unsigned long long)saved_t,
+                   mean_ratio[cur_index], mean_pred[cur_index]);
+            printf("# never=%llu deployed_ratio=%.6f\n", (unsigned long long)NEVER_T, mean_ratio[cand_count - 1]);
+            printf("recommended CBRT_NEWTON_MODM_THRESHOLD = %llu\n", (unsigned long long)cand[best]);
+        }
     }
     lmmp_tune_CBRT_NEWTON_MODM_THRESHOLD = saved_t;
     lmmp_free(storage);

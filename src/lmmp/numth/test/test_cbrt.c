@@ -337,7 +337,9 @@ static bool check_gate_shape(mp_size_t na, mp_size_t ns, u64 *seed, bool floor_o
     lmmp_sub_n_(t, r, f, ns);
     const mp_size_t tn = norm_len(t, ns);
     const bool via_newton = tn == 1 && t[0] == 1;
-    ok = ok && tn <= 1 && (!telling || via_newton == gate_takes_newton(na, ns));
+    // r - f 只允许 0（分治 floor）或 1（牛顿 round），F+2 等超出契约
+    const bool diff_ok = tn == 0 || via_newton;
+    ok = ok && diff_ok && (!telling || via_newton == gate_takes_newton(na, ns));
 
     // 带余数入口：分派门会通过的形状须无视分派门仍走分治，给出精确 floor 根；
     // rem_oracle 的形状另验余数恒等式 numa*B^(3nf) == F^3 + rem

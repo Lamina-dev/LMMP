@@ -30,11 +30,13 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* binvert unbalance 主循环 k 更新的三档梯子（梯级尺寸恒为 na）：
-   A=plain 直乘（na<BINVERT_UNBALANCE_MODM_THRESHOLD 且 na<BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD）
-   B=梅森分发不缓存（BINVERT_UNBALANCE_MODM_THRESHOLD<=na<BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD，
-     m=mersenne_next_size((2na+1)>>1)）
-   C=fft 缓存（na>=BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD，m=fft_next_size((2na+1)>>1)，
+/* binvert unbalance 主循环 k 更新的三档梯子（梯级尺寸恒为 na；判序与生产分派一致，
+   MODM 先判：na<BINVERT_UNBALANCE_MODM_THRESHOLD 时 CACHE 不参与）：
+   A=plain 直乘（na<BINVERT_UNBALANCE_MODM_THRESHOLD）
+   B=梅森分发不缓存（na>=BINVERT_UNBALANCE_MODM_THRESHOLD 且
+     na<BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD，m=mersenne_next_size((2na+1)>>1)）
+   C=fft 缓存（na>=BINVERT_UNBALANCE_MODM_THRESHOLD 且
+     na>=BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD，m=fft_next_size((2na+1)>>1)，
      预旋转 D' 变换跨块复用）
    档位在循环体内按 na 读取，一次调用内所有块同尺寸、无自递归 ⟹ 绑定全网格
    干净、sub_n=0。每点经完整 lmmp_binvert_ 入口三路测量（根分派绑
@@ -43,7 +45,7 @@
    MULLO_DC_THRESHOLD（不绑定），网格 na<=2048<默认值 ⟹ 恒走 mullo_dc_，
    与部署一致。输入奇底数 [numa,na]，oracle=恒等式 a*x == 1 (mod B^n)。
    评分：MODM 轴配 CACHE 默认、CACHE 轴配 MODM 默认各一维 + 按部署选择式
-   na>=c ? C : (na>=m ? B : A) 求两阈值的二维联合 argmin。 */
+   na<m ? A : (na>=c ? C : B) 求两阈值的二维联合 argmin。 */
 enum {
     MIN_NA = 8, MAX_NA = 2048,
     /* 网格三段：8..256 步 8（A|B 边界细扫）、272..1024 步 16、1088..2048 步 32 */
@@ -291,15 +293,15 @@ int main(int argc, char** argv) {
                     point_us[point_count][rung] = us[rung];
                 ++point_count;
             }
-            /* MODM 轴：候选 m 配默认 CACHE=c0，判序镜像生产分派（CACHE 先判） */
+            /* MODM 轴：候选 m 配默认 CACHE=c0，判序镜像生产分派（MODM 先判） */
             for (int m = MODM_CAND_MIN; m <= MODM_CAND_MAX; m += MODM_CAND_STEP) {
-                double pick = na >= saved_cache ? us[2] : (na >= (mp_size_t)m ? us[1] : us[0]);
+                double pick = na < (mp_size_t)m ? us[0] : (na >= saved_cache ? us[2] : us[1]);
                 modm_scores[m] += pick;
                 ++modm_counts[m];
             }
-            /* CACHE 轴：候选 c 配默认 MODM=m0 */
+            /* CACHE 轴：候选 c 配默认 MODM=m0，判序镜像生产分派（MODM 先判） */
             for (int c = CACHE_CAND_MIN; c <= CACHE_CAND_MAX; c += CACHE_CAND_STEP) {
-                double pick = na >= (mp_size_t)c ? us[2] : (na >= saved_modm ? us[1] : us[0]);
+                double pick = na < saved_modm ? us[0] : (na >= (mp_size_t)c ? us[2] : us[1]);
                 cache_scores[c] += pick;
                 ++cache_counts[c];
             }
@@ -316,14 +318,14 @@ int main(int argc, char** argv) {
                               MODM_CAND_MAX, MODM_CAND_STEP, saved_modm);
             recommend_stepped("BINVERT_UNBALANCE_MODM_CACHE_THRESHOLD", cache_scores, cache_counts, CACHE_CAND_MIN,
                               CACHE_CAND_MAX, CACHE_CAND_STEP, saved_cache);
-            /* 二维联合 argmin：部署选择式 na>=c ? C : (na>=m ? B : A)，逐点取档位曲线 */
+            /* 二维联合 argmin：部署选择式 na<m ? A : (na>=c ? C : B)（MODM 先判），逐点取档位曲线 */
             int best_m = MODM_CAND_MIN, best_c = CACHE_CAND_MIN;
             double best_total = -1.0;
             for (int m = MODM_CAND_MIN; m <= MODM_CAND_MAX; m += MODM_CAND_STEP) {
                 for (int c = CACHE_CAND_MIN; c <= CACHE_CAND_MAX; c += CACHE_CAND_STEP) {
                     double total = 0;
                     for (unsigned p = 0; p < point_count; ++p) {
-                        int rung = point_na[p] >= (mp_size_t)c ? 2 : (point_na[p] >= (mp_size_t)m ? 1 : 0);
+                        int rung = point_na[p] < (mp_size_t)m ? 0 : (point_na[p] >= (mp_size_t)c ? 2 : 1);
                         total += point_us[p][rung];
                     }
                     if (best_total < 0 || total < best_total) {
@@ -335,7 +337,7 @@ int main(int argc, char** argv) {
             }
             double current_total = 0;
             for (unsigned p = 0; p < point_count; ++p) {
-                int rung = point_na[p] >= saved_cache ? 2 : (point_na[p] >= saved_modm ? 1 : 0);
+                int rung = point_na[p] < saved_modm ? 0 : (point_na[p] >= saved_cache ? 2 : 1);
                 current_total += point_us[p][rung];
             }
             printf("# joint_best=(%d,%d) avg_us=%.6f\n", best_m, best_c, best_total / point_count);

@@ -344,7 +344,8 @@ int main(int argc, char** argv) {
         lmmp_tune_usage("tune_numth_cbrt_dispatch");
         puts("  --exp-scale LIST  CBRT_INVNEWTON_EXP_SCALE candidates, comma separated positive numbers");
         puts("  --min-root LIST   CBRT_INVNEWTON_MIN_ROOT candidates, comma separated positive numbers");
-        printf("  --max-ns NS       cap on ns of grid rows, default %d, at most %d\n", DEFAULT_MAX_NS, MAX_NS);
+        printf("  --max-ns NS       cap on the actual (jittered) ns of grid rows, default %d, at most %d\n",
+               DEFAULT_MAX_NS, MAX_NS);
         return EXIT_SUCCESS;
     }
 
@@ -453,8 +454,8 @@ int main(int argc, char** argv) {
             const mp_size_t span = level_ns / JITTER_DIV;
             const mp_size_t ns = level_ns + point_jitter(options.seed, col, level) % (2 * span + 1) - span;
             const mp_size_t nf = ns - 1 - (na + 2) / 3, nl = na + 3 * nf, nR = (nl + 2) / 3 + 1;
-            if (level_ns > cli.max_ns || nf < 2 || 3 * nf < 2 * ((na + 2) / 3 * 3) + 3)
-                continue;  /* 超出封顶，或 newton 契约之外：不能强制 newton */
+            if (ns > cli.max_ns || nf < 2 || 3 * nf < 2 * ((na + 2) / 3 * 3) + 3)
+                continue;  /* 实际 ns（含抖动）超出封顶，或 newton 契约之外：不能强制 newton */
             fill_random(b.numa, na, (mp_limb_t)(options.seed + 8 * nf + na));
             if ((col + level) % 3 == 1)
                 b.numa[na - 1] >>= 2;
