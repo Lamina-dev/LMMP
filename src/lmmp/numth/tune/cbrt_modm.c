@@ -31,7 +31,7 @@
 #include "tune/params.h"
 
 /* CBRT_NEWTON_MODM_THRESHOLD：lmmp_invcbrt_newton_ 每层残差链的阈值。层内先由
-   cmod 门（mn+2T < 3nr+2 且 mn <= naz+3nr）决定整条链走梅森模乘还是精确截断，
+   cmod 判别条件（mn+2T < 3nr+2 且 mn <= naz+3nr）决定整条链走梅森模乘还是精确截断，
    梅森链内 ir^2 与 ir^2*an 两个决策再受 T 与形状守卫约束，ir^2*an*ir 恒走梅森。
    阈值在每层内部读取且带形状守卫，经完整函数无法干净强制 ⟹ 分两级测量。
 
@@ -46,7 +46,7 @@
    计时，读数是相对现值的比值（候选等于现值的一对即 A/A 噪声底）；每个候选的
    输出过逆立方根恒等式 a*ir^3 <= B^(3ns+na) < a*(ir+2)^3（ir ∈ {I-1, I}，
    I = floor(cbrt(B^(3ns+na)/a))）。推荐值取 B 在全体形状均稳定的候选上的
-   平均比值 argmin，A 给出机理分解与预测作交叉诊断。梅森内部门保持默认。 */
+   平均比值 argmin，A 给出机理分解与预测作交叉诊断。梅森乘法内部的各阈值保持默认。 */
 enum {
     SHAPE_COUNT = 8,
     NR_MIN = 8,                              /* 只测 nr 不小于此值的层 */

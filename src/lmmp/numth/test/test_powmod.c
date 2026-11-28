@@ -208,7 +208,7 @@ TEST_CASE("numth/powmod", powmod_odd_and_dispatch) {
         }
     }
 
-    // 角点：m = B^n-1（全 1 折叠拼接二义点）、b=0、b=m-1、e=1
+    // 角点：m = B^n-1（全 1，梅森折叠后拼接时的二义点）、b=0、b=m-1、e=1
     const mp_size_t n_values2[] = {2, 5, 17};
     for (size_t n_index = 0; n_index < ARRAY_SIZE(n_values2); ++n_index) {
         mp_size_t n = n_values2[n_index];

@@ -20,10 +20,10 @@
  *  SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+#include "numth/mat22_mul.h"
 #include "lmmp/lmmpn.h"
 #include "mparam.h"
-#include "numth/mat22_mul.h"
-#include "impl/internal.h"
+
 
 /**
  * @brief 带符号加法
@@ -397,91 +397,6 @@ static void mat22_sqr_basecase_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr
     dst->n[1][1] = mat22_add_(dst->p[1][1], tmp, l11, cross, lcross);
 }
 
-/**
- * @brief 计算 D <- A*A（2x2 非负矩阵 Winograd-Strassen 平方，7 次大数乘中 4 次为平方）
- * @param dst 结果矩阵，各个元素结果写入 dst->p 中的数组，对应实际长度被写入到 dst->n 中
- * @param a 源矩阵（元素长度为 a->n[i][j]，可与 dst 别名）
- * @param tp 临时空间（15*mx(a)+14 个limb）
- * @warning dst!=NULL, a!=NULL, tp!=NULL, eqsep(dst,a),
- *          dst 各元素缓冲容量至少为 2*mx(a)+4
- * @note 各段长度界限与槽位分配（mxa = mx(a)，组合量对称 t_i = s_i）：
- *
- *       [s1,mxa+1]     无符号加法，长度至多+1
- *       [s2,mxa]       带符号减法，长度不会增加
- *       [s3,mxa+1]     带符号加法，长度至多+1
- *       [s4,mxa+2]     带符号加法，长度至多+1
- *
- *       [p1,2mxa+2] = s1^2（s1 非负，无符号平方，平方对符号不敏感，
- *                    带符号组合量取绝对长度后同样走无符号平方）
- *       [p2,2mxa]   = s2^2
- *       [p3,2mxa+2] = s3^2
- *       [p4,2mxa]   = a00^2（原始元素非负，无符号平方）
- *       [p5,2mxa]   = a01*a10（无符号乘法）
- *       [p6,2mxa+2] = [s4]*a01（带符号乘法）
- *       [p7,2mxa+2] = a10*[s4]（带符号乘法）
- *
- *       [U1,2mxa+3] = p3+p5（带符号加法，长度至多 max+1）
- *       [U2,2mxa+4] = p1-U1
- *       [U3,2mxa+4] = U1-p2
- *
- *       槽位（按驻留内容的最大写入范围计宽，顺序分配）：
- *       s1槽（后驻 p2）      2mxa
- *       s2槽（后驻 p3,U1,U3）2mxa+4
- *       s3槽（后驻 p6）      2mxa+2
- *       s4槽（仅组合量）     mxa+2
- *       空槽（驻 p1,U2）     2mxa+4
- *       p4槽                2mxa
- *       p5槽                2mxa
- *       p7槽                2mxa+2
- *       合计 15mxa+14 limbs。结果直写 dst：C00 = p4+p5 无符号加法，
- *       其余带符号，瞬态写入范围至多 2*mx(a)+4（同乘法的恒等式论证）
- */
-static void mat22_sqr_strassen_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
-    mp_size_t mxa = mat22_maxlen_(a);
-    mp_size_t off = 0;
-    mp_ptr s1 = tp + off;
-    off += 2 * mxa; /* s1 槽，后驻 p2 */
-    mp_ptr s2 = tp + off;
-    off += 2 * mxa + 4; /* s2 槽，后驻 p3、U1、U3 */
-    mp_ptr s3 = tp + off;
-    off += 2 * mxa + 2; /* s3 槽，后驻 p6 */
-    mp_ptr s4 = tp + off;
-    off += mxa + 2; /* s4 槽，仅组合量 */
-    mp_ptr spare = tp + off;
-    off += 2 * mxa + 4; /* 空槽，驻 p1、U2 */
-    mp_ptr p4 = tp + off;
-    off += 2 * mxa; /* p4 槽 */
-    mp_ptr p5 = tp + off;
-    off += 2 * mxa; /* p5 槽 */
-    mp_ptr p7 = tp + off; /* p7 槽，宽 2mxa+2 */
-    mp_ssize_t ns1, ns2, ns3, ns4;
-
-    ns1 = mat22_add_(s1, a->p[1][1], a->n[1][1], a->p[0][1], a->n[0][1]);
-    ns2 = mat22_addsg_(s2, a->p[1][1], (mp_ssize_t)a->n[1][1], a->p[1][0], -(mp_ssize_t)a->n[1][0]);
-    ns3 = mat22_addsg_(s3, s2, ns2, a->p[0][1], (mp_ssize_t)a->n[0][1]);
-    ns4 = mat22_addsg_(s4, s3, ns3, a->p[0][0], -(mp_ssize_t)a->n[0][0]);
-
-    /* 平方对符号不敏感：带符号组合量取绝对长度走无符号平方 */
-    mp_ptr p1 = spare, p2 = s1, p3 = s2, p6 = s3;
-    mp_ssize_t np1 = (mp_ssize_t)mat22_sqr_(p1, s1, ns1);
-    mp_ssize_t np2 = (mp_ssize_t)mat22_sqr_(p2, s2, mat22_abslen_(ns2)); /* s2 已消耗 */
-    mp_ssize_t np3 = (mp_ssize_t)mat22_sqr_(p3, s3, mat22_abslen_(ns3)); /* s3 已消耗 */
-    mp_ssize_t np4 = (mp_ssize_t)mat22_sqr_(p4, a->p[0][0], a->n[0][0]);
-    mp_ssize_t np5 = (mp_ssize_t)mat22_mul_(p5, a->p[0][1], a->n[0][1], a->p[1][0], a->n[1][0]);
-    mp_ssize_t np6 = mat22_mulsg_(p6, s4, ns4, a->p[0][1], (mp_ssize_t)a->n[0][1]); /* s4 尚需用于 p7 */
-    mp_ssize_t np7 = mat22_mulsg_(p7, a->p[1][0], (mp_ssize_t)a->n[1][0], s4, ns4); /* 对称 t4=s4，此后 s4 已消耗 */
-
-    mp_ssize_t nu1 = mat22_addsg_(p3, p3, np3, p5, np5);  /* U1 = p3+p5 */
-    mp_ssize_t nu2 = mat22_addsg_(p1, p1, np1, p3, -nu1); /* U2 = p1-U1 */
-    mp_ssize_t nu3 = mat22_addsg_(p3, p3, nu1, p2, -np2); /* U3 = U1-p2 */
-    /* C00 = p4+p5 两非负积之和，无符号加法直写；其余带符号
-      （别名安全性同乘法：末次原元素读取在 np7） */
-    dst->n[0][0] = mat22_add_(dst->p[0][0], p4, np4, p5, np5);
-    dst->n[0][1] = mat22_abslen_(mat22_addsg_(dst->p[0][1], p3, nu3, p6, -np6)); /* C01 = U3-p6 */
-    dst->n[1][0] = mat22_abslen_(mat22_addsg_(dst->p[1][0], p1, nu2, p7, -np7)); /* C10 = U2-p7 */
-    dst->n[1][1] = mat22_abslen_(mat22_addsg_(dst->p[1][1], p2, np2, p1, nu2));  /* C11 = p2+U2 */
-}
-
 static int mat22_all_big_(const lmmp_mat22_t* x, mp_size_t th) {
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
@@ -502,18 +417,7 @@ void lmmp_mat22_mul_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, const lmmp_mat22_
     }
 }
 
-/* FIXME: 删除 Strassen 平方路径（mat22_sqr_strassen_ 与本处分派），恒走 basecase。
-   平方 basecase 借对称性只需 5 次大数乘（2 平方 + 3 乘），Strassen 需 7 次
-   （4 平方 + 3 乘）——一般乘法次数相同却多做 2 次平方，且组合量更长，
-   运算计数对任意 n 都严格劣，不存在交叉点（临时空间亦为 15mx+14 vs 5mx+2）。
-   Strassen 的 8→7 优势只对一般矩阵乘成立，且需矩阵级递归才能复利，本入口为单层分派。
-   删除后 MAT22_SQR_STRASSEN_THRESHOLD 与各后端 mparam.h 中该宏一并退役，
-   tp 容量契约可收紧至 5*mx(a)+2、dst 元素容量至 2*mx(a)+2（须同步 mat22_mul.h 与消费方）。 */
 void lmmp_mat22_sqr_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, mp_ptr tp) {
     lmmp_param_assert(dst != NULL && a != NULL && tp != NULL);
-    if (mat22_all_big_(a, MAT22_SQR_STRASSEN_THRESHOLD)) {
-        mat22_sqr_strassen_(dst, a, tp);
-    } else {
-        mat22_sqr_basecase_(dst, a, tp);
-    }
+    mat22_sqr_basecase_(dst, a, tp);
 }

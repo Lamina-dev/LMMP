@@ -45,7 +45,7 @@
 // Toom-8.5乘法阈值：超过此规模使用 toom8h
 #define MUL_TOOM8H_THRESHOLD 602
 // 平方 Toom 阈值：平方与乘法在各 toom 层的交叉点不完全一致，分立调优。
-// SQR_TOOM22 上限受硬编码平方 LMMP_MUL_HARD_MAX_N 钉死(与乘法同构)
+// SQR_TOOM22 上限受硬编码平方 LMMP_MUL_HARD_MAX_N 限制(与乘法同构)
 #define SQR_TOOM22_THRESHOLD 20
 #define SQR_TOOM33_THRESHOLD 268
 #define SQR_TOOM44_THRESHOLD 454
@@ -81,7 +81,7 @@
 // 分治梅森平方（lmmp_sqr_mersenne_dc_）递归入口阈值
 #define SQR_MERSENNE_DC_THRESHOLD 72
 // dc 递归内 mod B^n+1 半域积切换阈值：n 不低于此值且按 best_k 粒度对齐时走
-// lmmp_mul_fermat_，否则用普通乘法 + 反向折叠（本机费马引擎 <640L 相对直乘无优势）
+// lmmp_mul_fermat_，否则用普通乘法再对 B^n+1 取余（本机费马引擎 <640L 相对直乘无优势）
 #define MUL_MERSENNE_FERMAT_THRESHOLD 469
 #define SQR_MERSENNE_FERMAT_THRESHOLD 458
 // 梅森乘法分发阈值（lmmp_mul_mersenne_）：rn 低于此值走分治 dc，否则走 SSA FFT

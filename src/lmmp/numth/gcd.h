@@ -275,6 +275,12 @@ mp_size_t lmmp_hgcd_adjust_(lmmp_hgcd_matrix_t* M1,
  */
 mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n);
 
+#if defined(LMMP_INTERNAL_BUILD) || defined(LMMP_INTERNAL_USE)
+/** @brief 用生产模乘路径应用子矩阵，供内部测试直接比较残差。 */
+mp_size_t lmmp_test_hgcd_apply_mod_(lmmp_hgcd_matrix_t* M, int detsign, mp_ptr dap, mp_ptr dbp, mp_size_t* blen,
+                                  mp_srcptr ap, mp_srcptr bp, mp_size_t n, int use_cache, lmmp_hgcd_scratch_t* sc);
+#endif
+
 /**
  * @brief 导出另一侧系数：tv = (g - S·X)/Y（S 为 X 侧系数，恒等式保证整除）
  * @param dst 输出（容量 >= xn+2）

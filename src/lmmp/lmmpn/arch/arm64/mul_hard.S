@@ -50,7 +50,7 @@ ASM_GSYM(lmmp_mul_hard_1_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_2_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 3]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -86,7 +86,7 @@ ASM_GSYM(lmmp_mul_hard_2_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_3_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 4]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -156,7 +156,7 @@ ASM_GSYM(lmmp_mul_hard_3_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_4_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 5]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -264,7 +264,7 @@ ASM_GSYM(lmmp_mul_hard_4_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_5_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 6]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -432,7 +432,7 @@ ASM_GSYM(lmmp_mul_hard_5_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_6_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 7]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -658,7 +658,7 @@ ASM_GSYM(lmmp_mul_hard_6_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_7_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 8]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -968,7 +968,7 @@ ASM_GSYM(lmmp_mul_hard_7_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_8_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 9]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -1358,7 +1358,7 @@ ASM_GSYM(lmmp_mul_hard_8_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_9_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 10]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -1858,7 +1858,7 @@ ASM_GSYM(lmmp_mul_hard_9_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_10_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 11]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -2458,7 +2458,7 @@ ASM_GSYM(lmmp_mul_hard_10_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_11_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 12]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -3192,7 +3192,7 @@ ASM_GSYM(lmmp_mul_hard_11_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_12_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 13]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -4048,7 +4048,7 @@ ASM_GSYM(lmmp_mul_hard_12_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_13_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 14]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -5064,7 +5064,7 @@ ASM_GSYM(lmmp_mul_hard_13_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_14_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 15]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -6222,7 +6222,7 @@ ASM_GSYM(lmmp_mul_hard_14_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_15_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 16]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -7564,7 +7564,7 @@ ASM_GSYM(lmmp_mul_hard_15_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_16_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 17]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -9070,7 +9070,7 @@ ASM_GSYM(lmmp_mul_hard_16_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_17_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 18]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -10786,7 +10786,7 @@ ASM_GSYM(lmmp_mul_hard_17_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_18_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 19]
     ldp     x4, x5, [x2]
     mov     x12, xzr
@@ -12686,7 +12686,7 @@ ASM_GSYM(lmmp_mul_hard_18_):
 .p2align 4
 ASM_GSYM(lmmp_mul_hard_19_):
     // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1
-    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行
+    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row
     // row 0: cols [0, 20]
     ldp     x4, x5, [x2]
     mov     x12, xzr

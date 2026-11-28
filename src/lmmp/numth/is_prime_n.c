@@ -351,7 +351,7 @@ static inline int ipn_jacobi_small_(ulong b, ulong A) {
 
 /*
     (±Dabs|n)：Dabs 奇（uint 范围），n 为 nn limb 奇数。[np,nn] 经
-    lmmp_mod_1_ 折叠到 mod |D|（预逆除法，O(nn)），再经二次互反律
+    lmmp_mod_1_ 对 |D| 取余（预逆除法，O(nn)），再经二次互反律
     (A|n) = (n|A)*(-1)^(((A-1)/2)((n-1)/2)) 归结到 (n mod A | A)；
     D 为负时乘 (-1|n) 因子。gcd(|D|,n)>1 返回 0
 */
@@ -546,7 +546,7 @@ LMMP_NOINLINE static int ipn_notrial_i_(mp_srcptr np, mp_size_t nn, int strength
        全程共享单块工作区（蒙域上下文 init 一次，贯穿基底 2 / 随机基底
        各轮 / 强 Lucas，各轮免 binvert、one/m1 的 redcify 与 FFT 变换
        缓存重建）：
-         [蒙域段]      basecase 2n | 中层 8n | 折叠 8n+msz（lmmp_mont_need_）
+         [蒙域段]      basecase 2n | 中层 8n | 梅森折叠 8n+msz（lmmp_mont_need_）
          [prod(2n)]    平方全积兼 redcify 工作区（各轮共用）
          [nm1(n)]      n-1（d 分解来源与全域轮采样上界）
          [d(n)]        (n-1)>>t（各随机轮固定不变）
@@ -569,7 +569,7 @@ LMMP_NOINLINE static int ipn_notrial_i_(mp_srcptr np, mp_size_t nn, int strength
     lmmp_mont_init_(&mc, np, nn, arena, 1, prod);
     ipn_sdiv_init_(&sd, np, nn);
 
-    /* n-1 = d*2^t：低零 limb 折叠为指针偏移，余位单次移位 */
+    /* n-1 = d*2^t：低位的 t/LIMB_BITS 个零 limb 并入指针偏移，余位单次移位 */
     lmmp_copy(nm1, np, nn);
     lmmp_dec(nm1);
     mp_size_t dn = ipn_norm_(nm1 + t / LIMB_BITS, nn - t / LIMB_BITS);

@@ -61,7 +61,7 @@ void lmmp_mat22_mul_(lmmp_mat22_t* dst, const lmmp_mat22_t* a, const lmmp_mat22_
  * @brief 计算 D <- A*A（2x2 非负矩阵平方）
  * @param dst 结果矩阵，各个元素结果写入 dst->p 中的数组，对应实际长度被写入到 dst->n 中
  * @param a 源矩阵（元素长度为 a->n[i][j]，可与 dst 别名）
- * @param tp 临时空间（15*mx(a)+14 个limb）
+ * @param tp 临时空间（5*mx(a)+2 个limb）
  * @warning dst!=NULL, a!=NULL, tp!=NULL, eqsep(dst,a),
  *          dst 元素缓冲容量 >= 2*mx(a)+4
  */

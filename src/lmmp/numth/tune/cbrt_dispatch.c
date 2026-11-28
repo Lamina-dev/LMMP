@@ -53,7 +53,7 @@
    相对超出后取平均，二维 argmin 为推荐值，另报平坦带。对照口径：逐列比值（newton/divide）
    保序回归后插值的实测交叉点，及其对 ln(ns) = ln(C) + na/A0 的最小二乘拟合。
    候选须对一切 na >= 1 给出分界根长 >= na+4（lmmp_cbrt_newton_ 契约的充分条件），否则拒绝。
-   CBRT_NEWTON_MODM_THRESHOLD 与梅森内部门保持默认。 */
+   CBRT_NEWTON_MODM_THRESHOLD 与梅森乘法内部的各阈值保持默认。 */
 enum {
     NA_COUNT = 24,
     NS_LEVELS = 24,      /* ns 档位表取 1500*2^(k/4) 的整数值 */
@@ -611,7 +611,7 @@ int main(int argc, char** argv) {
                 printf("# compare argmin    a0=%.10g c=%.10g mean_excess=%.6f ln_ns_rms=%.4f\n", cli.a0[best.x],
                        cli.c[best.y], best.excess,
                        pair_cross_rms(cross_na, cross_ln_ns, cross_count, cli.a0[best.x], cli.c[best.y]));
-            /* 钳制指纹：argmin 落在候选表端点，候选范围可能不足 */
+            /* 推荐值落在候选表端点，是候选范围可能不足的特征症状 */
             if (!isnan(best.excess) && (best.x == 0 || best.x + 1 == cli.a0_count))
                 printf("# note: argmin at the candidate edge of CBRT_INVNEWTON_EXP_SCALE (%.10g)\n", cli.a0[best.x]);
             if (!isnan(best.excess) && (best.y == 0 || best.y + 1 == cli.c_count))

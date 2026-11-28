@@ -27,10 +27,10 @@
 
 /* binvert_mulhi_（unbalance 的 a^-1 高半积提取）阈值：n=na 低于
    MULHI_MERSENNE_THRESHOLD 时走 lmmp_mul_n_ 直乘取高半，否则走梅森分发
-   （m=mersenne_next_size(2na)，折叠积直接给出高半）。每次 unbalance 调用恰
+   （m=mersenne_next_size(2na)，梅森折叠积直接给出高半）。每次 unbalance 调用恰
    读一次、无递归 ⟹ 强制绑定全网格干净、sub_n=0。两路经完整 lmmp_binvert_
-   入口配对测量（根分派绑 BINVERT_UNBALANCE_SLOPE_THRESHOLD=1 钉死
-   unbalance；binvert_n_dc_(na) 前缀与块积对两路对称共同计时）。形状取
+   入口配对测量（根分派绑 BINVERT_UNBALANCE_SLOPE_THRESHOLD=1 固定走
+   unbalance；binvert_n_dc_(na) 前缀与分块乘积对两路对称共同计时）。形状取
    n=3na（单块，mulhi 占比最大）。恒等式 oracle a*x == 1 (mod B^n) 同
    tune_numth_binvert_modm。MODM/CACHE 与 MULLO_DC 保持默认不绑定。 */
 enum {

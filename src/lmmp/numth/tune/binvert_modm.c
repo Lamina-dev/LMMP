@@ -40,8 +40,8 @@
      预旋转 D' 变换跨块复用）
    档位在循环体内按 na 读取，一次调用内所有块同尺寸、无自递归 ⟹ 绑定全网格
    干净、sub_n=0。每点经完整 lmmp_binvert_ 入口三路测量（根分派绑
-   BINVERT_UNBALANCE_SLOPE_THRESHOLD=1 结构化钉死 unbalance）；binvert_n_dc_(na)
-   前缀与 binvert_mulhi_ 每调用恰一次、三路对称共同计时；块积 mullo 走
+   BINVERT_UNBALANCE_SLOPE_THRESHOLD=1 固定走 unbalance）；binvert_n_dc_(na)
+   前缀与 binvert_mulhi_ 每调用恰一次、三路对称共同计时；分块乘积的 mullo 走
    MULLO_DC_THRESHOLD（不绑定），网格 na<=2048<默认值 ⟹ 恒走 mullo_dc_，
    与部署一致。输入奇底数 [numa,na]，oracle=恒等式 a*x == 1 (mod B^n)。
    评分：MODM 轴配 CACHE 默认、CACHE 轴配 MODM 默认各一维 + 按部署选择式

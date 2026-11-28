@@ -30,14 +30,14 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 字符串→limb 递归门：FROM_STR_DIVIDE_THRESHOLD 在 lmmp_from_str_divide_ 每层以
+/* 字符串→limb 递归阈值：FROM_STR_DIVIDE_THRESHOLD 在 lmmp_from_str_divide_ 每层以
    该段数字串的结果 limb 估计值判 basecase。节点先沿幂表下降（len<=pdigits 时同
    长度换低一层幂），到首个 pdigits<len 的层分裂为 pdigits 与 len-pdigits 两半，
    子问题估计 ≈n/2。低路直调 basecase；高路绑 T=n 只影响估计>=n 的节点（含整条
    同长度下降链，与部署路径一致），恰好代表候选 (sub_n,n]；T<=sub_n 的候选会让
    子问题再入分治，逐候选绑 T 直调 divide_ 顶部 deployed 实测。
    幂表用全局十进制幂表的去归一化副本，与 from_decimal_ 部署同构；from_str_
-   任意基数的逐调用幂表同为逐层减半几何，近似等价。FROM_STR_BASEPOW 门不在
+   任意基数的逐调用幂表同为逐层减半几何，近似等价。FROM_STR_BASEPOW_THRESHOLD 的判别不在
    递归内，保持默认。
    部署约束：候选须 >=3——递归调用要求幂层 N=np+zeros>=2，而第 0 层幂
    N=1；触达第 0 层的节点结果 limb 估计 <=2，T>=3 时它们恒走 basecase，

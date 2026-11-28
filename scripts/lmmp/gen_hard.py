@@ -32,8 +32,8 @@ gen_hard.py -- LMMP 硬编码乘法/平方汇编生成器
   arm64 mul      : 种子对 mul_2 + 展开 addmul_2 行对 (两列进位保存), 奇 n 尾行 addmul_1
                    (链1: s_k=lo_k+hi_{k-1}+C; 链2: dst+=s; carry 走 x15)
   arm64 sqr, N<=3 : 库内 sqr_basecase.S 小规模分支特化; N=4..7: 2a 乘数单趟; N>=8: 两列行对 + 融合 extr 对角收尾
-                   (m_i = 2a_i + ov_{i-1}, ov 由 bit63 现场生成; 对角即时
-                   折叠, 无整体倍增/对角 pass)
+                   (m_i = 2a_i + ov_{i-1}, ov 由 bit63 现场生成; 对角项即时
+                   并入, 无整体倍增/对角 pass)
 
 约定: intel 语法 mulx HI, LO, src (HI=第一目的操作数)。
 
@@ -593,7 +593,7 @@ def x64_sqr_n3():
 X64_WIN8 = ["rbx", "rbp", "r8", "r9", "r10", "r12", "r13", "r14"]  # 列窗口寄存器, 列 c -> WIN[c % 8]
 X64_SQ_T = ["rax", "rcx"]   # 越窗段双临时 (载入-累加-回写)
 X64_SQ_SH = "r11"           # 段/尾 mulx 高位目的; 兼零寄存器(使用后以 mov 恢复 0)
-X64_SQ_SL = "r15"           # 段/尾 mulx 低位目的 (折叠临时复用)
+X64_SQ_SL = "r15"           # 段/尾 mulx 低位目的 (对角并入时复用为临时寄存器)
 
 
 def x64_sqr_plan(n):
@@ -607,7 +607,7 @@ def x64_sqr_plan(n):
         (每行结束 CF=OF=0);
       - 行 0 种子: mulx 直写新鲜列 (仅单链);
       - 倍增 T *= 2 (寄存器链或 M 波动扫描), setc 收顶;
-      - 对角折叠: 纯 adc 链 R_k = T'_k + D_k, a_i^2 由 mulx 即时产生.
+      - 并入对角项: 纯 adc 链 R_k = T'_k + D_k, a_i^2 由 mulx 即时产生.
         (曾实测融合倍增方案: 省 M 往返但每 limb 双链串行 2 周期, 慢 ~2.5%, 弃)
     返回 (ops, prezero): prezero 为必须预清零的 M 列 (会在 RMW 前被读).
     """
@@ -760,7 +760,7 @@ def x64_sqr_plan(n):
             store_m(c, R(c))
 
     # ================= 倍增 T *= 2 =================
-    # 独立 add/adc 链 (1 周期/列) 与折叠的纯 adc 链互不依赖, 可被乱序引擎
+    # 独立 add/adc 链 (1 周期/列) 与并入对角项的纯 adc 链互不依赖, 可被乱序引擎
     # 重叠; 实测融合倍增(每 limb adcx+adox 串行 2 周期)反而慢 ~2.5%, 故
     # 保留两段式。
     ops.append(("#", "--- T *= 2 ---"))
@@ -778,7 +778,7 @@ def x64_sqr_plan(n):
             # 未写); 最低 mtop%4 列 (<=2, mtop 恒偶) 标量收尾, 其 msb 由上方
             # 向量组的重叠读在覆写前捕获; 顶列 msb 预先标量取出。
             # 仅大 n 启用: 向量路径首列就绪有 ~10 周期固定延迟 (载入->移位
-            # ->或->存->折叠读转发), mtop<22 时串行链短省不抵损 (实测
+            # ->或->存->并入对角项时的读转发), mtop<22 时串行链短省不抵损 (实测
             # n=6..11 慢 2%~36%, n=12..19 快 4%~10.5%)。
             ops.append(("mov", ("r", X64_SQ_SH), ("M", mtop)))
             ops.append(("shr", ("r", X64_SQ_SH), 63))
@@ -822,7 +822,7 @@ def x64_sqr_plan(n):
                 cur = TB if cur is TA else TA
             ops.append(("movzxc", ("r", X64_SQ_SH)))
 
-    # ================= 对角折叠: R = 2T + sum a_i^2 =================
+    # ================= 并入对角项: R = 2T + sum a_i^2 ===============
     # 纯 adc 链 (1 周期/limb), 对角项由 mulx 即时产生, M 倍增值经寄存器加数
     ops.append(("#", "--- diagonal fold ---"))
     src = (lambda c: R(c)) if full else (lambda c: ("M", c))
@@ -998,7 +998,7 @@ def gen_x64_sqr():
 # 双链批结构 (与库内 addmul_1.S 同构, 全展开 + 常量偏移):
 #   链 1(部分积):  s_k = lo_k + hi_{k-1} + C, 一条 adcs 链跨整行,
 #                  乘法对穿插链节点发射 (乘端口连续供数);
-#   链 2(回写):    dst[col+k] += s_k, ldp 预读 + adds 就地折叠,
+#   链 2(回写):    dst[col+k] += s_k, ldp 预读 + adds 就地累加,
 #                  adc 将链 2 溢出并入 carry.
 # 批间 carry 经寄存器 x15 传递 (两链溢出同权, 数学合法).
 # 寄存器分派:
@@ -1200,10 +1200,10 @@ def arm64_tc_row(b, m, n, seed):
 def arm64_mul(n):
     """种子对 (b0,b1) mul_2 直存 + 行对 m>=1 addmul_2 全展开 RMW,
     奇 n 尾行 b[n-1] 单乘子双链批。两列进位保存核与 basecase 家族同构,
-    全展开 + 常量偏移免循环/指针税。全 caller-saved 寄存器, 无压栈。"""
+    全展开 + 常量偏移省去循环和指针更新的额外开销。全 caller-saved 寄存器, 无压栈。"""
     b = []
     b.append("    // x0=dst x1=numa x2=numb x4=v0 x5=v1 x12=cy0 x13=cy1")
-    b.append("    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=尾行")
+    b.append("    // x6/x7=u x8/x9/x10/x11/x14=prod, x3/x15/x16/x17=tail_row")
     arm64_tc_row(b, 0, n, True)
     for m in range(1, n // 2):
         arm64_tc_row(b, m, n, False)
@@ -1332,7 +1332,7 @@ def arm64_sqr_rows_2a(n):
     逐积零开销)。溢出等值恒等式 [2a_i+ov_{i-1} >= B] = [a_i >= B/2]
     (B 偶数, 2a_i 不可能等于 B-1) 保证 ov 恒可由 a_i 的 bit63 现场生成
     (and x, a_i, a_{i-1}, asr 63), 无需常驻掩码寄存器。
-    对角 a_i^2 即时折叠: lo 经行头部机关入列 2i, hi 经 x15 融入行链首。
+    对角 a_i^2 即时并入: lo 经行头部机关入列 2i, hi 经 x15 融入行链首。
     强化 (n4v2 的通用化):
       1) 批残留直用: 上一行批 m_prev <= 4 (单批) 时, 批后 x4 = a_i,
          x9 = dst[2i] (首批 s1) 仍持值, 机关免 ldr 与存储转发;
@@ -1343,7 +1343,7 @@ def arm64_sqr_rows_2a(n):
     b = []
     b.append("    // x0=dst x1=numa x3=m(2a+ov) x15=carry")
 
-    # ---- 行 0 (种子, m_0 = 2a_0): D_0 折叠 + 直存列 [1, n-1] + 顶列 n ----
+    # ---- 行 0 (种子, m_0 = 2a_0): D_0 并入 + 直存列 [1, n-1] + 顶列 n ----
     b.append("    ldr     x4, [x1]                 // a0")
     b.append("    mul     x9, x4, x4               // lo(a0^2)")
     b.append("    umulh   x17, x4, x4              // hi(a0^2) (种子行 x17 空闲)")
@@ -1546,13 +1546,13 @@ def arm64_strip_inline_comments(text):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     asm_dir = os.path.normpath(os.path.join(here, "..", "..", "src", "lmmp", "lmmpn", "arch"))
-    with open(os.path.join(asm_dir, "x64", "mul_hard.S"), "w", newline="\n") as f:
+    with open(os.path.join(asm_dir, "x64", "mul_hard.S"), "w", encoding="utf-8", newline="\n") as f:
         f.write(gen_x64_mul())
-    with open(os.path.join(asm_dir, "x64", "sqr_hard.S"), "w", newline="\n") as f:
+    with open(os.path.join(asm_dir, "x64", "sqr_hard.S"), "w", encoding="utf-8", newline="\n") as f:
         f.write(gen_x64_sqr())
-    with open(os.path.join(asm_dir, "arm64", "mul_hard.S"), "w", newline="\n") as f:
+    with open(os.path.join(asm_dir, "arm64", "mul_hard.S"), "w", encoding="utf-8", newline="\n") as f:
         f.write(arm64_strip_inline_comments(gen_arm64_mul()))
-    with open(os.path.join(asm_dir, "arm64", "sqr_hard.S"), "w", newline="\n") as f:
+    with open(os.path.join(asm_dir, "arm64", "sqr_hard.S"), "w", encoding="utf-8", newline="\n") as f:
         f.write(arm64_strip_inline_comments(gen_arm64_sqr()))
     print("generated: x64/mul_hard.S x64/sqr_hard.S arm64/mul_hard.S arm64/sqr_hard.S")
 

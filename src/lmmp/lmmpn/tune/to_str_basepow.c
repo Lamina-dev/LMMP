@@ -30,9 +30,9 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* limb→字符串 入口门：TO_STR_BASEPOW_THRESHOLD 只在 to_str_/to_decimal_ 入口读
+/* limb→字符串 入口阈值：TO_STR_BASEPOW_THRESHOLD 只在 to_str_/to_decimal_ 入口读
    一次（na<T 走 basecase，否则进幂表分治），不在递归内，绑 T=na 强制双路对
-   任意 na 干净（sub_n=0），无 deployed 扫描。阈值由两个成本结构不同的消费方
+   任意 na 干净（sub_n=0），无 deployed 扫描。阈值由两个成本结构不同的调用方
    共享：to_str_（任意基数）每次调用重建幂表（本网格 np<527 不建逆元），主评分
    形状；to_decimal_ 用全局缓存十进制幂表，副评分形状。两形状独立评分，主推荐
    以无缓存形状为准。
@@ -254,7 +254,7 @@ int main(int argc, char** argv) {
                 ++unstable_points;
             printf("%s %llu %.6f %.6f %.6f %.6f %u %u\n", shape == SHAPE_TO_STR_UNCACHED ? "to_str" : "dec",
                    (unsigned long long)na, low_us, low_mad, high_us, high_mad, retries, stable);
-            /* 入口门无同阈值递归：全部候选按 na 与候选的相对位置直接计分 */
+            /* 入口阈值无同阈值递归：全部候选按 na 与候选的相对位置直接计分 */
             for (int c = CANDIDATE_MIN; c <= CANDIDATE_MAX; c += CANDIDATE_STEP) {
                 scores[shape][c] += na >= (mp_size_t)c ? high_us : low_us;
                 ++counts[shape][c];

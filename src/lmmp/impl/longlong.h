@@ -203,7 +203,7 @@ static inline void _umul128to256_(uint64_t a_high, uint64_t a_low, uint64_t b_hi
     rr[3] = r3;
 #elif defined(LMMP_ASM_X64) && defined(__clang__)
     /* clang-x64 组合式：clang 的 mulhi 识别/进位融合/双移位合并把本
-       形态编成与手写 asm 同构体且无块边界税（asm 块输出强制驻活使
+       形态编成与手写 asm 同构体且无块边界额外开销（asm 块输出强制驻活使
        栈流量×3、调度冻结，探针 ladder 慢 1.7×）；GCC 无此融合（组合
        式朴素展开 30+ 条指令），x64-GCC 走上方 asm。位置在 u128
        typedef 之前，此处直接用 __uint128_t */

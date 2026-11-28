@@ -40,25 +40,22 @@
 // 2x2矩阵平方选择STRASSEN算法的阈值
 #define MAT22_SQR_STRASSEN_THRESHOLD 24
 // 幂运算中，底数长度为 1 的幂运算指数阈值，低于此阈值使用连乘法
-#define POW_1_EXP_THRESHOLD 24
+#define POW_1_EXP_THRESHOLD 16
 // 幂运算中，指数大于此值可能使用win2算法
-#define POW_WIN2_EXP_THRESHOLD 128
+#define POW_WIN2_EXP_THRESHOLD 16
 // 幂运算中，底数长度大于此值可能使用win2算法
-#define POW_WIN2_N_THRESHOLD 400
+#define POW_WIN2_N_THRESHOLD 256
 // 因子累乘中，因子数量低于此阈值则使用朴素连乘
 #define FACTORS_MUL_N_THRESHOLD 30
 // 排列数计算中，nPr直线分割阈值
-#define PERMUTATION_USHORT_K_THRESHOLD 22
-#define PERMUTATION_USHORT_B_THRESHOLD 21164
-#define PERMUTATION_UINT_K_THRESHOLD 51
-#define PERMUTATION_UINT_B_THRESHOLD 268247
-// 排列数计算中，结果长度小于此阈值的将使用朴素算法
-#define BINOMIAL_RN_BASECASE_THRESHOLD 32
-// 组合数计算中，div路径(累乘nPr后精确除以r!)与factor路径(质因数分解后累乘)的分界斜率阈值
-// 当 K * nPr_n > B * fac_n 时选择div路径，其中nPr_n为nPr的limb数，fac_n为r!的limb数
-// 即 nPr_n / fac_n > B / K 时走div路径
-#define BINOMIAL_DIV_K_THRESHOLD 50
-#define BINOMIAL_DIV_B_THRESHOLD 91
+#define PERMUTATION_USHORT_K_THRESHOLD 20
+#define PERMUTATION_USHORT_B_THRESHOLD 40300
+#define PERMUTATION_UINT_K_THRESHOLD 66
+#define PERMUTATION_UINT_B_THRESHOLD 240000
+// 组合数计算中，奇数部分的缓冲区长度小于此阈值时使用朴素算法
+#define BINOMIAL_RN_BASECASE_THRESHOLD 18
+// 组合数计算中，K * nPr_n > 128 * fac_n 时走 div 路径，两种长度均为估算值
+#define BINOMIAL_DIV_K_THRESHOLD 72
 // 元素累乘中，低于此长度的累乘将使用朴素算法
 #define ELEM_MUL_BASECASE_THRESHOLD 32
 // binvert不平衡算法中，使用梅森变换的阈值
@@ -69,27 +66,28 @@
 // 否则高位补零走平衡牛顿
 #define BINVERT_UNBALANCE_SLOPE_THRESHOLD 320
 // REDC 归约的 q*m 高半积中，使用梅森变换的阈值
-#define REDC_MERSENNE_THRESHOLD 40
+#define REDC_MERSENNE_THRESHOLD 72
 // REDC 归约的 basecase 阈值
 #define REDC_BASECASE_THRESHOLD 41
 // REDC 归约中 q*m 高半积改用梅森折叠提取的阈值
-#define REDC_MERSENNE_CACHE_THRESHOLD 462
+#define REDC_MERSENNE_CACHE_THRESHOLD 577
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
-#define GCD_HGCD_THRESHOLD 86
+#define GCD_HGCD_THRESHOLD 67
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
-#define HGCD_MODMUL_CACHE_THRESHOLD 543
+#define HGCD_MODMUL_CACHE_THRESHOLD 7200
 // hgcd 矩阵应用模乘的低档：朴素调整改走梅森乘法（分发入口，不缓存）
-#define HGCD_MODMUL_THRESHOLD 64
+#define HGCD_MODMUL_THRESHOLD 7200
 // 精确除法中，除数小于此阈值时使用朴素法
 #define DIVEXACT_BASECASE_THRESHOLD 96
 // divexact mu 主循环中，使用梅森变换的阈值
 #define DIVEXACT_MERSENNE_THRESHOLD 64
 // divexact mu 主循环中，使用梅森缓存变换的阈值
 #define DIVEXACT_MERSENNE_CACHE_THRESHOLD 812
-// 试除法分派阈值：nn 低于此值回退 mod_preinv_1_
+// 试除法分派阈值：nn 达到此值使用 chunk-4 方法
 #define TRIALDIV_PREINV_THRESHOLD 12
-// 试除法分派阈值：nn 达到此值起 8 链折叠取模，中间段 4 链
+// 试除法分派阈值：nn 达到此值起用 chunk-8 方法
 #define TRIALDIV_K8_THRESHOLD 192
+
 #define ODD_FACTORIAL_SIZE 25
 #define NPR_SHORT_LIMIT (0xffff)
 #define NPR_INT_LIMIT (0xffffffff)

@@ -29,13 +29,13 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* sqr dc 递归入口门（mrs_sqr_core_ 每层判 (rn&1)||rn<T）：T 自递归生效，
-   子问题 rn/2 按同一阈值再判。低路绑 T=rn+1（奇数 ⟹ 根层直乘平方折叠基例）；
+/* sqr dc 递归入口阈值（mrs_sqr_core_ 每层判 (rn&1)||rn<T）：T 自递归生效，
+   子问题 rn/2 按同一阈值再判。低路绑 T=rn+1（奇数 ⟹ 根层走直乘平方后梅森折叠的基例）；
    高路绑 T=rn 仅当 T>sub_n=rn/2 时代表部署形态；T<=sub_n 的候选逐候选绑 T
    经完整 lmmp_sqr_mersenne_dc_ 入口 deployed 实测。
-   FERMAT 门保持默认（高路根层半域 n=rn/2，rn>=2*默认FERMAT 时走费马平方）。
+   SQR_MERSENNE_FERMAT_THRESHOLD 保持默认（高路根层半域 n=rn/2，rn>=2*默认FERMAT 时走费马平方）。
    本阈值与 MUL_MERSENNE_DC 共用 next_size 取整档位（该函数只读 MUL 侧宏），
-   消费方 padding 耦合不在本程序评分内，由 tmp/ 变体重编探针另行复核。
+   调用方 padding 耦合不在本程序评分内，由 tmp/ 变体重编探针另行复核。
    形状：主评分=满长 an=rn；副形状 an=3rn/4+1 只输出测量行。 */
 enum {
     MIN_N = 64, MAX_N = 2048, STEP_N = 32,
@@ -70,7 +70,7 @@ static mp_limb_t call_dc(void* opaque) {
     return fingerprint(context->dst, context->rn);
 }
 
-/* oracle：全积平方 + 循环折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
+/* oracle：全积平方 + 梅森折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
     lmmp_sqr_(full, a, na);
@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
         for (int shape = 0; shape < 2 && result == EXIT_SUCCESS; ++shape) {
             mp_size_t na = shape == 0 ? rn : 3 * rn / 4 + 1;
 
-            /* 正确性：低路（T=rn+1 基例）↔ 高路（T=rn 分治）↔ 全积折叠 oracle */
+            /* 正确性：低路（T=rn+1 基例）↔ 高路（T=rn 分治）↔ 全积梅森折叠 oracle */
             lmmp_tune_SQR_MERSENNE_DC_THRESHOLD = rn + 1;
             lmmp_sqr_mersenne_dc_(low, rn, numa, na);
             lmmp_tune_SQR_MERSENNE_DC_THRESHOLD = rn;

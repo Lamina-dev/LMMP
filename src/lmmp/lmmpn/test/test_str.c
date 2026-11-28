@@ -368,7 +368,7 @@ TEST_CASE("str/decimal_powcache", decimal_pow_cache_lifecycle) {
     check_decimal_one(small, 35);  // 复用
     check_decimal_one(big2, 150);  // 复用
 
-    // deinit 释放幂表后重新初始化，验证惰性重建
+    // deinit 释放幂表后重新初始化，验证首次使用时重新构建
     lmmp_global_deinit();
     lmmp_global_init();
     check_decimal_one(big2, 150);

@@ -27,7 +27,7 @@
    3. 入口互比：cbrt_3/cbrt_6/cbrt_divide_/cbrt_ 生产入口；完全立方构造
       （sqr+mul 后 ±1）命中精确语义
    4. 逆立方根语义：invcbrt 下近似区间 [I-1, I]（参照经 div_+cbrt_ 库链构造）
-   5. 牛顿分派门：lmmp_cbrt_（dstr=NULL）恰在 na/A0 + ln(C) <= ln(ns) 时走牛顿，
+   5. 牛顿分派条件：lmmp_cbrt_（dstr=NULL）恰在 na/A0 + ln(C) <= ln(ns) 时走牛顿，
       A0 = CBRT_INVNEWTON_EXP_SCALE、C = CBRT_INVNEWTON_MIN_ROOT、ns = (na+2)/3+nf+1 为
       根长 limb 数；覆盖分界线两侧、整数部恰在根长给定时的上限两侧、根长很小、dstr != NULL
 */
@@ -289,7 +289,7 @@ TEST_CASE("numth/cbrt", invcbrt_newton_semantics) {
     }
 }
 
-/* 牛顿分派门的判定式，与 lmmp_cbrt_ 的分派式相同 */
+/* 牛顿分派条件的判定式，与 lmmp_cbrt_ 的分派式相同 */
 static bool gate_takes_newton(mp_size_t na, mp_size_t ns) {
     return (double)na / CBRT_INVNEWTON_EXP_SCALE + log(CBRT_INVNEWTON_MIN_ROOT) <= log((double)ns);
 }
@@ -321,8 +321,8 @@ static bool build_discriminating(mp_ptr numa, mp_size_t na, mp_size_t ns, mp_ptr
 }
 
 /* 形状 (na, ns)，ns 为根长 limb 数：dstr=NULL 的结果须为 F（走分治）或 F+1（走牛顿）；na 为
-   3 的倍数时两条分支的结果必然不同，实际走的分支须与判定式一致。分派门会通过的形状另调带余数
-   入口，须无视分派门给出 F。floor_oracle 另验 F^3 <= numa*B^(3nf) < (F+1)^3；rem_oracle 的
+   3 的倍数时两条分支的结果必然不同，实际走的分支须与判定式一致。分派条件会成立的形状另调带余数
+   入口，须无视分派条件给出 F。floor_oracle 另验 F^3 <= numa*B^(3nf) < (F+1)^3；rem_oracle 的
    形状另调带余数入口并验余数恒等式 numa*B^(3nf) == F^3 + rem */
 static bool check_gate_shape(mp_size_t na, mp_size_t ns, u64 *seed, bool floor_oracle, bool rem_oracle) {
     const mp_size_t nf = ns - 1 - (na + 2) / 3;
@@ -341,7 +341,7 @@ static bool check_gate_shape(mp_size_t na, mp_size_t ns, u64 *seed, bool floor_o
     const bool diff_ok = tn == 0 || via_newton;
     ok = ok && diff_ok && (!telling || via_newton == gate_takes_newton(na, ns));
 
-    // 带余数入口：分派门会通过的形状须无视分派门仍走分治，给出精确 floor 根；
+    // 带余数入口：分派条件会成立的形状须无视分派条件仍走分治，给出精确 floor 根；
     // rem_oracle 的形状另验余数恒等式 numa*B^(3nf) == F^3 + rem
     if (ok && (rem_oracle || gate_takes_newton(na, ns))) {
         lmmp_zero(r, ns + 2);
@@ -411,7 +411,7 @@ TEST_CASE("numth/cbrt", cbrt_newton_dispatch_gate) {
         TEST_CHECK_MSG(check_gate_shape(within, ns, &seed, true, true), "cbrt_ gate: na within the limit");
         TEST_CHECK_MSG(check_gate_shape(within + 3, ns, &seed, true, true), "cbrt_ gate: na past the limit");
     }
-    // (3) 根长很小：分派门恒不过，恒为分治的 floor 根
+    // (3) 根长很小：分派条件恒不成立，恒为分治的 floor 根
     const mp_size_t small_na[] = {3, 6, 9};
     const mp_size_t small_nf[] = {2, 5, 30};
     for (size_t na_index = 0; na_index < ARRAY_SIZE(small_na); ++na_index)

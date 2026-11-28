@@ -39,7 +39,7 @@
    与部署路径逐 limb 一致。网格 na 列 × 整数比例行 r=nf/na=1..R_MAX，逐点配对
    测量后按部署选择式 nf >= K*na ? high : low 对整数候选 K 评分。oracle：low
    结果过 floor 恒等式 s^2 <= numa*B^(2nf) < (s+1)^2，high 属于 {s, s+1}。
-   SQRT_NEWTON_MODM_THRESHOLD 与梅森内部门保持默认。 */
+   SQRT_NEWTON_MODM_THRESHOLD 与梅森乘法内部的各阈值保持默认。 */
 enum {
     NA_COUNT = 20,
     R_MAX = 48,                             /* 比例行 r=1..48 */

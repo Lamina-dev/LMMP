@@ -30,8 +30,8 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* dc 递归内 mod B^n+1 半域积切换门（mrs_mul_core_：n>=T && mrs_fermat_usable_(n)
-   走 lmmp_mul_fermat_，否则直乘+反向折叠）。阈值在递归树每层生效（INV_MODM 型），
+/* dc 递归内 mod B^n+1 半域积切换阈值（mrs_mul_core_：n>=T && mrs_fermat_usable_(n)
+   走 lmmp_mul_fermat_，否则直乘后对 B^n+1 取余）。阈值在递归树每层生效（INV_MODM 型），
    无法根层曲线复用。可用粒度：mrs_fermat_usable_ 要求 n 是 2^(best_k-6) 的倍数；
    候选域 128..2048 内 best_k 几乎全是 6，即逐整数可行，只有个别区间要求偶数。
    故 64 格点之外的整数都是独立的一类阈值，不存在"非对齐候选与下一对齐值等价"。
@@ -39,7 +39,7 @@
      粗扫：候选取 64 格点上的可用尺寸，逐 (rn,T) 绑候选走完整 dc 入口实测。其半域
            长度全是 64 的倍数，分不开格点之间的阈值，只把交叉定位到 ±128；
      细扫：窗口=粗扫最优 ±128，候选为窗口内每个整数。网格点 rn=2^k·n（k=1..3，n 取
-           窗口内每个可用整数）上按部署路径给候选分类：门只加在半域积节点 …n/2、n、2n、
+           窗口内每个可用整数）上按部署路径给候选分类：阈值判别只出现在半域积节点 …n/2、n、2n、
            4n 上，每类绑一个代表阈值走完整 dc 入口实测（low/high 配对，第三路单独测，
            分类与适用条件见 scan_fine）。每个候选在每个网格点恰有一条与其部署路径相同的
            测量 ⟹ 点集对全部候选一致，窗口被 CAND_MIN 钳制时上半部候选仍由 n>=T 的
@@ -47,9 +47,9 @@
            各异的系统偏移（数 µs 量级），只有趋势可复现，最小值位置以多轮平坦带交集
            为准。最优贴近窗口边缘时整体外移重扫（至多 FINE_MAX_SHIFTS 次）；推荐值
            以细扫为准。
-   参考曲线 ref=绑超大 T（全树 subfold），逐点比值供交叉定位。
+   参考曲线 ref=绑超大 T（全树都走直乘后对 B^n+1 取余），逐点比值供交叉定位。
    DC/MODF 保持默认；rn 取偶数（dc 分治要求），rn<2*DC 默认时 dc 退化为基例、
-   门不可达，该段候选评分恒等（注记）。
+   该阈值不可达，该段候选评分恒等（注记）。
    形状：粗测两形状，主评分=平衡满长 na=nb=rn，副形状 nb=rn/2+1 只输出测量行；
    细扫只测主形状。 */
 enum {
@@ -93,7 +93,7 @@ static mp_limb_t call_dc(void* opaque) {
     return fingerprint(context->dst, context->rn);
 }
 
-/* oracle：全积 + 循环折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
+/* oracle：全积 + 梅森折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_srcptr b, mp_size_t nb,
                             mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
@@ -145,13 +145,13 @@ typedef struct {
     mp_ptr full;
 } work_buffers;
 
-/* 测一个粗扫 (rn,shape) 点并返回 0：先核正确性（默认门 ↔ 全 subfold ↔ 全积折叠 oracle），
+/* 测一个粗扫 (rn,shape) 点并返回 0：先核正确性（默认阈值 ↔ 全部走直乘后对 B^n+1 取余 ↔ 全积梅森折叠 oracle），
    再测参考曲线与逐候选 deployed 耗时；scoring 非零时把候选耗时累加进评分 */
 static int scan_coarse(mp_size_t rn, int shape, mp_srcptr numa, mp_srcptr numb, mp_size_t na, mp_size_t nb,
                        const mp_size_t* cands, int cand_count, double* scores, unsigned long* counts, int scoring,
                        const work_buffers* work, const lmmp_tune_options* options, mp_size_t saved_threshold,
                        unsigned* stable_points, unsigned* unstable_points) {
-    /* 上一点的候选循环把阈值留在最后一个候选上，默认门校验前显式恢复 */
+    /* 上一点的候选循环把阈值留在最后一个候选上，默认阈值校验前显式恢复 */
     lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD = saved_threshold;
     lmmp_mul_mersenne_dc_(work->out, rn, numa, na, numb, nb);
     lmmp_tune_MUL_MERSENNE_FERMAT_THRESHOLD = REF_DISABLE;
@@ -216,13 +216,13 @@ static void score_fine_point(double* scores, unsigned long* counts, mp_size_t ca
     }
 }
 
-/* 测一个细扫网格点 rn=2^level·n 并返回 0：先核正确性（各路绑定与默认门 ↔ 全 subfold ↔ 全积
-   折叠 oracle），再测各路耗时，交 score_fine_point。门只加在半域积节点 …n/2、n、2n、4n 上
+/* 测一个细扫网格点 rn=2^level·n 并返回 0：先核正确性（各路绑定与默认阈值 ↔ 全部走直乘后对 B^n+1 取余 ↔ 全积
+   梅森折叠 oracle），再测各路耗时，交 score_fine_point。阈值判别只出现在半域积节点 …n/2、n、2n、4n 上
    （节点 s>=T 且可用时走费马），同一可用节点两侧的候选部署路径不同，故按路径分类、每类绑
    一个代表阈值走完整 dc 入口：
      low   T=n+1     T>n
      high  T=n       n/2<T<=n
-     deep  T=n/2     T<=n/2；仅当节点 n/2 被门控（n 偶、n>=DC、可用）且不低于 cand_min
+     deep  T=n/2     T<=n/2；仅当节点 n/2 由阈值决定走向（n 偶、n>=DC、可用）且不低于 cand_min
      upper T=2n+1    T>2n；仅当 level>=2 且可用节点 2n 落在窗口内
    更深的节点 n/4 恒低于 cand_min（窗口宽 <=256、cand_min>=128），更浅的 4n 恒不低于 cand_max，
    都不区分候选；deep 与 upper 不能并存（并存要求 cand_max>4*cand_min）。每个候选在每个网格点
@@ -385,7 +385,7 @@ int main(int argc, char** argv) {
     printf("#   +/-%d; off-lattice thresholds are distinct classes, not equivalents\n", FINE_HALF_WIDTH);
     printf("# per-point paired deltas carry a run-specific offset of a few us; only the trend repeats across runs,\n");
     printf("#   so read the fine result as its flat band intersected over rounds, not as an exact minimum\n");
-    printf("# ref=all-subfold curve (T=%u); DC/MODF keep defaults\n", REF_DISABLE);
+    printf("# ref=no-fermat curve (T=%u); DC/MODF keep defaults\n", REF_DISABLE);
     printf("# gate unreachable while rn/2 < DC default; coarse grid half-sizes are all multiples of 64\n");
     printf("# shape0=balanced na=nb=rn (scoring); shape1=nb=rn/2+1 (coarse only, report only)\n");
     lmmp_tune_print_env_comment();

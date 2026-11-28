@@ -22,6 +22,7 @@
 
 #include "lmmp/lmmpn.h"
 #include "lmmp/numth.h"
+#include "numth/gcd.h"
 #include "cases.h"
 #include "support/lmmp_test_utils.h"
 
@@ -267,6 +268,30 @@ TEST_CASE("numth/gcd", hgcd_matrix_reduction) {
     }
 }
 
+TEST_CASE("numth/gcd", hgcd_apply_mod_borrow) {
+    /* M = ((B+1,B),(1,1))，x = B^2-2，y = 1，(a,b) = M*(x,y)。
+       模长为 3 limb，a mod (B^3-1) = B^2-B-1，B*b mod (B^3-1) = B^3-B。
+       恢复 x 的模减必借位，另一分量为 y。交换 M 的两列后结果为 (y,x)。 */
+    mp_limb_t matrix[2][2][2] = {{{1, 1}, {0, 1}}, {{1, 0}, {1, 0}}};
+    lmmp_hgcd_matrix_t M = {.m = {{matrix[0][0], matrix[0][1]}, {matrix[1][0], matrix[1][1]}},
+                           .n = {{2, 2}, {1, 1}}, .alloc = 2};
+    const mp_limb_t a[] = {LIMB_MAX - 1, LIMB_MAX - 1, 0, 1}, b[] = {LIMB_MAX, LIMB_MAX, 0, 0};
+    const mp_limb_t x[] = {LIMB_MAX - 1, LIMB_MAX}, y[] = {1, 0};
+    mp_limb_t dap[4], dbp[4], scratch[6 * 5];
+    lmmp_hgcd_scratch_t sc = {.base = scratch, .cap = ARRAY_SIZE(scratch)};
+    for (int detsign = 1; detsign >= -1; detsign -= 2) {
+        for (int use_cache = 0; use_cache <= 1; ++use_cache) {
+            mp_size_t blen;
+            mp_size_t rn = lmmp_test_hgcd_apply_mod_(&M, detsign, dap, dbp, &blen, a, b, ARRAY_SIZE(a), use_cache, &sc);
+            TEST_CHECK(rn == 2);
+            TEST_CHECK(blen == (detsign > 0 ? 1 : 2));
+            TEST_CHECK(rn == 2 && lmmp_cmp_(dap, detsign > 0 ? x : y, rn) == 0);
+            TEST_CHECK(rn == 2 && lmmp_cmp_(dbp, detsign > 0 ? y : x, rn) == 0);
+        }
+        lmmp_gcd_matrix_swap_cols_(&M);
+    }
+}
+
 TEST_CASE("numth/gcd", gcd_hgcd_correctness) {
     // gcd_hgcd：构造形态（b=1、a=b+1、a=k*b、相邻 fib）给出精确已知 gcd；
     // 随机形态与 lehmer（独立归约序列）交叉；全部形态附整除性。
@@ -471,6 +496,7 @@ void test_gcd_lehmer(void) {
     TEST_RUN("numth/gcd", gcd_lehmer_identities);
     TEST_RUN("numth/gcd", gcd_lehmer_large);
     TEST_RUN("numth/gcd", hgcd_matrix_reduction);
+    TEST_RUN("numth/gcd", hgcd_apply_mod_borrow);
     TEST_RUN("numth/gcd", gcd_hgcd_correctness);
     TEST_RUN("numth/gcd", gcd_dispatch);
     TEST_RUN("numth/gcd", gcd_unbalanced);

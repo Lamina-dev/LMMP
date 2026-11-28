@@ -29,7 +29,7 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* basecase ↔ 牛顿求逆切换门：INV_NEWTON_THRESHOLD 出现在 invappr_ 根分派
+/* basecase ↔ 牛顿求逆切换阈值：INV_NEWTON_THRESHOLD 出现在 invappr_ 根分派
    与牛顿梯子深度循环（while nr>=T，nr=(nr>>1)+1）。高路直调 newton_ 并绑
    T=n：梯子仅一步（种子 nr=(n>>1)+1<n 走 basecase），恰好代表候选
    (sub_n,n]（sub_n=(n>>1)+1）；T<=sub_n 的候选梯子更深，须绑候选经完整

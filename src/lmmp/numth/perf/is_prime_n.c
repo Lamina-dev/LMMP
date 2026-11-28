@@ -63,7 +63,7 @@ static void run_is_prime_n_prime(void) {
     }
 }
 
-/* coprime 池已过试除，notrial 与全函数对照差即试除腿纯开销 */
+/* coprime 池已过试除，notrial 与全函数对照差即试除阶段的纯开销 */
 static void run_is_prime_n_notrial(void) {
     const mp_size_t SZ[] = {3, 8, 16, 64};
     for (size_t i = 0; i < ARRAY_SIZE(SZ); ++i) {

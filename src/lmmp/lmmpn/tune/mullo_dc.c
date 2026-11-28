@@ -29,13 +29,13 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* dc ↔ 梅森/费马 CRT-FFT 切换门：MULLO_DC_THRESHOLD 只出现在根层分派
-   （lmmp_mullo_ 与各消费方的 lmmp_mullo_n_），两路算法内部都不读它——
+/* dc ↔ 梅森/费马 CRT-FFT 切换阈值：MULLO_DC_THRESHOLD 只出现在根层分派
+   （lmmp_mullo_ 与各调用方的 lmmp_mullo_n_），两路算法内部都不读它——
    dc 递归按 MULLO_BASECASE_THRESHOLD、FFT 内部按 MUL_FFT_MODF_THRESHOLD
    分派，均不绑定。故任意候选的部署路径与直调内核逐点一致：全网格干净，
    sub_n=0，无等价窗、无 deployed 扫描。 */
 /* 网格 1024..6144 为批准测量域：dc/fft 成本比在 ~3500..16000 被 FFT 阶梯量化
-   锯齿钉在 1 附近（hn=2^k 边界处 dc 病态尖峰），等权评分下大网格会把推荐值
+   锯齿固定在 1 附近（hn=2^k 边界处 dc 病态尖峰），等权评分下大网格会把推荐值
    钳到网格上界；本域内的推荐值应结合逐点比值与更大网格的 badness 回升点解读。 */
 enum { MIN_N = 1024, MAX_N = 6144, STEP_N = 32, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 1 };
 

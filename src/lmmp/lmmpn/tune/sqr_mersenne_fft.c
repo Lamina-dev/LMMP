@@ -29,10 +29,10 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 梅森平方分发门（lmmp_sqr_mersenne_）：rn >= T 且 rn 为 fft 可行尺寸时走 SSA
-   梅森平方 FFT，否则回落 sqr dc。门只在根层出现一次，dc/fft 内部递归均不读
+/* 梅森平方分派阈值（lmmp_sqr_mersenne_）：rn >= T 且 rn 为 fft 可行尺寸时走 SSA
+   梅森平方 FFT，否则回落 sqr dc。阈值判别只在根层出现一次，dc/fft 内部递归均不读
    本阈值 ⟹ 全网格干净，sub_n=0。网格与候选均取 fft 可行尺寸格点（不可行 rn
-   恒回落 dc，门无部署差异）。形状：主评分=满长 an=rn；副形状 an=3rn/4+1
+   恒回落 dc，阈值取值不改变部署路径）。形状：主评分=满长 an=rn；副形状 an=3rn/4+1
    只输出测量行不参与评分。 */
 enum { MIN_N = 128, MAX_N = 2048 };
 
@@ -44,7 +44,7 @@ typedef struct {
 } measure_context;
 
 static void bind_default(void* opaque) {
-    (void)opaque; /* 分发门不参与两路内部决策，无需绑定 */
+    (void)opaque; /* 分派阈值不参与两路内部决策，无需绑定 */
 }
 
 static void reset_output(void* opaque) {
@@ -68,7 +68,7 @@ static mp_limb_t call_fft(void* opaque) {
     return fingerprint(context->dst, context->rn);
 }
 
-/* oracle：全积平方 + 循环折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
+/* oracle：全积平方 + 梅森折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
     lmmp_sqr_(full, a, na);
@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
         for (int shape = 0; shape < 2 && result == EXIT_SUCCESS; ++shape) {
             mp_size_t na = shape == 0 ? rn : 3 * rn / 4 + 1;
 
-            /* 正确性：dc ↔ fft ↔ 全积折叠 oracle；另测全 1 零类对抗输入 */
+            /* 正确性：dc ↔ fft ↔ 全积梅森折叠 oracle；另测全 1 零类对抗输入 */
             lmmp_sqr_mersenne_dc_(low, rn, numa, na);
             lmmp_sqr_mersenne_fft_(high, rn, numa, na);
             mersenne_oracle(ref, rn, numa, na, full);

@@ -30,14 +30,14 @@ extern "C" {
 #endif
 
 /**
- * @brief 硬编码平衡乘法分派的调优薄封装 [dst,2n] = [numa,n] * [numb,n]
+ * @brief 硬编码平衡乘法分派的调优薄包装 [dst,2n] = [numa,n] * [numb,n]
  * @warning 0 < n, sep(dst,[numa|numb]); n <= LMMP_MUL_HARD_MAX_N 查表直调, 其余回落 mul_basecase
  * @note hard 函数表是数据符号, Windows 下不随 DLL 自动导出, 故在 tune 库内封装供程序直调真实低路。
  */
 LMMP_API void lmmp_tune_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
- * @brief 硬编码平衡平方分派的调优薄封装 [dst,2n] = [numa,n]^2
+ * @brief 硬编码平衡平方分派的调优薄包装 [dst,2n] = [numa,n]^2
  * @warning 0 < n, sep(dst,numa); n <= LMMP_MUL_HARD_MAX_N 查表直调, 其余回落 sqr_basecase
  * @note 同 lmmp_tune_mul_hard_n_。
  */
@@ -45,6 +45,18 @@ LMMP_API void lmmp_tune_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 
 /** @brief lmmp_cbrt_ 进入牛顿分支的累计次数（仅 tune 构建导出）。 */
 LMMP_API extern mp_limb_t lmmp_tune_cbrt_newton_hits;
+
+typedef enum {
+    LMMP_TUNE_NPR_PRODUCT,
+    LMMP_TUNE_NPR_FACTOR,
+    LMMP_TUNE_NCR_BASECASE,
+    LMMP_TUNE_NCR_DIV,
+    LMMP_TUNE_NCR_FACTOR,
+    LMMP_TUNE_COMBIN_PATHS
+} lmmp_tune_combin_path;
+
+/** @brief 排列数和组合数各被测分支的累计次数（仅 tune 构建导出）。 */
+LMMP_API extern mp_limb_t lmmp_tune_combin_hits[LMMP_TUNE_COMBIN_PATHS];
 
 #ifdef __cplusplus
 }

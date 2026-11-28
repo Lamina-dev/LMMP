@@ -72,7 +72,7 @@ static void run_grid(void) {
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 4096);
 #if defined(LMMP_WINDOWS)
-    /* 钉 P 核（LP0-15），避免大小核幻影比值 */
+    /* 绑核到 P 核（LP0-15），避免大小核幻影比值 */
     SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)0xFFF);
 #endif
     lmmp_global_init();

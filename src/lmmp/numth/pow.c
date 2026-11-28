@@ -180,13 +180,13 @@ mp_size_t lmmp_pow_(mp_ptr restrict dst, mp_size_t rn, mp_srcptr restrict base, 
                 return lmmp_pow_1_(dst, rn, base[0], exp) + base_tz;
             }
         } else { /* n > 2 */
-            if (exp > POW_WIN2_EXP_THRESHOLD && n > POW_WIN2_N_THRESHOLD) {
-                if ((exp % 4 == 3) || (2 * lmmp_limb_popcnt_(exp) >= (lmmp_limb_bits_(exp)))) {
-                    return lmmp_pow_win2_(dst, rn, base, n, exp) + base_tz;
-                }
-            }
             if (exp & 1) {
-                return lmmp_pow_basecase_(dst, rn, base, n, exp) + base_tz;
+                if (exp > POW_WIN2_EXP_THRESHOLD && n > POW_WIN2_N_THRESHOLD
+                && (2 * lmmp_limb_popcnt_(exp) >= lmmp_limb_bits_(exp))) {
+                    return lmmp_pow_win2_(dst, rn, base, n, exp) + base_tz;
+                } else {
+                    return lmmp_pow_basecase_(dst, rn, base, n, exp) + base_tz;
+                }
             }
 
             int tz = lmmp_tailing_zeros_(exp);

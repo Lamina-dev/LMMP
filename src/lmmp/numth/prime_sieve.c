@@ -174,7 +174,7 @@ void lmmp_prime_int_table_init_(uint n) {
      *   ds[8i+k]：第 i 个质数的增量按 slot 访问环次序存放；
      *   dpos[8i+s]：slot s 在环中的位置。按环序存放后标记循环展开 8 步取增量
      *            为常量索引，加载地址可提前计算，打破 idx→load→idx 依赖链
-     *            （否则每次标记吃满 load 延迟；旧奇数编码常量步长无此税）。
+     *            （否则每次标记吃满 load 延迟；旧奇数编码常量步长没有这个开销）。
      *            跨段/跳过旧区域后由 idx&7 经 dpos 重建环内相位
      */
     uchar* restrict blk = ALLOC_TYPE((size_t)max_idx * 44, uchar);

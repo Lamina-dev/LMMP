@@ -48,7 +48,8 @@
       3. 梅森折叠（n >= REDC_MERSENNE_CACHE_THRESHOLD）：由于 (q*m) mod B^n
          = -t_lo mod B^n 是已知量 L，与 binvert_mulhi_ 同构——先算 V = q*m
          mod (B^msz-1)（msz 为 admissible 尺寸，模数 m 一侧的变换全程缓存
-         复用），从 V 中减去 L 后旋转载出高半。两操作数均 < B^n 保证
+         复用），从 V 中减去 L 后按位置取出高半：高半积的第 j 个 limb 就是结果的第 (j+n) mod msz 个
+         limb。两操作数均 < B^n 保证
          hi <= B^n-2，拼接表示不会落在 B^msz-1 的二义点上；而 L==0 强制
          q==0、积为零，也不与零类的非规范表示冲突。
 
@@ -62,12 +63,12 @@
     免去出蒙域归约。
 */
 
-/* REDC 梯子上下文：模数一侧的全部预计算（ninv/one/m1/折叠分派）与工作区。
+/* REDC 梯子上下文：模数一侧的全部预计算（ninv/one/m1/梅森折叠分派）与工作区。
    arena 分段布局（lmmp_mont_need_，随规模与 anchors 裁剪）：
      anchors：one(n) | m1(n)          —— 蒙域 ±1 探测基准（is_prime_n 用）
      basecase（n < REDC_BASECASE_THRESHOLD）：无 core 段
      中层：ninv(n) | q(n) | mscratch(2n) | mulhi(2n)                == 6n
-     折叠层（n >= REDC_MERSENNE_THRESHOLD）：mulhi(2n) 换
+     梅森折叠层（n >= REDC_MERSENNE_THRESHOLD）：mulhi(2n) 换
            Lbuf(n) | hi(n) | V(msz)                                 == 6n + msz
    one/m1 之后的段与调用者的梯子段续接（单块打包） */
 typedef struct {
@@ -76,16 +77,16 @@ typedef struct {
     mp_ptr ninv;     /* -m^(-1) mod B^n（basecase 层不使用，为 NULL） */
     mp_limb_t ninv1; /* -m^(-1) mod B（basecase 层专用）              */
     mp_limb_t ninv2; /* -m^(-1) mod B^2 的高 limb（basecase 层专用）      */
-    int fold;        /* 折叠模式：2=梅森缓存(fft)，1=梅森分发(不缓存)，0=朴素全积 */
+    int fold;        /* 梅森折叠模式：2=梅森缓存(fft)，1=梅森分发(不缓存)，0=朴素全积 */
 
-    mp_size_t msz;   /* 折叠尺寸（fold 时有效）                        */
+    mp_size_t msz;   /* 梅森折叠尺寸（fold 时有效）                    */
     mp_ptr one;      /* [n] B^n mod m（蒙域 1，无 anchors 档为 NULL） */
     mp_ptr m1;       /* [n] m - one（蒙域 -1，无 anchors 档为 NULL）  */
     mp_ptr q;        /* [n]        q = t_lo * ninv mod B^n           */
     mp_ptr Lbuf;     /* [n]        -t_lo mod B^n                     */
-    mp_ptr hi;       /* [n]        q*m 的高 n limb（折叠路径输出）     */
-    mp_ptr mulhi;    /* [2n]       全积路径的 q*m（非折叠路径）        */
-    mp_ptr V;        /* [msz]      折叠积 q*m mod B^msz-1             */
+    mp_ptr hi;       /* [n]        q*m 的高 n limb（梅森折叠路径输出） */
+    mp_ptr mulhi;    /* [2n]       全积路径的 q*m（非梅森折叠路径）    */
+    mp_ptr V;        /* [msz]      梅森折叠积 q*m mod B^msz-1         */
     mp_ptr mscratch; /* [2n]       mullo scratch                     */
     fft_gr_cache mcache;
     int mcache_on;
@@ -116,10 +117,10 @@ static inline mp_size_t lmmp_mont_need_(mp_size_t n, int anchors) {
  * @param V 输入兼工作区（msz 个limb），入口为 q*m mod B^msz-1，出口被破坏
  * @param L 已知低位（n 个limb），满足 q*m ≡ L (mod B^n)，此处 L = -t_lo mod B^n
  * @param n 操作数长度
- * @param msz 折叠尺寸，admissible 且 n <= msz < 2n
+ * @param msz 梅森折叠尺寸，admissible 且 n <= msz < 2n
  * @warning sep(hi,V), V 的 msz-n 个高位 limb 亦会被读写
  * @note 设 P = q*m = hi*B^n + L，则 W = (V-L) mod B^msz-1 = hi*B^n mod B^msz-1，
- *       即 hi 的第 j limb 恰位于 W[(j+n) mod msz]，旋转载出即得
+ *       即 hi 的第 j limb 恰位于 W[(j+n) mod msz]，按这个位置取出即得
  */
 static inline void lmmp_mont_fold_hi_(
     mp_ptr    restrict  hi,
@@ -176,7 +177,9 @@ static inline mp_limb_t lmmp_mont_redc_bc_(
         q[1] = qh + up[0] * ninv2 + up[1] * ninv1;
         mp_limb_t upn = up[n]; /* addmul_2 覆写 up[n]，先保存 */
         up[1] = lmmp_addmul_2_(up, m, n, q);
-        up[0] = up[n];         /* 第 n limb 搬移停入清零槽（折叠消权重差） */
+        /* addmul_2 写进第 n limb 的本轮新增量搬进刚清零的槽暂存：暂存位置比它的真实位置低 n 个 limb，
+           全部轮次结束后由末尾的 lmmp_add_n_ 加回高半部分 */
+        up[0] = up[n];         /* 暂存到刚清零的槽 */
         up[n] = upn;
         up += 2;
     }
@@ -235,7 +238,7 @@ static inline void lmmp_mont_init_(
 ) {
     mc->n = n;
     mc->m = mp;
-    /* basecase 档不进折叠路径，fold 置 0：避免 REDC_MERSENNE_THRESHOLD <
+    /* basecase 档不进梅森折叠路径，fold 置 0：避免 REDC_MERSENNE_THRESHOLD <
        REDC_BASECASE_THRESHOLD 时（当前默认 40 < 41）basecase 分支残留
        未配套的 fold=1 死状态；mont_redc_ 与此处的档位判定保持同一谓词 */
     mc->fold = n < REDC_BASECASE_THRESHOLD ? 0
@@ -322,7 +325,7 @@ static inline void lmmp_mont_free_(lmmp_mont_t* mc) {
     借位），中间 limb 零贡献，唯一的实做是 j+p 处 q·Kv 的 ≤3 limb 乘加与
     有界进位游程（add_1 遇非 B−1 即停，游程被后续 O(1) 次写入重建，充电
     论证总游程 O(n)）。p ≥ 1 保证各操作只触 ≥ j+1 位，低 j limb 恒零，
-    n 轮后高 n limb 即结果。整步 O(n)，全尺寸优于 bc/中层/折叠三层
+    n 轮后高 n limb 即结果。整步 O(n)，全尺寸优于 bc/中层/梅森折叠三层
     （后三者 ≈ 一次 M(n)）——本旁路因此独立于 lmmp_mont_t 的尺寸分派，
     形状命中即用，上下文无任何工作段与缓存（init 免配、无 free）。
 

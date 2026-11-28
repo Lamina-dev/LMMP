@@ -155,7 +155,7 @@ mp_size_t lmmp_to_decimal_(char* dst, mp_srcptr numa, mp_size_t na) {
     if (na < TO_STR_BASEPOW_THRESHOLD)
         return lmmp_to_str_basecase_((mp_byte_t*)dst, numa, na, DEC_BASE, '0');
 
-    // 惰性获取全局幂表
+    // 获取全局幂表（首次使用时才构建）
     mp_size_t digits = lmmp_to_str_len_(numa, na, DEC_BASE);
     mp_size_t grps = (digits - 1) / lmmp_bases_table[DEC_BASE - 2].digits_in_limb + 1;
     int ctop;

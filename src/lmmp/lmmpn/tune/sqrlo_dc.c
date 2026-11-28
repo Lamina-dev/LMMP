@@ -29,14 +29,14 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* dc ↔ 梅森/费马 CRT-FFT 切换门（平方侧）：SQRLO_DC_THRESHOLD 只出现在根层
+/* dc ↔ 梅森/费马 CRT-FFT 切换阈值（平方侧）：SQRLO_DC_THRESHOLD 只出现在根层
    分派（lmmp_mullo_ 的 numa==numb 分支与 powlo 的 lmmp_sqrlo_n_）。低路
    sqrlo_dc_ 不递归自身：全积走平方梯子、交叉项经 mullo_dc_ 按
    MULLO_BASECASE_THRESHOLD 分派；高路 mullo_fft_(a,a) 走梅森平方引擎，
    内部按 MUL_FFT_MODF_THRESHOLD 切分。以上阈值均不绑定 ⟹ 全网格干净，
    sub_n=0，无等价窗、无 deployed 扫描。 */
 /* 网格 1024..6144 为批准测量域：dc/fft 成本比在 ~4000..16000 被 FFT 阶梯量化
-   锯齿钉在 1 附近（hn=2^k 边界处 dc 病态尖峰），等权评分下大网格会把推荐值
+   锯齿固定在 1 附近（hn=2^k 边界处 dc 病态尖峰），等权评分下大网格会把推荐值
    钳到网格上界；本域内的推荐值应结合逐点比值与更大网格的 badness 回升点解读。 */
 enum { MIN_N = 1024, MAX_N = 6144, STEP_N = 32, CANDIDATE_MIN = MIN_N, CANDIDATE_MAX = MAX_N, CANDIDATE_STEP = 1 };
 
@@ -70,7 +70,7 @@ static mp_limb_t call_sqrlo_low(void* opaque) {
     return fingerprint(context->dst, context->n);
 }
 
-/* 高路与部署平方消费方同形：mullo_fft_ 同操作数入参，内部走梅森平方引擎 */
+/* 高路与部署平方的调用方同形：mullo_fft_ 同操作数入参，内部走梅森平方引擎 */
 static mp_limb_t call_sqrlo_high(void* opaque) {
     measure_context* context = opaque;
     lmmp_mullo_fft_(context->dst, context->numa, context->numa, context->n, context->tp);

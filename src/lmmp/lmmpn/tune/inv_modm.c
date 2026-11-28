@@ -29,10 +29,10 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 牛顿步残差积 plain ↔ 梅森分发门：INV_MODM_THRESHOLD 在 newton_ 每步内部
+/* 牛顿步残差积 plain ↔ 梅森分派阈值：INV_MODM_THRESHOLD 在 newton_ 每步内部
    （na<T || mn>=na+nr → plain mul，否则 mul_mersenne_ 分发 dc/fft），不是
    根分派，无法用低/高曲线复用评分 → 全 deployed 扫描：逐 (根 na, 候选 T)
-   绑 T 直调完整 newton_ 实测。INV_NEWTON 默认 21 钉死梯子深度；
+   绑 T 直调完整 newton_ 实测。INV_NEWTON 的默认值固定了梯子深度；
    MUL_MERSENNE_* 不绑定、沿默认分发梯子。
    另测 T=极大（全 plain）/T=极小（全 mersenne）两条参考曲线。
    恒等式锚点 a*(in+B^na) ∈ [B^2na-2a, B^2na)。 */
