@@ -67,6 +67,8 @@ LMMP_API extern double lmmp_tune_CBRT_INVNEWTON_EXP_SCALE;
 LMMP_API extern double lmmp_tune_CBRT_INVNEWTON_MIN_ROOT;
 LMMP_API extern mp_size_t lmmp_tune_SQRT_NEWTON_MODM_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_CBRT_NEWTON_MODM_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_FACTORS_MUL_N_THRESHOLD;
+LMMP_API extern mp_size_t lmmp_tune_ELEM_MUL_BASECASE_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_POW_1_EXP_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_POW_WIN2_EXP_THRESHOLD;
 LMMP_API extern mp_size_t lmmp_tune_POW_WIN2_N_THRESHOLD;
