@@ -83,10 +83,11 @@
 #define DIVEXACT_MERSENNE_THRESHOLD 540
 // divexact mu 主循环中，使用梅森缓存变换的阈值
 #define DIVEXACT_MERSENNE_CACHE_THRESHOLD 1040
-// 试除法分派阈值：nn 低于此值回退 mod_preinv_1_ 函数（素数块积预处理全局表复用）
+// 试除法分派阈值：nn 达到此值使用 chunk-4 方法
 #define TRIALDIV_PREINV_THRESHOLD 12
-// 试除法分派阈值：nn 达到此值起用 8 条互不依赖的链并行取模，中间段用 4 条链
+// 试除法分派阈值：nn 达到此值起用 chunk-8 方法
 #define TRIALDIV_K8_THRESHOLD 192
+
 #define ODD_FACTORIAL_SIZE 25
 #define NPR_SHORT_LIMIT (0xffff)
 #define NPR_INT_LIMIT (0xffffffff)
