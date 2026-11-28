@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
     unsigned long counts[CAND_MAX + 1] = {0};
     unsigned long counts_nopow2[CAND_MAX + 1] = {0};
     const mp_size_t saved_t = lmmp_tune_POW_1_EXP_THRESHOLD;
-    unsigned stable_points = 0, unstable_points = 0;
+    unsigned stable_points = 0, stable_nopow2 = 0, unstable_points = 0;
 
     printf("# program=tune_numth_pow_1_exp\n");
     printf("# parameter=POW_1_EXP_THRESHOLD\n");
@@ -206,14 +206,16 @@ int main(int argc, char** argv) {
                 result = EXIT_FAILURE;
                 break;
             }
-            if (stable)
+            const int np2 = !is_pow2_base(base);
+            if (stable) {
                 ++stable_points;
-            else
+                stable_nopow2 += np2;
+            } else {
                 ++unstable_points;
+            }
             printf("%llu %llu %.6f %.6f %.6f %.6f %u %u\n", (unsigned long long)base, (unsigned long long)exp, low_us,
                    low_mad, high_us, high_mad, retries, stable);
 
-            const int np2 = !is_pow2_base(base);
             for (int c = CAND_MIN; c <= CAND_MAX; ++c) {
                 const double chosen = exp <= (ulong)c ? low_us : high_us;
                 scores_all[c] += chosen;
@@ -239,8 +241,12 @@ int main(int argc, char** argv) {
             printf("# === scoring over all bases ===\n");
             lmmp_tune_recommend("POW_1_EXP_THRESHOLD", scores_all, counts, CAND_MIN, CAND_MAX, saved_t);
             printf("# === scoring excluding pure power-of-2 bases (2,8) ===\n");
-            lmmp_tune_recommend("POW_1_EXP_THRESHOLD_nopow2", scores_nopow2, counts_nopow2, CAND_MIN, CAND_MAX,
-                                saved_t);
+            if (stable_nopow2 > 0) {
+                lmmp_tune_recommend("POW_1_EXP_THRESHOLD_nopow2", scores_nopow2, counts_nopow2, CAND_MIN, CAND_MAX,
+                                    saved_t);
+            } else {
+                printf("# no stable non-power-of-2 measurement points; recommendation withheld\n");
+            }
         }
     }
     lmmp_tune_POW_1_EXP_THRESHOLD = saved_t;

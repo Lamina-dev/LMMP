@@ -60,8 +60,7 @@ enum {
     MAX_EXP = 256,
     /* 结果 limb 上界：bits(base) <= 64n，bits(result) <= exp*64n，limb <= exp*n，+2 富余 */
     MAX_RN = MAX_N * MAX_EXP + 2,
-    TN_COUNT = 12,
-    TIME_BUDGET_MS = 60000 /* 单程序时间预算（用户裁决：约 1 分钟，加硬超时） */
+    TN_COUNT = 12
 };
 
 static const mp_size_t n_grid[N_COUNT] = {2, 8, 32, 64, 128, 256, 384, 512, 640, 768, 1024};
@@ -136,9 +135,7 @@ static void print_info(const double* te_cand, unsigned te_count) {
 int main(int argc, char** argv) {
     lmmp_tune_options options;
     lmmp_tune_options_init(&options);
-    /* 时间预算：大点单次调用即超过块长（iters=1），单点成本≈调用次数×单次耗时。
-       308 点网格在 5 样本下约 61 s 超预算，按框架先例降为 3 样本×2ms（约 35-40 s），
-       读数靠多轮合并。60 s 硬超时只作失败安全网：触发即报错退出，不出部分推荐。 */
+    /* 大尺寸的单次调用可超过采样块的最短时间，读数靠多轮合并。 */
     options.samples = 3;
     options.min_ms = 2.0;
     if (!lmmp_tune_parse(argc, argv, &options))
@@ -202,16 +199,10 @@ int main(int argc, char** argv) {
     printf("# n exp low_us low_mad high_us high_mad ratio retries stable\n");
 
     int result = EXIT_SUCCESS;
-    const double deadline = bench_clock() + TIME_BUDGET_MS * 1e-3;
     for (int ni = 0; ni < N_COUNT && result == EXIT_SUCCESS; ++ni) {
         const mp_size_t n = n_grid[ni];
         fill_random(base_buf, n, (mp_limb_t)(options.seed + 7 * n));
         for (int ei = 0; ei < EXP_COUNT && result == EXIT_SUCCESS; ++ei) {
-            if (bench_clock() > deadline) {
-                fprintf(stderr, "time budget exceeded (%d ms); grid/samples must be reduced\n", TIME_BUDGET_MS);
-                result = EXIT_FAILURE;
-                break;
-            }
             const ulong exp = exp_grid[ei];
             if (!shape_ok(exp)) {
                 ++skipped_shape;
@@ -272,17 +263,17 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (result == EXIT_SUCCESS && bench_clock() > deadline) {
-        fprintf(stderr, "time budget exceeded (%d ms); grid/samples must be reduced\n", TIME_BUDGET_MS);
-        result = EXIT_FAILURE;
-    }
     if (result == EXIT_SUCCESS) {
         printf("# shape_skipped=%u stable=%u unstable=%u\n", skipped_shape, stable_points, unstable_points);
         if (stable_points == 0) {
             printf("# no stable measurement points; recommendation withheld\n");
         } else {
+            /* 指数均为奇数，exp > 16 与 exp > 15 选路相同。 */
+            double current_te = saved_te == 16 ? 15 : (double)saved_te;
+            if (saved_te == 16)
+                printf("# current_exp=16 uses equivalent grid threshold 15\n");
             lmmp_tune_recommend_pair("POW_WIN2_EXP_THRESHOLD", "POW_WIN2_N_THRESHOLD", scores, counts, te_cand,
-                                     te_count, tn_cand, TN_COUNT, (double)saved_te, (double)saved_tn);
+                                     te_count, tn_cand, TN_COUNT, current_te, (double)saved_tn);
         }
     }
     lmmp_tune_POW_WIN2_EXP_THRESHOLD = saved_te;

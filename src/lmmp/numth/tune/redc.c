@@ -300,20 +300,18 @@ static double stable_median(const double* ratios, unsigned rounds) {
     return count > 0 ? bench_aggregate(stable, count, BENCH_MEDIAN) : 0;
 }
 
-static double ladder_score(double p[][PATH_COUNT], unsigned used[][PATH_COUNT], unsigned count, unsigned b, unsigned m,
+static double ladder_score(double p[][PATH_COUNT], unsigned count, unsigned scored, unsigned b, unsigned m,
                            unsigned c) {
-    unsigned points = used[b][BASECASE] + (used[m][FULL] - used[b][FULL]) + (used[c][MERSENNE] - used[m][MERSENNE]) +
-                      (used[count][CACHE] - used[c][CACHE]);
     double loss = p[b][BASECASE] + (p[m][FULL] - p[b][FULL]) + (p[c][MERSENNE] - p[m][MERSENNE]) +
                   (p[count][CACHE] - p[c][CACHE]);
-    return points > 0 ? loss / points : NAN;
+    return loss / scored;
 }
 
-/* 各点按本点最快的稳定路径计相对耗时损失。按实际选路用前缀和汇总损失与点数，
-   缺少稳定比值的路径在该点不计分。MAX_N+1 表示扫描范围内不切换。 */
+/* 同一入口的所有候选共用计分点，只纳入候选可选路径均有稳定读数的尺寸。
+   各点按本点最快路径计相对耗时损失。MAX_N+1 表示扫描范围内不切换。 */
 static bool recommend(const point* rows, unsigned count, unsigned rounds) {
     double prefix[ENTRY_COUNT][MAX_POINTS + 1][PATH_COUNT] = {0};
-    unsigned used[ENTRY_COUNT][MAX_POINTS + 1][PATH_COUNT] = {0};
+    unsigned scored[ENTRY_COUNT] = {0};
     unsigned at[MAX_N + 2];
     unsigned index = 0;
     for (int n = 1; n <= MAX_N + 1; ++n) {
@@ -321,27 +319,32 @@ static bool recommend(const point* rows, unsigned count, unsigned rounds) {
         at[n] = index;
     }
     for (int entry = MONT; entry < ENTRY_COUNT; ++entry) {
-        for (unsigned i = 0; i < count; ++i) {
-            double time[PATH_COUNT], fastest = INFINITY;
-            for (int path = BASECASE; path < PATH_COUNT; ++path) {
-                time[path] = stable_median(rows[i].ratio[entry][path], rounds);
-                if (time[path] > 0 && time[path] < fastest)
-                    fastest = time[path];
-            }
-            for (int path = BASECASE; path < PATH_COUNT; ++path) {
-                prefix[entry][i + 1][path] = prefix[entry][i][path] + (time[path] > 0 ? time[path] / fastest - 1 : 0);
-                used[entry][i + 1][path] = used[entry][i][path] + (time[path] > 0);
-            }
-        }
+        double (*p)[PATH_COUNT] = prefix[entry];
         const int last_path = entry == MONT ? CACHE : MERSENNE;
-        for (int path = BASECASE; path <= last_path; ++path)
-            if (used[entry][count][path] == 0)
-                return false;
+        bool base_covered = false;
+        for (unsigned i = 0; i < count; ++i) {
+            memcpy(p[i + 1], p[i], sizeof(p[i]));
+            const int first_path = rows[i].n <= BASE_MAX ? BASECASE : FULL;
+            double time[PATH_COUNT], fastest = INFINITY;
+            for (int path = first_path; path <= last_path; ++path) {
+                time[path] = stable_median(rows[i].ratio[entry][path], rounds);
+                fastest = LMMP_MIN(fastest, time[path]);
+            }
+            if (fastest == 0)
+                continue;
+            ++scored[entry];
+            base_covered |= first_path == BASECASE;
+            for (int path = first_path; path <= last_path; ++path)
+                p[i + 1][path] += time[path] / fastest - 1;
+        }
+        /* 有一个计分点覆盖 basecase 时，该入口的各路径均有覆盖。 */
+        if (!base_covered)
+            return false;
     }
     int mont_best[3];
     for (int entry = MONT; entry < ENTRY_COUNT; ++entry) {
         double (*p)[PATH_COUNT] = prefix[entry];
-        unsigned (*u)[PATH_COUNT] = used[entry];
+        const unsigned points = scored[entry];
         int best[3] = {0};
         double best_score = INFINITY;
         int best_distance = MAX_N * 3;
@@ -354,7 +357,7 @@ static bool recommend(const point* rows, unsigned count, unsigned rounds) {
                 for (int c = entry == MONT ? LMMP_MAX(b, m) : MAX_N + 1; c <= MAX_N + 1; ++c) {
                     if (entry == MONT && c > LMMP_MAX(b, m) && c != current[2] && at[c] == at[c - 1])
                         continue;
-                    double score = ladder_score(p, u, count, at[b], at[LMMP_MAX(b, m)], at[c]);
+                    double score = ladder_score(p, count, points, at[b], at[LMMP_MAX(b, m)], at[c]);
                     int distance =
                         abs(b - current[0]) + abs(m - current[1]) + (entry == MONT ? abs(c - current[2]) : 0);
                     if (score < best_score - 1e-10 || (fabs(score - best_score) <= 1e-10 && distance < best_distance)) {
@@ -372,7 +375,7 @@ static bool recommend(const point* rows, unsigned count, unsigned rounds) {
             int first = best[2], last = best[2];
             int start = LMMP_MAX(best[0], best[1]);
             for (int c = start; c <= MAX_N + 1; ++c) {
-                double score = ladder_score(p, u, count, at[best[0]], at[start], at[c]);
+                double score = ladder_score(p, count, points, at[best[0]], at[start], at[c]);
                 if (score <= best_score + 0.001) {
                     first = LMMP_MIN(first, c);
                     last = LMMP_MAX(last, c);
@@ -383,9 +386,9 @@ static bool recommend(const point* rows, unsigned count, unsigned rounds) {
         }
         int current_cache = entry == MONT ? LMMP_MAX(current[0], current[2]) : MAX_N + 1;
         int mont_cache = entry == MONT ? mont_best[2] : MAX_N + 1;
-        double current_score = ladder_score(p, u, count, at[current[0]], at[LMMP_MAX(current[0], current[1])],
+        double current_score = ladder_score(p, count, points, at[current[0]], at[LMMP_MAX(current[0], current[1])],
                                             at[current_cache]);
-        double mont_score = ladder_score(p, u, count, at[mont_best[0]], at[LMMP_MAX(mont_best[0], mont_best[1])],
+        double mont_score = ladder_score(p, count, points, at[mont_best[0]], at[LMMP_MAX(mont_best[0], mont_best[1])],
                                          at[mont_cache]);
         printf("# %s current_loss=%.5f%% best_loss=%.5f%% mont_recommendation_loss=%.5f%%\n", entry_name[entry],
                100 * current_score, 100 * best_score, 100 * mont_score);

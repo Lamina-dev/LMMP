@@ -40,8 +40,8 @@ typedef struct {
 static const uint short_n[] = {4096, 6144, 8192, 12288, 16384, 24576, 32768, 40960, 49152, 57344, 65535};
 static const uint int_n[] = {65536, 98304, 131072, 196608, 262144, 393216,
                              524288, 786432, 1048576, 1572864, 2097152, 3145728};
-static const uint short_verify_n[] = {5120, 14336, 28672, 61440};
-static const uint int_verify_n[] = {81920, 327680, 1310720, 4194304};
+static const uint short_verify_n[] = {5120, 10240, 14336, 20480, 28672, 36864, 53248, 61440};
+static const uint int_verify_n[] = {81920, 163840, 327680, 655360, 1310720, 1835008, 2621440, 4194304};
 
 _Static_assert(sizeof(short_n) / sizeof(short_n[0]) <= MAX_COLUMNS, "ushort grid exceeds column storage");
 _Static_assert(sizeof(int_n) / sizeof(int_n[0]) <= MAX_COLUMNS, "uint grid exceeds column storage");
@@ -302,8 +302,8 @@ int main(int argc, char** argv) {
     };
     lmmp_tune_options options;
     lmmp_tune_options_init(&options);
-    options.samples = 3;
-    options.min_ms = 2.0;
+    options.samples = 2;
+    options.min_ms = 1.0;
     options.max_retry = 1;
     if (!lmmp_tune_parse(argc, argv, &options))
         return EXIT_FAILURE;
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
         printf("program=%s\n", program);
         puts("paths=product,factor\nprime_table=warm\nushort_n=4096..65535\nuint_n=65536..3145728");
         puts("grid=5 seed-jittered coarse r per n, at most 2 outer and 2 crossing points per column");
-        puts("verification=up to 4 additional n per width");
+        puts("verification=up to 8 additional n per width");
         lmmp_tune_print_env();
     }
     if (options.action == LMMP_TUNE_INFO || options.action == LMMP_TUNE_CURRENT) {

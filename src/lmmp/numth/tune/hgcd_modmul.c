@@ -449,6 +449,8 @@ static bool measure_paths(hgcd_input* in, int path, point* row, unsigned round, 
 static bool run_point(point* row, unsigned round, bool measure, const lmmp_tune_options* options,
                       unsigned* checked, unsigned* skipped) {
     mp_size_t cap = (4 * (mp_size_t)row->n + 2) / 3 + 8;
+    /* 阶段 B 的最小父尺寸可再重试加 2，矩阵元素还需预留 2 limb。 */
+    cap = LMMP_MAX(cap, HGCD_RECURSE_THRESHOLD + 5);
     mp_size_t scratch_n = lmmp_hgcd_scratch_size_(cap);
     mp_ptr storage = alloc_limbs(12 * cap + scratch_n);
     hgcd_input in = {.a = storage, .b = storage + cap, .ha = storage + 2 * cap, .hb = storage + 3 * cap,
