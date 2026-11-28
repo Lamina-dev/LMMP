@@ -66,11 +66,11 @@
 // 否则高位补零走平衡牛顿
 #define BINVERT_UNBALANCE_SLOPE_THRESHOLD 320
 // REDC 归约的 q*m 高半积中，使用梅森变换的阈值
-#define REDC_MERSENNE_THRESHOLD 40
+#define REDC_MERSENNE_THRESHOLD 72
 // REDC 归约的 basecase 阈值
 #define REDC_BASECASE_THRESHOLD 41
 // REDC 归约中 q*m 高半积改用梅森折叠提取的阈值
-#define REDC_MERSENNE_CACHE_THRESHOLD 462
+#define REDC_MERSENNE_CACHE_THRESHOLD 577
 // gcd 算法选择阈值：较大输入长度达到此值时使用 hgcd 分治算法，否则使用 Lehmer 算法
 #define GCD_HGCD_THRESHOLD 86
 // hgcd 矩阵应用模乘改用梅森缓存的阈值
