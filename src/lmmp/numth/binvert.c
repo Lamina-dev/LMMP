@@ -39,8 +39,8 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_copy(dst, tp + n, n);
     } else {
         /* xp*ap = 1 + k0*B^n，V = (xp*ap) mod (B^m-1) = 1 + k0_lo*B^n + k0_hi
-           各段 limb 不交（m >= n+1 保证无混叠），V 减一后按先 [tp+n,m-n)、后 [tp,n-(m-n)) 的顺序
-           拷贝出 k0，后一段是绕回到开头的 limb（m >= 2n 时没有这一段）；
+           各段 limb 不交（m >= n+1 保证无混叠）。V 减一后，m < 2*n 时依次复制
+           [tp+n,m-n] 和 [tp,n-(m-n)] 得到 k0。m >= 2*n 时直接从 tp+n 复制 n limb。
            梅森折叠宽度 m ≈ n+1 较全积 2n 减半（与主循环 k 更新同型的部分乘积） */
         mp_size_t m = lmmp_mersenne_next_size_(n + 1);
         mp_size_t fn = m - n;
@@ -50,7 +50,6 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
             lmmp_copy(dst, tp + n, fn);
             lmmp_copy(dst + fn, tp, n - fn);
         } else {
-            /* m >= 2n 时 V-1 = k0*B^n 无回绕，整段直取 */
             lmmp_copy(dst, tp + n, n);
         }
     }

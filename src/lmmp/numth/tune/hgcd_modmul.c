@@ -268,21 +268,21 @@ static mp_size_t tune_hgcd_apply_mod(
         lmmp_mul_mersenne_(t00, rn, fb, rn, M1->m[0][0], ml1);
     }
 
-    /* 模减：x - y (mod B^rn-1)；借位回绕 +1 */
+    /* 模减 x - y (mod B^rn-1)。借位时减 1，将加 B^rn 改为加 B^rn-1。 */
     mp_ptr va, vb;
     mp_limb_t cy;
     if (detsign > 0) {
         va = t11; vb = t00;
         cy = lmmp_sub_n_(va, t11, t01, rn);
-        if (cy) lmmp_inc(va);
+        if (cy) lmmp_dec(va);
         cy = lmmp_sub_n_(vb, t00, t10, rn);
-        if (cy) lmmp_inc(vb);
+        if (cy) lmmp_dec(vb);
     } else {
         va = t01; vb = t10;
         cy = lmmp_sub_n_(va, t01, t11, rn);
-        if (cy) lmmp_inc(va);
+        if (cy) lmmp_dec(va);
         cy = lmmp_sub_n_(vb, t10, t00, rn);
-        if (cy) lmmp_inc(vb);
+        if (cy) lmmp_dec(vb);
     }
 
     /* 真值校验：结果必须落在 nn limb 内（负值回绕会产生接近 rn 的长度） */

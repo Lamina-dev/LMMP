@@ -149,6 +149,7 @@ int main(int argc, char** argv) {
     double scores_all[CAND_MAX + 1] = {0};
     double scores_nopow2[CAND_MAX + 1] = {0};
     unsigned long counts[CAND_MAX + 1] = {0};
+    unsigned long counts_nopow2[CAND_MAX + 1] = {0};
     const mp_size_t saved_t = lmmp_tune_POW_1_EXP_THRESHOLD;
     unsigned stable_points = 0, unstable_points = 0;
 
@@ -216,13 +217,19 @@ int main(int argc, char** argv) {
             for (int c = CAND_MIN; c <= CAND_MAX; ++c) {
                 const double chosen = exp <= (ulong)c ? low_us : high_us;
                 scores_all[c] += chosen;
-                if (np2)
+                if (np2) {
                     scores_nopow2[c] += chosen;
+                    ++counts_nopow2[c];
+                }
                 ++counts[c];
             }
         }
     }
 
+    if (result == EXIT_SUCCESS && bench_clock() > deadline) {
+        fprintf(stderr, "time budget exceeded (%d ms); grid/samples must be reduced\n", TIME_BUDGET_MS);
+        result = EXIT_FAILURE;
+    }
     if (result == EXIT_SUCCESS) {
         if (stable_points == 0) {
             printf("# no stable measurement points; recommendation withheld\n");
@@ -232,7 +239,8 @@ int main(int argc, char** argv) {
             printf("# === scoring over all bases ===\n");
             lmmp_tune_recommend("POW_1_EXP_THRESHOLD", scores_all, counts, CAND_MIN, CAND_MAX, saved_t);
             printf("# === scoring excluding pure power-of-2 bases (2,8) ===\n");
-            lmmp_tune_recommend("POW_1_EXP_THRESHOLD_nopow2", scores_nopow2, counts, CAND_MIN, CAND_MAX, saved_t);
+            lmmp_tune_recommend("POW_1_EXP_THRESHOLD_nopow2", scores_nopow2, counts_nopow2, CAND_MIN, CAND_MAX,
+                                saved_t);
         }
     }
     lmmp_tune_POW_1_EXP_THRESHOLD = saved_t;

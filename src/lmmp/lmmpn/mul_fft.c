@@ -601,7 +601,7 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx) {
  * @param numa 第一操作数（na > hn 时先取余。梅森折叠：amodm = a mod (B^hn-1)，即 [numa,hn) 加
  *             [numa+hn,na-hn)，写入 dst；对 B^hn+1 取余：amodp = a mod (B^hn+1)，即 [numa,hn) 减
  *             [numa+hn,na-hn)，有借位时加 B^hn+1，写入 tp）
- * @param na numa 长度（任意 > 0；> hn 时先取余）
+ * @param na numa 长度（0 < na <= 2*hn；na > hn 时先取余）
  * @param numb 第二操作数（不取余，要求 nb <= hn）
  * @param nb numb 长度
  * @warning nb<=na, nb<=hn, sep(dst,[numa|numb]), sep(tp,[numa|numb]), dst 与 tp 分离

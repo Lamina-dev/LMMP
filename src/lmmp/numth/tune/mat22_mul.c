@@ -185,10 +185,9 @@ int main(int argc, char** argv) {
     lmmp_mat22_t high = matrix_view(storage + 8 * input_stride + 4 * output_stride, output_stride);
     mp_ptr scratch = storage + 8 * input_stride + 8 * output_stride;
 
-    /* 按形状独立评分：Strassen 路径由阈值控制，mat22_all_big_ 要求 A、B 全部元素 >= 阈值，
-       含小元素的形状在候选高于其最小元素时 high 路径因阈值条件不成立退化为 basecase，
-       混合累计会抬高"关闭 Strassen"候选。推荐值以平衡形状（shape 0）为准，
-       其余形状只输出测量行供形状依赖分析。 */
+    /* 高路的 high_context.threshold 固定为本行的 minimum，进入 Strassen。
+       候选阈值仅供 lmmp_tune_score_point 选择本行的低路或高路耗时。
+       推荐值以平衡形状（shape 0）为准，其余形状独立测量和评分。 */
     double scores[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     unsigned long counts[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     mp_size_t saved_threshold = lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
@@ -247,8 +246,7 @@ int main(int argc, char** argv) {
                 ++unstable_points[shape_id];
             printf("%u %llu %llu %.6f %.6f %.6f %.6f %u %u\n", shape_id, (unsigned long long)n,
                    (unsigned long long)minimum, low_us, low_mad, high_us, high_mad, retries, stable);
-            /* Strassen 子矩阵乘经完整 lmmp_mat22_mul_ 但阈值随行绑定（minimum），
-               子问题规模折半后总低于本行阈值，无同阈值递归，sub_n=0 */
+            /* Strassen 的子乘法不读取矩阵乘法阈值，评分取 sub_n=0。 */
             lmmp_tune_score_point(scores[shape_id], counts[shape_id], CANDIDATE_MIN, CANDIDATE_MAX, minimum, 0, low_us,
                                   high_us);
         }

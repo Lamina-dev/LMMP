@@ -63,14 +63,6 @@ typedef struct {
     double ratio[ENTRY_COUNT][PATH_COUNT][MAX_ROUNDS];
 } point;
 
-static int select_path(int n, const int* threshold, int entry) {
-    if (n < threshold[0])
-        return BASECASE;
-    if (entry == MONT && n >= threshold[2])
-        return CACHE;
-    return n >= threshold[1] ? MERSENNE : FULL;
-}
-
 static void normalize(mp_ptr dst, mp_limb_t cy, mp_srcptr m, mp_size_t n) {
     if (cy || lmmp_cmp_(dst, m, n) >= 0)
         lmmp_sub_n_(dst, dst, m, n);
@@ -182,11 +174,14 @@ static bool measure_pair(redc_context* ctx,
                                        &trace) ||
         low_us <= 0 || high_us <= 0)
         return false;
+    *unstable += !stable;
+    free_cold(ctx);
+    *ratio = 0;
+    if (!stable)
+        return true;
     double samples[ARRAY_SIZE(trace.low_us)];
     for (unsigned i = 0; i < options->samples; ++i) samples[i] = trace.high_us[i] / trace.low_us[i];
     *ratio = bench_aggregate(samples, options->samples, BENCH_MEDIAN);
-    *unstable += !stable;
-    free_cold(ctx);
     return isfinite(*ratio) && *ratio > 0;
 }
 
@@ -272,7 +267,9 @@ static bool run_point(point* row, unsigned round, const lmmp_tune_options* optio
              (entry == ONE_SHOT || measure_pair(&ctx, options, entry, MERSENNE, CACHE, false, &cache_ratio, unstable));
         if (!ok)
             break;
-        double times[] = {base_ratio, 1, mersenne_ratio, mersenne_ratio * cache_ratio};
+        /* cache 相对于 full 的比值由同一轮的两组稳定读数相乘得到。 */
+        double times[] = {base_ratio, base_ratio > 0 || mersenne_ratio > 0 ? 1 : 0, mersenne_ratio,
+                          mersenne_ratio * cache_ratio};
         for (int path = BASECASE; path < PATH_COUNT; ++path) row->ratio[entry][path][round] = times[path];
         printf("%u %d %s %.6f %.6f %.6f\n", round + 1, row->n, entry_name[entry], times[BASECASE], times[MERSENNE],
                times[CACHE]);
@@ -281,7 +278,7 @@ static bool run_point(point* row, unsigned round, const lmmp_tune_options* optio
         ctx.cold = lmmp_alloc(LMMP_TUNE_BATCH_COPIES * sizeof(*ctx.cold));
         double first_ratio;
         ok = measure_pair(&ctx, options, MONT, CACHE, CACHE, true, &first_ratio, unstable);
-        if (ok)
+        if (ok && first_ratio > 0)
             printf("# first_cache round=%u n=%d first_over_reuse=%.6f\n", round + 1, row->n, first_ratio);
         free_cold(&ctx);
         lmmp_free(ctx.cold);
@@ -294,14 +291,29 @@ static bool run_point(point* row, unsigned round, const lmmp_tune_options* optio
     return ok;
 }
 
-static double ladder_score(double p[][PATH_COUNT], unsigned count, unsigned b, unsigned m, unsigned c) {
-    return p[b][BASECASE] + p[m][FULL] - p[b][FULL] + p[c][MERSENNE] - p[m][MERSENNE] + p[count][CACHE] - p[c][CACHE];
+static double stable_median(const double* ratios, unsigned rounds) {
+    double stable[MAX_ROUNDS];
+    unsigned count = 0;
+    for (unsigned r = 0; r < rounds; ++r)
+        if (ratios[r] > 0)
+            stable[count++] = ratios[r];
+    return count > 0 ? bench_aggregate(stable, count, BENCH_MEDIAN) : 0;
 }
 
-/* 各点按本点最快路径的耗时计相对超出。前缀和让每组联合候选按真实分派
-   用几个连续区间计分。达到扫描上界仍未切换时，MAX_N+1 表示扫描内不切换。 */
-static void recommend(point* rows, unsigned count, unsigned rounds) {
+static double ladder_score(double p[][PATH_COUNT], unsigned used[][PATH_COUNT], unsigned count, unsigned b, unsigned m,
+                           unsigned c) {
+    unsigned points = used[b][BASECASE] + (used[m][FULL] - used[b][FULL]) + (used[c][MERSENNE] - used[m][MERSENNE]) +
+                      (used[count][CACHE] - used[c][CACHE]);
+    double loss = p[b][BASECASE] + (p[m][FULL] - p[b][FULL]) + (p[c][MERSENNE] - p[m][MERSENNE]) +
+                  (p[count][CACHE] - p[c][CACHE]);
+    return points > 0 ? loss / points : NAN;
+}
+
+/* 各点按本点最快的稳定路径计相对耗时损失。按实际选路用前缀和汇总损失与点数，
+   缺少稳定比值的路径在该点不计分。MAX_N+1 表示扫描范围内不切换。 */
+static bool recommend(const point* rows, unsigned count, unsigned rounds) {
     double prefix[ENTRY_COUNT][MAX_POINTS + 1][PATH_COUNT] = {0};
+    unsigned used[ENTRY_COUNT][MAX_POINTS + 1][PATH_COUNT] = {0};
     unsigned at[MAX_N + 2];
     unsigned index = 0;
     for (int n = 1; n <= MAX_N + 1; ++n) {
@@ -312,19 +324,26 @@ static void recommend(point* rows, unsigned count, unsigned rounds) {
         for (unsigned i = 0; i < count; ++i) {
             double time[PATH_COUNT], fastest = INFINITY;
             for (int path = BASECASE; path < PATH_COUNT; ++path) {
-                time[path] = bench_aggregate(rows[i].ratio[entry][path], rounds, BENCH_MEDIAN);
+                time[path] = stable_median(rows[i].ratio[entry][path], rounds);
                 if (time[path] > 0 && time[path] < fastest)
                     fastest = time[path];
             }
-            for (int path = BASECASE; path < PATH_COUNT; ++path)
+            for (int path = BASECASE; path < PATH_COUNT; ++path) {
                 prefix[entry][i + 1][path] = prefix[entry][i][path] + (time[path] > 0 ? time[path] / fastest - 1 : 0);
+                used[entry][i + 1][path] = used[entry][i][path] + (time[path] > 0);
+            }
         }
+        const int last_path = entry == MONT ? CACHE : MERSENNE;
+        for (int path = BASECASE; path <= last_path; ++path)
+            if (used[entry][count][path] == 0)
+                return false;
     }
     int mont_best[3];
     for (int entry = MONT; entry < ENTRY_COUNT; ++entry) {
         double (*p)[PATH_COUNT] = prefix[entry];
+        unsigned (*u)[PATH_COUNT] = used[entry];
         int best[3] = {0};
-        double best_score = INFINITY, current_score = 0;
+        double best_score = INFINITY;
         int best_distance = MAX_N * 3;
         for (int b = 1; b <= BASE_MAX + 1; ++b) {
             if (b != current[0] && b > 1 && at[b] == at[b - 1])
@@ -335,7 +354,7 @@ static void recommend(point* rows, unsigned count, unsigned rounds) {
                 for (int c = entry == MONT ? LMMP_MAX(b, m) : MAX_N + 1; c <= MAX_N + 1; ++c) {
                     if (entry == MONT && c > LMMP_MAX(b, m) && c != current[2] && at[c] == at[c - 1])
                         continue;
-                    double score = ladder_score(p, count, at[b], at[LMMP_MAX(b, m)], at[c]);
+                    double score = ladder_score(p, u, count, at[b], at[LMMP_MAX(b, m)], at[c]);
                     int distance =
                         abs(b - current[0]) + abs(m - current[1]) + (entry == MONT ? abs(c - current[2]) : 0);
                     if (score < best_score - 1e-10 || (fabs(score - best_score) <= 1e-10 && distance < best_distance)) {
@@ -348,14 +367,13 @@ static void recommend(point* rows, unsigned count, unsigned rounds) {
                 }
             }
         }
-        double mont_score = 0;
         if (entry == MONT) {
             memcpy(mont_best, best, sizeof(best));
             int first = best[2], last = best[2];
             int start = LMMP_MAX(best[0], best[1]);
             for (int c = start; c <= MAX_N + 1; ++c) {
-                double score = ladder_score(p, count, at[best[0]], at[start], at[c]);
-                if (score <= best_score + count * 0.001) {
+                double score = ladder_score(p, u, count, at[best[0]], at[start], at[c]);
+                if (score <= best_score + 0.001) {
                     first = LMMP_MIN(first, c);
                     last = LMMP_MAX(last, c);
                 }
@@ -363,17 +381,18 @@ static void recommend(point* rows, unsigned count, unsigned rounds) {
             printf("# cache_threshold_within_0.1pp min=%d max=%d (other thresholds fixed at recommendation)\n", first,
                    last);
         }
-        for (unsigned i = 0; i < count; ++i) {
-            int old = select_path(rows[i].n, current, entry);
-            int recommended = select_path(rows[i].n, mont_best, entry);
-            current_score += p[i + 1][old] - p[i][old];
-            mont_score += p[i + 1][recommended] - p[i][recommended];
-        }
+        int current_cache = entry == MONT ? LMMP_MAX(current[0], current[2]) : MAX_N + 1;
+        int mont_cache = entry == MONT ? mont_best[2] : MAX_N + 1;
+        double current_score = ladder_score(p, u, count, at[current[0]], at[LMMP_MAX(current[0], current[1])],
+                                            at[current_cache]);
+        double mont_score = ladder_score(p, u, count, at[mont_best[0]], at[LMMP_MAX(mont_best[0], mont_best[1])],
+                                         at[mont_cache]);
         printf("# %s current_loss=%.5f%% best_loss=%.5f%% mont_recommendation_loss=%.5f%%\n", entry_name[entry],
-               100 * current_score / count, 100 * best_score / count, 100 * mont_score / count);
+               100 * current_score, 100 * best_score, 100 * mont_score);
         for (int k = 0; k < (entry == MONT ? 3 : 2); ++k)
             printf("%s %s = %d\n", entry == MONT ? "recommended" : "one_shot_best", parameter[k], best[k]);
     }
+    return true;
 }
 
 static bool parse_rounds(void* opaque, const char* option, const char* value) {
@@ -431,15 +450,15 @@ int main(int argc, char** argv) {
     printf("# program=%s points=%u rounds=%u samples=%u min_ms=%.3f seed=%llu\n", program, count, rounds,
            options.samples, options.min_ms, options.seed);
     lmmp_tune_print_env_comment();
-    puts("# round n entry basecase_over_full mersenne_over_full cache_over_full (0=unmeasured)");
+    puts("# round n entry basecase_over_full mersenne_over_full cache_over_full (0=no stable ratio)");
     bool ok = true;
     for (unsigned round = 0; round < rounds && ok; ++round) {
         unsigned unstable = 0;
         for (unsigned i = 0; i < count && ok; ++i) ok = run_point(&rows[i], round, &options, &unstable);
         printf("# round=%u unstable_pairs=%u\n", round + 1, unstable);
     }
-    if (ok)
-        recommend(rows, count, rounds);
+    if (ok && !recommend(rows, count, rounds))
+        puts("# insufficient stable measurement points; recommendation withheld");
     lmmp_free(rows);
     lmmp_global_deinit();
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -56,12 +56,10 @@
 
 enum {
     N_COUNT = 11,
-    EXP_COUNT = 22,
     MAX_N = 1024,
     MAX_EXP = 256,
     /* 结果 limb 上界：bits(base) <= 64n，bits(result) <= exp*64n，limb <= exp*n，+2 富余 */
     MAX_RN = MAX_N * MAX_EXP + 2,
-    TE_COUNT = 15,
     TN_COUNT = 12,
     TIME_BUDGET_MS = 60000 /* 单程序时间预算（用户裁决：约 1 分钟，加硬超时） */
 };
@@ -69,11 +67,9 @@ enum {
 static const mp_size_t n_grid[N_COUNT] = {2, 8, 32, 64, 128, 256, 384, 512, 640, 768, 1024};
 /* 全部为奇指数（win2 仅奇指数可达）。含 2^k-1 满 popcnt 族与一般 popcnt 族，
    二者都满足 2*popcnt>=bits，覆盖不同窗口密度。 */
-static const ulong exp_grid[EXP_COUNT] = {3,   7,   15,  31,  63,  95,  127, 159, 191, 223, 255,
-                                          5,   13,  29,  53,  93,  125, 141, 173, 205, 237, 253};
-/* 候选只在"跨过某个网格 exp"时才改变部署选择，同一区间内的候选完全等价。
-   下列取值逐一对应 exp 网格的可区分区间，避免输出重复行。 */
-static const double te_cand[TE_COUNT] = {1, 3, 5, 7, 13, 15, 29, 53, 63, 93, 127, 159, 191, 223, 255};
+static const ulong exp_grid[] = {3, 7,  15, 31, 63, 95,  127, 159, 191, 223, 255,
+                                 5, 13, 29, 53, 93, 125, 141, 173, 205, 237, 253};
+enum { EXP_COUNT = ARRAY_SIZE(exp_grid), TE_COUNT = EXP_COUNT + 1 };
 /* tn 候选逐一跨过 n 网格；384 与 512 之间无网格 n 的取值不单列。 */
 static const double tn_cand[TN_COUNT] = {1, 2, 8, 32, 64, 128, 256, 384, 512, 640, 768, 1024};
 
@@ -117,7 +113,7 @@ static mp_size_t run_forced(measure_context* context, mp_size_t te, mp_size_t tn
     return lmmp_pow_(context->dst, context->cap, context->base, context->n, context->exp);
 }
 
-static void print_info(void) {
+static void print_info(const double* te_cand, unsigned te_count) {
     printf("program=tune_numth_pow_win2\n");
     printf("parameters=POW_WIN2_EXP_THRESHOLD, POW_WIN2_N_THRESHOLD (joint root gate, n>=2)\n");
     printf("consumer=lmmp_pow_ root dispatch only (win2 vs basecase, odd exp)\n");
@@ -127,7 +123,7 @@ static void print_info(void) {
     printf("current_exp=%llu current_n=%llu\n", (unsigned long long)lmmp_tune_POW_WIN2_EXP_THRESHOLD,
            (unsigned long long)lmmp_tune_POW_WIN2_N_THRESHOLD);
     printf("candidates_exp=");
-    for (int i = 0; i < TE_COUNT; ++i)
+    for (unsigned i = 0; i < te_count; ++i)
         printf(i ? ",%.0f" : "%.0f", te_cand[i]);
     printf("\ncandidates_n=");
     for (int i = 0; i < TN_COUNT; ++i)
@@ -152,6 +148,14 @@ int main(int argc, char** argv) {
         return EXIT_SUCCESS;
     }
 
+    /* exp > te 只在阈值到达一个可测指数时改变，从 1 开始覆盖每个区间。 */
+    double te_cand[TE_COUNT] = {1};
+    unsigned te_count = 1;
+    for (int i = 0; i < EXP_COUNT; ++i) {
+        if (shape_ok(exp_grid[i]) && !lmmp_tune_add_double(te_cand, &te_count, TE_COUNT, (double)exp_grid[i]))
+            return EXIT_FAILURE;
+    }
+
     lmmp_set_abort_fn(lmmp_tune_abort);
     lmmp_global_init();
     setvbuf(stdout, NULL, _IOLBF, 4096);
@@ -159,7 +163,7 @@ int main(int argc, char** argv) {
     SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)0xFFF);
 #endif
     if (options.action == LMMP_TUNE_INFO) {
-        print_info();
+        print_info(te_cand, te_count);
         lmmp_global_deinit();
         return EXIT_SUCCESS;
     }
@@ -258,7 +262,7 @@ int main(int argc, char** argv) {
             const double faster = low_us < high_us ? low_us : high_us;
             const double excess_low = low_us / faster - 1.0;
             const double excess_high = high_us / faster - 1.0;
-            for (int x = 0; x < TE_COUNT; ++x) {
+            for (unsigned x = 0; x < te_count; ++x) {
                 for (int y = 0; y < TN_COUNT; ++y) {
                     const int use_win2 = (exp > (ulong)te_cand[x]) && (n > (mp_size_t)tn_cand[y]);
                     scores[x * TN_COUNT + y] += use_win2 ? excess_high : excess_low;
@@ -268,13 +272,17 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (result == EXIT_SUCCESS && bench_clock() > deadline) {
+        fprintf(stderr, "time budget exceeded (%d ms); grid/samples must be reduced\n", TIME_BUDGET_MS);
+        result = EXIT_FAILURE;
+    }
     if (result == EXIT_SUCCESS) {
         printf("# shape_skipped=%u stable=%u unstable=%u\n", skipped_shape, stable_points, unstable_points);
         if (stable_points == 0) {
             printf("# no stable measurement points; recommendation withheld\n");
         } else {
             lmmp_tune_recommend_pair("POW_WIN2_EXP_THRESHOLD", "POW_WIN2_N_THRESHOLD", scores, counts, te_cand,
-                                     TE_COUNT, tn_cand, TN_COUNT, (double)saved_te, (double)saved_tn);
+                                     te_count, tn_cand, TN_COUNT, (double)saved_te, (double)saved_tn);
         }
     }
     lmmp_tune_POW_WIN2_EXP_THRESHOLD = saved_te;

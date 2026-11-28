@@ -959,21 +959,21 @@ static mp_size_t lmmp_hgcd_apply_mod_(
         lmmp_mul_mersenne_(t00, rn, fb, rn, M1->m[0][0], ml1);
     }
 
-    /* 模减：x - y (mod B^rn-1)；借位回绕 +1 */
+    /* 模减 x - y (mod B^rn-1)。借位时减 1，将加 B^rn 改为加 B^rn-1。 */
     mp_ptr va, vb;
     mp_limb_t cy;
     if (detsign > 0) {
         va = t11; vb = t00;
         cy = lmmp_sub_n_(va, t11, t01, rn);
-        if (cy) lmmp_inc(va);
+        if (cy) lmmp_dec(va);
         cy = lmmp_sub_n_(vb, t00, t10, rn);
-        if (cy) lmmp_inc(vb);
+        if (cy) lmmp_dec(vb);
     } else {
         va = t01; vb = t10;
         cy = lmmp_sub_n_(va, t01, t11, rn);
-        if (cy) lmmp_inc(va);
+        if (cy) lmmp_dec(va);
         cy = lmmp_sub_n_(vb, t10, t00, rn);
-        if (cy) lmmp_inc(vb);
+        if (cy) lmmp_dec(vb);
     }
 
     /* 真值校验：结果必须落在 nn limb 内（负值回绕会产生接近 rn 的长度） */
@@ -1000,6 +1000,13 @@ static mp_size_t lmmp_hgcd_apply_mod_(
     sc->used = mark;
     return rn_out;
 }
+
+#if defined(LMMP_INTERNAL_BUILD)
+mp_size_t lmmp_test_hgcd_apply_mod_(lmmp_hgcd_matrix_t* M, int detsign, mp_ptr dap, mp_ptr dbp, mp_size_t* blen,
+                                  mp_srcptr ap, mp_srcptr bp, mp_size_t n, int use_cache, lmmp_hgcd_scratch_t* sc) {
+    return lmmp_hgcd_apply_mod_(M, detsign, dap, dbp, blen, ap, bp, n, use_cache, sc);
+}
+#endif
 
 /*
 hgcd 递归核（契约与原理详见 impl/gcd.h 与本文件头注；
