@@ -48,17 +48,14 @@
 // 因子累乘中，因子数量低于此阈值则使用朴素连乘
 #define FACTORS_MUL_N_THRESHOLD 30
 // 排列数计算中，nPr直线分割阈值
-#define PERMUTATION_USHORT_K_THRESHOLD 22
-#define PERMUTATION_USHORT_B_THRESHOLD 21164
-#define PERMUTATION_UINT_K_THRESHOLD 51
-#define PERMUTATION_UINT_B_THRESHOLD 268247
-// 排列数计算中，结果长度小于此阈值的将使用朴素算法
-#define BINOMIAL_RN_BASECASE_THRESHOLD 32
-// 组合数计算中，div路径(累乘nPr后精确除以r!)与factor路径(质因数分解后累乘)的分界斜率阈值
-// 当 K * nPr_n > B * fac_n 时选择div路径，其中nPr_n为nPr的limb数，fac_n为r!的limb数
-// 即 nPr_n / fac_n > B / K 时走div路径
-#define BINOMIAL_DIV_K_THRESHOLD 50
-#define BINOMIAL_DIV_B_THRESHOLD 91
+#define PERMUTATION_USHORT_K_THRESHOLD 20
+#define PERMUTATION_USHORT_B_THRESHOLD 40300
+#define PERMUTATION_UINT_K_THRESHOLD 66
+#define PERMUTATION_UINT_B_THRESHOLD 240000
+// 组合数计算中，奇数部分的缓冲区长度小于此阈值时使用朴素算法
+#define BINOMIAL_RN_BASECASE_THRESHOLD 18
+// 组合数计算中，K * nPr_n > 128 * fac_n 时走 div 路径，两种长度均为估算值
+#define BINOMIAL_DIV_K_THRESHOLD 72
 // 元素累乘中，低于此长度的累乘将使用朴素算法
 #define ELEM_MUL_BASECASE_THRESHOLD 32
 // binvert不平衡算法中，使用梅森变换的阈值

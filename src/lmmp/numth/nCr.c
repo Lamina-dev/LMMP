@@ -29,6 +29,9 @@
 #include "impl/prime_table.h"
 #include "lmmp/numth.h"
 
+#if defined(LMMP_TUNE)
+#include "tune/kernels.h"
+#endif
 
 mp_size_t lmmp_nCr_size_(uint n, uint r, mp_bitcnt_t* restrict bits) {
     lmmp_param_assert(r <= n / 2);
@@ -212,6 +215,9 @@ mp_size_t lmmp_odd_nCr_ushort_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r
         div_1(dst, rn, t);
         return rn;
     } else if (rn < BINOMIAL_RN_BASECASE_THRESHOLD) {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_BASECASE];
+#endif
         if (r <= 4 || n > 0xfff) {
             dst[0] = 1;
             rn = 1;
@@ -252,6 +258,9 @@ mp_size_t lmmp_odd_nCr_ushort_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r
             return rn;
         }
     } else {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_FACTOR];
+#endif
         TEMP_DECL;
         ushort primen = lmmp_prime_cnt16_(n);
         ushort nfactors = factor_size_short(rn);
@@ -275,6 +284,9 @@ mp_size_t lmmp_odd_nCr_uint_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) 
     lmmp_param_assert(r <= (n / 2));
     lmmp_param_assert(rn > 0 && dst != NULL);
     if (r <= 3 || (n > 0xfffffff && rn < BINOMIAL_RN_BASECASE_THRESHOLD)) {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_BASECASE];
+#endif
         dst[0] = 1;
         rn = 1;
         ulong t, v;
@@ -288,6 +300,9 @@ mp_size_t lmmp_odd_nCr_uint_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) 
         }
         return rn;
     } else if (rn < BINOMIAL_RN_BASECASE_THRESHOLD) {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_BASECASE];
+#endif
         dst[0] = 1;
         rn = 1;
         ulong i = 1;
@@ -313,13 +328,17 @@ mp_size_t lmmp_odd_nCr_uint_(mp_ptr restrict dst, mp_size_t rn, uint n, uint r) 
         bino_choose_t ctx;
         ctx.nPr_n = lmmp_nPr_size_(n, r, &ctx.nPr_bits);
         ctx.fac_n = lmmp_factorial_size_(r, &ctx.fac_bits);
-        if (BINOMIAL_DIV_K_THRESHOLD * ctx.nPr_n > BINOMIAL_DIV_B_THRESHOLD * ctx.fac_n) {
-            /* 这个调优值是在近似忽略了质数表的初始化开销，主要瓶颈集中在质数表的遍历的情况下测得的 */
-            /* 因此，当质数表未初始化时，这个调优值将无法代表真实性能边界 */
+        if (BINOMIAL_DIV_K_THRESHOLD * ctx.nPr_n > 128 * ctx.fac_n) {
+#if defined(LMMP_TUNE)
+            ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_DIV];
+#endif
             ctx.n = n;
             ctx.r = r;
             return lmmp_odd_nCr_div_(dst, rn, &ctx);
         } else {
+#if defined(LMMP_TUNE)
+            ++lmmp_tune_combin_hits[LMMP_TUNE_NCR_FACTOR];
+#endif
             lmmp_prime_int_table_init_(n);
             TEMP_B_DECL;
             uint nfactors = factor_size_int(rn, n);

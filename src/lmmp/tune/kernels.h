@@ -46,6 +46,18 @@ LMMP_API void lmmp_tune_sqr_hard_n_(mp_ptr dst, mp_srcptr numa, mp_size_t n);
 /** @brief lmmp_cbrt_ 进入牛顿分支的累计次数（仅 tune 构建导出）。 */
 LMMP_API extern mp_limb_t lmmp_tune_cbrt_newton_hits;
 
+typedef enum {
+    LMMP_TUNE_NPR_PRODUCT,
+    LMMP_TUNE_NPR_FACTOR,
+    LMMP_TUNE_NCR_BASECASE,
+    LMMP_TUNE_NCR_DIV,
+    LMMP_TUNE_NCR_FACTOR,
+    LMMP_TUNE_COMBIN_PATHS
+} lmmp_tune_combin_path;
+
+/** @brief 排列数和组合数各被测分支的累计次数（仅 tune 构建导出）。 */
+LMMP_API extern mp_limb_t lmmp_tune_combin_hits[LMMP_TUNE_COMBIN_PATHS];
+
 #ifdef __cplusplus
 }
 #endif

@@ -28,6 +28,9 @@
 #include "mparam.h"
 #include "impl/prime_table.h"
 
+#if defined(LMMP_TUNE)
+#include "tune/kernels.h"
+#endif
 
 // 无分支，_c_为0时可能导致越界写入高位0
 #define mul_1(dst, rn, v)                             \
@@ -211,9 +214,14 @@ mp_size_t lmmp_odd_nPr_ushort_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong
         TEMP_S_FREE;
         return rn;
     } else if (n + PERMUTATION_USHORT_B_THRESHOLD > r * PERMUTATION_USHORT_K_THRESHOLD) {
-        /* 测量发现，累乘法和因子分解法的算法耗时流形交线大致为直线 */
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NPR_PRODUCT];
+#endif
         return lmmp_odd_nPr_product_(dst, rn, n, r);
     } else {
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NPR_FACTOR];
+#endif
         TEMP_DECL;
         ushort primen = lmmp_prime_cnt16_(n);
         ushort nfactors = primen;
@@ -246,10 +254,14 @@ mp_size_t lmmp_odd_nPr_uint_(mp_ptr restrict dst, mp_size_t rn, ulong n, ulong r
         }
         return rn;
     } else if (n + PERMUTATION_UINT_B_THRESHOLD > r * PERMUTATION_UINT_K_THRESHOLD) {
-        /* 这个调优值是在近似忽略了质数表的初始化开销，主要瓶颈集中在质数表的遍历的情况下测得的 */
-        /* 因此，当质数表未初始化时，这个调优值将无法代表真实性能边界 */
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NPR_PRODUCT];
+#endif
         return lmmp_odd_nPr_product_(dst, rn, n, r);
     } else{
+#if defined(LMMP_TUNE)
+        ++lmmp_tune_combin_hits[LMMP_TUNE_NPR_FACTOR];
+#endif
         TEMP_B_DECL;
 
         lmmp_prime_int_table_init_(n);
