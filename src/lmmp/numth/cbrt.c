@@ -427,7 +427,7 @@ static mp_size_t lmmp_cbrt_knorm_(mp_srcptr numa, mp_size_t na, mp_ptr a2, mp_si
     梅森变换（mod B^mn-1, mn = lmmp_mersenne_next_size_(nres), nres = naz+2*nr+2）：
         ir^3*an 高于 B^mn 的部分对 i' 无影响（|d| < 16*B^(naz+2*nr) << B^mn，
         残差信息全部保存在模的低 nres 个 limb 内），故 an*ir^3 的三次乘链
-        （ir^2 -> *an -> *ir）均可用模乘截断计算。dp 折叠回 -d (mod B^mn-1)
+        （ir^2 -> *an -> *ir）均可用模乘截断计算。dp 经梅森折叠回 -d (mod B^mn-1)
         后，d 的符号由 dp[nres-1] 是否 > 15 判定：
             d > 0  =>  dp = M-d   (M = B^mn-1)，高位 limb 接近 B-1
             d <= 0 =>  dp = |d|   (< 16*B^(naz+2*nr)，高位 limb <= 15)
@@ -514,7 +514,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
         mn = lmmp_mersenne_next_size_(nres);
 
         // 梅森链需 mn 显著小于精确链的最大中间尺寸 3*nr+2（节省立方的完整
-        // 展开），且模折叠加法偏移 naz+3*nr-mn >= 0
+        // 展开），且梅森折叠里的加法偏移 naz+3*nr-mn >= 0
         int cmod = mn + 2 * CBRT_NEWTON_MODM_THRESHOLD < 3 * nr + 2 && mn <= naz + 3 * nr;
 
         mp_size_t r0 = LMMP_MAX(LMMP_MAX(nres + nr + 1, mn + 2), 3 * nr + 4);
@@ -522,7 +522,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
         mp_ptr dp = tb, t2 = tb + r0, w1 = tb + r0 + r1, xp = w1, dip = tb;
 
         if (cmod) {
-            // ---- 梅森链：dp = an*ir^3 mod (B^mn-1)，再折叠为 -d (mod M) ----
+            // ---- 梅森链：dp = an*ir^3 mod (B^mn-1)，再经梅森折叠为 -d (mod M) ----
 
             // ir^2
             if (2 * CBRT_NEWTON_MODM_THRESHOLD + mn >= 2 * nr + 1) {
@@ -572,7 +572,7 @@ void lmmp_invcbrt_newton_(mp_ptr restrict dstis, mp_size_t ns, mp_srcptr restric
         if (hi > 15) {
             // d > 0：ir 低估，修正相加。取反得 d 的窗口 limb 后除 3 向下取整
             if (!cmod)
-                lmmp_dec(dp);  // 消除 B^nres-d 折叠借位，使取反恰为 d
+                lmmp_dec(dp);  // 消除模 B^nres 截断带入的借位（B^nres-d 即 d 按位取反加 1），使取反恰为 d
             lmmp_not_(xp, dp + naz, 2 * nr + 2);
             rem = lmmp_div_1_(xp, xp, 2 * nr + 2, 3);
         } else {
@@ -769,10 +769,10 @@ void lmmp_cbrt_(mp_ptr dsts, mp_ptr dstr, mp_srcptr numa, mp_size_t na, mp_size_
         的 floor 复合还原。na2 = 3*ceil(na/3) 使 na2/3+nf+1 恰等于
         (na+3nf+2)/3+1，>>t 后的写入长度与语义和内部归一化旧版一致。
 
-        分派门：根长 limb 数 ns = (na+2)/3+nf+1 >= C*exp(na/A0)，即
+        分派条件：根长 limb 数 ns = (na+2)/3+nf+1 >= C*exp(na/A0)，即
         na/A0 + ln(C) <= ln(ns)；ns < C 时右端更大，先做这一次整数比较
         免算对数。两个宏的取值须使 C*exp(na/A0) >= na+4 对一切 na >= 0
-        成立，门通过即 ns >= na+4，nf = ns-1-(na+2)/3 便满足 lmmp_cbrt_newton_
+        成立，该条件成立即 ns >= na+4，nf = ns-1-(na+2)/3 便满足 lmmp_cbrt_newton_
         对归一化长度 3*ceil(na/3) 的契约 3*nf >= 2*na2+3，无须另行判别。
     */
     const mp_size_t ns = (na + 2) / 3 + nf + 1;

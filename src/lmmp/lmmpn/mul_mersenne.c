@@ -211,7 +211,7 @@ static void mrs_mul_core_(mp_ptr rp, mp_size_t rn, mp_srcptr ap, mp_size_t an, m
         if (n >= MUL_MERSENNE_FERMAT_THRESHOLD && mrs_fermat_usable_(n)) {
             lmmp_mul_fermat_(xp, n, ap1, anp, bp1, bnp);
         } else if (bp1 == b0) {
-            // bn<=n：直乘 + 反向折叠
+            // bn<=n：直乘后对 B^n+1 取余
             lmmp_mul_(xp, ap1, anp, bp1, bnp);
             anp = anp + bnp - n;
             lmmp_debug_assert(anp <= n || xp[2 * n] == 0);
@@ -336,7 +336,7 @@ static void mrs_sqr_core_(mp_ptr rp, mp_size_t rn, mp_srcptr ap, mp_size_t an, m
         if (n >= SQR_MERSENNE_FERMAT_THRESHOLD && mrs_fermat_usable_(n)) {
             lmmp_sqr_fermat_(xp, n, ap1, anp);
         } else if (ap1 == a0) {
-            // an<=n：直乘平方 + 反向折叠
+            // an<=n：直乘平方后对 B^n+1 取余
             lmmp_sqr_(xp, a0, an);
             anp = 2 * an - n;
             cy = lmmp_sub_(xp, xp, n, xp + n, anp);

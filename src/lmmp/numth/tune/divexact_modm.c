@@ -30,23 +30,23 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* divexact mu 主循环块积 dp×qp 的三档梯子（截断窗形态，窗口 ~dn+1）：
+/* divexact mu 主循环分块乘积 dp×qp 的三档算法（部分乘积，宽度 ~dn+1）：
    A=plain 直乘（dn<DIVEXACT_MERSENNE_THRESHOLD 且 dn<DIVEXACT_MERSENNE_CACHE_THRESHOLD）
    B=梅森分发不缓存（DIVEXACT_MERSENNE_THRESHOLD<=dn<DIVEXACT_MERSENNE_CACHE_THRESHOLD，
      m=mersenne_next_size(dn+1)）
    C=fft 缓存（dn>=DIVEXACT_MERSENNE_CACHE_THRESHOLD，m=fft_next_size(dn+1)，
      预旋转 D' 变换跨块复用）
    档位在 lmmp_divexact_mu_run_ 入口读一次、无自递归 ⟹ 绑定全网格干净、
-   sub_n=0。截断窗 m>=dn+1 经 Hensel 已知低段恢复高 dn limb（推导见
+   sub_n=0。部分乘积宽度 m>=dn+1，经 Hensel 已知低段恢复高 dn limb（推导见
    numth/divexact.c 的 mu_run_ 头注释），B/C 可行性无条件。每点经完整
    lmmp_divexact_ 入口三路
-   测量（根门绑 DIVEXACT_BASECASE_THRESHOLD=1 结构化跳过 basecase；
+   测量（根分派阈值绑 DIVEXACT_BASECASE_THRESHOLD=1 结构化跳过 basecase；
    binvert(dinv) 与块内 mullo 三路共同、对称计时）；输入构造与 oracle 同
    tune_numth_divexact。评分：DIVEXACT_MERSENNE 轴配 DIVEXACT_MERSENNE_CACHE
    默认、后者轴配前者默认各一维 + 按部署选择式
    dn>=c ? C : (dn>=m ? B : A) 求两阈值的二维联合 argmin。
-   MULLO_DC（use_lcache 的 in 门）不绑定：网格 in<=3dn/4+1<默认值 ⟹ mullo
-   缓存恒不启用，与部署默认一致；MUL/SQR_MERSENNE_* 内部门不绑定。 */
+   MULLO_DC_THRESHOLD（决定 use_lcache 的 in >= 阈值条件）不绑定：网格 in<=3dn/4+1<默认值 ⟹ mullo
+   缓存恒不启用，与部署默认一致；MUL/SQR_MERSENNE_* 等内部阈值不绑定。 */
 enum {
     MIN_DN = 128, MAX_DN = 4096, STEP_DN = 64, SHAPE_COUNT = 2,
     MRS_CAND_MIN = 64, MRS_CAND_MAX = 4096, MRS_CAND_STEP = 64,

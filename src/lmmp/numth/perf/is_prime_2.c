@@ -75,7 +75,7 @@ static double bench_is_prime_2_notrial(uint bits, PrimePool kind, const bench_op
 
 /*
     is_prime_2 档位对应 <psi_13（13 基底确定）与 >=psi_13（+强 Lucas）。
-    notrial 与带试除版本的对照差即试除腿成本（odd 池有试除早拒收益，
+    notrial 与带试除版本的对照差即试除阶段成本（odd 池有试除早拒收益，
     coprime/prime 池已过滤小因子，差值接近纯试除开销）。
 */
 

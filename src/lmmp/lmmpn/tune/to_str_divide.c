@@ -30,7 +30,7 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* limb→字符串 递归门：TO_STR_DIVIDE_THRESHOLD 在 lmmp_to_str_divide_ 每层以该节点
+/* limb→字符串 递归阈值：TO_STR_DIVIDE_THRESHOLD 在 lmmp_to_str_divide_ 每层以该节点
    na 判 basecase。节点先沿幂表下降（numa<p 时同长度换低一层幂），到首个可整除层
    分裂为商 nq≈na-(np+zeros) 与余数 nr<=np+zeros，较大子问题 ≈na/2。低路直调
    basecase（只读输入）；高路绑 T=na 只影响 na>=T 的节点（含同长度下降链），
@@ -38,7 +38,7 @@
    divide_ 顶部 deployed 实测。divide_ 破坏 numa：高路/deployed 走分段批处理
    计时（每份副本只调用一次）。幂表用全局十进制幂表（归一化+预逆元），与
    to_decimal_ 部署同构；to_str_ 任意基数的逐调用幂表同为减半几何，近似等价。
-   TO_STR_BASEPOW 门不在递归内，保持默认。
+   TO_STR_BASEPOW_THRESHOLD 的判别不在递归内，保持默认。
    部署约束：候选须 >=3（powers[0] 永不可达的前提）且 <= TO_STR_BASEPOW+1
    （basecase 栈数组按 BASEPOW 定长，DIVIDE 超过它会在生产构建越界）。 */
 enum {

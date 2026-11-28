@@ -30,10 +30,10 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 字符串→limb 入口门：FROM_STR_BASEPOW_THRESHOLD 只在 from_str_/from_decimal_
+/* 字符串→limb 入口阈值：FROM_STR_BASEPOW_THRESHOLD 只在 from_str_/from_decimal_
    入口读一次（结果 limb 估计值 <T 走 basecase，否则进幂表分治），不在递归内，
    绑 T=n 强制双路对任意 n 干净（sub_n=0），无 deployed 扫描。
-   该阈值由两个成本结构不同的消费方共享：from_str_（任意基数）每次调用重建
+   该阈值由两个成本结构不同的调用方共享：from_str_（任意基数）每次调用重建
    幂表（无缓存语境，主评分形状），from_decimal_ 用全局缓存十进制幂表（缓存
    语境，副评分形状，高路更廉、最优阈值更低）。两形状独立评分，主推荐以
    无缓存形状为准，缓存语境推荐值另行输出供写回时联合裁决。 */
@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
                 ++unstable_points;
             printf("%s %llu %.6f %.6f %.6f %.6f %u %u\n", shape == SHAPE_FROM_STR_UNCACHED ? "from_str" : "dec",
                    (unsigned long long)n, low_us, low_mad, high_us, high_mad, retries, stable);
-            /* 入口门无同阈值递归：全部候选按 n 与候选的相对位置直接计分 */
+            /* 入口阈值无同阈值递归：全部候选按 n 与候选的相对位置直接计分 */
             for (int c = CANDIDATE_MIN; c <= CANDIDATE_MAX; c += CANDIDATE_STEP) {
                 scores[shape][c] += n >= (mp_size_t)c ? high_us : low_us;
                 ++counts[shape][c];

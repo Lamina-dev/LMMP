@@ -122,7 +122,7 @@ mp_size_t lmmp_to_str_basecase_(mp_byte_t* dst, mp_srcptr numa, mp_size_t na, in
 mp_size_t lmmp_to_str_divide_(mp_byte_t* dst, mp_ptr numa, mp_size_t na, mp_basepow_t* pow, mp_ptr tpq, mp_byte_t off);
 
 /**
- * @brief 获取（惰性构建/扩展）全局十进制幂表
+ * @brief 获取全局十进制幂表（首次使用时构建，按需扩展）
  * @param grps 所需覆盖的最大 19 位组数（>1）
  * @param ctop 输出最高有效层索引
  * @return 幂表数组 [0..*ctop]，pow[k] = 10^(19*2^k)

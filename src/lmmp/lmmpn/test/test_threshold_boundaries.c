@@ -28,7 +28,7 @@
         逐 limb 精确一致 + 乘积模检查
       - mullo_：MULLO_DC_THRESHOLD ±1 低 n limb 与 lmmp_mul_ 全积一致
       - div_：DIV_DIVIDE_THRESHOLD ±1 q*d+r 重建 + 余数界
-      - divexact_：DIVEXACT_BASECASE 门 ±1 × 小/大 nn 形状（NN 门已退役，
+      - divexact_：DIVEXACT_BASECASE_THRESHOLD 两侧 ±1 × 小/大 nn 形状（按 nn 分派的阈值已退役，
         dn<BC 对任意 nn 走 basecase），n = q*d 构造恢复商
       - pow_：POW_1_EXP_THRESHOLD ±1 与 pow_1_ 单 limb 域精确互比
         + 模幂参考
@@ -154,8 +154,8 @@ TEST_CASE("threshold/divexact", divexact_basecase_boundaries) {
     typedef struct {
         mp_size_t nn, dn;
     } Case;
-    /* 门两侧 ±1 × {divide 形状, mu 形状, 大 nn}；dn 再取梅森/缓存档 ±1 覆盖
-       mu 块积的 plain/截断梅森/截断梅森缓存三路 */
+    /* DIVEXACT_BASECASE_THRESHOLD 两侧 ±1 × {divide 形状, mu 形状, 大 nn}；dn 再取梅森/缓存档 ±1 覆盖
+       mu 分块乘积的 plain/截断梅森/截断梅森缓存三路 */
     const mp_size_t dns[] = {DIVEXACT_BASECASE_THRESHOLD > 1 ? DIVEXACT_BASECASE_THRESHOLD - 1 : 1,
                              DIVEXACT_BASECASE_THRESHOLD, DIVEXACT_BASECASE_THRESHOLD + 1,
                              DIVEXACT_MERSENNE_THRESHOLD > 3 ? DIVEXACT_MERSENNE_THRESHOLD - 1 : 8,

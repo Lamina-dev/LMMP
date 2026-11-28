@@ -32,7 +32,7 @@
 
 /*
     u32 档三免内核（is_prime_uint.c）定向测试：
-    惰性剩余两档界（n<2^31 零条件减 / n>=2^31 每步条件减）、短表界、
+    两档条件减的边界（n<2^31 零条件减 / n>=2^31 每步条件减）、短表界、
     d 退化（n-1=2^t，ebits=1）、notrial 直调小素数（含 n==hash 基底路径）。
 */
 TEST_CASE("numth/prime", is_prime_uint_ulong_notrial) {

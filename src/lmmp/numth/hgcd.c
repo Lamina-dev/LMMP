@@ -114,7 +114,7 @@ basecase（8 乘）或 Winograd-Strassen（7 乘；FFT 缓存乘法路径曾实�
 六、模乘合并变体（lmmp_hgcd_apply_mod_）
 
 以 4 次 mod B^rn-1 的梅森模乘精确重构 M1^{-1}*(a; b)（真值为正且
-< B^nn <= B^(rn-1) 时模结果即真值）。数对折叠至 rn limb，矩阵元素以
+< B^nn <= B^(rn-1) 时模结果即真值）。数对经梅森折叠到 rn limb，矩阵元素以
 原始长度（M1->n，必小于 rn）直接参与模乘，无需填充。fa/fb 各被两个
 矩阵元素相乘。模乘走梅森分发入口（dc 按操作数实际长度计价，不平衡
 形状亦有收益）；达到 HGCD_MODMUL_CACHE_THRESHOLD 后改用 lmmp_mul_mersenne_cache_
@@ -156,7 +156,7 @@ LMMP_VECT_CONSERVATIVE
  *       的只有递归期间常驻的高位副本与子矩阵缓冲。子问题规模上界取
  *       2n/3 + 2（阶段 B 的 p2 分裂在最不利时接近该比例，严于实际的
  *       n - n/2 与 2n_cur - n0 - 5）。本层合并相位预算 15n + 512（含
- *       apply_mod 折叠缓冲的 next_size 取整余量与矩阵复合 9(2mx+4)），
+ *       apply_mod 梅森折叠缓冲的 next_size 取整余量与矩阵复合 9(2mx+4)），
  *       步进循环 8n + 64。对比旧的逐层累加（约 48n）内存占用降至约 1/3
  */
 mp_size_t lmmp_hgcd_scratch_size_(mp_size_t n) {
@@ -841,7 +841,7 @@ static mp_size_t lmmp_hgcd_step_(
 }
 
 /**
- * @brief 将 [src,sn] 折叠为模 B^rn-1 的表示：写入 [dst,rn)
+ * @brief 将 [src,sn] 经梅森折叠为模 B^rn-1 的表示：写入 [dst,rn)
  * @param dst 输出数组（长度为 rn 个limb）
  * @param src 源数组（长度为 sn 个limb，sn 与 rn 任意大小关系）
  * @param sn src 的长度
@@ -879,7 +879,7 @@ static void lmmp_hgcd_fold_mod_(mp_ptr dst, mp_srcptr src, mp_size_t sn, mp_size
  *          n>0, M1->n>1, ap[n-1]>0
  * @note 真值满足 0 <= new < B^nn <= B^(rn-1)（nn 为下方推导的界），
  *       过冲（new < 0）时模结果回绕为接近 rn 长度，据此刻检测并返回 0。
- *       数对折叠至 rn limb 参与模乘；矩阵元素以原始长度 M1->n 直接参与
+ *       数对经梅森折叠到 rn limb 参与模乘；矩阵元素以原始长度 M1->n 直接参与
  *      （M1->n<rn 保证落在模内）。fa/fb 各被两个矩阵元素乘，经
  *       lmmp_mul_mersenne_cache_ 系列复用其前向 FFT 变换
  */
@@ -921,7 +921,7 @@ static mp_size_t lmmp_hgcd_apply_mod_(
         return 0; /* 尺寸关系异常（防御） */
     }
 
-    /* 折叠与填充 */
+    /* 梅森折叠与填充 */
     mp_ptr fa = lmmp_hgcd_salloc_(sc, rn);
     mp_ptr fb = lmmp_hgcd_salloc_(sc, rn);
     lmmp_hgcd_fold_mod_(fa, ap, an, rn);

@@ -177,7 +177,7 @@ static void lmmp_divexact_mu_run_(
     qn -= in;
 
     while (qn > in) {
-        /* [H, dn] = dp×qp div B^in：mode 1/2 截断窗恢复，mode 0 全积取高段 */
+        /* [H, dn] = dp×qp div B^in：mode 1/2 由部分乘积恢复，mode 0 全积取高段 */
         mp_ptr H;
         if (ms_mode != 0) {
             lmmp_zero(work, m);

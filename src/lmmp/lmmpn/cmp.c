@@ -37,7 +37,7 @@ int lmmp_cmp_(mp_srcptr numa, mp_srcptr numb, mp_size_t n) {
         if (x != y)
             return (x > y ? 1 : -1);
     }
-    /* 余段自顶向下按 4 limb 一组：异或折叠判差，有差组内自顶定位 */
+    /* 余段自顶向下按 4 limb 一组：4 对 limb 各自异或后或起来，判断本组是否有差，有差的组内自顶定位 */
     for (mp_size_t i = n - r; i != 0;) {
         i -= 4;
         mp_limb_t d = (numa[i + 0] ^ numb[i + 0]) | (numa[i + 1] ^ numb[i + 1]) |
@@ -62,7 +62,7 @@ int lmmp_zero_q_(mp_srcptr p, mp_size_t n) {
         if (p[n - 1 - k] != 0)
             return 0;
     }
-    /* 余段按 4 limb 一组，或折叠非零检测 */
+    /* 余段按 4 limb 一组，4 个 limb 或起来检测是否非零 */
     for (mp_size_t i = n - r; i != 0;) {
         i -= 4;
         if ((p[i] | p[i + 1] | p[i + 2] | p[i + 3]) != 0)

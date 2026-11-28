@@ -37,14 +37,14 @@
 #define TRIALDIV_BLK_MAX ((ushort)2012)
 
 /**
- * 块内字段分三组、各按水位 [0,bn_x) 惰性初始化，纯小 nn 负载不付 chunk
+ * 块内字段分三组、各组只初始化到 [0,bn_x)，其余首次使用时才初始化，纯小 nn 负载不付 chunk
  * 组预处理、纯大 nn 负载不付 preinv 组预处理：
  *   打包组   t/p0/pn        建块即得
- *   preinv 组 k/inv         首个 preinv 腿调用覆盖到该块时算
- *   chunk 组  dinv/r2/base/mi  首个 chunk 腿调用覆盖到该块时算
+ *   preinv 组 k/inv         首个 preinv 函数调用覆盖到该块时算
+ *   chunk 组  dinv/r2/base/mi  首个 chunk 函数调用覆盖到该块时算
  */
 typedef struct trialdiv_blk {
-    ulong t;     // 块积，也即除数
+    ulong t;     // 素数块积，也即除数
     ulong inv;   // preinv 组：lmmp_inv_1_(t<<k)
     ulong dinv;  // chunk 组：t*dinv==1 mod B
     ulong r2;    // chunk 组：B^2 mod t
@@ -58,7 +58,7 @@ typedef struct trialdiv_blk {
 typedef struct {
     trialdiv_blk* blks;
     ushort blkc;      // blks 容量
-    ushort bn;        // 打包组水位：已闭块数
+    ushort bn;        // 打包组已初始化位置：已闭块数
     ushort bn_inv;    // preinv 组已初始化容量
     ushort bn_chunk;  // chunk 组已初始化容量
     ushort pi;        // 打包游标：下一素数下标
@@ -125,11 +125,11 @@ static void trialdiv_init_inv_(ushort n) {
 }
 
 /**
- * @brief 给 [bn_chunk,n) 的块补算折叠腿要用的 dinv、mi、r2、base
+ * @brief 给 [bn_chunk,n) 的块补算 chunk 函数要用的 dinv、mi、r2、base
  * @param n 要补到的块数，不超过 bn
  * @note dinv 是 t 模 2^64 的逆元，mi 就是它的相反数；r2 与 base 共享一次
- *       inv_1_ 未填的块顺手存进 preinv 组字段并推其水位（已填的块直接复用），
- *       后续 preinv 腿免再算。已经算过的块不会再算
+ *       inv_1_ 未填的块顺手存进 preinv 组字段并推进其已初始化位置（已填的块直接复用），
+ *       后续 preinv 函数免再算。已经算过的块不会再算
  */
 static void trialdiv_init_chunk_(ushort n) {
     for (ushort i = G.bn_chunk; i < n; ++i) {
@@ -153,17 +153,17 @@ static void trialdiv_init_chunk_(ushort n) {
     if (G.bn_inv < n) G.bn_inv = n;
 }
 
-typedef mp_limb_t (*trialdiv_leg_fn)(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b);
+typedef mp_limb_t (*trialdiv_fn)(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b);
 
-static mp_limb_t trialdiv_leg_preinv_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
+static mp_limb_t trialdiv_preinv_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
     return lmmp_mod_preinv_1_(np, nn, b->t, b->inv, b->k);
 }
 
-static mp_limb_t trialdiv_leg_4_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
+static mp_limb_t trialdiv_chunk4_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
     return lmmp_mod_4chunk_1_(np, nn, b->t, b->dinv, b->r2, b->base, b->mi);
 }
 
-static mp_limb_t trialdiv_leg_8_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
+static mp_limb_t trialdiv_chunk8_(mp_srcptr np, mp_size_t nn, const trialdiv_blk* b) {
     return lmmp_mod_8chunk_1_(np, nn, b->t, b->dinv, b->r2, b->base, b->mi);
 }
 
@@ -180,21 +180,21 @@ bool lmmp_trialdiv_(mp_srcptr restrict np, mp_size_t nn, ushort N) {
     ushort un = 0;
     while (un < G.bn && G.blks[un].p0 < cnt) ++un;
 
-    trialdiv_leg_fn leg;
+    trialdiv_fn fn;
     if (nn < TRIALDIV_PREINV_THRESHOLD) {
         if (G.bn_inv < un) trialdiv_init_inv_(un);
-        leg = trialdiv_leg_preinv_;
+        fn = trialdiv_preinv_;
     } else if (nn < TRIALDIV_K8_THRESHOLD) {
         if (G.bn_chunk < un) trialdiv_init_chunk_(un);
-        leg = trialdiv_leg_4_;
+        fn = trialdiv_chunk4_;
     } else {
         if (G.bn_chunk < un) trialdiv_init_chunk_(un);
-        leg = trialdiv_leg_8_;
+        fn = trialdiv_chunk8_;
     }
 
     for (ushort i = 0; i < un; ++i) {
         const trialdiv_blk* b = &G.blks[i];
-        mp_limb_t r = leg(np, nn, b);
+        mp_limb_t r = fn(np, nn, b);
         if (r == 0) return true;
         for (ushort j = b->p0, e = (ushort)(b->p0 + b->pn); j < e; ++j)
             if (r % prime_short_table[j] == 0) return true;

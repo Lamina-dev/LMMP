@@ -31,7 +31,7 @@
 #include "tune/params.h"
 
 /* 候选下界=分派地板：mul_ 档2 的 toom42 分支靠档1 nb<MUL_TOOM22_THRESHOLD 兜住
-   toom42 契约门 nb>=20，阈值低于 20 会让 (35,19) 类形状违约（Release UB）。
+   toom42 契约要求 nb>=20，阈值低于 20 会让 (35,19) 类形状违约（Release UB）。
    若将来要支持更小的平衡乘法阈值，须先把该耦合与不平衡分派条件分离。
    扫描起点 5：toom22 契约 2*nb>na+4 在平衡形状上要求 n>=5。 */
 enum { MIN_N = 5, MAX_N = 48, CANDIDATE_MIN = 20, CANDIDATE_MAX = MAX_N + 4 };

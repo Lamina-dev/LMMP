@@ -29,14 +29,14 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* divide ↔ mulinv 切换门（耦合，设计稿 §4.3）：部署条件
+/* divide ↔ mulinv 切换阈值（两个阈值互相影响，设计稿 §4.3）：部署条件
    nb < DIV_MULINV_L_THRESHOLD || na < 2*DIV_MULINV_N_THRESHOLD 走 divide。
-   L 扫描钉 N=1（na<2 恒假）隔离 nb 门；N 扫描钉 L=6（nb>=64 恒假）隔离 na 门，
+   L 扫描固定 N=1（na<2 恒假）隔离 nb 条件；N 扫描固定 L=6（nb>=64 恒假）隔离 na 条件，
    形状保 na>=2nb（divide 契约）。两路直调内核：low=divide_（DIV_DIVIDE 默认），
    high=inv_prediv_+div_mulinv_（prediv 计入，与部署同形）。mulinv 内部
    MODM/CACHE/MUL_FFT 均不绑定、沿默认梯子，无同阈值递归，sub_n=0。
-   末尾对 (L_rec,N_rec) 与现值做联合复核。截断分支（lmmp_div_ 内 nq 门控，
-   无 L 门）不在本程序测量域，输出注记。 */
+   末尾对 (L_rec,N_rec) 与现值做联合复核。截断分支（lmmp_div_ 内只比较 nq 与 DIV_MULINV_N_THRESHOLD，
+   不看 DIV_MULINV_L_THRESHOLD）不在本程序测量域，输出注记。 */
 enum {
     L_MIN_NB = 64, L_MAX_NB = 1024, L_STEP_NB = 64,      /* L 扫描：nq=4nb */
     L_CAND_MIN = 64, L_CAND_MAX = 1024, L_CAND_STEP = 32,
@@ -278,7 +278,7 @@ int main(int argc, char** argv) {
 
     int result = EXIT_SUCCESS;
 
-    /* ---- L 扫描：nq=4nb，钉 N=1 ---- */
+    /* ---- L 扫描：nq=4nb，固定 N=1 ---- */
     printf("# phase=L_scan nb nq low_us low_mad high_us high_mad retries stable\n");
     for (mp_size_t nb = L_MIN_NB; nb <= L_MAX_NB; nb += L_STEP_NB) {
         mp_size_t na = 5 * nb;
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    /* ---- N 扫描：nb 固定，钉 L=6 ---- */
+    /* ---- N 扫描：nb 固定，L 固定为 6 ---- */
     if (result == EXIT_SUCCESS) {
         printf("# phase=N_scan nb nq low_us low_mad high_us high_mad retries stable\n");
         fill_random(numb, N_NB, (mp_limb_t)(options.seed + 0x9e3779b97f4a7c15ULL));

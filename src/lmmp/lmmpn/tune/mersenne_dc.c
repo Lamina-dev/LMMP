@@ -29,14 +29,14 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* dc 递归入口门（mrs_mul_core_ 每层判 (rn&1)||rn<T）：T 自递归生效，子问题
-   rn/2 按同一阈值再判。低路绑 T=rn+1（奇数 ⟹ 根层直乘折叠基例）；高路绑
+/* dc 递归入口阈值（mrs_mul_core_ 每层判 (rn&1)||rn<T）：T 自递归生效，子问题
+   rn/2 按同一阈值再判。低路绑 T=rn+1（奇数 ⟹ 根层走直乘后梅森折叠的基例）；高路绑
    T=rn 仅当 T>sub_n=rn/2 时代表部署形态（子问题落基例，与候选 (sub_n,rn]
    的部署逐点一致）；T<=sub_n 的候选让子问题再入分治，逐候选绑 T 经完整
    lmmp_mul_mersenne_dc_ 入口 deployed 实测。
-   FERMAT 门保持默认：高路根层半域 n=rn/2，rn>=2*默认FERMAT 时走费马引擎，
-   与部署一致；子问题深度 n'=rn/4 起低于默认 FERMAT，走直乘折叠。
-   注意：本阈值还决定 lmmp_mersenne_next_size_ 的偶/4/8 取整档位，消费方
+   MUL_MERSENNE_FERMAT_THRESHOLD 保持默认：高路根层半域 n=rn/2，rn>=2*默认FERMAT 时走费马引擎，
+   与部署一致；子问题深度 n'=rn/4 起低于默认 FERMAT，走直乘后梅森折叠。
+   注意：本阈值还决定 lmmp_mersenne_next_size_ 的偶/4/8 取整档位，调用方
    padding 形状随候选移动；本程序在固定 rn 网格评分，该耦合不在评分内，
    由 tmp/ 变体重编探针另行复核。
    形状：主评分=平衡满长 na=nb=rn；副形状 nb=rn/2+1 只输出测量行。 */
@@ -75,7 +75,7 @@ static mp_limb_t call_dc(void* opaque) {
     return fingerprint(context->dst, context->rn);
 }
 
-/* oracle：全积 + 循环折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
+/* oracle：全积 + 梅森折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_srcptr b, mp_size_t nb,
                             mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
@@ -202,7 +202,7 @@ int main(int argc, char** argv) {
                 fill_random(numb, nb, (mp_limb_t)(options.seed + 4 * rn + 1));
             mp_srcptr bp = shape == 0 ? numa : numb;
 
-            /* 正确性：低路（T=rn+1 基例）↔ 高路（T=rn 分治）↔ 全积折叠 oracle */
+            /* 正确性：低路（T=rn+1 基例）↔ 高路（T=rn 分治）↔ 全积梅森折叠 oracle */
             lmmp_tune_MUL_MERSENNE_DC_THRESHOLD = rn + 1;
             lmmp_mul_mersenne_dc_(low, rn, numa, na, bp, nb);
             lmmp_tune_MUL_MERSENNE_DC_THRESHOLD = rn;

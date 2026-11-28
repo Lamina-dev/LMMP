@@ -308,7 +308,7 @@ void lmmp_powmod_odd_(
 
     /*
        单块工作区分段（蒙域段在前，梯子段续后，段布局见 impl/powmod.h）：
-         [蒙域段]     basecase 0 | 中层 6n | 折叠 6n+msz（lmmp_mont_need_）
+         [蒙域段]     basecase 0 | 中层 6n | 梅森折叠 6n+msz（lmmp_mont_need_）
          [u(n)]       梯子累加器
          [b2(n)]      表生成暂存
          [prod(2n)]   全积兼 redcify 工作区

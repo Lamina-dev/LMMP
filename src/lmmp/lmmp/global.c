@@ -45,11 +45,11 @@ static void stack_deinit_default_(void) {
 static const lmmp_global_entry_t lmmp_global_entries[] = {
     // 栈式分配器+缓冲池：其余资源的分配基础，须最先初始化、最后释放
     {stack_init_default_, stack_deinit_default_},
-    // 质数筛表：首次调用 lmmp_prime_int_table_init_ 时惰性构建，仅注册释放
+    // 质数筛表：首次调用 lmmp_prime_int_table_init_ 时才构建，仅注册释放
     {NULL, lmmp_prime_int_table_free_},
-    // 十进制幂表：首次调用 lmmp_dec_pow_table_ 时惰性构建，仅注册释放
+    // 十进制幂表：首次调用 lmmp_dec_pow_table_ 时才构建，仅注册释放
     {NULL, lmmp_dec_pow_table_free_},
-    // 试除块表：首次调用 lmmp_trialdiv_ 时惰性构建，仅注册释放
+    // 试除块表：首次调用 lmmp_trialdiv_ 时才构建，仅注册释放
     {NULL, lmmp_trialdiv_table_free_},
 };
 

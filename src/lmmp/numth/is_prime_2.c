@@ -255,7 +255,7 @@ static inline int jacobi_small(ulong b, ulong A) {
 }
 
 /*
-    (±Dabs|n)：Dabs 奇（uint 范围），n 128 位奇。n 以双 limb 模乘链折叠
+    (±Dabs|n)：Dabs 奇（uint 范围），n 128 位奇。n 的 2 个 limb 逐个经模乘链对 A 取模
     （r = (r*(B mod A) + limb) mod A，全程 64 位），再经二次互反律
     (A|n) = (n|A)*(-1)^(((A-1)/2)((n-1)/2)) 归结到 jacobi_small；
     D 为负时乘 (-1|n) 因子。gcd(|D|,n)>1 返回 0

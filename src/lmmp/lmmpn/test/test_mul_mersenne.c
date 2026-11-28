@@ -30,11 +30,11 @@
 
 /*
     梅森域乘法（B^rn - 1 卷绕）验证：oracle = 全积（lmmp_mul_，大尺寸走
-    FFT，与被测分治/数论路径算法族独立）+ 循环折叠 + 全 1 零类归一化
+    FFT，与被测分治/数论路径算法族独立）+ 梅森折叠 + 全 1 零类归一化
     （B^rn-1 ≡ 0）——全库内路径，无自建算法。
 */
 
-/* oracle：全积 + 循环折叠 + 零类归一化（B^rn-1 -> 0）——全库内路径 */
+/* oracle：全积 + 梅森折叠 + 零类归一化（B^rn-1 -> 0）——全库内路径 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_srcptr b, mp_size_t nb,
                      mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
@@ -188,7 +188,7 @@ TEST_CASE("mul/mersenne_next_size", mersenne_next_size_props) {
         mp_size_t m = lmmp_mersenne_next_size_(n);
         TEST_CHECK(m >= n);
     }
-    /* fft 档（nh 越过 MODF 阈值）输出 = 2*fft_next_size(nh)：钉住对齐意图，
+    /* fft 档（nh 越过 MODF 阈值）输出 = 2*fft_next_size(nh)：固定对齐意图，
        若退化为直接返回 n，分发入口在 rn>=FFT 阈值时回落 dc（性能回归
        不可见于正确性用例）。不断言 m 本身 fft 可行——倍乘不保可行性
        （nh=2171 可行而 2*2171=4342 不可行，fns(4342)=4344） */

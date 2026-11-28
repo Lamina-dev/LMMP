@@ -596,16 +596,17 @@ void lmmp_mul_mersenne_cache_(mp_ptr dst, mp_srcptr numa, fft_gr_cache* ctx) {
  * @brief FFT 双域模乘计算：分别求梅森域与费马域残差（lmmp_mul_fft_crt_ 的前半）
  * @param dst 输出：梅森域结果 [dst,hn] = P mod (B^hn-1)，P = [numa,na]*[numb,nb]
  * @param tp 输出：费马域结果 [tp,hn+1] = P mod (B^hn+1)（库规范形 [0,B^hn]），
- *            na > hn 时兼作 numa 的费马折叠工作区（需 hn+1 limb）
+ *            na > hn 时兼作对 numa 取 B^hn+1 余数的工作区（需 hn+1 limb）
  * @param hn 变换阶数（两域共用）
- * @param numa 第一操作数（超长时按域折叠：amodm = a mod (B^hn-1) 原位写入 dst，
- *             amodp = a mod (B^hn+1) 原位写入 tp，折叠取 [低hn)±[高位)）
- * @param na numa 长度（任意 > 0；> hn 时触发折叠）
- * @param numb 第二操作数（不折叠，要求 nb <= hn）
+ * @param numa 第一操作数（na > hn 时先取余。梅森折叠：amodm = a mod (B^hn-1)，即 [numa,hn) 加
+ *             [numa+hn,na-hn)，写入 dst；对 B^hn+1 取余：amodp = a mod (B^hn+1)，即 [numa,hn) 减
+ *             [numa+hn,na-hn)，有借位时加 B^hn+1，写入 tp）
+ * @param na numa 长度（任意 > 0；> hn 时先取余）
+ * @param numb 第二操作数（不取余，要求 nb <= hn）
  * @param nb numb 长度
  * @warning nb<=na, nb<=hn, sep(dst,[numa|numb]), sep(tp,[numa|numb]), dst 与 tp 分离
- * @note na > hn 时 dst 先接收梅森折叠值（nam 截为 hn），随后被梅森域积覆写；
- *       tp 同理（nap 截为 hn+1）
+ * @note na > hn 时 dst 先接收 a mod (B^hn-1) 的结果（nam 截为 hn），随后被梅森域积覆写；
+ *       tp 同理，先接收 a mod (B^hn+1) 的结果（nap 截为 hn+1）
  */
 static void lmmp_mul_fft_mods_(
     mp_ptr dst,

@@ -31,9 +31,9 @@
 #include "tune/params.h"
 
 /* 精确除法根分派单阈值：dn<DIVEXACT_BASECASE_THRESHOLD 走 basecase_，
-   否则 qn<dn 走 divide_、qn>=dn 走 unbalance_/mu（NN 门已退役——独立探针
+   否则 qn<dn 走 divide_、qn>=dn 走 unbalance_/mu（按 nn 分派的阈值已退役——独立探针
  * 证实 dn<=64 时 basecase/mu 比值对 nn 是渐近常数 0.78-0.96，nn 到 4M limb
- *  无交叉，nn 钳制无意义）。门只在 lmmp_divexact_ 根层读一次，
+ *  无交叉，nn 钳制无意义）。DIVEXACT_BASECASE_THRESHOLD 只在 lmmp_divexact_ 根层读一次，
    divide_/unbalance_/mu_run_ 内部不再引用（递归读的是 BINVERT_、MULLO_
    等独立阈值，均不绑定）⟹ 强制绑定对任意 (nn,dn) 干净，sub_n=0、无
    deployed 扫描。每点配对测量：low 绑 DIVEXACT_BASECASE_THRESHOLD=dn+1

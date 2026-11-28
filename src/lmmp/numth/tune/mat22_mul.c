@@ -185,14 +185,14 @@ int main(int argc, char** argv) {
     lmmp_mat22_t high = matrix_view(storage + 8 * input_stride + 4 * output_stride, output_stride);
     mp_ptr scratch = storage + 8 * input_stride + 8 * output_stride;
 
-    /* 按形状独立评分：Strassen 门控 mat22_all_big_ 要求 A、B 全部元素 >= 阈值，
-       含小元素的形状在候选高于其最小元素时 high 被门控退化为 basecase，
+    /* 按形状独立评分：Strassen 路径由阈值控制，mat22_all_big_ 要求 A、B 全部元素 >= 阈值，
+       含小元素的形状在候选高于其最小元素时 high 路径因阈值条件不成立退化为 basecase，
        混合累计会抬高"关闭 Strassen"候选。推荐值以平衡形状（shape 0）为准，
        其余形状只输出测量行供形状依赖分析。 */
     double scores[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     unsigned long counts[SHAPE_COUNT][CANDIDATE_MAX + 1] = {{0}};
     mp_size_t saved_threshold = lmmp_tune_MAT22_MUL_STRASSEN_THRESHOLD;
-    /* 稳定计数按形状分列：推荐只依据 shape 0（平衡形状），门控也只看它的稳定点 */
+    /* 稳定计数按形状分列：推荐只依据 shape 0（平衡形状），是否给推荐值的检查也只看它的稳定点 */
     unsigned stable_points[SHAPE_COUNT] = {0}, unstable_points[SHAPE_COUNT] = {0};
 
     printf("# program=tune_numth_mat22_mul\n");

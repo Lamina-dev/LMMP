@@ -51,7 +51,7 @@ mp_size_t lmmp_from_decimal_(mp_ptr dst, const char* src, mp_size_t len) {
     if (lmmp_from_str_len_(0, len, DEC_BASE) < FROM_STR_BASEPOW_THRESHOLD)
         return lmmp_from_str_basecase_(dst, (const mp_byte_t*)src, len, DEC_BASE, '0');
 
-    // 惰性获取全局幂表（置于 TEMP_B_DECL 之前，幂表持久堆分配与临时分配互不干扰）
+    // 获取全局幂表（首次使用时才构建；置于 TEMP_B_DECL 之前，幂表持久堆分配与临时分配互不干扰）
     mp_size_t grps = (len - 1) / lmmp_bases_table[DEC_BASE - 2].digits_in_limb + 1;
     int ctop;
     mp_basepow_t* pows = lmmp_dec_pow_table_(grps, &ctop);

@@ -29,11 +29,11 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* 梅森分发门（lmmp_mul_mersenne_）：rn >= T 且 rn 为 fft 可行尺寸时走 SSA 梅森
-   FFT，否则回落 dc。门只在根层出现一次，dc/fft 内部递归均不读本阈值
-   （dc 按 DC/FERMAT 门、fft 点乘按 MUL_FFT_MODF，皆保持默认）⟹ 全网格干净，
+/* 梅森分派阈值（lmmp_mul_mersenne_）：rn >= T 且 rn 为 fft 可行尺寸时走 SSA 梅森
+   FFT，否则回落 dc。阈值判别只在根层出现一次，dc/fft 内部递归均不读本阈值
+   （dc 按 DC/FERMAT 阈值、fft 点乘按 MUL_FFT_MODF，皆保持默认）⟹ 全网格干净，
    sub_n=0。网格与候选均取 fft 可行尺寸格点：不可行 rn 对任何候选恒回落 dc，
-   门在该处无部署差异；可行格点由 lmmp_fft_next_size_ 枚举（粒度随 best_k 表
+   阈值取值在该处不改变部署路径；可行格点由 lmmp_fft_next_size_ 枚举（粒度随 best_k 表
    跳变：64/128/256/...）。候选稀疏，按格点均值汇总（recommend_stepped）。
    形状：主评分=平衡满长 na=nb=rn；副形状 nb=rn/2+1 只输出测量行不参与评分。
    dc/fft 两入口各自 TEMP 包装，每调用一次临时分配，两路同规则。 */
@@ -49,7 +49,7 @@ typedef struct {
 } measure_context;
 
 static void bind_default(void* opaque) {
-    (void)opaque; /* 分发门不参与两路内部决策，无需绑定 */
+    (void)opaque; /* 分派阈值不参与两路内部决策，无需绑定 */
 }
 
 static void reset_output(void* opaque) {
@@ -73,7 +73,7 @@ static mp_limb_t call_fft(void* opaque) {
     return fingerprint(context->dst, context->rn);
 }
 
-/* oracle：全积 + 循环折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
+/* oracle：全积 + 梅森折叠 + 零类归一化（B^rn-1 -> 0），与 test_mul_mersenne 同手段 */
 static void mersenne_oracle(mp_ptr r, mp_size_t rn, mp_srcptr a, mp_size_t na, mp_srcptr b, mp_size_t nb,
                             mp_ptr full) {
     lmmp_zero(full, 2 * rn + 2);
@@ -222,7 +222,7 @@ int main(int argc, char** argv) {
                 fill_random(numb, nb, (mp_limb_t)(options.seed + 4 * rn + 1));
             mp_srcptr bp = shape == 0 ? numa : numb;
 
-            /* 正确性：dc ↔ fft ↔ 全积折叠 oracle；另测全 1 零类对抗输入 */
+            /* 正确性：dc ↔ fft ↔ 全积梅森折叠 oracle；另测全 1 零类对抗输入 */
             lmmp_mul_mersenne_dc_(low, rn, numa, na, bp, nb);
             lmmp_mul_mersenne_fft_(high, rn, numa, na, bp, nb);
             mersenne_oracle(ref, rn, numa, na, bp, nb, full);

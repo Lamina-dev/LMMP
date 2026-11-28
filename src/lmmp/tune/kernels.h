@@ -30,14 +30,14 @@ extern "C" {
 #endif
 
 /**
- * @brief 硬编码平衡乘法分派的调优薄封装 [dst,2n] = [numa,n] * [numb,n]
+ * @brief 硬编码平衡乘法分派的调优薄包装 [dst,2n] = [numa,n] * [numb,n]
  * @warning 0 < n, sep(dst,[numa|numb]); n <= LMMP_MUL_HARD_MAX_N 查表直调, 其余回落 mul_basecase
  * @note hard 函数表是数据符号, Windows 下不随 DLL 自动导出, 故在 tune 库内封装供程序直调真实低路。
  */
 LMMP_API void lmmp_tune_mul_hard_n_(mp_ptr dst, mp_srcptr numa, mp_srcptr numb, mp_size_t n);
 
 /**
- * @brief 硬编码平衡平方分派的调优薄封装 [dst,2n] = [numa,n]^2
+ * @brief 硬编码平衡平方分派的调优薄包装 [dst,2n] = [numa,n]^2
  * @warning 0 < n, sep(dst,numa); n <= LMMP_MUL_HARD_MAX_N 查表直调, 其余回落 sqr_basecase
  * @note 同 lmmp_tune_mul_hard_n_。
  */

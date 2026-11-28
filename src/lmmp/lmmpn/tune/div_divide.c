@@ -29,8 +29,8 @@
 #include "tune/common.h"
 #include "tune/params.h"
 
-/* basecase ↔ 分治除法切换门：DIV_DIVIDE_THRESHOLD 出现在根层分派
-   （lmmp_div_s_/lmmp_div_/inv_basecase_）与 divide_n_ 自递归的 hi/lo 门。
+/* basecase ↔ 分治除法切换阈值：DIV_DIVIDE_THRESHOLD 出现在根层分派
+   （lmmp_div_s_/lmmp_div_/inv_basecase_）与 divide_n_ 自递归时 hi、lo 两个子问题处的判别条件。
    高路直调 divide_ 并绑 T=n：子问题 hi=ceil(n/2)<T 走 basecase，首块
    nq=0 无递归，恰好代表候选 (sub_n,n]（sub_n=ceil(n/2)）；T<=sub_n 的
    候选会让子问题再入分治，须按候选绑 T 经完整 div_s_ 另行 deployed 实测。

@@ -39,11 +39,12 @@
  */
 bool lmmp_trialdiv_(mp_srcptr np, mp_size_t nn, ushort N);
 
-/* 全局试除块表释放（lmmp_global_entries 钩子；表本身首次试除时惰性构建） */
+/* 全局试除块表释放（lmmp_global_entries 钩子；表本身首次试除时才构建） */
 void lmmp_trialdiv_table_free_(void);
 
 /**
- * @brief 4 链折叠取模：r = [numa,na] mod d
+ * @brief 4 条链并行的取模：r = [numa,na] mod d。[numa,na] 去掉最低 na mod 4 个 limb 后
+ *        分成连续的 4 段，每段用一条互不依赖的链各自累加，最后按各段位置加权合并
  * @param numa 被除数（长度为 na 个limb）
  * @param na 被除数的 limb 长度
  * @param d 除数（单个 limb）
@@ -59,7 +60,8 @@ mp_limb_t lmmp_mod_4chunk_1_(mp_srcptr numa, mp_size_t na, mp_limb_t d, mp_limb_
                              mp_limb_t r2, mp_limb_t base, mp_limb_t mi);
 
 /**
- * @brief 8 链折叠取模：r = [numa,na] mod d
+ * @brief 8 条链并行的取模：r = [numa,na] mod d。[numa,na] 去掉最低 na mod 8 个 limb 后
+ *        分成连续的 8 段，每段用一条互不依赖的链各自累加，最后按各段位置加权合并
  * @param numa 被除数（长度为 na 个limb）
  * @param na 被除数的 limb 长度
  * @param d 除数（单个 limb）

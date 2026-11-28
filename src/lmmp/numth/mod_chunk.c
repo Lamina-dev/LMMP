@@ -105,7 +105,7 @@ mp_limb_t lmmp_mod_4chunk_1_(mp_srcptr numa, mp_size_t na, mp_limb_t d, mp_limb_
     }
     acc += mont63_mul(cj[3], wm, d, mi);
     acc = acc >= d ? acc - d : acc;
-    acc += cb; /* 底组项权重 B^t*w^0 */
+    acc += cb; /* 最低 t 个 limb 那一项，权重 B^t*w^0 */
     acc = acc >= d ? acc - d : acc;
     if (t) acc = mont63_mul(acc, bt, d, mi); /* ×B^t：N ≡ -B^t*acc */
     return acc ? d - acc : 0;
@@ -184,7 +184,7 @@ mp_limb_t lmmp_mod_8chunk_1_(mp_srcptr numa, mp_size_t na, mp_limb_t d, mp_limb_
     }
     acc += mont63_mul(cj[7], wm, d, mi);
     acc = acc >= d ? acc - d : acc;
-    acc += cb; /* 底组项权重 B^t*w^0 */
+    acc += cb; /* 最低 t 个 limb 那一项，权重 B^t*w^0 */
     acc = acc >= d ? acc - d : acc;
     if (t) acc = mont63_mul(acc, bt, d, mi); /* ×B^t：N ≡ -B^t*acc */
     return acc ? d - acc : 0;

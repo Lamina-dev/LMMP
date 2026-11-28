@@ -39,8 +39,9 @@ static inline void binvert_mulhi_(mp_ptr dst, mp_srcptr xp, mp_srcptr ap, mp_siz
         lmmp_copy(dst, tp + n, n);
     } else {
         /* xp*ap = 1 + k0*B^n，V = (xp*ap) mod (B^m-1) = 1 + k0_lo*B^n + k0_hi
-           各段 limb 不交（m >= n+1 保证无混叠），V 减一后旋转载出 k0；
-           折叠宽度 m ≈ n+1 较全积 2n 减半（与主循环 k 更新同型的截断窗） */
+           各段 limb 不交（m >= n+1 保证无混叠），V 减一后按先 [tp+n,m-n)、后 [tp,n-(m-n)) 的顺序
+           拷贝出 k0，后一段是绕回到开头的 limb（m >= 2n 时没有这一段）；
+           梅森折叠宽度 m ≈ n+1 较全积 2n 减半（与主循环 k 更新同型的部分乘积） */
         mp_size_t m = lmmp_mersenne_next_size_(n + 1);
         mp_size_t fn = m - n;
         lmmp_mul_mersenne_(tp, m, xp, n, ap, n);
@@ -199,7 +200,7 @@ void lmmp_binvert_unbalance_(mp_ptr restrict dst, mp_srcptr restrict numa, mp_si
         即 k + a*p 恰为 B^na 的倍数，商即为 k'。
         R = a*p mod B^m-1，V = R + k mod B^m-1，
         则 V ≡ k'*B^na (mod B^m-1)；将 k' 拆为低 fn=m-na 位与高位，
-        k'*B^na mod (B^m-1) 恰为两者在 m 位中的错位拼接，旋转载出即得 k'
+        k'*B^na mod (B^m-1) 恰为两者在 m 位中的错位拼接，按 [scratch+na,fn) 在前、[scratch,sn) 在后拷贝即得 k'
         */
         if (na < BINVERT_UNBALANCE_MODM_THRESHOLD) {
             lmmp_mul_n_(scratch, dst + i, numa, na);

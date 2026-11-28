@@ -37,7 +37,7 @@
    A=(nb+1,默认)、B=(nb,nb+1)、C=(nb,nb)；mn>=nb+ni 时 B/C 退化 A，记可行性。
    评分按部署选择式逐候选选曲线：MODM 候选配 CACHE 默认、CACHE 候选配 MODM 默认。
    形状组：nq=4nb（ni=nb 四块）与 na=2nb（ni≈nb/2 两块，to_str/截断真实形状）。
-   部署可达性：div.c 门 nb>=L 且 na>=2N；to_str/to_decimal 预逆门 np>=L。
+   部署可达性：div.c 进 mulinv 的条件是 nb>=L 且 na>=2N；to_str/to_decimal 预计算逆元的条件是 np>=L。
    现值 L=CACHE=427 ⟹ nb<427 的 B 档与 MODM 低档不可达，推荐须与 L 联动解读。
    prediv 三路共同、排除计时；MUL_FFT/MERSENNE_* 不绑定。 */
 enum {
