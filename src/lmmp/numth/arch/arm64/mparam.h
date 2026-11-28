@@ -40,11 +40,11 @@
 // 2x2矩阵平方选择STRASSEN算法的阈值
 #define MAT22_SQR_STRASSEN_THRESHOLD 24
 // 幂运算中，底数长度为 1 的幂运算指数阈值，低于此阈值使用连乘法
-#define POW_1_EXP_THRESHOLD 24
+#define POW_1_EXP_THRESHOLD 16
 // 幂运算中，指数大于此值可能使用win2算法
-#define POW_WIN2_EXP_THRESHOLD 128
+#define POW_WIN2_EXP_THRESHOLD 16
 // 幂运算中，底数长度大于此值可能使用win2算法
-#define POW_WIN2_N_THRESHOLD 400
+#define POW_WIN2_N_THRESHOLD 256
 // 因子累乘中，因子数量低于此阈值则使用朴素连乘
 #define FACTORS_MUL_N_THRESHOLD 30
 // 排列数计算中，nPr直线分割阈值
